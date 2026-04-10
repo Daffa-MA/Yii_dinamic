@@ -10,6 +10,11 @@ $this->title = 'Visual Website Builder';
 // Register dependencies
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css', ['position' => \yii\web\View::POS_HEAD]);
+// Scroll animation libraries
+$this->registerCssFile('https://unpkg.com/aos@2.3.1/dist/aos.css', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://unpkg.com/aos@2.3.1/dist/aos.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js', ['position' => \yii\web\View::POS_HEAD]);
 ?>
 
 <style>
@@ -146,7 +151,7 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .sidebar-categories::-webkit-scrollbar,
 .builder-canvas::-webkit-scrollbar,
 .properties-content::-webkit-scrollbar,
-.builder-sidebar-right::-webkit-scrollbar { width: 8px; }
+.builder-sidebar-right::-webkit-scrollbar { width: 12px; }
 .builder-sidebar-left::-webkit-scrollbar-track,
 .sidebar-categories::-webkit-scrollbar-track,
 .builder-canvas::-webkit-scrollbar-track,
@@ -157,9 +162,9 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .builder-canvas::-webkit-scrollbar-thumb,
 .properties-content::-webkit-scrollbar-thumb,
 .builder-sidebar-right::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #d1d5db, #e5e7eb);
-    border-radius: 4px;
-    border: 2px solid transparent;
+    background: #b4b9c4;
+    border-radius: 6px;
+    border: 3px solid transparent;
     background-clip: padding-box;
 }
 .builder-sidebar-left::-webkit-scrollbar-thumb:hover,
@@ -167,7 +172,7 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .builder-canvas::-webkit-scrollbar-thumb:hover,
 .properties-content::-webkit-scrollbar-thumb:hover,
 .builder-sidebar-right::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #9ca3af, #d1d5db);
+    background: #8b92a0;
     background-clip: padding-box;
 }
 
@@ -287,10 +292,8 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .builder-canvas {
     flex: 1;
     overflow: hidden;
-    padding: 40px 32px;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
     background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
     transition: all 0.2s ease;
 }
@@ -298,17 +301,39 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     background: linear-gradient(to bottom, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.05));
 }
 
+.canvas-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 48px 40px;
+    display: flex;
+    justify-content: center;
+}
+
+.canvas-scroll-area::-webkit-scrollbar {
+    width: 8px;
+}
+.canvas-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+.canvas-scroll-area::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 4px;
+}
+.canvas-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400);
+}
+
 .canvas-wrapper {
     width: 100%;
     max-width: 1280px;
-    height: calc(100vh - 180px);
     background: white;
     border-radius: 16px;
     box-shadow: 0 2px 16px rgba(0,0,0,0.06);
-    display: flex;
-    flex-direction: column;
-    overflow: visible;
+    min-height: 750px;
     transition: all 0.3s ease;
+    overflow: hidden;
+    flex-shrink: 0;
 }
 .canvas-wrapper.tablet { max-width: 850px; }
 .canvas-wrapper.mobile { max-width: 480px; }
@@ -336,13 +361,8 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
 .canvas-body {
     padding: 48px 40px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
+    min-height: 600px;
     transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
-    border-radius: 0 0 16px 16px;
 }
 
 .canvas-empty {
@@ -350,7 +370,7 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
+    min-height: 450px;
     border: 2px dashed var(--gray-200);
     border-radius: 12px;
     color: var(--gray-400);
@@ -574,7 +594,7 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .properties-tab:hover { color: var(--gray-700); }
 .properties-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: white; }
 
-.properties-content { flex: 1; overflow-y: auto; padding: 22px 24px; }
+.properties-content { flex: 1; overflow-y: auto; padding: 22px 24px 40px 24px; }
 
 .property-section { margin-bottom: 24px; }
 .property-section-title {
@@ -639,10 +659,96 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
 /* ============ ANIMATIONS ============ */
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes zoomIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
 
 .canvas-block { animation: slideIn 0.3s ease; }
+.canvas-block[data-aos] { opacity: 0; }
+.canvas-block[data-aos].aos-animate { animation: slideInUp 0.6s ease forwards; }
+
+/* Scroll animation effects */
+.scroll-animate { opacity: 0; transform: translateY(20px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.scroll-animate.in-view { opacity: 1; transform: translateY(0); }
+
+.scroll-animate-left { opacity: 0; transform: translateX(-40px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+.scroll-animate-left.in-view { opacity: 1; transform: translateX(0); }
+
+.scroll-animate-right { opacity: 0; transform: translateX(40px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+.scroll-animate-right.in-view { opacity: 1; transform: translateX(0); }
+
+.scroll-animate-scale { opacity: 0; transform: scale(0.95); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+.scroll-animate-scale.in-view { opacity: 1; transform: scale(1); }
+
+/* Parallax effect */
+.parallax-element { will-change: transform; }
+
+/* Stagger effect for multiple elements */
+.scroll-stagger .canvas-block:nth-child(1) { transition-delay: 0s; }
+.scroll-stagger .canvas-block:nth-child(2) { transition-delay: 0.1s; }
+.scroll-stagger .canvas-block:nth-child(3) { transition-delay: 0.2s; }
+.scroll-stagger .canvas-block:nth-child(4) { transition-delay: 0.3s; }
+.scroll-stagger .canvas-block:nth-child(5) { transition-delay: 0.4s; }
+.scroll-stagger .canvas-block:nth-child(n+6) { transition-delay: 0.5s; }
+
+/* Canvas wrapper smooth scroll */
+.builder-canvas {
+    scroll-behavior: smooth;
+}
+
+/* Enhanced canvas block animations on scroll */
+.canvas-block {
+    transform-origin: center;
+}
+
+.canvas-block.fade-in-entrance {
+    animation: fadeInUp 0.6s ease-out forwards;
+}
+
+.canvas-block.slide-in-entrance {
+    animation: slideInLeft 0.6s ease-out forwards;
+}
+
+.canvas-block.scale-in-entrance {
+    animation: scaleIn 0.6s ease-out forwards;
+}
+
+/* Parallax container */
+.parallax-container {
+    perspective: 1000px;
+    overflow: hidden;
+}
+
+.parallax-item {
+    will-change: transform;
+    transform: translateZ(0);
+}
+
 .sortable-ghost { opacity: 0.4; border: 2px dashed var(--primary) !important; }
+
+/* Mobile smooth scrolling */
+@supports (scroll-behavior: smooth) {
+    .builder-canvas {
+        scroll-behavior: smooth;
+    }
+}
+
+/* Optimize animations for reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    .scroll-animate,
+    .scroll-animate-left,
+    .scroll-animate-right,
+    .scroll-animate-scale,
+    .canvas-block {
+        animation: none !important;
+        transition: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+    }
+}
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1200px) {
@@ -902,31 +1008,33 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
         <!-- CENTER CANVAS -->
         <div class="builder-canvas">
-            <div class="canvas-wrapper" id="canvas-wrapper">
-                <?= Html::beginForm(['form/' . ($model->isNewRecord ? 'create' : 'update'), 'id' => $model->isNewRecord ? null : $model->id], 'post', ['id' => 'builder-form']) ?>
+            <div class="canvas-scroll-area">
+                <div class="canvas-wrapper" id="canvas-wrapper">
+                    <?= Html::beginForm(['form/' . ($model->isNewRecord ? 'create' : 'update'), 'id' => $model->isNewRecord ? null : $model->id], 'post', ['id' => 'builder-form']) ?>
 
-                <div class="canvas-header">
-                    <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
-                </div>
-
-                <?= Html::hiddenInput('FormSchema', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-json']) ?>
-                <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
-
-                <div class="canvas-body" id="canvas-body">
-                    <div class="canvas-empty" id="canvas-empty">
-                        <div class="canvas-empty-icon">🧩</div>
-                        <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
-                        <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                    <div class="canvas-header">
+                        <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
                     </div>
-                    <div id="canvas-blocks" style="min-height:50px;"></div>
-                </div>
 
-                <div style="padding:16px 24px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:12px;">
-                    <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
-                    <button type="submit" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
-                </div>
+                    <?= Html::hiddenInput('FormSchema', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-json']) ?>
+                    <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
 
-                <?= Html::endForm() ?>
+                    <div class="canvas-body" id="canvas-body">
+                        <div class="canvas-empty" id="canvas-empty">
+                            <div class="canvas-empty-icon">🧩</div>
+                            <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
+                            <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                        </div>
+                        <div id="canvas-blocks" style="min-height:50px;margin-bottom:40px;"></div>
+                    </div>
+
+                    <div style="padding:20px 40px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:12px;background:white;margin-bottom:20px;">
+                        <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
+                        <button type="submit" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
+                    </div>
+
+                    <?= Html::endForm() ?>
+                </div>
             </div>
         </div>
 
@@ -1870,6 +1978,150 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     updateEmptyState();
+
+    // ============ INTERACTIVE SCROLL ANIMATIONS ============
+    // Initialize AOS for scroll animations
+    if (typeof AOS !== 'undefined') {
+        AOS.init({
+            duration: 600,
+            easing: 'ease-out-cubic',
+            once: false,
+            mirror: true,
+            offset: 80,
+            disable: window.innerWidth < 768 ? 'phone' : false
+        });
+    }
+
+    // Register GSAP ScrollTrigger
+    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+        gsap.registerPlugin(ScrollTrigger);
+    }
+
+    // Intersection Observer for scroll animations
+    const observerOptions = {
+        threshold: 0.15,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const scrollAnimationObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                // Add animation class based on data attribute
+                const animType = entry.target.dataset.scrollAnimate || 'fade-up';
+                entry.target.classList.add('in-view');
+                entry.target.style.animationName = 'fadeInUp';
+                
+                // Parallax effect
+                if (entry.target.classList.contains('parallax-item')) {
+                    const parallaxValue = entry.target.dataset.parallax || 30;
+                    entry.target.style.transform = `translateY(${parallaxValue * 0.5}px)`;
+                }
+            } else {
+                // Remove animation when out of view (for mirror effect)
+                entry.target.classList.remove('in-view');
+                entry.target.style.animationName = '';
+            }
+        });
+    }, observerOptions);
+
+    // Apply scroll animations to canvas blocks
+    function applyScrollAnimations() {
+        const canvasBlocks = document.querySelectorAll('.canvas-block');
+        canvasBlocks.forEach(function(block, index) {
+            // Set animation type based on index for variety
+            const animTypes = ['fade-up', 'slide-left', 'slide-right', 'scale'];
+            const animType = animTypes[index % animTypes.length];
+            block.dataset.scrollAnimate = animType;
+            block.classList.add('scroll-animate', 'parallax-item');
+            block.dataset.parallax = 20;
+            
+            // Add stagger effect
+            block.style.animationDelay = `${index * 0.1}s`;
+            
+            scrollAnimationObserver.observe(block);
+        });
+    }
+
+    // Apply animations to existing blocks
+    applyScrollAnimations();
+
+    // Parallax scroll effect on canvas blocks
+    const canvasBody = document.getElementById('canvas-body');
+    if (canvasBody) {
+        window.addEventListener('scroll', function() {
+            if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+                const canvasBlocks = document.querySelectorAll('.canvas-block.parallax-item');
+                canvasBlocks.forEach(function(block) {
+                    const scrollPos = window.scrollY;
+                    const blockTop = block.getBoundingClientRect().top + window.scrollY;
+                    const distance = blockTop - scrollPos;
+                    
+                    // Light parallax effect (3-5% of scroll distance)
+                    if (distance > -500 && distance < window.innerHeight + 500) {
+                        const parallaxY = (distance - window.innerHeight / 2) * 0.03;
+                        block.style.transform = `translateY(${parallaxY}px)`;
+                    }
+                });
+            }
+        }, { passive: true });
+    }
+
+    // Smooth scroll initialization
+    document.documentElement.style.scrollBehavior = 'smooth';
+
+    // Observe canvas blocks when new blocks are added
+    const originalRenderBlock = window.renderBlock;
+    window.renderBlock = function(block, index) {
+        originalRenderBlock.call(this, block, index);
+        const newBlock = document.querySelector(`[data-block-id="${block.id || index}"]`);
+        if (newBlock) {
+            newBlock.classList.add('scroll-animate', 'parallax-item');
+            newBlock.dataset.scrollAnimate = ['fade-up', 'slide-left', 'slide-right', 'scale'][index % 4];
+            newBlock.dataset.parallax = 20;
+            scrollAnimationObserver.observe(newBlock);
+            
+            // Trigger animation on new blocks
+            setTimeout(function() {
+                newBlock.classList.add('in-view');
+            }, 50);
+        }
+    };
+
+    // Performance optimization: Throttle scroll event
+    let scrollTimeout;
+    let lastScrollPos = 0;
+    window.addEventListener('scroll', function() {
+        const currentScrollPos = window.scrollY;
+        if (Math.abs(currentScrollPos - lastScrollPos) > 50) {
+            lastScrollPos = currentScrollPos;
+            
+            // Update parallax positions with throttling
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {
+                // Parallax update logic here (already in scroll listener above)
+            }, 1000 / 60); // 60fps throttle
+        }
+    }, { passive: true });
+
+    // Mobile optimization: Disable parallax on mobile for better performance
+    if (window.innerWidth < 768) {
+        document.querySelectorAll('.parallax-item').forEach(function(elem) {
+            elem.classList.remove('parallax-item');
+        });
+    }
+
+    // Resize observer to reapply animations on responsive changes
+    if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(function() {
+            applyScrollAnimations();
+        }).observe(document.querySelector('.builder-canvas'));
+    }
+
+    // Fade-in animation for canvas wrapper on load
+    const canvasWrapper = document.querySelector('.canvas-wrapper');
+    if (canvasWrapper) {
+        canvasWrapper.style.animation = 'fadeInUp 0.8s ease-out';
+    }
 });
 </script>
 

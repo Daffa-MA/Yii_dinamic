@@ -37,6 +37,9 @@
         "process-timeout": 1800,
         "fxp-asset": {
             "enabled": false
+        },
+        "platform": {
+            "php": "8.2"
         }
     },
     "scripts": {

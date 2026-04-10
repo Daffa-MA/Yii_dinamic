@@ -47,55 +47,65 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .builder-toolbar {
     height: var(--toolbar-height);
     background: white;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--gray-100);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 20px;
+    padding: 0 24px;
     flex-shrink: 0;
     z-index: 1000;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
-.toolbar-left { display: flex; align-items: center; gap: 12px; }
-.toolbar-center { display: flex; align-items: center; gap: 8px; }
-.toolbar-right { display: flex; align-items: center; gap: 10px; }
+.toolbar-left { display: flex; align-items: center; gap: 16px; }
+.toolbar-center { display: flex; align-items: center; gap: 12px; }
+.toolbar-right { display: flex; align-items: center; gap: 12px; }
 
 .toolbar-logo {
     font-weight: 700;
     font-size: 18px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--gray-900);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.toolbar-divider { width: 1px; height: 28px; background: var(--gray-200); margin: 0 8px; }
+.toolbar-divider { width: 1px; height: 28px; background: var(--gray-100); margin: 0 4px; }
 
 .device-btn {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border: none;
-    background: none;
+    background: transparent;
     border-radius: 8px;
     cursor: pointer;
     color: var(--gray-400);
     transition: all 0.2s;
-    font-size: 18px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.device-btn:hover { background: var(--gray-100); color: var(--gray-600); }
+.device-btn i { font-size: 16px; }
+.device-btn:hover { background: var(--gray-50); color: var(--gray-600); }
 .device-btn.active { background: var(--primary); color: white; }
 
 .zoom-select {
-    padding: 6px 10px;
+    padding: 8px 12px;
     border: 1px solid var(--gray-200);
     border-radius: 8px;
     font-size: 13px;
     background: white;
+    color: var(--gray-700);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
 }
+.zoom-select:hover { border-color: var(--gray-300); }
 
 .btn-toolbar {
-    padding: 8px 18px;
+    padding: 8px 16px;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
     border: 1px solid var(--gray-200);
@@ -105,14 +115,17 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     display: flex;
     align-items: center;
     gap: 6px;
+    white-space: nowrap;
 }
-.btn-toolbar:hover { background: var(--gray-50); }
+.btn-toolbar i { font-size: 13px; }
+.btn-toolbar:hover { background: var(--gray-50); border-color: var(--gray-300); color: var(--gray-700); }
 .btn-toolbar-primary {
     background: linear-gradient(135deg, var(--primary), var(--primary-dark));
     color: white;
     border-color: transparent;
+    font-weight: 600;
 }
-.btn-toolbar-primary:hover { opacity: 0.9; }
+.btn-toolbar-primary:hover { opacity: 0.95; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); transform: translateY(-1px); }
 
 /* ============ MAIN LAYOUT ============ */
 .builder-main { display: flex; flex: 1; overflow: hidden; }
@@ -121,30 +134,64 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .builder-sidebar-left {
     width: var(--sidebar-width);
     background: white;
-    border-right: 1px solid var(--gray-200);
+    border-right: 1px solid var(--gray-100);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     flex-shrink: 0;
 }
 
+/* Modern scrollbar styling */
+.builder-sidebar-left::-webkit-scrollbar,
+.sidebar-categories::-webkit-scrollbar,
+.builder-canvas::-webkit-scrollbar,
+.properties-content::-webkit-scrollbar,
+.builder-sidebar-right::-webkit-scrollbar { width: 8px; }
+.builder-sidebar-left::-webkit-scrollbar-track,
+.sidebar-categories::-webkit-scrollbar-track,
+.builder-canvas::-webkit-scrollbar-track,
+.properties-content::-webkit-scrollbar-track,
+.builder-sidebar-right::-webkit-scrollbar-track { background: transparent; }
+.builder-sidebar-left::-webkit-scrollbar-thumb,
+.sidebar-categories::-webkit-scrollbar-thumb,
+.builder-canvas::-webkit-scrollbar-thumb,
+.properties-content::-webkit-scrollbar-thumb,
+.builder-sidebar-right::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #d1d5db, #e5e7eb);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+.builder-sidebar-left::-webkit-scrollbar-thumb:hover,
+.sidebar-categories::-webkit-scrollbar-thumb:hover,
+.builder-canvas::-webkit-scrollbar-thumb:hover,
+.properties-content::-webkit-scrollbar-thumb:hover,
+.builder-sidebar-right::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #9ca3af, #d1d5db);
+    background-clip: padding-box;
+}
+
 .sidebar-search {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--gray-200);
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--gray-100);
 }
 .sidebar-search input {
     width: 100%;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border: 1px solid var(--gray-200);
     border-radius: 8px;
     font-size: 13px;
+    background: white;
+    color: var(--gray-800);
+    transition: all 0.2s;
 }
-.sidebar-search input:focus { outline: none; border-color: var(--primary); }
+.sidebar-search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+.sidebar-search input::placeholder { color: var(--gray-400); }
 
 .sidebar-categories {
     flex: 1;
     overflow-y: auto;
-    padding: 8px;
+    padding: 10px 8px;
 }
 
 .block-category {
@@ -155,19 +202,20 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    padding: 12px 14px;
     cursor: pointer;
     border-radius: 8px;
-    transition: background 0.2s;
+    transition: all 0.2s;
     user-select: none;
+    background: var(--gray-50);
 }
-.block-category-header:hover { background: var(--gray-50); }
+.block-category-header:hover { background: var(--gray-100); }
 
 .block-category-title {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
     color: var(--gray-600);
     display: flex;
     align-items: center;
@@ -175,7 +223,7 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 }
 
 .block-category-arrow {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--gray-400);
     transition: transform 0.2s;
 }
@@ -190,26 +238,27 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .block-item {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     padding: 10px 12px;
-    margin: 2px 0;
+    margin: 4px 0;
     background: white;
     border: 1px solid var(--gray-200);
     border-radius: 8px;
     cursor: grab;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
     user-select: none;
 }
 .block-item:hover {
     border-color: var(--primary);
-    background: #f5f3ff;
+    background: linear-gradient(135deg, #f5f3ff, white);
     transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
 }
 .block-item:active { cursor: grabbing; }
 
 .block-item-icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -217,56 +266,98 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     border-radius: 8px;
     font-size: 16px;
     flex-shrink: 0;
+    transition: all 0.2s;
+    color: var(--gray-600);
+}
+.block-item-icon i { font-size: 16px; }
+.block-item:hover .block-item-icon {
+    background: linear-gradient(135deg, var(--primary), var(--primary-light));
+    color: white;
+    transform: scale(1.1);
 }
 
 .block-item-info { flex: 1; min-width: 0; }
-.block-item-name { font-size: 13px; font-weight: 500; color: var(--gray-800); }
-.block-item-desc { font-size: 11px; color: var(--gray-400); margin-top: 2px; }
+.block-item-name { font-size: 13px; font-weight: 600; color: var(--gray-800); }
+.block-item-desc { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
 
-.block-item-drag { color: var(--gray-300); font-size: 14px; }
+.block-item-drag { color: var(--gray-300); font-size: 14px; transition: color 0.2s; }
+.block-item:hover .block-item-drag { color: var(--primary-light); }
 
 /* ============ CENTER CANVAS ============ */
 .builder-canvas {
     flex: 1;
-    overflow: auto;
-    padding: 30px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
+    transition: all 0.2s ease;
+}
+.builder-canvas.drag-over {
+    background: linear-gradient(to bottom, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.05));
+}
+
+.canvas-scroll-area {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 48px 40px;
     display: flex;
     justify-content: center;
-    background: var(--gray-100);
+}
+
+.canvas-scroll-area::-webkit-scrollbar {
+    width: 8px;
+}
+.canvas-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+.canvas-scroll-area::-webkit-scrollbar-thumb {
+    background: var(--gray-300);
+    border-radius: 4px;
+}
+.canvas-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400);
 }
 
 .canvas-wrapper {
     width: 100%;
-    max-width: 900px;
+    max-width: 1280px;
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-    min-height: 600px;
-    transition: max-width 0.3s;
+    border-radius: 16px;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+    min-height: 750px;
+    transition: all 0.3s ease;
     overflow: hidden;
+    flex-shrink: 0;
 }
-.canvas-wrapper.tablet { max-width: 600px; }
-.canvas-wrapper.mobile { max-width: 375px; }
+.canvas-wrapper.tablet { max-width: 850px; }
+.canvas-wrapper.mobile { max-width: 480px; }
 
 .canvas-header {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--gray-200);
-    background: var(--gray-50);
+    padding: 28px 40px;
+    border-bottom: 1px solid var(--gray-100);
+    background: white;
 }
 
 .canvas-form-name {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 24px;
+    font-weight: 700;
     border: none;
     outline: none;
     width: 100%;
     background: transparent;
     color: var(--gray-900);
+    padding: 6px 0;
+    transition: color 0.2s;
+    letter-spacing: -0.5px;
 }
+.canvas-form-name:focus { color: var(--primary); }
+.canvas-form-name::placeholder { color: var(--gray-300); }
 
 .canvas-body {
-    padding: 24px;
-    min-height: 500px;
+    padding: 48px 40px;
+    min-height: 600px;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 }
 
 .canvas-empty {
@@ -274,89 +365,105 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 400px;
-    border: 2px dashed var(--gray-300);
+    min-height: 450px;
+    border: 2px dashed var(--gray-200);
     border-radius: 12px;
     color: var(--gray-400);
     text-align: center;
+    background: var(--gray-50);
+    transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 }
-.canvas-empty-icon { font-size: 56px; margin-bottom: 16px; }
-.canvas-empty-text { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--gray-600); }
-.canvas-empty-hint { font-size: 14px; }
+.canvas-empty:hover { 
+    border-color: var(--gray-300);
+    background: var(--gray-100);
+}
+.canvas-empty-icon { font-size: 64px; margin-bottom: 20px; opacity: 0.5; }
+.canvas-empty-icon i { color: var(--gray-300); }
+.canvas-empty-text { font-size: 18px; font-weight: 600; margin-bottom: 10px; color: var(--gray-600); }
+.canvas-empty-hint { font-size: 15px; }
 
 /* ============ CANVAS BLOCKS ============ */
 .canvas-block {
     position: relative;
-    margin-bottom: 8px;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    transition: all 0.2s;
+    margin-bottom: 16px;
+    border: 2px solid var(--gray-200);
+    border-radius: 12px;
+    transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
     cursor: pointer;
+    background: white;
+    overflow: hidden;
 }
-.canvas-block:hover { border-color: var(--primary-light); }
+.canvas-block:hover { 
+    border-color: var(--primary-light);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+    transform: translateY(-2px);
+}
 .canvas-block.selected {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15);
 }
 
 .canvas-block-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
+    padding: 10px 14px;
     background: var(--gray-50);
-    border-radius: 8px 8px 0 0;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--gray-100);
 }
 
 .canvas-block-type {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--gray-600);
 }
+.canvas-block-type i { font-size: 13px; }
+.canvas-block-type .drag-handle i { opacity: 0.6; }
 
 .canvas-block-actions {
     display: flex;
-    gap: 4px;
+    gap: 6px;
 }
 
 .canvas-block-btn {
-    width: 24px;
-    height: 24px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 1px solid var(--gray-200);
-    border-radius: 4px;
+    border-radius: 6px;
     background: white;
     color: var(--gray-400);
     cursor: pointer;
     font-size: 12px;
     transition: all 0.15s;
 }
-.canvas-block-btn:hover { background: var(--gray-100); color: var(--gray-600); }
-.canvas-block-btn.delete:hover { background: #fee2e2; color: var(--danger); border-color: var(--danger); }
+.canvas-block-btn:hover { background: var(--gray-100); color: var(--gray-600); border-color: var(--gray-300); }
+.canvas-block-btn.delete:hover { background: #fee2e2; color: var(--danger); border-color: #fecaca; }
+.canvas-block-btn i { font-size: 12px; }
 
 .canvas-block-preview {
-    padding: 16px;
-    min-height: 40px;
+    padding: 28px 24px;
+    min-height: 60px;
 }
 
 /* Block preview styles */
 .preview-heading { font-size: 24px; font-weight: 700; color: var(--gray-900); margin: 0; }
 .preview-subheading { font-size: 18px; font-weight: 600; color: var(--gray-700); margin: 0; }
 .preview-text { color: var(--gray-600); margin: 0; line-height: 1.6; }
-.preview-image { width: 100%; height: 200px; background: var(--gray-100); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--gray-400); font-size: 32px; }
-.preview-video { width: 100%; height: 250px; background: var(--gray-900); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; }
-.preview-button { display: inline-block; padding: 10px 24px; background: var(--primary); color: white; border-radius: 8px; font-weight: 500; text-decoration: none; }
+.preview-image { width: 100%; height: 200px; background: linear-gradient(135deg, var(--gray-100), var(--gray-50)); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: var(--gray-400); font-size: 32px; border: 1px solid var(--gray-200); }
+.preview-video { width: 100%; height: 250px; background: var(--gray-900); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; border: 1px solid var(--gray-800); }
+.preview-button { display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; border-radius: 8px; font-weight: 600; text-decoration: none; transition: all 0.2s; border: none; cursor: pointer; }
 .preview-divider { border: none; border-top: 2px solid var(--gray-200); margin: 16px 0; }
-.preview-spacer { height: 32px; background: var(--gray-50); border-radius: 4px; }
-.preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.preview-grid-item { height: 80px; background: var(--gray-100); border-radius: 8px; }
-.preview-product-card { border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; }
+.preview-spacer { height: 32px; background: linear-gradient(90deg, var(--gray-50), var(--gray-100), var(--gray-50)); border-radius: 4px; }
+.preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.preview-grid-item { height: 80px; background: linear-gradient(135deg, var(--gray-100), var(--gray-50)); border-radius: 8px; border: 1px solid var(--gray-200); }
+.preview-product-card { border: 1px solid var(--gray-200); border-radius: 12px; overflow: hidden; transition: all 0.2s; background: white; }
+.preview-product-card:hover { border-color: var(--primary-light); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12); }
 .preview-product-img { height: 120px; background: var(--gray-100); display: flex; align-items: center; justify-content: center; font-size: 32px; }
 .preview-product-body { padding: 12px; }
 .preview-product-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
@@ -374,7 +481,8 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 .preview-checkbox { display: flex; align-items: center; gap: 8px; }
 .preview-radio { display: flex; align-items: center; gap: 8px; }
 .preview-date { width: 100%; padding: 10px 14px; border: 1px solid var(--gray-300); border-radius: 8px; font-size: 14px; background: var(--gray-50); pointer-events: none; }
-.preview-file { width: 100%; padding: 20px; border: 2px dashed var(--gray-300); border-radius: 8px; text-align: center; color: var(--gray-400); background: var(--gray-50); }
+.preview-file { width: 100%; padding: 24px; border: 2px dashed var(--gray-300); border-radius: 12px; text-align: center; color: var(--gray-500); background: var(--gray-50); transition: all 0.2s; }
+.preview-file:hover { border-color: var(--primary); background: linear-gradient(135deg, rgba(99, 102, 241, 0.02), rgba(99, 102, 241, 0.05)); }
 .preview-gallery { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .preview-gallery-item { height: 60px; background: var(--gray-100); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
 .preview-team { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid var(--gray-200); border-radius: 12px; }
@@ -439,9 +547,9 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
 /* ============ RIGHT SIDEBAR - PROPERTIES ============ */
 .builder-sidebar-right {
-    width: 320px;
+    width: 360px;
     background: white;
-    border-left: 1px solid var(--gray-200);
+    border-left: 1px solid var(--gray-100);
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -449,54 +557,60 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 }
 
 .properties-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--gray-200);
-    font-weight: 600;
+    padding: 24px 24px;
+    border-bottom: 1px solid var(--gray-100);
+    font-weight: 700;
+    font-size: 16px;
     display: flex;
     align-items: center;
     gap: 8px;
+    color: var(--gray-900);
 }
 
 .properties-tabs {
     display: flex;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--gray-100);
+    background: var(--gray-50);
 }
 
 .properties-tab {
     flex: 1;
-    padding: 12px;
+    padding: 14px 12px;
     text-align: center;
     font-size: 12px;
-    font-weight: 500;
-    color: var(--gray-400);
+    font-weight: 600;
+    color: var(--gray-500);
     cursor: pointer;
     border-bottom: 2px solid transparent;
     transition: all 0.2s;
-}
-.properties-tab:hover { color: var(--gray-600); }
-.properties-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
-
-.properties-content { flex: 1; overflow-y: auto; padding: 16px; }
-
-.property-section { margin-bottom: 20px; }
-.property-section-title {
-    font-size: 11px;
-    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--gray-400);
+    letter-spacing: 0.4px;
+}
+.properties-tab:hover { color: var(--gray-700); }
+.properties-tab.active { color: var(--primary); border-bottom-color: var(--primary); background: white; }
+
+.properties-content { flex: 1; overflow-y: auto; padding: 22px 24px; }
+
+.property-section { margin-bottom: 24px; }
+.property-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--gray-500);
     margin-bottom: 12px;
-    padding-bottom: 8px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--gray-100);
 }
 
-.property-field { margin-bottom: 14px; }
+.property-field { margin-bottom: 18px; }
 .property-label {
     display: block;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--gray-600);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700);
     margin-bottom: 6px;
+    text-transform: capitalize;
 }
 .property-input, .property-select {
     width: 100%;
@@ -559,15 +673,43 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
     <!-- TOOLBAR -->
     <div class="builder-toolbar">
         <div class="toolbar-left">
-            <span class="toolbar-logo">⚡ Visual Builder</span>
+            <span class="toolbar-logo"><i class="fas fa-bolt"></i> Visual Builder</span>
             <div class="toolbar-divider"></div>
             <span style="font-size:14px;color:var(--gray-600);"><?= $model->isNewRecord ? 'New Page' : Html::encode($model->name) ?></span>
         </div>
 
         <div class="toolbar-center">
-            <button class="device-btn active" data-device="desktop" title="Desktop">🖥️</button>
-            <button class="device-btn" data-device="tablet" title="Tablet">📱</button>
-            <button class="device-btn" data-device="mobile" title="Mobile">📲</button>
+            <!-- Database Table Selection -->
+            <?php
+            $tables = \app\models\DbTable::find()
+                ->where(['user_id' => Yii::$app->user->id])
+                ->orderBy(['id' => SORT_ASC])
+                ->asArray()
+                ->all();
+            $hasTable = !empty($tables);
+            ?>
+            <select id="table-selector" class="zoom-select" title="Select table to auto-generate form fields" <?= !$hasTable ? 'disabled' : '' ?>>
+                <option value=""><i class="fas fa-database" style="margin-right:6px;"></i>Select a table...</option>
+                <?php foreach ($tables as $table): ?>
+                    <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $model->table_id == $table['id'] ? 'selected' : '' ?>>
+                        <i class="fas fa-table" style="margin-right:6px;"></i><?= Html::encode($table['name']) ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+            <?php if ($hasTable): ?>
+                <button class="btn-toolbar" id="btn-auto-generate" title="Auto-generate form fields from table">
+                    <i class="fas fa-sliders-h"></i> Auto-Generate
+                </button>
+            <?php else: ?>
+                <button class="btn-toolbar" disabled title="No tables available - Create a table first">
+                    <i class="fas fa-ban"></i> No Tables
+                </button>
+            <?php endif; ?>
+            
+            <div class="toolbar-divider"></div>
+            <button class="device-btn active" data-device="desktop" title="Desktop"><i class="fas fa-desktop"></i></button>
+            <button class="device-btn" data-device="tablet" title="Tablet"><i class="fas fa-tablet-alt"></i></button>
+            <button class="device-btn" data-device="mobile" title="Mobile"><i class="fas fa-mobile-alt"></i></button>
             <div class="toolbar-divider"></div>
             <select class="zoom-select" id="zoom-select">
                 <option value="100">100%</option>
@@ -577,10 +719,10 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
         </div>
 
         <div class="toolbar-right">
-            <button class="btn-toolbar" id="btn-undo" title="Undo">↩️</button>
-            <button class="btn-toolbar" id="btn-redo" title="Redo">↪️</button>
+            <button class="btn-toolbar" id="btn-undo" title="Undo"><i class="fas fa-undo"></i></button>
+            <button class="btn-toolbar" id="btn-redo" title="Redo"><i class="fas fa-redo"></i></button>
             <div class="toolbar-divider"></div>
-            <?= Html::a('👁️ Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
+            <?= Html::a('<i class="fas fa-eye"></i> Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
             <button class="btn-toolbar btn-toolbar-primary" id="btn-save">
                 💾 <?= $model->isNewRecord ? 'Publish' : 'Update' ?>
             </button>
@@ -599,174 +741,174 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
                 <!-- LAYOUT BLOCKS -->
                 <div class="block-category open" data-category="layout">
                     <div class="block-category-header">
-                        <span class="block-category-title">📐 Layout</span>
+                        <span class="block-category-title"><i class="fas fa-layer-group"></i> Layout</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="container"><div class="block-item-icon">📦</div><div class="block-item-info"><div class="block-item-name">Container</div><div class="block-item-desc">Wrapper container</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="columns"><div class="block-item-icon">🔲</div><div class="block-item-info"><div class="block-item-name">Columns</div><div class="block-item-desc">Multi-column layout</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="grid"><div class="block-item-icon">⊞</div><div class="block-item-info"><div class="block-item-name">Grid</div><div class="block-item-desc">Grid layout</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="section"><div class="block-item-icon">📄</div><div class="block-item-info"><div class="block-item-name">Section</div><div class="block-item-desc">Full-width section</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="divider"><div class="block-item-icon">➖</div><div class="block-item-info"><div class="block-item-name">Divider</div><div class="block-item-desc">Horizontal line</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="spacer"><div class="block-item-icon">↕️</div><div class="block-item-info"><div class="block-item-name">Spacer</div><div class="block-item-desc">Empty space</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="container"><div class="block-item-icon"><i class="fas fa-box"></i></div><div class="block-item-info"><div class="block-item-name">Container</div><div class="block-item-desc">Wrapper container</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="columns"><div class="block-item-icon"><i class="fas fa-columns"></i></div><div class="block-item-info"><div class="block-item-name">Columns</div><div class="block-item-desc">Multi-column layout</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="grid"><div class="block-item-icon"><i class="fas fa-grip"></i></div><div class="block-item-info"><div class="block-item-name">Grid</div><div class="block-item-desc">Grid layout</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="section"><div class="block-item-icon"><i class="fas fa-file"></i></div><div class="block-item-info"><div class="block-item-name">Section</div><div class="block-item-desc">Full-width section</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="divider"><div class="block-item-icon"><i class="fas fa-minus"></i></div><div class="block-item-info"><div class="block-item-name">Divider</div><div class="block-item-desc">Horizontal line</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="spacer"><div class="block-item-icon"><i class="fas fa-arrows-alt-v"></i></div><div class="block-item-info"><div class="block-item-name">Spacer</div><div class="block-item-desc">Empty space</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- TYPOGRAPHY -->
                 <div class="block-category open" data-category="typography">
                     <div class="block-category-header">
-                        <span class="block-category-title">🔤 Typography</span>
+                        <span class="block-category-title"><i class="fas fa-type"></i> Typography</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="heading"><div class="block-item-icon"></div><div class="block-item-info"><div class="block-item-name">Heading</div><div class="block-item-desc">H1-H6 heading</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="text"><div class="block-item-icon">📝</div><div class="block-item-info"><div class="block-item-name">Text</div><div class="block-item-desc">Paragraph text</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="richtext"><div class="block-item-icon">📄</div><div class="block-item-info"><div class="block-item-name">Rich Text</div><div class="block-item-desc">Formatted text</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="list"><div class="block-item-icon">📋</div><div class="block-item-info"><div class="block-item-name">List</div><div class="block-item-desc">Bullet/numbered list</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="quote"><div class="block-item-icon">💬</div><div class="block-item-info"><div class="block-item-name">Quote</div><div class="block-item-desc">Blockquote</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="code"><div class="block-item-icon">💻</div><div class="block-item-info"><div class="block-item-name">Code</div><div class="block-item-desc">Code block</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="heading"><div class="block-item-icon"><i class="fas fa-heading"></i></div><div class="block-item-info"><div class="block-item-name">Heading</div><div class="block-item-desc">H1-H6 heading</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="text"><div class="block-item-icon"><i class="fas fa-font"></i></div><div class="block-item-info"><div class="block-item-name">Text</div><div class="block-item-desc">Paragraph text</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="richtext"><div class="block-item-icon"><i class="fas fa-file-alt"></i></div><div class="block-item-info"><div class="block-item-name">Rich Text</div><div class="block-item-desc">Formatted text</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="list"><div class="block-item-icon"><i class="fas fa-list-ul"></i></div><div class="block-item-info"><div class="block-item-name">List</div><div class="block-item-desc">Bullet/numbered list</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="quote"><div class="block-item-icon"><i class="fas fa-quote-left"></i></div><div class="block-item-info"><div class="block-item-name">Quote</div><div class="block-item-desc">Blockquote</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="code"><div class="block-item-icon"><i class="fas fa-code"></i></div><div class="block-item-info"><div class="block-item-name">Code</div><div class="block-item-desc">Code block</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- MEDIA -->
                 <div class="block-category open" data-category="media">
                     <div class="block-category-header">
-                        <span class="block-category-title">🖼️ Media</span>
+                        <span class="block-category-title"><i class="fas fa-images"></i> Media</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="image"><div class="block-item-icon">🖼️</div><div class="block-item-info"><div class="block-item-name">Image</div><div class="block-item-desc">Single image</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="gallery"><div class="block-item-icon">🖼️</div><div class="block-item-info"><div class="block-item-name">Gallery</div><div class="block-item-desc">Image gallery</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="video"><div class="block-item-icon">🎬</div><div class="block-item-info"><div class="block-item-name">Video</div><div class="block-item-desc">Video embed</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="icon"><div class="block-item-icon">⭐</div><div class="block-item-info"><div class="block-item-name">Icon</div><div class="block-item-desc">Icon element</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="avatar"><div class="block-item-icon">👤</div><div class="block-item-info"><div class="block-item-name">Avatar</div><div class="block-item-desc">User avatar</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="image"><div class="block-item-icon"><i class="fas fa-image"></i></div><div class="block-item-info"><div class="block-item-name">Image</div><div class="block-item-desc">Single image</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="gallery"><div class="block-item-icon"><i class="fas fa-images"></i></div><div class="block-item-info"><div class="block-item-name">Gallery</div><div class="block-item-desc">Image gallery</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="video"><div class="block-item-icon"><i class="fas fa-video"></i></div><div class="block-item-info"><div class="block-item-name">Video</div><div class="block-item-desc">Video embed</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="icon"><div class="block-item-icon"><i class="fas fa-star"></i></div><div class="block-item-info"><div class="block-item-name">Icon</div><div class="block-item-desc">Icon element</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="avatar"><div class="block-item-icon"><i class="fas fa-user-circle"></i></div><div class="block-item-info"><div class="block-item-name">Avatar</div><div class="block-item-desc">User avatar</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- FORM ELEMENTS -->
                 <div class="block-category open" data-category="forms">
                     <div class="block-category-header">
-                        <span class="block-category-title">📋 Form Elements</span>
+                        <span class="block-category-title"><i class="fas fa-list"></i> Form Elements</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="text-input"><div class="block-item-icon">📝</div><div class="block-item-info"><div class="block-item-name">Text Input</div><div class="block-item-desc">Single line text</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="textarea"><div class="block-item-icon">📄</div><div class="block-item-info"><div class="block-item-name">Textarea</div><div class="block-item-desc">Multi-line text</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="email"><div class="block-item-icon">📧</div><div class="block-item-info"><div class="block-item-name">Email</div><div class="block-item-desc">Email input</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="number"><div class="block-item-icon">🔢</div><div class="block-item-info"><div class="block-item-name">Number</div><div class="block-item-desc">Number input</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="password"><div class="block-item-icon">🔒</div><div class="block-item-info"><div class="block-item-name">Password</div><div class="block-item-desc">Password field</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="select"><div class="block-item-icon">📋</div><div class="block-item-info"><div class="block-item-name">Dropdown</div><div class="block-item-desc">Select dropdown</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="checkbox"><div class="block-item-icon">☑️</div><div class="block-item-info"><div class="block-item-name">Checkbox</div><div class="block-item-desc">Checkbox input</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="radio"><div class="block-item-icon">🔘</div><div class="block-item-info"><div class="block-item-name">Radio</div><div class="block-item-desc">Radio buttons</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="date"><div class="block-item-icon">📅</div><div class="block-item-info"><div class="block-item-name">Date</div><div class="block-item-desc">Date picker</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="file"><div class="block-item-icon">📎</div><div class="block-item-info"><div class="block-item-name">File Upload</div><div class="block-item-desc">File upload field</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="hidden"><div class="block-item-icon">👁️‍🗨️</div><div class="block-item-info"><div class="block-item-name">Hidden</div><div class="block-item-desc">Hidden field</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="submit"><div class="block-item-icon">🚀</div><div class="block-item-info"><div class="block-item-name">Submit Button</div><div class="block-item-desc">Form submit button</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="text-input"><div class="block-item-icon"><i class="fas fa-keyboard"></i></div><div class="block-item-info"><div class="block-item-name">Text Input</div><div class="block-item-desc">Single line text</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="textarea"><div class="block-item-icon"><i class="fas fa-align-left"></i></div><div class="block-item-info"><div class="block-item-name">Textarea</div><div class="block-item-desc">Multi-line text</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="email"><div class="block-item-icon"><i class="fas fa-envelope"></i></div><div class="block-item-info"><div class="block-item-name">Email</div><div class="block-item-desc">Email input</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="number"><div class="block-item-icon"><i class="fas fa-hashtag"></i></div><div class="block-item-info"><div class="block-item-name">Number</div><div class="block-item-desc">Number input</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="password"><div class="block-item-icon"><i class="fas fa-lock"></i></div><div class="block-item-info"><div class="block-item-name">Password</div><div class="block-item-desc">Password field</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="select"><div class="block-item-icon"><i class="fas fa-list"></i></div><div class="block-item-info"><div class="block-item-name">Dropdown</div><div class="block-item-desc">Select dropdown</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="checkbox"><div class="block-item-icon"><i class="fas fa-check-square"></i></div><div class="block-item-info"><div class="block-item-name">Checkbox</div><div class="block-item-desc">Checkbox input</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="radio"><div class="block-item-icon"><i class="fas fa-circle"></i></div><div class="block-item-info"><div class="block-item-name">Radio</div><div class="block-item-desc">Radio buttons</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="date"><div class="block-item-icon"><i class="fas fa-calendar"></i></div><div class="block-item-info"><div class="block-item-name">Date</div><div class="block-item-desc">Date picker</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="file"><div class="block-item-icon"><i class="fas fa-paperclip"></i></div><div class="block-item-info"><div class="block-item-name">File Upload</div><div class="block-item-desc">File upload field</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="hidden"><div class="block-item-icon"><i class="fas fa-eye-slash"></i></div><div class="block-item-info"><div class="block-item-name">Hidden</div><div class="block-item-desc">Hidden field</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="submit"><div class="block-item-icon"><i class="fas fa-check"></i></div><div class="block-item-info"><div class="block-item-name">Submit Button</div><div class="block-item-desc">Form submit button</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- E-COMMERCE -->
                 <div class="block-category open" data-category="ecommerce">
                     <div class="block-category-header">
-                        <span class="block-category-title">🛒 E-Commerce</span>
+                        <span class="block-category-title"><i class="fas fa-shopping-bag"></i> E-Commerce</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="product-card"><div class="block-item-icon">📦</div><div class="block-item-info"><div class="block-item-name">Product Card</div><div class="block-item-desc">Single product</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="product-grid"><div class="block-item-icon">⊞</div><div class="block-item-info"><div class="block-item-name">Product Grid</div><div class="block-item-desc">Product grid</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="price"><div class="block-item-icon">💰</div><div class="block-item-info"><div class="block-item-name">Price</div><div class="block-item-desc">Price display</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="add-to-cart"><div class="block-item-icon">🛒</div><div class="block-item-info"><div class="block-item-name">Add to Cart</div><div class="block-item-desc">Cart button</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="product-badge"><div class="block-item-icon">🏷️</div><div class="block-item-info"><div class="block-item-name">Badge</div><div class="block-item-desc">Sale/New/Hot badge</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="stars"><div class="block-item-icon">⭐</div><div class="block-item-info"><div class="block-item-name">Star Rating</div><div class="block-item-desc">Star rating</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="stock-status"><div class="block-item-icon">📊</div><div class="block-item-info"><div class="block-item-name">Stock Status</div><div class="block-item-desc">In/Out of stock</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="buy-now"><div class="block-item-icon">⚡</div><div class="block-item-info"><div class="block-item-name">Buy Now</div><div class="block-item-desc">Buy now button</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="product-card"><div class="block-item-icon"><i class="fas fa-shopping-bag"></i></div><div class="block-item-info"><div class="block-item-name">Product Card</div><div class="block-item-desc">Single product</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="product-grid"><div class="block-item-icon"><i class="fas fa-th"></i></div><div class="block-item-info"><div class="block-item-name">Product Grid</div><div class="block-item-desc">Product grid</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="price"><div class="block-item-icon"><i class="fas fa-dollar-sign"></i></div><div class="block-item-info"><div class="block-item-name">Price</div><div class="block-item-desc">Price display</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="add-to-cart"><div class="block-item-icon"><i class="fas fa-shopping-cart"></i></div><div class="block-item-info"><div class="block-item-name">Add to Cart</div><div class="block-item-desc">Cart button</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="product-badge"><div class="block-item-icon"><i class="fas fa-tag"></i></div><div class="block-item-info"><div class="block-item-name">Badge</div><div class="block-item-desc">Sale/New/Hot badge</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="stars"><div class="block-item-icon"><i class="fas fa-star"></i></div><div class="block-item-info"><div class="block-item-name">Star Rating</div><div class="block-item-desc">Star rating</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="stock-status"><div class="block-item-icon"><i class="fas fa-box"></i></div><div class="block-item-info"><div class="block-item-name">Stock Status</div><div class="block-item-desc">In/Out of stock</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="buy-now"><div class="block-item-icon"><i class="fas fa-bolt"></i></div><div class="block-item-info"><div class="block-item-name">Buy Now</div><div class="block-item-desc">Buy now button</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- BUSINESS -->
                 <div class="block-category open" data-category="business">
                     <div class="block-category-header">
-                        <span class="block-category-title">💼 Business</span>
+                        <span class="block-category-title"><i class="fas fa-briefcase"></i> Business</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="hero"><div class="block-item-icon">🎯</div><div class="block-item-info"><div class="block-item-name">Hero Section</div><div class="block-item-desc">Hero banner</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="team"><div class="block-item-icon">👥</div><div class="block-item-info"><div class="block-item-name">Team Member</div><div class="block-item-desc">Team card</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="testimonial"><div class="block-item-icon">💬</div><div class="block-item-info"><div class="block-item-name">Testimonial</div><div class="block-item-desc">Customer review</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="pricing"><div class="block-item-icon">💎</div><div class="block-item-info"><div class="block-item-name">Pricing Card</div><div class="block-item-desc">Pricing plan</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="faq"><div class="block-item-icon">❓</div><div class="block-item-info"><div class="block-item-name">FAQ</div><div class="block-item-desc">FAQ item</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="stats"><div class="block-item-icon">📊</div><div class="block-item-info"><div class="block-item-name">Stats Counter</div><div class="block-item-desc">Number counter</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="features"><div class="block-item-icon">✨</div><div class="block-item-info"><div class="block-item-name">Features</div><div class="block-item-desc">Feature list</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="contact-card"><div class="block-item-icon">📞</div><div class="block-item-info"><div class="block-item-name">Contact Card</div><div class="block-item-desc">Contact info</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="hero"><div class="block-item-icon"><i class="fas fa-bullseye"></i></div><div class="block-item-info"><div class="block-item-name">Hero Section</div><div class="block-item-desc">Hero banner</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="team"><div class="block-item-icon"><i class="fas fa-users"></i></div><div class="block-item-info"><div class="block-item-name">Team Member</div><div class="block-item-desc">Team card</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="testimonial"><div class="block-item-icon"><i class="fas fa-comments"></i></div><div class="block-item-info"><div class="block-item-name">Testimonial</div><div class="block-item-desc">Customer review</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="pricing"><div class="block-item-icon"><i class="fas fa-gem"></i></div><div class="block-item-info"><div class="block-item-name">Pricing Card</div><div class="block-item-desc">Pricing plan</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="faq"><div class="block-item-icon"><i class="fas fa-question-circle"></i></div><div class="block-item-info"><div class="block-item-name">FAQ</div><div class="block-item-desc">FAQ item</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="stats"><div class="block-item-icon"><i class="fas fa-chart-bar"></i></div><div class="block-item-info"><div class="block-item-name">Stats Counter</div><div class="block-item-desc">Number counter</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="features"><div class="block-item-icon"><i class="fas fa-star"></i></div><div class="block-item-info"><div class="block-item-name">Features</div><div class="block-item-desc">Feature list</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="contact-card"><div class="block-item-icon"><i class="fas fa-phone"></i></div><div class="block-item-info"><div class="block-item-name">Contact Card</div><div class="block-item-desc">Contact info</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- INTERACTIVE -->
                 <div class="block-category open" data-category="interactive">
                     <div class="block-category-header">
-                        <span class="block-category-title">⚡ Interactive</span>
+                        <span class="block-category-title"><i class="fas fa-bolt"></i> Interactive</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="button"><div class="block-item-icon">🔘</div><div class="block-item-info"><div class="block-item-name">Button</div><div class="block-item-desc">CTA button</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="link"><div class="block-item-icon">🔗</div><div class="block-item-info"><div class="block-item-name">Link</div><div class="block-item-desc">Text link</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="tabs"><div class="block-item-icon">📑</div><div class="block-item-info"><div class="block-item-name">Tabs</div><div class="block-item-desc">Tab container</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="accordion"><div class="block-item-icon">📂</div><div class="block-item-info"><div class="block-item-name">Accordion</div><div class="block-item-desc">Collapsible content</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="progress"><div class="block-item-icon">📊</div><div class="block-item-info"><div class="block-item-name">Progress Bar</div><div class="block-item-desc">Progress indicator</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="timeline"><div class="block-item-icon">📅</div><div class="block-item-info"><div class="block-item-name">Timeline</div><div class="block-item-desc">Timeline item</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="button"><div class="block-item-icon"><i class="fas fa-circle"></i></div><div class="block-item-info"><div class="block-item-name">Button</div><div class="block-item-desc">CTA button</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="link"><div class="block-item-icon"><i class="fas fa-link"></i></div><div class="block-item-info"><div class="block-item-name">Link</div><div class="block-item-desc">Text link</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="tabs"><div class="block-item-icon"><i class="fas fa-folder"></i></div><div class="block-item-info"><div class="block-item-name">Tabs</div><div class="block-item-desc">Tab container</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="accordion"><div class="block-item-icon"><i class="fas fa-folder-open"></i></div><div class="block-item-info"><div class="block-item-name">Accordion</div><div class="block-item-desc">Collapsible content</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="progress"><div class="block-item-icon"><i class="fas fa-chart-bar"></i></div><div class="block-item-info"><div class="block-item-name">Progress Bar</div><div class="block-item-desc">Progress indicator</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="timeline"><div class="block-item-icon"><i class="fas fa-stream"></i></div><div class="block-item-info"><div class="block-item-name">Timeline</div><div class="block-item-desc">Timeline item</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- MARKETING -->
                 <div class="block-category open" data-category="marketing">
                     <div class="block-category-header">
-                        <span class="block-category-title">📢 Marketing</span>
+                        <span class="block-category-title"><i class="fas fa-bullhorn"></i> Marketing</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="newsletter"><div class="block-item-icon">📬</div><div class="block-item-info"><div class="block-item-name">Newsletter</div><div class="block-item-desc">Email signup</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="countdown"><div class="block-item-icon">⏰</div><div class="block-item-info"><div class="block-item-name">Countdown</div><div class="block-item-desc">Countdown timer</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="alert"><div class="block-item-icon">⚠️</div><div class="block-item-info"><div class="block-item-name">Alert</div><div class="block-item-desc">Notification banner</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="cta"><div class="block-item-icon">🎯</div><div class="block-item-info"><div class="block-item-name">Call to Action</div><div class="block-item-desc">CTA section</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="newsletter"><div class="block-item-icon"><i class="fas fa-envelope"></i></div><div class="block-item-info"><div class="block-item-name">Newsletter</div><div class="block-item-desc">Email signup</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="countdown"><div class="block-item-icon"><i class="fas fa-hourglass-end"></i></div><div class="block-item-info"><div class="block-item-name">Countdown</div><div class="block-item-desc">Countdown timer</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="alert"><div class="block-item-icon"><i class="fas fa-exclamation-triangle"></i></div><div class="block-item-info"><div class="block-item-name">Alert</div><div class="block-item-desc">Notification banner</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="cta"><div class="block-item-icon"><i class="fas fa-bullseye"></i></div><div class="block-item-info"><div class="block-item-name">Call to Action</div><div class="block-item-desc">CTA section</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- SOCIAL -->
                 <div class="block-category open" data-category="social">
                     <div class="block-category-header">
-                        <span class="block-category-title">🌐 Social</span>
+                        <span class="block-category-title"><i class="fas fa-share-alt"></i> Social</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="social-links"><div class="block-item-icon">🔗</div><div class="block-item-info"><div class="block-item-name">Social Links</div><div class="block-item-desc">Social media icons</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="share-buttons"><div class="block-item-icon">📤</div><div class="block-item-info"><div class="block-item-name">Share Buttons</div><div class="block-item-desc">Social share</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="embed"><div class="block-item-icon">📺</div><div class="block-item-info"><div class="block-item-name">Embed</div><div class="block-item-desc">YouTube/Instagram</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="social-links"><div class="block-item-icon"><i class="fas fa-share-alt"></i></div><div class="block-item-info"><div class="block-item-name">Social Links</div><div class="block-item-desc">Social media icons</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="share-buttons"><div class="block-item-icon"><i class="fas fa-share-nodes"></i></div><div class="block-item-info"><div class="block-item-name">Share Buttons</div><div class="block-item-desc">Social share</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="embed"><div class="block-item-icon"><i class="fas fa-tv"></i></div><div class="block-item-info"><div class="block-item-name">Embed</div><div class="block-item-desc">YouTube/Instagram</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- DATA -->
                 <div class="block-category open" data-category="data">
                     <div class="block-category-header">
-                        <span class="block-category-title">📊 Data</span>
+                        <span class="block-category-title"><i class="fas fa-chart-bar"></i> Data</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="table"><div class="block-item-icon">📋</div><div class="block-item-info"><div class="block-item-name">Table</div><div class="block-item-desc">Data table</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="badge"><div class="block-item-icon">🏷️</div><div class="block-item-info"><div class="block-item-name">Badge/Tag</div><div class="block-item-desc">Label badge</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="chart"><div class="block-item-icon">📈</div><div class="block-item-info"><div class="block-item-name">Chart</div><div class="block-item-desc">Bar chart placeholder</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="map"><div class="block-item-icon">🗺️</div><div class="block-item-info"><div class="block-item-name">Map</div><div class="block-item-desc">Google Map embed</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="table"><div class="block-item-icon"><i class="fas fa-table"></i></div><div class="block-item-info"><div class="block-item-name">Table</div><div class="block-item-desc">Data table</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="badge"><div class="block-item-icon"><i class="fas fa-tag"></i></div><div class="block-item-info"><div class="block-item-name">Badge/Tag</div><div class="block-item-desc">Label badge</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="chart"><div class="block-item-icon"><i class="fas fa-chart-line"></i></div><div class="block-item-info"><div class="block-item-name">Chart</div><div class="block-item-desc">Bar chart placeholder</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="map"><div class="block-item-icon"><i class="fas fa-map"></i></div><div class="block-item-info"><div class="block-item-name">Map</div><div class="block-item-desc">Google Map embed</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
                 <!-- ADVANCED -->
                 <div class="block-category open" data-category="advanced">
                     <div class="block-category-header">
-                        <span class="block-category-title">🔧 Advanced</span>
+                        <span class="block-category-title"><i class="fas fa-tools"></i> Advanced</span>
                         <span class="block-category-arrow">▶</span>
                     </div>
                     <div class="block-category-items">
-                        <div class="block-item" data-type="html"><div class="block-item-icon">💻</div><div class="block-item-info"><div class="block-item-name">Custom HTML</div><div class="block-item-desc">Raw HTML code</div></div><span class="block-item-drag">⠿</span></div>
-                        <div class="block-item" data-type="template"><div class="block-item-icon">📄</div><div class="block-item-info"><div class="block-item-name">Template</div><div class="block-item-desc">Reusable template</div></div><span class="block-item-drag">⠿</span></div>
+                        <div class="block-item" draggable="true" data-type="html"><div class="block-item-icon"><i class="fas fa-code"></i></div><div class="block-item-info"><div class="block-item-name">Custom HTML</div><div class="block-item-desc">Raw HTML code</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
+                        <div class="block-item" draggable="true" data-type="template"><div class="block-item-icon"><i class="fas fa-file-contract"></i></div><div class="block-item-info"><div class="block-item-name">Template</div><div class="block-item-desc">Reusable template</div></div><span class="block-item-drag"><i class="fas fa-ellipsis-v"></i></span></div>
                     </div>
                 </div>
 
@@ -775,44 +917,48 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
         <!-- CENTER CANVAS -->
         <div class="builder-canvas">
-            <div class="canvas-wrapper" id="canvas-wrapper">
-                <?= Html::beginForm(['form/' . ($model->isNewRecord ? 'create' : 'update'), 'id' => $model->isNewRecord ? null : $model->id], 'post', ['id' => 'builder-form']) ?>
+            <div class="canvas-scroll-area">
+                <div class="canvas-wrapper" id="canvas-wrapper">
+                    <?= Html::beginForm(['form/' . ($model->isNewRecord ? 'create' : 'update'), 'id' => $model->isNewRecord ? null : $model->id], 'post', ['id' => 'builder-form']) ?>
 
-                <div class="canvas-header">
-                    <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
-                </div>
-
-                <?= Html::hiddenInput('FormSchema', $model->isNewRecord ? '[]' : htmlspecialchars($model->schema_json, ENT_QUOTES, 'UTF-8'), ['id' => 'schema-json']) ?>
-
-                <div class="canvas-body" id="canvas-body">
-                    <div class="canvas-empty" id="canvas-empty">
-                        <div class="canvas-empty-icon">🧩</div>
-                        <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
-                        <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                    <div class="canvas-header">
+                        <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
                     </div>
-                    <div id="canvas-blocks" style="min-height:50px;"></div>
-                </div>
 
-                <div style="padding:16px 24px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:12px;">
-                    <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
-                    <button type="submit" class="btn-toolbar btn-toolbar-primary">💾 <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
-                </div>
+                    <?= Html::hiddenInput('FormSchema', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-json']) ?>
+                    <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
 
-                <?= Html::endForm() ?>
+                    <div class="canvas-body" id="canvas-body">
+                        <div class="canvas-empty" id="canvas-empty">
+                            <div class="canvas-empty-icon">🧩</div>
+                            <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
+                            <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                        </div>
+                        <div id="canvas-blocks" style="min-height:50px;"></div>
+                    </div>
+
+                    <div style="padding:16px 24px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:12px;">
+                        <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
+                        <button type="submit" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
+                    </div>
+
+                    <?= Html::endForm() ?>
+                </div>
             </div>
         </div>
 
         <!-- RIGHT SIDEBAR - PROPERTIES -->
         <div class="builder-sidebar-right">
-            <div class="properties-header">⚙️ Properties</div>
+            <div class="properties-header"><i class="fas fa-sliders-h"></i> Properties</div>
             <div class="properties-tabs">
                 <div class="properties-tab active" data-tab="content">Content</div>
                 <div class="properties-tab" data-tab="style">Style</div>
                 <div class="properties-tab" data-tab="advanced">Advanced</div>
+                <div class="properties-tab" data-tab="json">JSON</div>
             </div>
             <div class="properties-content">
                 <div id="props-empty" class="text-center text-muted py-5">
-                    <div style="font-size:48px;margin-bottom:12px;">🎯</div>
+                    <div style="font-size:48px;margin-bottom:12px;"><i class="fas fa-crosshairs"></i></div>
                     <p>Select a block to edit</p>
                 </div>
 
@@ -897,7 +1043,7 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
                     </div>
                 </div>
 
-                <div id="props-delete-section" class="property-section" style="display:none;">
+                <div id="props-json" class="props-tab" style="display:none;"><div class="property-section"><div class="property-section-title">Block JSON (Full Control)</div><div style="font-size:11px;color:var(--gray-500);margin-bottom:12px;">Edit block as JSON for complete flexibility!</div><textarea id="prop-json" style="font-family:monospace;font-size:11px;height:280px;border:1px solid var(--gray-300);padding:12px;background:var(--gray-50);width:100%;"></textarea><button id="btn-apply-json" class="btn-toolbar" style="margin-top:12px;width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border:none;font-weight:600;">? Apply JSON</button></div></div>$([System.Environment]::NewLine)<div id="props-delete-section" class="property-section" style="display:none;">
                     <button class="btn-toolbar w-100" style="border-color:var(--danger);color:var(--danger);" id="btn-delete-block">🗑️ Delete Block</button>
                 </div>
             </div>
@@ -907,29 +1053,168 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    let blocks = <?= $model->isNewRecord ? '[]' : $model->schema_json ?>;
+    // ===== SAFE ELEMENT CHECK =====
+    const elementsToCheck = {
+        'canvas-blocks': document.getElementById('canvas-blocks'),
+        'canvas-empty': document.getElementById('canvas-empty'),
+        'schema-json': document.getElementById('schema-json'),
+        'table-selector': document.getElementById('table-selector'),
+        'table-id': document.getElementById('table-id'),
+        'btn-auto-generate': document.getElementById('btn-auto-generate'),
+        'block-search': document.getElementById('block-search'),
+        'builder-form': document.getElementById('builder-form'),
+        'btn-save': document.getElementById('btn-save'),
+        'canvas-wrapper': document.getElementById('canvas-wrapper')
+    };
+    
+    console.log('Elements check:', Object.entries(elementsToCheck).map(([k, v]) => k + ': ' + (v ? 'Found' : 'MISSING')).join(', '));
+    
+    // ===== CORE SCRIPT =====
+    let blocks = [];
     let selectedIndex = -1;
     let sortableInstance = null;
     let undoStack = [];
     let redoStack = [];
 
-    const canvasBlocks = document.getElementById('canvas-blocks');
-    const canvasEmpty = document.getElementById('canvas-empty');
-    const schemaJson = document.getElementById('schema-json');
+    const canvasBlocks = elementsToCheck['canvas-blocks'];
+    const canvasEmpty = elementsToCheck['canvas-empty'];
+    const schemaJson = elementsToCheck['schema-json'];
+    const tableSelector = elementsToCheck['table-selector'];
+    const tableIdInput = elementsToCheck['table-id'];
+    const btnAutoGenerate = elementsToCheck['btn-auto-generate'];
 
-    // Initialize Sortable ONCE
-    sortableInstance = new Sortable(canvasBlocks, {
-        animation: 200,
-        ghostClass: 'sortable-ghost',
-        handle: '.drag-handle',
-        onEnd: function() {
-            const newOrder = [];
-            canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el) {
-                newOrder.push(blocks[parseInt(el.dataset.index)]);
-            });
-            blocks = newOrder;
-            updateCanvasIndices();
-            saveState();
+    if (!canvasBlocks || !schemaJson) {
+        console.error('FATAL: Required elements missing!');
+        return;
+    }
+
+    // ===== AUTO-SELECT FIRST TABLE IF EXISTS =====
+    if (tableSelector && tableSelector.options.length > 1) {
+        // If no table is selected and model has no table_id, auto-select first table
+        if (!tableSelector.value) {
+            // Try to find "toko" table first (it has columns)
+            let selectedIdx = -1;
+            for (let i = 1; i < tableSelector.options.length; i++) {
+                const optionText = tableSelector.options[i].text;
+                if (optionText.includes('toko')) {
+                    selectedIdx = i;
+                    break;
+                }
+            }
+            
+            // If not found, select first available table
+            if (selectedIdx === -1) {
+                for (let i = 1; i < tableSelector.options.length; i++) {
+                    if (tableSelector.options[i].value) {
+                        selectedIdx = i;
+                        break;
+                    }
+                }
+            }
+            
+            if (selectedIdx > 0) {
+                tableSelector.selectedIndex = selectedIdx;
+                console.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
+            }
+        }
+    }
+
+    // Initialize Sortable for canvas blocks ONLY
+    if (canvasBlocks) {
+        sortableInstance = new Sortable(canvasBlocks, {
+            animation: 200,
+            ghostClass: 'sortable-ghost',
+            handle: '.drag-handle',
+            group: 'blocks',
+            onEnd: function(evt) {
+                const newOrder = [];
+                canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el, i) {
+                    const idx = parseInt(el.dataset.index);
+                    if (idx >= 0 && idx < blocks.length) {
+                        newOrder.push(blocks[idx]);
+                    }
+                });
+                blocks = newOrder;
+                updateCanvasIndices();
+                saveState();
+            }
+        });
+    }
+
+    // Drag from sidebar blocks to canvas (using event delegation on parent)
+    const sidebarCategories = document.querySelector('.sidebar-categories');
+    
+    if (sidebarCategories) {
+        sidebarCategories.addEventListener('dragstart', function(e) {
+            if (e.target.classList.contains('block-item')) {
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('blockType', e.target.dataset.type);
+                e.target.style.opacity = '0.5';
+            }
+        });
+
+        sidebarCategories.addEventListener('dragend', function(e) {
+            if (e.target.classList.contains('block-item')) {
+                e.target.style.opacity = '1';
+            }
+        });
+    }
+
+    // dragover - uses document since it bubbles
+    document.addEventListener('dragover', function(e) {
+        if (e.dataTransfer.types.includes('blockType')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            const canvasBody = document.getElementById('canvas-body');
+            const builderCanvas = document.querySelector('.builder-canvas');
+            if (canvasBody && canvasBody.contains(e.target)) {
+                builderCanvas.classList.add('drag-over');
+                canvasBlocks.style.borderColor = 'var(--primary)';
+                canvasBlocks.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
+                canvasBlocks.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
+                if (canvasEmpty) {
+                    canvasEmpty.style.borderColor = 'var(--primary)';
+                    canvasEmpty.style.backgroundColor = '#f5f3ff';
+                    canvasEmpty.style.transform = 'scale(1.01)';
+                }
+            }
+        }
+    });
+
+    // dragleave
+    document.addEventListener('dragleave', function(e) {
+        const canvasBody = document.getElementById('canvas-body');
+        const builderCanvas = document.querySelector('.builder-canvas');
+        if (canvasBody && !canvasBody.contains(e.relatedTarget)) {
+            builderCanvas.classList.remove('drag-over');
+            canvasBlocks.style.borderColor = '';
+            canvasBlocks.style.backgroundColor = '';
+            canvasBlocks.style.boxShadow = '';
+            if (canvasEmpty) {
+                canvasEmpty.style.borderColor = '';
+                canvasEmpty.style.backgroundColor = '';
+                canvasEmpty.style.transform = '';
+            }
+        }
+    });
+
+    // drop
+    document.addEventListener('drop', function(e) {
+        e.preventDefault();
+        const blockType = e.dataTransfer.getData('blockType');
+        const canvasBody = document.getElementById('canvas-body');
+        const builderCanvas = document.querySelector('.builder-canvas');
+        if (blockType && canvasBody && canvasBody.contains(e.target)) {
+            builderCanvas.classList.remove('drag-over');
+            canvasBlocks.style.borderColor = '';
+            canvasBlocks.style.backgroundColor = '';
+            canvasBlocks.style.boxShadow = '';
+            if (canvasEmpty) {
+                canvasEmpty.style.borderColor = '';
+                canvasEmpty.style.backgroundColor = '';
+                canvasEmpty.style.transform = '';
+            }
+            addBlock(blockType);
         }
     });
 
@@ -1032,8 +1317,8 @@ document.addEventListener('DOMContentLoaded', function() {
             pricing: { type:'pricing', label:'Pricing', name:'Pro Plan', price:'29', period:'/month', features:'Feature 1\nFeature 2\nFeature 3', highlighted:false },
             faq: { type:'faq', label:'FAQ', question:'Frequently Asked Question?', answer:'This is the answer to the question.' },
             stats: { type:'stats', label:'Stats', number:'1000', label:'Happy Customers', suffix:'+' },
-            features: { type:'features', label:'Feature', icon:'✨', title:'Feature Title', description:'Feature description goes here.' },
-            'contact-card': { type:'contact-card', label:'Contact', icon:'📞', title:'Phone', info:'+1 234 567 890' },
+            features: { type:'features', label:'Feature', icon:'star', title:'Feature Title', description:'Feature description goes here.' },
+            'contact-card': { type:'contact-card', label:'Contact', icon:'phone', title:'Phone', info:'+1 234 567 890' },
             button: { type:'button', label:'Button', text:'Click Me', url:'#', variant:'primary' },
             link: { type:'link', label:'Link', text:'Click here', url:'#' },
             tabs: { type:'tabs', label:'Tabs', tabs:'Tab 1\nTab 2\nTab 3' },
@@ -1067,7 +1352,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function buildBlockHTML(block, index) {
-        const typeIcons = {container:'📦',columns:'🔲',grid:'⊞',section:'📄',divider:'➖',spacer:'↕️',heading:'',text:'📝',richtext:'📄',list:'📋',quote:'💬',code:'💻',image:'🖼️',gallery:'🖼️',video:'🎬',icon:'⭐',avatar:'👤','text-input':'📝',textarea:'📄',email:'📧',number:'🔢',password:'🔒',select:'📋',checkbox:'☑️',radio:'🔘',date:'📅',file:'📎',hidden:'👁️‍🗨️',submit:'🚀','product-card':'📦','product-grid':'⊞',price:'💰','add-to-cart':'🛒','product-badge':'🏷️',stars:'⭐','stock-status':'📊','buy-now':'⚡',hero:'🎯',team:'👥',testimonial:'💬',pricing:'💎',faq:'❓',stats:'📊',features:'✨','contact-card':'📞',button:'🔘',link:'🔗',tabs:'📑',accordion:'📂',progress:'📊',timeline:'📅',newsletter:'📬',countdown:'⏰',alert:'⚠️',cta:'🎯','social-links':'🔗','share-buttons':'📤',embed:'📺',table:'📋',badge:'🏷️',chart:'📈',map:'🗺️',html:'💻',template:'📄'};
+        const typeIcons = {container:'<i class="fas fa-box"></i>',columns:'<i class="fas fa-columns"></i>',grid:'<i class="fas fa-grip"></i>',section:'<i class="fas fa-file"></i>',divider:'<i class="fas fa-minus"></i>',spacer:'<i class="fas fa-arrows-alt-v"></i>',heading:'<i class="fas fa-heading"></i>',text:'<i class="fas fa-font"></i>',richtext:'<i class="fas fa-file-alt"></i>',list:'<i class="fas fa-list-ul"></i>',quote:'<i class="fas fa-quote-left"></i>',code:'<i class="fas fa-code"></i>',image:'<i class="fas fa-image"></i>',gallery:'<i class="fas fa-images"></i>',video:'<i class="fas fa-video"></i>',icon:'<i class="fas fa-star"></i>',avatar:'<i class="fas fa-user-circle"></i>','text-input':'<i class="fas fa-keyboard"></i>',textarea:'<i class="fas fa-align-left"></i>',email:'<i class="fas fa-envelope"></i>',number:'<i class="fas fa-hashtag"></i>',password:'<i class="fas fa-lock"></i>',select:'<i class="fas fa-list"></i>',checkbox:'<i class="fas fa-check-square"></i>',radio:'<i class="fas fa-circle"></i>',date:'<i class="fas fa-calendar"></i>',file:'<i class="fas fa-paperclip"></i>',hidden:'<i class="fas fa-eye-slash"></i>',submit:'<i class="fas fa-check"></i>','product-card':'<i class="fas fa-shopping-bag"></i>','product-grid':'<i class="fas fa-th"></i>',price:'<i class="fas fa-dollar-sign"></i>','add-to-cart':'<i class="fas fa-shopping-cart"></i>','product-badge':'<i class="fas fa-tag"></i>',stars:'<i class="fas fa-star"></i>','stock-status':'<i class="fas fa-box"></i>','buy-now':'<i class="fas fa-bolt"></i>',hero:'<i class="fas fa-bullseye"></i>',team:'<i class="fas fa-users"></i>',testimonial:'<i class="fas fa-quote-left"></i>',pricing:'<i class="fas fa-gem"></i>',faq:'<i class="fas fa-question-circle"></i>',stats:'<i class="fas fa-chart-bar"></i>',features:'<i class="fas fa-star"></i>','contact-card':'<i class="fas fa-phone"></i>',button:'<i class="fas fa-circle"></i>',link:'<i class="fas fa-link"></i>',tabs:'<i class="fas fa-folder"></i>',accordion:'<i class="fas fa-folder-open"></i>',progress:'<i class="fas fa-chart-bar"></i>',timeline:'<i class="fas fa-calendar"></i>',newsletter:'<i class="fas fa-envelope-open"></i>',countdown:'<i class="fas fa-hourglass-end"></i>',alert:'<i class="fas fa-exclamation-triangle"></i>',cta:'<i class="fas fa-bullseye"></i>','social-links':'<i class="fas fa-share-alt"></i>','share-buttons':'<i class="fas fa-share-nodes"></i>',embed:'<i class="fas fa-tv"></i>',table:'<i class="fas fa-table"></i>',badge:'<i class="fas fa-tag"></i>',chart:'<i class="fas fa-chart-line"></i>',map:'<i class="fas fa-map"></i>',html:'<i class="fas fa-code"></i>',template:'<i class="fas fa-file-contract"></i>'};
 
         const preview = buildPreview(block);
         const selected = index === selectedIndex ? ' selected' : '';
@@ -1075,15 +1360,15 @@ document.addEventListener('DOMContentLoaded', function() {
         return `
             <div class="canvas-block-header">
                 <div class="canvas-block-type">
-                    <span class="drag-handle" title="Drag to reorder">⠿</span>
-                    <span>${typeIcons[block.type] || '🧩'}</span>
+                    <span class="drag-handle" title="Drag to reorder"><i class="fas fa-ellipsis-v"></i></span>
+                    <span>${typeIcons[block.type] || '<i class="fas fa-cube"></i>'}</span>
                     <span>${escapeHtml(block.label)}</span>
                 </div>
                 <div class="canvas-block-actions">
-                    <button type="button" class="canvas-block-btn move-up" ${index===0?'disabled':''}>↑</button>
-                    <button type="button" class="canvas-block-btn move-down" ${index===blocks.length-1?'disabled':''}>↓</button>
-                    <button type="button" class="canvas-block-btn duplicate">⧉</button>
-                    <button type="button" class="canvas-block-btn delete">✕</button>
+                    <button type="button" class="canvas-block-btn move-up" ${index===0?'disabled':''}><i class="fas fa-chevron-up"></i></button>
+                    <button type="button" class="canvas-block-btn move-down" ${index===blocks.length-1?'disabled':''}><i class="fas fa-chevron-down"></i></button>
+                    <button type="button" class="canvas-block-btn duplicate"><i class="fas fa-copy"></i></button>
+                    <button type="button" class="canvas-block-btn delete"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             <div class="canvas-block-preview">${preview}</div>`;
@@ -1106,11 +1391,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return '<'+tag+' class="preview-list">'+items.map(function(i){return '<li>'+escapeHtml(i.trim())+'</li>';}).join('')+'</'+tag+'>';
             case 'quote': return '<blockquote class="preview-quote">'+escapeHtml(block.content||'Quote')+'<br><small>'+escapeHtml(block.author||'')+'</small></blockquote>';
             case 'code': return '<pre class="preview-code">'+escapeHtml(block.content||'code')+'</pre>';
-            case 'image': return block.src ? '<img src="'+escapeHtml(block.src)+'" style="width:100%;height:200px;object-fit:cover;border-radius:8px;" alt="'+escapeHtml(block.alt||'')+'">' : '<div class="preview-image">🖼️</div>';
-            case 'gallery': return '<div class="preview-gallery">'+Array(block.images||4).fill('<div class="preview-gallery-item">🖼️</div>').join('')+'</div>';
-            case 'video': return '<div class="preview-video">▶️</div>';
-            case 'icon': return '<div class="preview-icon-box"><div class="preview-icon-circle" style="background:'+(block.color||'var(--primary)')+';">'+(block.icon||'⭐')+'</div><div>'+escapeHtml(block.label||'Icon')+'</div></div>';
-            case 'avatar': return '<div class="preview-team"><div class="preview-team-avatar">👤</div><div><div class="preview-team-name">'+escapeHtml(block.name||'User')+'</div><div class="preview-team-role">'+escapeHtml(block.role||'')+'</div></div></div>';
+            case 'image': return block.src ? '<img src="'+escapeHtml(block.src)+'" style="width:100%;height:200px;object-fit:cover;border-radius:8px;" alt="'+escapeHtml(block.alt||'')+'">' : '<div class="preview-image"><i class="fas fa-image"></i></div>';
+            case 'gallery': return '<div class="preview-gallery">'+Array(block.images||4).fill('<div class="preview-gallery-item"><i class="fas fa-image"></i></div>').join('')+'</div>';
+            case 'video': return '<div class="preview-video"><i class="fas fa-play"></i></div>';
+            case 'icon': return '<div class="preview-icon-box"><div class="preview-icon-circle" style="background:'+(block.color||'var(--primary)')+';">'+escapeHtml(block.icon||'✨')+'</div><div>'+escapeHtml(block.label||'Icon')+'</div></div>';
+            case 'avatar': return '<div class="preview-team"><div class="preview-team-avatar"><i class="fas fa-user-circle"></i></div><div><div class="preview-team-name">'+escapeHtml(block.name||'User')+'</div><div class="preview-team-role">'+escapeHtml(block.role||'')+'</div></div></div>';
             case 'text-input': return '<div class="property-label">'+escapeHtml(block.label||'Text')+(block.required?' <span style="color:var(--danger)">*</span>':'')+'</div><input class="preview-input" placeholder="'+escapeHtml(block.placeholder||'')+'" disabled>';
             case 'textarea': return '<div class="property-label">'+escapeHtml(block.label||'Textarea')+'</div><textarea class="preview-textarea" placeholder="'+escapeHtml(block.placeholder||'')+'" disabled></textarea>';
             case 'email': return '<div class="property-label">'+escapeHtml(block.label||'Email')+'</div><input type="email" class="preview-input" placeholder="'+escapeHtml(block.placeholder||'')+'" disabled>';
@@ -1125,7 +1410,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return '<div class="property-label">'+escapeHtml(block.label||'Radio')+'</div>'+radios.map(function(o){return '<div class="preview-radio"><input type="radio" disabled><span>'+escapeHtml(o.trim())+'</span></div>';}).join('');
             case 'date': return '<div class="property-label">'+escapeHtml(block.label||'Date')+'</div><input type="date" class="preview-date" disabled>';
             case 'file': return '<div class="property-label">'+escapeHtml(block.label||'File')+'</div><div class="preview-file">📎 Click to upload or drag and drop</div>';
-            case 'hidden': return '<div style="padding:8px;background:var(--gray-100);border-radius:4px;font-size:12px;color:var(--gray-400);">👁️🗨️ Hidden: '+escapeHtml(block.name||'')+'</div>';
+            case 'hidden': return '<div style="padding:8px;background:var(--gray-100);border-radius:4px;font-size:12px;color:var(--gray-400);"><i class="fas fa-eye-slash"></i> Hidden: '+escapeHtml(block.name||'')+'</div>';
             case 'submit':
                 const variants = {primary:'var(--primary)',success:'var(--success)',warning:'var(--warning)',danger:'var(--danger)'};
                 return '<button class="preview-button" style="background:'+(variants[block.variant]||'var(--primary)')+';">'+escapeHtml(block.text||'Submit')+'</button>';
@@ -1137,18 +1422,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 const badgeVars = {sale:'preview-badge-sale',new:'preview-badge-new',hot:'preview-badge-hot'};
                 return '<span class="preview-badge '+(badgeVars[block.variant]||'preview-badge-sale')+'">'+escapeHtml(block.text||'SALE')+'</span>';
             case 'stars': return '<div class="preview-stars">'+'★'.repeat(block.rating||4)+'☆'.repeat((block.max||5)-(block.rating||4))+'</div>';
-            case 'stock-status': return '<span style="color:'+(block.status==='instock'?'var(--success)':'var(--danger)')+';">'+(block.status==='instock'?'✅':'❌')+' '+escapeHtml(block.text||'In Stock')+'</span>';
-            case 'buy-now': return '<button class="preview-button" style="background:var(--warning);color:#000;">⚡ '+escapeHtml(block.text||'Buy Now')+'</button>';
+            case 'stock-status': return '<span style="color:'+(block.status==='instock'?'var(--success)':'var(--danger)')+';\"><i class="fas fa-'+(block.status==='instock'?'check-circle':'times-circle')+'" style="margin-right:6px;"></i>'+escapeHtml(block.text||'In Stock')+'</span>';
+            case 'buy-now': return '<button class="preview-button" style="background:var(--warning);color:#000;"><i class="fas fa-bolt" style="margin-right:6px;"></i>'+escapeHtml(block.text||'Buy Now')+'</button>';
             case 'hero': return '<div style="text-align:center;padding:40px 20px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;color:white;"><h2 style="margin:0 0 8px;">'+escapeHtml(block.title||'Hero')+'</h2><p style="margin:0 0 16px;opacity:0.9;">'+escapeHtml(block.subtitle||'')+'</p><span class="preview-button" style="background:white;color:#667eea;">'+escapeHtml(block.buttonText||'Get Started')+'</span></div>';
-            case 'team': return '<div class="preview-team"><div class="preview-team-avatar">👤</div><div><div class="preview-team-name">'+escapeHtml(block.name||'Name')+'</div><div class="preview-team-role">'+escapeHtml(block.role||'')+'</div></div></div>';
+            case 'team': return '<div class="preview-team"><div class="preview-team-avatar"><i class="fas fa-user-circle"></i></div><div><div class="preview-team-name">'+escapeHtml(block.name||'Name')+'</div><div class="preview-team-role">'+escapeHtml(block.role||'')+'</div></div></div>';
             case 'testimonial': return '<div class="preview-testimonial"><div class="preview-testimonial-text">'+escapeHtml(block.text||'Testimonial')+'</div><div class="preview-testimonial-author">'+escapeHtml(block.author||'')+'</div></div>';
             case 'pricing':
                 const feats = (block.features||'').split('\n');
-                return '<div class="preview-pricing"><div class="preview-pricing-name">'+escapeHtml(block.name||'Plan')+'</div><div class="preview-pricing-price">'+escapeHtml(block.currency||'$')+escapeHtml(block.price||'0')+'<small style="font-size:14px;color:var(--gray-400);">'+escapeHtml(block.period||'')+'</small></div><ul class="preview-pricing-features">'+feats.map(function(f){return '<li>✓ '+escapeHtml(f.trim())+'</li>';}).join('')+'</ul><button class="preview-button">Choose Plan</button></div>';
-            case 'faq': return '<div class="preview-faq-item"><div class="preview-faq-question">❓ '+escapeHtml(block.question||'Question?')+'</div><div class="preview-faq-answer">'+escapeHtml(block.answer||'Answer')+'</div></div>';
+                return '<div class="preview-pricing"><div class="preview-pricing-name">'+escapeHtml(block.name||'Plan')+'</div><div class="preview-pricing-price">'+escapeHtml(block.currency||'$')+escapeHtml(block.price||'0')+'<small style="font-size:14px;color:var(--gray-400);">'+escapeHtml(block.period||'')+'</small></div><ul class="preview-pricing-features">'+feats.map(function(f){return '<li><i class="fas fa-check" style="color:var(--success);margin-right:6px;"></i>'+escapeHtml(f.trim())+'</li>';}).join('')+'</ul><button class="preview-button">Choose Plan</button></div>';
+            case 'faq': return '<div class="preview-faq-item"><div class="preview-faq-question"><i class="fas fa-question-circle"></i> '+escapeHtml(block.question||'Question?')+'</div><div class="preview-faq-answer">'+escapeHtml(block.answer||'Answer')+'</div></div>';
             case 'stats': return '<div style="text-align:center;padding:20px;"><div class="preview-stat-number">'+escapeHtml(block.number||'0')+escapeHtml(block.suffix||'')+'</div><div class="preview-stat-label">'+escapeHtml(block.label||'')+'</div></div>';
-            case 'features': return '<div style="display:flex;gap:12px;align-items:start;padding:16px;border:1px solid var(--gray-200);border-radius:12px;"><div style="font-size:24px;">'+(block.icon||'✨')+'</div><div><div style="font-weight:600;">'+escapeHtml(block.title||'Feature')+'</div><div style="font-size:13px;color:var(--gray-400);">'+escapeHtml(block.description||'')+'</div></div></div>';
-            case 'contact-card': return '<div class="preview-contact-card"><div class="preview-contact-icon">'+(block.icon||'📞')+'</div><div><div style="font-weight:600;">'+escapeHtml(block.title||'')+'</div><div style="font-size:13px;color:var(--gray-400);">'+escapeHtml(block.info||'')+'</div></div></div>';
+            case 'features': return '<div style="display:flex;gap:12px;align-items:start;padding:16px;border:1px solid var(--gray-200);border-radius:12px;"><div style="font-size:24px;color:var(--primary);">'+(block.icon||'<i class="fas fa-star"></i>')+'</div><div><div style="font-weight:600;">'+escapeHtml(block.title||'Feature')+'</div><div style="font-size:13px;color:var(--gray-400);">'+escapeHtml(block.description||'')+'</div></div></div>';
+            case 'contact-card': 
+                const iconMap = {'phone':'<i class="fas fa-phone"></i>','star':'<i class="fas fa-star"></i>','mail':'<i class="fas fa-envelope"></i>','location':'<i class="fas fa-map-marker-alt"></i>'};
+                return '<div class="preview-contact-card"><div class="preview-contact-icon">'+(iconMap[block.icon]||'<i class="fas fa-phone"></i>')+'</div><div><div style="font-weight:600;">'+escapeHtml(block.title||'')+'</div><div style="font-size:13px;color:var(--gray-400);">'+escapeHtml(block.info||'')+'</div></div></div>';
             case 'button':
                 const btnVars = {primary:'var(--primary)',success:'var(--success)',warning:'var(--warning)',danger:'var(--danger)',outline:'transparent;border:2px solid var(--primary);color:var(--primary)'};
                 return '<a class="preview-button" style="background:'+(btnVars[block.variant]||'var(--primary)')+';" href="#">'+escapeHtml(block.text||'Button')+'</a>';
@@ -1167,10 +1454,10 @@ document.addEventListener('DOMContentLoaded', function() {
             case 'cta': return '<div style="text-align:center;padding:40px 20px;background:var(--gray-50);border-radius:12px;"><h3 style="margin:0 0 8px;">'+escapeHtml(block.title||'CTA')+'</h3><p style="margin:0 0 16px;color:var(--gray-400);">'+escapeHtml(block.subtitle||'')+'</p><button class="preview-button">'+escapeHtml(block.buttonText||'Start Now')+'</button></div>';
             case 'social-links':
                 const platforms = (block.platforms||'Facebook\nTwitter').split('\n');
-                const icons = {'facebook':'📘','twitter':'🐦','instagram':'📷','linkedin':'💼','youtube':'▶️','tiktok':'🎵'};
-                return '<div class="preview-social">'+platforms.map(function(p){return '<div class="preview-social-icon">'+(icons[p.trim().toLowerCase()]||'🔗')+'</div>';}).join('')+'</div>';
-            case 'share-buttons': return '<div style="display:flex;gap:8px;">'+['📘','','💼'].map(function(i){return '<div class="preview-social-icon">'+i+'</div>';}).join('')+'</div>';
-            case 'embed': return '<div style="height:200px;background:var(--gray-900);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:32px;">📺 Embed</div>';
+                const icons = {'facebook':'<i class="fab fa-facebook"></i>','twitter':'<i class="fab fa-twitter"></i>','instagram':'<i class="fab fa-instagram"></i>','linkedin':'<i class="fab fa-linkedin"></i>','youtube':'<i class="fab fa-youtube"></i>','tiktok':'<i class="fab fa-tiktok"></i>'};
+                return '<div class="preview-social">'+platforms.map(function(p){return '<div class="preview-social-icon">'+(icons[p.trim().toLowerCase()]||'<i class="fas fa-link"></i>')+'</div>';}).join('')+'</div>';
+            case 'share-buttons': return '<div style="display:flex;gap:8px;"><div class="preview-social-icon"><i class="fab fa-facebook"></i></div><div class="preview-social-icon"><i class="fab fa-twitter"></i></div><div class="preview-social-icon"><i class="fab fa-linkedin"></i></div></div>';
+            case 'embed': return '<div style="height:200px;background:var(--gray-900);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:32px;"><i class="fas fa-video"></i> Embed</div>';
             case 'table':
                 const headers = (block.headers||'Col1,Col2').split(',');
                 const rows = (block.rows||'').split('\n');
@@ -1182,9 +1469,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 const data = (block.data||'20,35,25').split(',');
                 const max = Math.max.apply(null, data.map(Number));
                 return '<div class="preview-chart">'+data.map(function(v){return '<div class="preview-chart-bar" style="height:'+((v/max)*100)+'%;"></div>';}).join('')+'</div>';
-            case 'map': return '<div class="preview-map">🗺️</div>';
+            case 'map': return '<div class="preview-map"><i class="fas fa-map"></i></div>';
             case 'html': return '<div class="preview-code">'+escapeHtml(block.code||'<!-- HTML -->')+'</div>';
-            case 'template': return '<div style="padding:20px;border:2px dashed var(--gray-300);border-radius:8px;text-align:center;color:var(--gray-400);">📄 Template: '+(block.templateId||'None')+'</div>';
+            case 'template': return '<div style="padding:20px;border:2px dashed var(--gray-300);border-radius:8px;text-align:center;color:var(--gray-400);"><i class="fas fa-file"></i> Template: '+(block.templateId||'None')+'</div>';
             default: return '<div style="padding:20px;text-align:center;color:var(--gray-400);">Block: '+escapeHtml(block.type)+'</div>';
         }
     }
@@ -1233,14 +1520,65 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (delBtn) delBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            if (confirm('Delete this block?')) {
+            showDeleteConfirmModal(function() {
                 saveState();
                 blocks.splice(index, 1);
                 if (selectedIndex === index) { selectedIndex = -1; hideProperties(); }
                 else if (selectedIndex > index) selectedIndex--;
                 refreshAllBlocks();
                 updateEmptyState();
-            }
+            });
+        });
+    }
+
+    // Custom Delete Confirmation Modal
+    function showDeleteConfirmModal(callback) {
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        `;
+        modal.innerHTML = `
+            <div style="background: white; border-radius: 12px; padding: 24px; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.3s ease;">
+                <div style="font-size: 48px; margin-bottom: 16px;">🗑️</div>
+                <h3 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--gray-900);">Delete this block?</h3>
+                <p style="margin: 0 0 24px; color: var(--gray-600); font-size: 14px;">This action cannot be undone. Are you sure?</p>
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button id="cancel-btn" style="padding: 10px 18px; border: 1px solid var(--gray-200); border-radius: 8px; background: white; color: var(--gray-600); font-weight: 500; cursor: pointer; transition: all 0.2s;">Cancel</button>
+                    <button id="confirm-btn" style="padding: 10px 18px; border: none; border-radius: 8px; background: var(--danger); color: white; font-weight: 500; cursor: pointer; transition: all 0.2s;">Delete</button>
+                </div>
+            </div>
+            <style>
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            </style>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        const cancelBtn = modal.querySelector('#cancel-btn');
+        const confirmBtn = modal.querySelector('#confirm-btn');
+        
+        cancelBtn.addEventListener('click', function() {
+            modal.style.animation = 'fadeIn 0.3s ease reverse';
+            setTimeout(() => modal.remove(), 300);
+        });
+        
+        confirmBtn.addEventListener('click', function() {
+            modal.style.animation = 'fadeIn 0.3s ease reverse';
+            setTimeout(() => {
+                modal.remove();
+                callback();
+            }, 300);
         });
     }
 
@@ -1310,6 +1648,44 @@ document.addEventListener('DOMContentLoaded', function() {
         if (el) el.addEventListener('change', syncProperty);
     });
     document.getElementById('prop-hidden').addEventListener('change', syncProperty);
+    // JSON TAB HANDLER
+    document.querySelectorAll('.properties-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            const tabName = this.dataset.tab;
+            document.querySelectorAll('.properties-tab').forEach(el => el.classList.remove('active'));
+            this.classList.add('active');
+            document.querySelectorAll('.props-tab').forEach(el => el.style.display = 'none');
+            const activePanel = document.getElementById('props-' + tabName);
+            if (activePanel) activePanel.style.display = '';
+            
+            if (tabName === 'json' && selectedIndex >= 0) {
+                const jsonArea = document.getElementById('prop-json');
+                if (jsonArea) jsonArea.value = JSON.stringify(blocks[selectedIndex], null, 2);
+            }
+        });
+    });
+    
+    // APPLY JSON BUTTON
+    const applyJsonBtn = document.getElementById('btn-apply-json');
+    if (applyJsonBtn) {
+        applyJsonBtn.addEventListener('click', function() {
+            if (selectedIndex < 0) {
+                alert('?? No block selected');
+                return;
+            }
+            try {
+                const jsonText = document.getElementById('prop-json').value;
+                const parsed = JSON.parse(jsonText);
+                blocks[selectedIndex] = Object.assign(blocks[selectedIndex], parsed);
+                saveState();
+                refreshAllBlocks();
+                selectBlock(selectedIndex);
+                alert('? JSON applied successfully!');
+            } catch (e) {
+                alert('? Invalid JSON: ' + e.message);
+            }
+        });
+    }
 
     function syncProperty() {
         if (selectedIndex < 0) return;
@@ -1347,13 +1723,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Delete block
     document.getElementById('btn-delete-block').addEventListener('click', function() {
-        if (selectedIndex >= 0 && confirm('Delete this block?')) {
-            saveState();
-            blocks.splice(selectedIndex, 1);
-            selectedIndex = -1;
-            hideProperties();
-            refreshAllBlocks();
-            updateEmptyState();
+        if (selectedIndex >= 0) {
+            showDeleteConfirmModal(function() {
+                saveState();
+                blocks.splice(selectedIndex, 1);
+                selectedIndex = -1;
+                hideProperties();
+                refreshAllBlocks();
+                updateEmptyState();
+            });
         }
     });
 
@@ -1389,12 +1767,118 @@ document.addEventListener('DOMContentLoaded', function() {
     // Save form
     document.getElementById('btn-save').addEventListener('click', function() {
         document.getElementById('schema-json').value = JSON.stringify(blocks);
+        document.getElementById('table-id').value = document.getElementById('table-selector').value;
         document.getElementById('builder-form').submit();
     });
 
     document.getElementById('builder-form').addEventListener('submit', function() {
         document.getElementById('schema-json').value = JSON.stringify(blocks);
+        document.getElementById('table-id').value = document.getElementById('table-selector').value;
     });
+
+    // Table selector change - update hidden input
+    document.getElementById('table-selector').addEventListener('change', function() {
+        document.getElementById('table-id').value = this.value;
+    });
+
+    // Auto-generate form fields from table
+    if (btnAutoGenerate) {
+        btnAutoGenerate.addEventListener('click', function() {
+            const tableId = tableSelector ? tableSelector.value : '';
+            const tableName = tableSelector ? tableSelector.options[tableSelector.selectedIndex].text : 'NONE';
+            
+            console.log('%c=== AUTO-GENERATE START ===', 'color: #00aa00; font-weight: bold;');
+            console.log('Time:', new Date().toLocaleTimeString());
+            console.log('Table ID:', tableId);
+            console.log('Table Name:', tableName);
+            
+            if (!tableId || tableId === '') {
+                console.warn('❌ No table selected!');
+                alert('❌ Please select a table from the dropdown first');
+                if (tableSelector) tableSelector.focus();
+                console.log('%c=== AUTO-GENERATE CANCELLED ===', 'color: #ff5500;');
+                return;
+            }
+
+            console.log('✅ Sending fetch request...');
+            console.log('Payload:', JSON.stringify({ table_id: parseInt(tableId) }));
+            
+            this.disabled = true;
+            this.textContent = '⏳ Generating...';
+
+            fetch('<?= \yii\helpers\Url::to(['form/get-table-columns']) ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': '<?= Yii::$app->request->getCsrfToken() ?>'
+                },
+                body: JSON.stringify({ table_id: parseInt(tableId) })
+            })
+            .then(r => {
+                console.log('Response Status:', r.status, r.statusText);
+                return r.json();
+            })
+            .then(data => {
+                console.log('Response Data:', data);
+                
+                if (data.success && data.columns && data.columns.length > 0) {
+                    console.log('%c✅ SUCCESS! Creating ' + data.columns.length + ' fields...', 'color: #00aa00;');
+                    
+                    // Clear existing blocks
+                    blocks = [];
+                    canvasBlocks.innerHTML = '';
+
+                    // Create form fields for each column
+                    data.columns.forEach(function(col, idx) {
+                        const fieldType = getFieldTypeForColumn(col);
+                        const block = {
+                            type: fieldType,
+                            label: col.label || col.name,
+                            name: col.name,
+                            placeholder: 'Enter ' + (col.label || col.name).toLowerCase(),
+                            required: !col.is_nullable,
+                            content: col.label || col.name
+                        };
+                        blocks.push(block);
+                        renderBlock(block, blocks.length - 1);
+                        console.log(`  [${idx + 1}] ${fieldType} - ${col.name}`);
+                    });
+
+                    updateEmptyState();
+                    alert('✅ Form generated successfully with ' + data.columns.length + ' field(s)!');
+                    console.log('%c=== AUTO-GENERATE SUCCESS ===', 'color: #00aa00; font-weight: bold;');
+                } else {
+                    console.error('%c❌ Error Response:', 'color: #ff0000;', data);
+                    const errorMsg = data.error || data.message || 'Failed to load table columns';
+                    alert('❌ Error: ' + errorMsg);
+                    console.log('%c=== AUTO-GENERATE FAILED ===', 'color: #ff0000;');
+                }
+            })
+            .catch(err => {
+                console.error('%c❌ Network/Fetch Error:', 'color: #ff0000;', err);
+                alert('❌ Network Error: ' + err.message);
+                console.log('%c=== AUTO-GENERATE ERROR ===', 'color: #ff0000;');
+            })
+            .finally(() => {
+                this.disabled = false;
+                this.textContent = '⚙️ Auto-Generate';
+            });
+        });
+    } else {
+        console.warn('❌ Auto-generate button not found');
+    }
+
+    // Map database column types to form field types
+    function getFieldTypeForColumn(col) {
+        const type = col.type.toUpperCase();
+        if (type.includes('INT')) return 'number';
+        if (type.includes('VARCHAR') || type.includes('CHAR')) return 'text-input';
+        if (type.includes('TEXT')) return 'textarea';
+        if (type.includes('DATE')) return 'date';
+        if (type.includes('DECIMAL') || type.includes('FLOAT')) return 'number';
+        if (type.includes('BOOLEAN')) return 'checkbox';
+        return 'text-input';
+    }
 
     function escapeHtml(str) {
         const div = document.createElement('div');
@@ -1402,14 +1886,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return div.innerHTML;
     }
 
-    // Render existing blocks on load (for update mode)
-    if (blocks.length > 0) {
-        blocks.forEach(function(block, i) {
-            renderBlock(block, i);
-        });
-        updateEmptyState();
-    }
-
     updateEmptyState();
 });
 </script>
+
+

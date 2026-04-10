@@ -172,6 +172,11 @@ class FormBuilderUI {
         return inputs[fieldType] || inputs['text'];
     }
 
+    setupFieldManagement() {
+        // Placeholder - field management handled by main builder
+        return;
+    }
+
     setupFieldInteractions(field) {
         // Drag reordering
         field.addEventListener('dragstart', (e) => {

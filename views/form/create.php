@@ -412,7 +412,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         flex: 1;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 48px 40px 120px 40px;
+        padding: 48px 40px;
         display: flex;
         justify-content: center;
     }
@@ -437,13 +437,13 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     .canvas-wrapper {
         width: 100%;
         max-width: 1280px;
-        background: transparent;
-        border-radius: 0;
-        box-shadow: none;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
         min-height: 750px;
         transition: all 0.3s ease;
+        overflow: hidden;
         flex-shrink: 0;
-        padding-bottom: 40px;
     }
 
     .canvas-wrapper.tablet {
@@ -454,22 +454,10 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         max-width: 480px;
     }
 
-    /* Bottom Action Bar - Always visible at bottom of canvas */
-    .canvas-action-bar {
-        position: sticky;
-        bottom: 0;
-        flex-shrink: 0;
-        padding: 16px 0;
-        background: linear-gradient(to top, var(--gray-100), rgba(249, 250, 251, 0.95));
-        border-top: 1px solid var(--gray-200);
-        backdrop-filter: blur(8px);
-        z-index: 100;
-    }
-
     .canvas-header {
         padding: 28px 40px;
         border-bottom: 1px solid var(--gray-100);
-        background: transparent;
+        background: white;
     }
 
     .canvas-form-name {
@@ -494,7 +482,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     .canvas-body {
-        padding: 48px 40px 40px 40px;
+        padding: 48px 40px;
         min-height: 600px;
         transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
     }
@@ -542,7 +530,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     /* ============ CANVAS BLOCKS ============ */
     .canvas-block {
         position: relative;
-        margin-bottom: 20px;
+        margin-bottom: 16px;
         border: 2px solid var(--gray-200);
         border-radius: 12px;
         transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
@@ -1722,7 +1710,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                     <i class="fas fa-sliders-h"></i> Auto-Generate
                 </button>
             <?php else: ?>
-                <button class="btn-toolbar" disabled title="No tables available - Create a table first">
+                <button class="btn-toolbar" id="btn-auto-generate" disabled title="No tables available - Create a table first">
                     <i class="fas fa-ban"></i> No Tables
                 </button>
             <?php endif; ?>

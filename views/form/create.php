@@ -2327,15 +2327,20 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                             <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
                             <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
                         </div>
-                        <div id="canvas-blocks" style="min-height:50px;margin-bottom:40px;"></div>
-                    </div>
-
-                    <div style="padding:20px 40px;border-top:1px solid var(--gray-200);display:flex;justify-content:flex-end;gap:12px;background:white;margin-bottom:20px;">
-                        <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
-                        <button type="submit" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
+                        <div id="canvas-blocks" style="min-height:50px;"></div>
+                        <!-- Padding spacer to prevent blocks from being cut off -->
+                        <div style="height: 80px; flex-shrink: 0;"></div>
                     </div>
 
                     <?= Html::endForm() ?>
+                </div>
+            </div>
+
+            <!-- Bottom Action Bar (outside scroll area, always visible) -->
+            <div class="canvas-action-bar">
+                <div style="display:flex;justify-content:flex-end;gap:12px;max-width:1280px;margin:0 auto;padding:0 40px;">
+                    <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
+                    <button type="submit" formid="builder-form" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
                 </div>
             </div>
         </div>

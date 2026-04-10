@@ -20,7 +20,8 @@
       "Bash(timeout *)",
       "Bash(del *)",
       "Bash(powershell *)",
-      "Bash(copy *)"
+      "Bash(copy *)",
+      "Bash(composer *)"
     ]
   },
   "$version": 3

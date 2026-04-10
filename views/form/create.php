@@ -296,6 +296,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     flex-direction: column;
     background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
     transition: all 0.2s ease;
+    position: relative;
 }
 .builder-canvas.drag-over {
     background: linear-gradient(to bottom, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.05));
@@ -308,20 +309,31 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     padding: 48px 40px;
     display: flex;
     justify-content: center;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
 }
 
 .canvas-scroll-area::-webkit-scrollbar {
-    width: 8px;
+    width: 12px;
 }
 .canvas-scroll-area::-webkit-scrollbar-track {
     background: transparent;
 }
 .canvas-scroll-area::-webkit-scrollbar-thumb {
-    background: var(--gray-300);
-    border-radius: 4px;
+    background: #b4b9c4;
+    border-radius: 6px;
+    border: 3px solid transparent;
+    background-clip: padding-box;
 }
 .canvas-scroll-area::-webkit-scrollbar-thumb:hover {
-    background: var(--gray-400);
+    background: #8b92a0;
+    background-clip: padding-box;
+}
+
+/* Firefox scrollbar */
+.canvas-scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: #b4b9c4 transparent;
 }
 
 .canvas-wrapper {
@@ -332,7 +344,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     box-shadow: 0 2px 16px rgba(0,0,0,0.06);
     min-height: 750px;
     transition: all 0.3s ease;
-    overflow: hidden;
+    overflow: visible;
     flex-shrink: 0;
 }
 .canvas-wrapper.tablet { max-width: 850px; }
@@ -359,10 +371,16 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 .canvas-form-name:focus { color: var(--primary); }
 .canvas-form-name::placeholder { color: var(--gray-300); }
 
+/* Canvas wrapper smooth scroll */
+.builder-canvas {
+    scroll-behavior: smooth;
+}
+
 .canvas-body {
     padding: 48px 40px;
     min-height: 600px;
     transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
+    overflow: visible;
 }
 
 .canvas-empty {
@@ -1997,27 +2015,20 @@ document.addEventListener('DOMContentLoaded', function() {
         gsap.registerPlugin(ScrollTrigger);
     }
 
-    // Intersection Observer for scroll animations
+    // Intersection Observer for scroll animations - use canvas scroll area as root
+    const canvasScrollArea = document.querySelector('.canvas-scroll-area');
     const observerOptions = {
         threshold: 0.15,
-        rootMargin: '0px 0px -50px 0px'
+        rootMargin: '0px 0px -50px 0px',
+        root: canvasScrollArea  // Observe within canvas-scroll-area, not window
     };
 
     const scrollAnimationObserver = new IntersectionObserver(function(entries) {
         entries.forEach(function(entry) {
             if (entry.isIntersecting) {
-                // Add animation class based on data attribute
-                const animType = entry.target.dataset.scrollAnimate || 'fade-up';
                 entry.target.classList.add('in-view');
                 entry.target.style.animationName = 'fadeInUp';
-                
-                // Parallax effect
-                if (entry.target.classList.contains('parallax-item')) {
-                    const parallaxValue = entry.target.dataset.parallax || 30;
-                    entry.target.style.transform = `translateY(${parallaxValue * 0.5}px)`;
-                }
             } else {
-                // Remove animation when out of view (for mirror effect)
                 entry.target.classList.remove('in-view');
                 entry.target.style.animationName = '';
             }
@@ -2045,29 +2056,39 @@ document.addEventListener('DOMContentLoaded', function() {
     // Apply animations to existing blocks
     applyScrollAnimations();
 
-    // Parallax scroll effect on canvas blocks
-    const canvasBody = document.getElementById('canvas-body');
-    if (canvasBody) {
-        window.addEventListener('scroll', function() {
-            if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
-                const canvasBlocks = document.querySelectorAll('.canvas-block.parallax-item');
-                canvasBlocks.forEach(function(block) {
-                    const scrollPos = window.scrollY;
-                    const blockTop = block.getBoundingClientRect().top + window.scrollY;
-                    const distance = blockTop - scrollPos;
+    // Parallax scroll effect on canvas scroll area (NOT window)
+    const canvasScrollArea = document.querySelector('.canvas-scroll-area');
+    if (canvasScrollArea) {
+        canvasScrollArea.addEventListener('scroll', function() {
+            const canvasBlocks = document.querySelectorAll('.canvas-block.parallax-item');
+            if (canvasBlocks.length === 0) return;
+            
+            canvasBlocks.forEach(function(block) {
+                try {
+                    const scrollPos = canvasScrollArea.scrollTop;
+                    const blockRect = block.getBoundingClientRect();
+                    const containerRect = canvasScrollArea.getBoundingClientRect();
+                    const blockPosInContainer = blockRect.top - containerRect.top + scrollPos;
+                    const distance = blockPosInContainer - scrollPos;
+                    const centerOffset = containerRect.height / 2;
                     
-                    // Light parallax effect (3-5% of scroll distance)
-                    if (distance > -500 && distance < window.innerHeight + 500) {
-                        const parallaxY = (distance - window.innerHeight / 2) * 0.03;
+                    // Light parallax effect (2-3% of scroll distance) - only within viewport
+                    if (blockRect.top < containerRect.bottom && blockRect.bottom > containerRect.top) {
+                        const parallaxY = (distance - centerOffset) * 0.025;
                         block.style.transform = `translateY(${parallaxY}px)`;
                     }
-                });
-            }
+                } catch(e) {
+                    // Silently catch any errors
+                }
+            });
         }, { passive: true });
     }
 
     // Smooth scroll initialization
     document.documentElement.style.scrollBehavior = 'smooth';
+    if (canvasScrollArea) {
+        canvasScrollArea.style.scrollBehavior = 'smooth';
+    }
 
     // Observe canvas blocks when new blocks are added
     const originalRenderBlock = window.renderBlock;
@@ -2087,26 +2108,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // Performance optimization: Throttle scroll event
-    let scrollTimeout;
-    let lastScrollPos = 0;
-    window.addEventListener('scroll', function() {
-        const currentScrollPos = window.scrollY;
-        if (Math.abs(currentScrollPos - lastScrollPos) > 50) {
-            lastScrollPos = currentScrollPos;
-            
-            // Update parallax positions with throttling
-            clearTimeout(scrollTimeout);
-            scrollTimeout = setTimeout(function() {
-                // Parallax update logic here (already in scroll listener above)
-            }, 1000 / 60); // 60fps throttle
-        }
-    }, { passive: true });
+    // Performance optimization: Removed window scroll throttle (not needed - using container scroll)
+    // The canvas-scroll-area scroll event is already optimized with passive listener
 
     // Mobile optimization: Disable parallax on mobile for better performance
     if (window.innerWidth < 768) {
         document.querySelectorAll('.parallax-item').forEach(function(elem) {
             elem.classList.remove('parallax-item');
+            elem.style.transform = '';
         });
     }
 

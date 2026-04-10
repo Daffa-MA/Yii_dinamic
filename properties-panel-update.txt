@@ -1,0 +1,101 @@
+// NEW PROPERTIES PANEL WITH JSON EDITOR
+<div class="properties-tabs">
+    <div class="properties-tab active" data-tab="content">Content</div>
+    <div class="properties-tab" data-tab="style">Style</div>
+    <div class="properties-tab" data-tab="advanced">Advanced</div>
+    <div class="properties-tab" data-tab="json">JSON</div>
+</div>
+
+// ADDITIONAL INPUT EVENTS FOR CUSTOM PADDING/RADIUS
+document.getElementById('prop-padding').addEventListener('change', function() {
+    const customField = document.getElementById('padding-custom-field');
+    customField.style.display = this.value === 'custom' ? '' : 'none';
+    if (this.value !== 'custom') syncProperty();
+});
+
+document.getElementById('prop-radius').addEventListener('change', function() {
+    const customField = document.getElementById('radius-custom-field');
+    customField.style.display = this.value === 'custom' ? '' : 'none';
+    if (this.value !== 'custom') syncProperty();
+});
+
+['prop-padding-custom', 'prop-radius-custom', 'prop-shadow'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', syncProperty);
+});
+
+// JSON EDITOR HANDLING
+document.getElementById('btn-apply-json').addEventListener('click', function() {
+    const jsonText = document.getElementById('prop-json').value;
+    try {
+        const parsed = JSON.parse(jsonText);
+        blocks[selectedIndex] = Object.assign(blocks[selectedIndex], parsed);
+        refreshAllBlocks();
+        selectBlock(selectedIndex);
+        saveState();
+        alert('✓ JSON applied successfully!');
+    } catch (e) {
+        alert('❌ Invalid JSON: ' + e.message);
+    }
+});
+
+// PROPERTIES TAB SWITCHING WITH JSON SUPPORT
+document.querySelectorAll('.properties-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+        const tabName = this.dataset.tab;
+        document.querySelectorAll('.properties-tab').forEach(el => el.classList.remove('active'));
+        this.classList.add('active');
+        
+        document.querySelectorAll('.props-tab').forEach(el => el.style.display = 'none');
+        document.getElementById('props-' + tabName).style.display = '';
+        
+        // Populate JSON tab when opened
+        if (tabName === 'json' && selectedIndex >= 0) {
+            document.getElementById('prop-json').value = JSON.stringify(blocks[selectedIndex], null, 2);
+        }
+    });
+});
+
+// UPDATE SYNC FUNCTION
+function syncProperty() {
+    if (selectedIndex < 0) return;
+    const block = blocks[selectedIndex];
+    
+    block.label = document.getElementById('prop-label').value;
+    block.bgColor = document.getElementById('prop-bg-color').value;
+    block.color = document.getElementById('prop-text-color').value;
+    block.padding = document.getElementById('prop-padding').value;
+    if (block.padding === 'custom') {
+        block.paddingValue = parseInt(document.getElementById('prop-padding-custom').value) || 16;
+    }
+    
+    block.radius = document.getElementById('prop-radius').value;
+    if (block.radius === 'custom') {
+        block.radiusValue = parseInt(document.getElementById('prop-radius-custom').value) || 8;
+    }
+    
+    block.align = document.getElementById('prop-align').value;
+    block.shadow = document.getElementById('prop-shadow').value || 'none';
+    block.hidden = document.getElementById('prop-hidden').checked;
+    block.cssClass = document.getElementById('prop-class').value;
+    block.customCSS = document.getElementById('prop-css').value;
+
+    const desc = document.getElementById('prop-desc').value;
+    if (block.content !== undefined) block.content = desc;
+    if (block.description !== undefined) block.description = desc;
+    if (block.subtitle !== undefined) block.subtitle = desc;
+    if (block.text !== undefined && !block.content) block.text = desc;
+
+    const url = document.getElementById('prop-url').value;
+    if (block.url !== undefined) block.url = url;
+    if (block.buttonUrl !== undefined) block.buttonUrl = url;
+    if (block.src !== undefined && !block.image) block.src = url;
+
+    const img = document.getElementById('prop-image').value;
+    if (block.src !== undefined) block.src = img;
+    if (block.image !== undefined) block.image = img;
+
+    refreshAllBlocks();
+    selectBlock(selectedIndex);
+    saveState();
+}

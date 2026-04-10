@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir *)",
+      "Bash(php *)",
+      "Bash(findstr *)",
+      "Bash(dir *)",
+      "Bash(mysql *)",
+      "Bash(where *)",
+      "Bash(tasklist)",
+      "Bash(\"c:\\laragon\\bin\\mysql\\mysql-8.4.3-winx64\\bin\\mysql.exe\" *)",
+      "Bash(\"c:\\laragon\\bin\\mysql\\mysql-8.0.35-winx64\\bin\\mysql.exe\" *)",
+      "Bash(mysql.exe *)",
+      "Bash(netstat *)",
+      "Bash(\"c:\\laragon\\bin\\php\\php-8.3.30-win32-vs16-x64\\php.exe\" *)",
+      "Bash(taskkill *)",
+      "WebFetch(localhost)",
+      "Bash(curl *)",
+      "Bash(start *)",
+      "Bash(timeout *)",
+      "Bash(del *)",
+      "Bash(powershell *)",
+      "Bash(copy *)"
+    ]
+  },
+  "$version": 3
+}

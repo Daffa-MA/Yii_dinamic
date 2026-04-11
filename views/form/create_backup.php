@@ -19,34 +19,24 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
 <style>
     :root {
-            --primary: #0276ff;
-            --primary-light: #3b95ff;
-            --primary-dark: #005fcc;
-            --success: #30a46c;
-            --warning: #f5a623;
-            --danger: #e5484d;
-            --info: #3b82f6;
-            --sidebar-width: 280px;
-            --right-sidebar-width: 320px;
-            --toolbar-height: 56px;
-            --puck-bg: #f3f3f6;
-            --puck-surface: #ffffff;
-            --puck-border: #e2e2e8;
-            --puck-border-hover: #d2d2d8;
-            --puck-text: #1a1a24;
-            --puck-text-secondary: #6b6b7b;
-            --puck-text-muted: #9e9eae;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-600: #4b5563;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --puck-accent: rgba(2, 118, 255, 0.12);
-            --puck-accent-hover: rgba(2, 118, 255, 0.20);
-        }
+        --primary: #6366f1;
+        --primary-light: #818cf8;
+        --primary-dark: #4f46e5;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --info: #3b82f6;
+        --sidebar-width: 300px;
+        --toolbar-height: 60px;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-600: #4b5563;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+    }
 
     * {
         box-sizing: border-box;
@@ -195,8 +185,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     .builder-main {
         display: flex;
         flex: 1;
-        overflow: auto;
-        min-height: 0;
+        overflow: hidden;
     }
 
     /* ============ LEFT SIDEBAR - BLOCKS ============ */
@@ -276,7 +265,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     .sidebar-categories {
         flex: 1;
         overflow-y: auto;
-        padding: 6px 6px;
+        padding: 10px 8px;
     }
 
     .block-category {
@@ -344,11 +333,11 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     .block-item:hover {
-            border-color: var(--primary);
-            background: var(--puck-accent);
-            transform: translateX(4px);
-            box-shadow: 0 2px 8px var(--puck-accent-hover);
-        }
+        border-color: var(--primary);
+        background: linear-gradient(135deg, #f5f3ff, white);
+        transform: translateX(4px);
+        box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
+    }
 
     .block-item:active {
         cursor: grabbing;
@@ -373,7 +362,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     .block-item:hover .block-item-icon {
-        background: var(--primary);
+        background: linear-gradient(135deg, var(--primary), var(--primary-light));
         color: white;
         transform: scale(1.1);
     }
@@ -408,8 +397,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     /* ============ CENTER CANVAS ============ */
     .builder-canvas {
         flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
         background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
@@ -417,16 +405,16 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     .builder-canvas.drag-over {
-        background: linear-gradient(to bottom, var(--puck-accent), rgba(2, 118, 255, 0.05));
+        background: linear-gradient(to bottom, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.05));
     }
 
     .canvas-scroll-area {
         flex: 1;
         overflow-y: auto;
         overflow-x: hidden;
-        padding: 24px 20px;
-        display: block;
-        min-height: 0;
+        padding: 48px 40px;
+        display: flex;
+        justify-content: center;
     }
 
     .canvas-scroll-area::-webkit-scrollbar {
@@ -452,11 +440,10 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         background: white;
         border-radius: 16px;
         box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
-        min-height: 500px;
+        min-height: 750px;
         transition: all 0.3s ease;
-        overflow: visible;
-        height: auto;
-        margin: 0 auto;
+        overflow: hidden;
+        flex-shrink: 0;
     }
 
     .canvas-wrapper.tablet {
@@ -468,7 +455,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     .canvas-header {
-        padding: 16px 24px;
+        padding: 28px 40px;
         border-bottom: 1px solid var(--gray-100);
         background: white;
     }
@@ -495,12 +482,9 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     .canvas-body {
-        padding: 24px 20px;
-        min-height: 400px;
-        max-height: none;
+        padding: 48px 40px;
+        min-height: 600px;
         transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
-        overflow-y: visible;
-        height: auto;
     }
 
     .canvas-empty {
@@ -1348,7 +1332,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     .properties-content {
         flex: 1;
         overflow-y: auto;
-        padding: 16px 18px 32px 18px;
+        padding: 22px 24px 40px 24px;
     }
 
     .property-section {

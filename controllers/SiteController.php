@@ -18,10 +18,10 @@ class SiteController extends Controller
         return [
             'access' => [
                 'class' => \yii\filters\AccessControl::class,
-                'only' => ['logout', 'dashboard'],
+                'only' => ['logout', 'dashboard', 'profile', 'change-password'],
                 'rules' => [
                     [
-                        'actions' => ['logout', 'dashboard'],
+                        'actions' => ['logout', 'dashboard', 'profile', 'change-password'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -30,7 +30,7 @@ class SiteController extends Controller
             'verbs' => [
                 'class' => \yii\filters\VerbFilter::class,
                 'actions' => [
-                    'logout' => ['post'],
+                    'logout' => ['post', 'get'],
                 ],
             ],
         ];
@@ -62,7 +62,7 @@ class SiteController extends Controller
     public function actionDashboard()
     {
         $userId = Yii::$app->user->id;
-        
+
         // Statistics
         $totalForms = Form::find()->where(['user_id' => $userId])->count();
         $totalSubmissions = FormSubmission::find()
@@ -109,12 +109,12 @@ class SiteController extends Controller
     public function actionLogin()
     {
         if (!Yii::$app->user->isGuest) {
-            return $this->goHome();
+            return $this->redirect(['dashboard']);
         }
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->goBack();
+            return $this->redirect(['dashboard']);
         }
 
         $model->password = '';
@@ -128,8 +128,18 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
-        Yii::$app->user->logout();
-        return $this->goHome();
+        // Destroy identity from session
+        Yii::$app->user->logout(true);
+
+        // Clear session completely
+        Yii::$app->session->destroy();
+
+        // Clear cookies
+        $cookies = Yii::$app->response->cookies;
+        $cookies->remove('_identity');
+        $cookies->remove('_csrf');
+
+        return $this->redirect(['site/login']);
     }
 
     /**

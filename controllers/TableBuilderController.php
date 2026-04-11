@@ -56,18 +56,24 @@ class TableBuilderController extends Controller
         $model->charset = 'utf8mb4';
         $model->collation = 'utf8mb4_unicode_ci';
 
+        // Preserve column data for re-rendering on validation failure
+        $savedColumns = [];
+
         if ($model->load(Yii::$app->request->post())) {
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
             if (is_string($columns)) {
                 $columns = json_decode($columns, true) ?: [];
             }
-            
+
+            // Save columns for restoring on validation failure
+            $savedColumns = $columns;
+
             try {
                 if ($model->save()) {
                     $columnErrors = [];
                     $savedCount = 0;
-                    
+
                     foreach ($columns as $index => $colData) {
                         if (!empty($colData['name']) && !empty($colData['type'])) {
                             $column = new DbTableColumn();
@@ -83,7 +89,7 @@ class TableBuilderController extends Controller
                             $column->default_value = $colData['default_value'] ?: null;
                             $column->comment = $colData['comment'] ?: null;
                             $column->sort_order = $index;
-                            
+
                             // Check if save fails and collect errors
                             if (!$column->save()) {
                                 $columnErrors[] = "Column '{$colData['name']}': " . implode(', ', $column->getErrorSummary(true));
@@ -92,21 +98,26 @@ class TableBuilderController extends Controller
                             }
                         }
                     }
-                    
+
                     // If there were column save errors, show them
                     if (!empty($columnErrors)) {
                         Yii::$app->session->setFlash('warning', "Table created but some columns had errors:<br>" . implode('<br>', $columnErrors));
                     } else {
                         Yii::$app->session->setFlash('success', "Table created successfully with $savedCount column(s)! Click 'Execute SQL' to create it in database.");
                     }
-                    
+
                     return $this->redirect(['view', 'id' => $model->id]);
+                } else {
+                    // Model validation failed - show error and preserve columns
+                    Yii::$app->session->setFlash('error', 'Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
                 }
             } catch (\yii\db\IntegrityException $e) {
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
                     $model->addError('name', 'A table with this name already exists. Please choose a different name.');
+                    Yii::$app->session->setFlash('error', 'A table with this name already exists. Please choose a different name.');
                 } else {
                     $model->addError('name', 'Database error: ' . $e->getMessage());
+                    Yii::$app->session->setFlash('error', 'Database error: ' . $e->getMessage());
                 }
             } catch (\Exception $e) {
                 Yii::$app->session->setFlash('error', 'Error: ' . $e->getMessage());
@@ -115,6 +126,7 @@ class TableBuilderController extends Controller
 
         return $this->render('create', [
             'model' => $model,
+            'savedColumns' => $savedColumns,
         ]);
     }
 

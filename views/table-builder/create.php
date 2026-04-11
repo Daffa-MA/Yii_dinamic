@@ -371,6 +371,13 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
 
     <?php $form = ActiveForm::begin(['id' => 'table-form', 'enableClientValidation' => false]); ?>
 
+    <?php if (!empty($model->getFirstError('name'))): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Validation Error:</strong> <?= $model->getFirstError('name') ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    <?php endif; ?>
+
     <div class="builder-container">
         <!-- Table Info -->
         <div class="table-info-section">
@@ -522,6 +529,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const columnsList = document.getElementById('columns-list');
     const columnsJson = document.getElementById('columns-json');
+
+    // Restore columns from POST data if validation failed
+    const savedColumns = <?= !empty($savedColumns) ? \yii\helpers\Json::encode($savedColumns) : '[]' ?>;
+    if (savedColumns.length > 0) {
+        columns = savedColumns;
+        columns.forEach(function(col, i) {
+            addColumnToDOM(col, i);
+        });
+        updateEmptyState();
+        updateSchema();
+    }
 
     // Initialize Sortable ONCE
     sortableInstance = new Sortable(columnsList, {

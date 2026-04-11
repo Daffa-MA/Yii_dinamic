@@ -100,6 +100,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     <?php $this->beginBody() ?>
 
     <header id="header">
+        <?php if ($this->context->route !== 'site/dashboard'): ?>
         <?php
         NavBar::begin([
             'brandLabel' => '<i class="fas fa-rocket"></i> ' . Yii::$app->name,
@@ -128,6 +129,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
         ]);
         NavBar::end();
         ?>
+        <?php endif; ?>
     </header>
 
     <main id="main" class="flex-shrink-0" role="main">

@@ -100,7 +100,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     <?php $this->beginBody() ?>
 
     <header id="header">
-        <?php if ($this->context->route !== 'site/dashboard'): ?>
+        <?php if (Yii::$app->user->isGuest || in_array($this->context->route, ['site/login', 'site/error'])): ?>
         <?php
         NavBar::begin([
             'brandLabel' => '<i class="fas fa-rocket"></i> ' . Yii::$app->name,
@@ -109,18 +109,21 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
         ]);
         echo Nav::widget([
             'options' => ['class' => 'navbar-nav ms-auto'],
-            'items' => [
-                ['label' => '<i class="fas fa-home"></i> Home', 'url' => ['/site/index'], 'encode' => false],
-                ['label' => '<i class="fas fa-chart-line"></i> Dashboard', 'url' => ['/site/dashboard'], 'encode' => false],
-                ['label' => '<i class="fas fa-file-alt"></i> Forms', 'url' => ['/form/index'], 'encode' => false],
-                ['label' => '<i class="fas fa-table"></i> Tables', 'url' => ['/table-builder/index'], 'encode' => false],
-                Yii::$app->user->isGuest
-                    ? ['label' => '<i class="fas fa-sign-in-alt"></i> Login', 'url' => ['/site/login'], 'encode' => false]
-                    : '<li class="nav-item"><a class="nav-link" href="/site/profile"><i class="fas fa-user-circle"></i> Profile</a></li>'
+            'items' => Yii::$app->user->isGuest
+                ? [
+                    ['label' => '<i class="fas fa-home"></i> Home', 'url' => ['/site/index'], 'encode' => false],
+                    ['label' => '<i class="fas fa-sign-in-alt"></i> Login', 'url' => ['/site/login'], 'encode' => false]
+                  ]
+                : [
+                    ['label' => '<i class="fas fa-home"></i> Home', 'url' => ['/site/index'], 'encode' => false],
+                    ['label' => '<i class="fas fa-chart-line"></i> Dashboard', 'url' => ['/site/dashboard'], 'encode' => false],
+                    ['label' => '<i class="fas fa-file-alt"></i> Forms', 'url' => ['/form/index'], 'encode' => false],
+                    ['label' => '<i class="fas fa-table"></i> Tables', 'url' => ['/table-builder/index'], 'encode' => false],
+                    '<li class="nav-item"><a class="nav-link" href="/site/profile"><i class="fas fa-user-circle"></i> Profile</a></li>'
                     . '<li class="nav-item">'
                     . '<a class="nav-link" href="/site/logout" data-method="post" id="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>'
                     . '</li>'
-            ]
+                  ]
         ]);
         NavBar::end();
         ?>
@@ -138,7 +141,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     </main>
 
     <footer id="footer" class="mt-auto">
-        <div style="background: linear-gradient(180deg, #ffffff 0%, #f8f9ff 100%);">
+        <div style="background: linear-gradient(180deg, #ffffff 0%, #e5e9f0 100%);">
             <div class="container" style="max-width: 1400px;">
                 <div style="border-top: 1px solid rgba(79, 70, 229, 0.1); padding: 32px 0;">
                     <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">

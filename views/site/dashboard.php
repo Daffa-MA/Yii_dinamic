@@ -37,7 +37,7 @@ $this->title = 'Dashboard';
                     "primary-fixed-dim": "#c3c0ff",
                     "on-tertiary-fixed": "#351000",
                     "primary": "#3525cd",
-                    "background": "#f8f9ff",
+                    "background": "#e5e9f0",
                     "inverse-surface": "#213145",
                     "surface-container-low": "#eff4ff",
                     "surface-container-high": "#dce9ff",
@@ -51,7 +51,7 @@ $this->title = 'Dashboard';
                     "surface-tint": "#4d44e3",
                     "on-primary": "#ffffff",
                     "on-tertiary-fixed-variant": "#7b2f00",
-                    "surface": "#f8f9ff",
+                    "surface": "#e5e9f0",
                     "primary-container": "#4f46e5",
                     "surface-container-lowest": "#ffffff",
                     "error": "#ba1a1a",
@@ -60,7 +60,7 @@ $this->title = 'Dashboard';
                     "surface-container": "#e5eeff",
                     "primary-fixed": "#e2dfff",
                     "on-primary-fixed-variant": "#3323cc",
-                    "surface-bright": "#f8f9ff",
+                    "surface-bright": "#e5e9f0",
                     "secondary": "#006c49",
                     "tertiary-container": "#a44100",
                     "on-error-container": "#93000a",
@@ -97,7 +97,7 @@ $this->title = 'Dashboard';
 
 <body class="bg-surface font-body text-on-surface">
 <!-- Top Navigation Bar -->
-<nav class="fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#f8f9ff]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)] tonal-transition">
+<nav class="fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)] tonal-transition">
     <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
         <span class="material-symbols-outlined text-outline text-[20px]">search</span>
         <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text"/>
@@ -115,7 +115,7 @@ $this->title = 'Dashboard';
 </nav>
 
 <!-- Sidebar Navigation -->
-<aside class="fixed left-0 top-0 pt-24 h-screen w-64 border-r border-slate-200/15 bg-[#f8f9ff] flex flex-col py-6 px-4">
+<aside class="fixed left-0 top-0 pt-24 h-screen w-64 border-r border-slate-200/15 bg-white flex flex-col py-6 px-4">
     <div class="flex items-center gap-3 px-4 mb-8">
         <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white">
             <span class="material-symbols-outlined text-[18px]" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
@@ -126,32 +126,28 @@ $this->title = 'Dashboard';
         </div>
     </div>
     <nav class="flex-1 space-y-1">
+        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['site/index']) ?>">
+            <span class="material-symbols-outlined">home</span>
+            Home
+        </a>
         <a class="flex items-center gap-3 bg-[#4f46e5]/10 text-[#4f46e5] rounded-xl px-4 py-3 font-medium transition-all group" href="<?= \yii\helpers\Url::to(['site/dashboard']) ?>">
             <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
             Dashboard
         </a>
-        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['site/forms']) ?>">
+        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['form/index']) ?>">
             <span class="material-symbols-outlined">description</span>
             Forms
         </a>
-        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['site/submissions']) ?>">
-            <span class="material-symbols-outlined">assignment_turned_in</span>
-            Submissions
+        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>">
+            <span class="material-symbols-outlined">table_chart</span>
+            Tables
         </a>
-        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['site/analytics']) ?>">
-            <span class="material-symbols-outlined">leaderboard</span>
-            Analytics
-        </a>
-        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['site/settings']) ?>">
-            <span class="material-symbols-outlined">settings</span>
-            Settings
+        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all group" href="<?= \yii\helpers\Url::to(['site/profile']) ?>">
+            <span class="material-symbols-outlined">person</span>
+            Profile
         </a>
     </nav>
     <div class="mt-auto space-y-1 pt-6 border-t border-slate-100">
-        <a class="flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all" href="<?= \yii\helpers\Url::to(['site/support']) ?>">
-            <span class="material-symbols-outlined">help</span>
-            Support
-        </a>
         <?= Html::a('<span class="material-symbols-outlined">logout</span> Sign Out', ['site/logout'], [
             'class' => 'flex items-center gap-3 text-slate-600 px-4 py-3 hover:bg-slate-100 rounded-xl transition-all',
             'data' => [
@@ -168,7 +164,12 @@ $this->title = 'Dashboard';
         <!-- Header Section -->
         <div class="flex justify-between items-end mb-10">
             <div>
-                <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight mb-2">Workspace Overview</h1>
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 bg-primary-container/10 rounded-xl flex items-center justify-center">
+                        <span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+                    </div>
+                    <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">Workspace Overview</h1>
+                </div>
                 <p class="text-on-surface-variant font-medium">Welcome back, your forms are performing at <span class="text-secondary font-bold">+12.4%</span> this week.</p>
             </div>
         </div>
@@ -176,57 +177,61 @@ $this->title = 'Dashboard';
         <!-- Bento Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
             <!-- Card 1: Indigo -->
-            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border-t-2 border-primary-container/20">
-                <div class="flex justify-between items-start mb-4 relative z-10">
-                    <div class="p-3 bg-primary-container/10 rounded-xl">
+            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border border-outline-variant/30 hover:border-primary-container/40 transition-all">
+                <div class="h-1 bg-gradient-to-r from-primary-container to-primary absolute top-0 left-0 right-0"></div>
+                <div class="flex justify-between items-start mb-4 relative z-10 mt-2">
+                    <div class="p-3 bg-gradient-to-br from-primary-container/10 to-primary/10 rounded-xl border border-primary-container/20">
                         <span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">description</span>
                     </div>
-                    <span class="text-xs font-bold text-primary-container px-2 py-1 bg-primary-container/5 rounded-full">ACTIVE</span>
+                    <span class="text-xs font-bold text-primary-container px-2 py-1 bg-primary-container/10 rounded-full">ACTIVE</span>
                 </div>
                 <p class="text-sm font-medium text-on-surface-variant mb-1 relative z-10">Total Forms</p>
-                <h3 class="text-3xl font-extrabold text-on-surface font-headline relative z-10"><?= $totalForms ?></h3>
+                <h3 class="text-3xl font-extrabold text-primary-container font-headline relative z-10"><?= $totalForms ?></h3>
                 <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
                     <span class="material-symbols-outlined text-9xl">description</span>
                 </div>
             </div>
             <!-- Card 2: Emerald -->
-            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border-t-2 border-secondary/20">
-                <div class="flex justify-between items-start mb-4 relative z-10">
-                    <div class="p-3 bg-secondary/10 rounded-xl">
+            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border border-outline-variant/30 hover:border-secondary/40 transition-all">
+                <div class="h-1 bg-gradient-to-r from-secondary to-emerald-400 absolute top-0 left-0 right-0"></div>
+                <div class="flex justify-between items-start mb-4 relative z-10 mt-2">
+                    <div class="p-3 bg-gradient-to-br from-secondary/10 to-emerald-400/10 rounded-xl border border-secondary/20">
                         <span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
                     </div>
-                    <span class="text-xs font-bold text-secondary px-2 py-1 bg-secondary/5 rounded-full">+8.2%</span>
+                    <span class="text-xs font-bold text-secondary px-2 py-1 bg-secondary/10 rounded-full">+8.2%</span>
                 </div>
                 <p class="text-sm font-medium text-on-surface-variant mb-1 relative z-10">Total Submissions</p>
-                <h3 class="text-3xl font-extrabold text-on-surface font-headline relative z-10"><?= $totalSubmissions ?></h3>
+                <h3 class="text-3xl font-extrabold text-secondary font-headline relative z-10"><?= $totalSubmissions ?></h3>
                 <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
                     <span class="material-symbols-outlined text-9xl">assignment_turned_in</span>
                 </div>
             </div>
             <!-- Card 3: Amber/Tertiary -->
-            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border-t-2 border-tertiary/20">
-                <div class="flex justify-between items-start mb-4 relative z-10">
-                    <div class="p-3 bg-tertiary/10 rounded-xl">
+            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border border-outline-variant/30 hover:border-tertiary/40 transition-all">
+                <div class="h-1 bg-gradient-to-r from-tertiary to-amber-400 absolute top-0 left-0 right-0"></div>
+                <div class="flex justify-between items-start mb-4 relative z-10 mt-2">
+                    <div class="p-3 bg-gradient-to-br from-tertiary/10 to-amber-400/10 rounded-xl border border-tertiary/20">
                         <span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">bolt</span>
                     </div>
-                    <span class="text-xs font-bold text-tertiary px-2 py-1 bg-tertiary/5 rounded-full">REALTIME</span>
+                    <span class="text-xs font-bold text-tertiary px-2 py-1 bg-tertiary/10 rounded-full">REALTIME</span>
                 </div>
                 <p class="text-sm font-medium text-on-surface-variant mb-1 relative z-10">Today's Submissions</p>
-                <h3 class="text-3xl font-extrabold text-on-surface font-headline relative z-10"><?= $todaySubmissions ?></h3>
+                <h3 class="text-3xl font-extrabold text-tertiary font-headline relative z-10"><?= $todaySubmissions ?></h3>
                 <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
                     <span class="material-symbols-outlined text-9xl">bolt</span>
                 </div>
             </div>
             <!-- Card 4: Blue -->
-            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border-t-2 border-surface-tint/20">
-                <div class="flex justify-between items-start mb-4 relative z-10">
-                    <div class="p-3 bg-surface-tint/10 rounded-xl">
+            <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border border-outline-variant/30 hover:border-surface-tint/40 transition-all">
+                <div class="h-1 bg-gradient-to-r from-surface-tint to-blue-400 absolute top-0 left-0 right-0"></div>
+                <div class="flex justify-between items-start mb-4 relative z-10 mt-2">
+                    <div class="p-3 bg-gradient-to-br from-surface-tint/10 to-blue-400/10 rounded-xl border border-surface-tint/20">
                         <span class="material-symbols-outlined text-surface-tint" style="font-variation-settings: 'FILL' 1;">new_releases</span>
                     </div>
-                    <span class="text-xs font-bold text-surface-tint px-2 py-1 bg-surface-tint/5 rounded-full">RECENT</span>
+                    <span class="text-xs font-bold text-surface-tint px-2 py-1 bg-surface-tint/10 rounded-full">RECENT</span>
                 </div>
                 <p class="text-sm font-medium text-on-surface-variant mb-1 relative z-10">Draft Forms</p>
-                <h3 class="text-3xl font-extrabold text-on-surface font-headline relative z-10"><?= count($recentForms) ?></h3>
+                <h3 class="text-3xl font-extrabold text-surface-tint font-headline relative z-10"><?= count($recentForms) ?></h3>
                 <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
                     <span class="material-symbols-outlined text-9xl">new_releases</span>
                 </div>
@@ -237,7 +242,7 @@ $this->title = 'Dashboard';
         <div class="mb-14">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-xl font-bold font-headline">My Forms</h2>
-                <a href="<?= \yii\helpers\Url::to(['site/forms']) ?>" class="text-sm font-semibold text-primary-container flex items-center gap-1 hover:underline no-underline">
+                <a href="<?= \yii\helpers\Url::to(['form/index']) ?>" class="text-sm font-semibold text-primary-container flex items-center gap-1 hover:underline no-underline">
                     View All <span class="material-symbols-outlined text-sm">arrow_forward</span>
                 </a>
             </div>
@@ -261,7 +266,7 @@ $this->title = 'Dashboard';
                         $completionRate = $submissionCount > 0 ? '88%' : '—';
                         ?>
                         <!-- Form Card -->
-                        <div class="bg-surface-container-lowest rounded-xl overflow-hidden group hover:shadow-[0_24px_48px_rgba(11,28,48,0.08)] transition-all border-t border-outline-variant/10">
+                        <div class="bg-surface-container-lowest rounded-xl overflow-hidden group hover:shadow-[0_24px_48px_rgba(11,28,48,0.12)] transition-all border border-outline-variant/30 hover:border-primary-container/30">
                             <div class="p-6">
                                 <div class="flex justify-between items-start mb-6">
                                     <div class="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
@@ -279,9 +284,9 @@ $this->title = 'Dashboard';
                                         <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Fields</p>
                                         <p class="text-lg font-bold font-headline"><?= $blockCount ?></p>
                                     </div>
-                                    <div class="form-card-meta-item">
-                                        <i class="bi bi-sliders"></i>
-                                        <span><?= count(json_decode($form->schema_js ?? '[]', true)) ?> Fields</span>
+                                    <div>
+                                        <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Responses</p>
+                                        <p class="text-lg font-bold font-headline"><?= number_format($submissionCount) ?></p>
                                     </div>
                                     <div>
                                         <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Completion</p>
@@ -289,42 +294,33 @@ $this->title = 'Dashboard';
                                     </div>
                                 </div>
                             </div>
-                            <div class="form-card-body">
-                                <?php
-                                $blocks = json_decode($form->schema_js ?? '[]', true);
-                                $blockCount = count($blocks);
-                                ?>
-                                <p class="text-muted" style="font-size: 13px; margin: 0;">
-                                    <strong><?= $blockCount ?></strong> block<?= $blockCount !== 1 ? 's' : '' ?> configured and ready to use
-                                </p>
-                            </div>
-                            <div class="form-card-footer">
-                                <?= Html::a(
-                                    '<i class="bi bi-eye"></i> View',
-                                    ['form/view', 'id' => $form->id],
-                                    ['class' => 'form-card-btn']
-                                ) ?>
-                                <?= Html::a(
-                                    '<i class="bi bi-pencil-square"></i> Edit',
-                                    ['form/update', 'id' => $form->id],
-                                    ['class' => 'form-card-btn']
-                                ) ?>
-                                <?= Html::a(
-                                    '<i class="bi bi-play-fill"></i> Fill',
-                                    ['form/render', 'id' => $form->id],
-                                    ['class' => 'form-card-btn']
-                                ) ?>
-                                <?= Html::a(
-                                    '<i class="bi bi-trash"></i> Delete',
-                                    ['form/delete', 'id' => $form->id],
-                                    [
-                                        'class' => 'form-card-btn form-card-btn-delete',
-                                        'data' => [
-                                            'confirm' => 'Are you sure you want to delete this form? This action cannot be undone.',
-                                            'method' => 'post',
-                                        ]
+                            <div class="bg-surface-container-low/30 px-4 py-4 flex items-center justify-between border-t border-surface-container">
+                                <div class="flex gap-1 flex-wrap">
+                                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">visibility</span> View', ['form/view', 'id' => $form->id], [
+                                        'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
+                                        'title' => 'View Form Details'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">edit</span> Edit', ['form/update', 'id' => $form->id], [
+                                        'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
+                                        'title' => 'Edit Form'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">input</span> Fill', ['form/render', 'id' => $form->id], [
+                                        'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-secondary hover:text-secondary transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
+                                        'title' => 'Fill Form'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Data', ['form/submissions', 'id' => $form->id], [
+                                        'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
+                                        'title' => 'View Submissions'
+                                    ]) ?>
+                                </div>
+                                <?= Html::a('<span class="material-symbols-outlined text-[18px]">delete</span>', ['form/delete', 'id' => $form->id], [
+                                    'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all inline-flex no-underline text-on-surface-variant',
+                                    'title' => 'Delete Form',
+                                    'data' => [
+                                        'confirm' => 'Are you sure you want to delete this form? All submissions will be lost.',
+                                        'method' => 'post',
                                     ]
-                                ) ?>
+                                ]) ?>
                             </div>
                         </div>
                     <?php endforeach; ?>

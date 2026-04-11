@@ -500,7 +500,7 @@ $this->title = 'Dashboard';
                                     </div>
                                     <div class="form-card-meta-item">
                                         <i class="bi bi-sliders"></i>
-                                        <span><?= count(json_decode($form->schema_json ?? '[]', true)) ?> Fields</span>
+                                        <span><?= count(json_decode($form->schema_js ?? '[]', true)) ?> Fields</span>
                                     </div>
                                     <div class="form-card-meta-item">
                                         <i class="bi bi-cursor-text"></i>
@@ -509,8 +509,8 @@ $this->title = 'Dashboard';
                                 </div>
                             </div>
                             <div class="form-card-body">
-                                <?php 
-                                $blocks = json_decode($form->schema_json ?? '[]', true);
+                                <?php
+                                $blocks = json_decode($form->schema_js ?? '[]', true);
                                 $blockCount = count($blocks);
                                 ?>
                                 <p class="text-muted" style="font-size: 13px; margin: 0;">

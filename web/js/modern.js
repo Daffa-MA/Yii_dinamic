@@ -228,9 +228,9 @@ class FormBuilderUI {
             label: field.querySelector('[placeholder*="Label"]')?.value || 'Field',
             required: field.querySelector('input[type="checkbox"]')?.checked || false,
         }));
-        
+
         // Update hidden input or send to server
-        const schemaInput = document.querySelector('input[name="FormSchema"]');
+        const schemaInput = document.querySelector('input[name="Form[schema_js]"]') || document.getElementById('schema-js');
         if (schemaInput) {
             schemaInput.value = JSON.stringify(schema);
         }

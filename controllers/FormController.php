@@ -64,16 +64,11 @@ class FormController extends Controller
     {
         $model = new Form();
         $model->user_id = Yii::$app->user->id;
-        $model->schema_json = '[]';
+        $model->schema_js = '[]';
 
-        if ($model->load(Yii::$app->request->post())) {
-            $schema = Yii::$app->request->post('FormSchema', '[]');
-            $model->schema_json = $schema;
-            
-            if ($model->save()) {
-                Yii::$app->session->setFlash('success', 'Form created successfully!');
-                return $this->redirect(['view', 'id' => $model->id]);
-            }
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            Yii::$app->session->setFlash('success', 'Form created successfully!');
+            return $this->redirect(['view', 'id' => $model->id]);
         }
 
         return $this->render('create', [
@@ -88,14 +83,9 @@ class FormController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post())) {
-            $schema = Yii::$app->request->post('FormSchema', '[]');
-            $model->schema_json = $schema;
-            
-            if ($model->save()) {
-                Yii::$app->session->setFlash('success', 'Form updated successfully!');
-                return $this->redirect(['view', 'id' => $model->id]);
-            }
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            Yii::$app->session->setFlash('success', 'Form updated successfully!');
+            return $this->redirect(['view', 'id' => $model->id]);
         }
 
         return $this->render('update', [
@@ -212,17 +202,17 @@ class FormController extends Controller
     public function actionDuplicate($id)
     {
         $model = $this->findModel($id);
-        
+
         $newForm = new Form();
         $newForm->user_id = Yii::$app->user->id;
         $newForm->name = $model->name . ' (Copy)';
-        $newForm->schema_json = $model->schema_json;
-        
+        $newForm->schema_js = $model->schema_js;
+
         if ($newForm->save()) {
             Yii::$app->session->setFlash('success', 'Form duplicated successfully!');
             return $this->redirect(['view', 'id' => $newForm->id]);
         }
-        
+
         Yii::$app->session->setFlash('error', 'Failed to duplicate form.');
         return $this->redirect(['view', 'id' => $id]);
     }

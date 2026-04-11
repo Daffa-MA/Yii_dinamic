@@ -2343,7 +2343,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                         <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
                     </div>
 
-                    <?= Html::hiddenInput('FormSchema', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-json']) ?>
+                    <?= Html::hiddenInput('Form[schema_js]', $model->isNewRecord ? '[]' : Html::encode($model->schema_js), ['id' => 'schema-js']) ?>
                     <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
 
                     <div class="canvas-body" id="canvas-body">
@@ -2377,7 +2377,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                 <div class="properties-tab active" data-tab="content">Content</div>
                 <div class="properties-tab" data-tab="style">Style</div>
                 <div class="properties-tab" data-tab="advanced">Advanced</div>
-                <div class="properties-tab" data-tab="json">JSON</div>
+                <div class="properties-tab" data-tab="json">Script JS</div>
             </div>
             <div class="properties-content">
                 <div id="props-empty" class="text-center text-muted py-5">
@@ -2467,13 +2467,61 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                 </div>
 
                 <div id="props-json" class="props-tab" style="display:none;">
-                    <div class="property-section">
-                        <div class="property-section-title">Block JSON (Full Control)</div>
-                        <div style="font-size:11px;color:var(--gray-500);margin-bottom:12px;">Edit block as JSON for complete flexibility!</div><textarea id="prop-json" style="font-family:monospace;font-size:11px;height:280px;border:1px solid var(--gray-300);padding:12px;background:var(--gray-50);width:100%;"></textarea><button id="btn-apply-json" class="btn-toolbar" style="margin-top:12px;width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border:none;font-weight:600;">⚡ Apply JSON</button>
+                    <div class="property-section" style="padding:0;">
+                        <!-- Mode Toggle -->
+                        <div style="display:flex;gap:8px;margin-bottom:16px;background:var(--gray-100);padding:8px;border-radius:8px;">
+                            <button id="btn-mode-object" class="btn-toolbar" style="flex:1;background:var(--primary);color:white;border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;">🎨 Object Mode</button>
+                            <button id="btn-mode-code" class="btn-toolbar" style="flex:1;background:var(--gray-200);color:var(--gray-600);border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;">⚡ Code Mode</button>
+                        </div>
+
+                        <!-- Object Mode Help -->
+                        <div id="help-object-mode" style="font-size:12px;color:var(--gray-600);margin-bottom:12px;line-height:1.5;padding:0 4px;">
+                            <strong>🎨 Object Mode:</strong> Define block properties as JavaScript object
+                        </div>
+
+                        <!-- Code Mode Help -->
+                        <div id="help-code-mode" style="display:none;font-size:12px;color:var(--warning);margin-bottom:12px;line-height:1.5;background:var(--warning-light);padding:12px;border-radius:8px;">
+                            <strong>⚡ Code Mode:</strong> Write executable JavaScript code<br>
+                            💡 Use <code style="background:var(--gray-200);padding:2px 6px;border-radius:4px;font-size:11px;">this</code> to access block data<br>
+                            💡 Return HTML string or DOM element to render
+                        </div>
+
+                        <!-- Code Editor -->
+                        <div style="position:relative;margin-bottom:12px;">
+                            <textarea id="prop-json" style="font-family:'Courier New', monospace;font-size:12px;height:280px;border:1px solid var(--gray-300);padding:12px;background:var(--gray-50);width:100%;resize:vertical;border-radius:8px;line-height:1.5;tab-size:2;" placeholder="{
+  type: 'columns',
+  label: 'Columns',
+  columns: 3,
+  content: 'Your content'
+}" spellcheck="false"></textarea>
+                            <div style="position:absolute;top:8px;right:8px;font-size:10px;color:var(--gray-400);pointer-events:none;">JavaScript</div>
+                        </div>
+
+                        <!-- Code Mode Example -->
+                        <div id="code-example" style="display:none;background:var(--info-light);padding:12px;border-radius:8px;margin-bottom:12px;border-left:4px solid var(--info);">
+                            <div style="font-size:11px;font-weight:600;color:var(--info);margin-bottom:8px;">💡 Example - Custom Rendering:</div>
+                            <pre style="font-family:'Courier New',monospace;font-size:11px;margin:0;color:var(--gray-700);white-space:pre-wrap;line-height:1.5;background:var(--gray-50);padding:10px;border-radius:6px;">// Access block data
+const { columns, content } = this;
+
+// Create HTML
+let html = '&lt;div style="display:grid;grid-template-columns:repeat(' + columns + ',1fr);gap:16px;"&gt;';
+for (let i = 0; i &lt; columns; i++) {
+  html += '&lt;div style="padding:10px;border:1px solid #ccc;"&gt;' + (content || 'Col ' + (i+1)) + '&lt;/div&gt;';
+}
+html += '&lt;/div&gt;';
+
+// Return rendered HTML
+return html;</pre>
+                        </div>
+
+                        <!-- Apply Button -->
+                        <button id="btn-apply-json" class="btn-toolbar" style="width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border:none;font-weight:600;padding:12px;border-radius:8px;font-size:13px;margin-bottom:8px;">⚡ Apply Changes</button>
+                        
+                        <!-- Delete Button -->
+                        <div id="props-delete-section" class="property-section" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-200);">
+                            <button class="btn-toolbar w-100" style="border-color:var(--danger);color:var(--danger);background:var(--danger-light);" id="btn-delete-block">🗑️ Delete Block</button>
+                        </div>
                     </div>
-                </div>
-                <div id="props-delete-section" class="property-section" style="display:none;">
-                    <button class="btn-toolbar w-100" style="border-color:var(--danger);color:var(--danger);" id="btn-delete-block">🗑️ Delete Block</button>
                 </div>
             </div>
         </div>
@@ -2482,11 +2530,99 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // ===== NOTIFICATION SYSTEM =====
+        function showNotification(message, type = 'info', duration = 3000) {
+            const notification = document.createElement('div');
+            const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6';
+            
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 16px 24px;
+                background: ${bgColor};
+                color: white;
+                border-radius: 8px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                z-index: 10000;
+                font-size: 14px;
+                line-height: 1.5;
+                max-width: 400px;
+                animation: slideInRight 0.3s ease-out;
+            `;
+            notification.innerHTML = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => notification.remove(), 300);
+            }, duration);
+        }
+        
+        // Add animation styles if not present
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(400px); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOutRight {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(400px); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // ===== EDITOR MODE TOGGLE =====
+        let editorMode = 'object'; // 'object' or 'code'
+        
+        const btnModeObject = document.getElementById('btn-mode-object');
+        const btnModeCode = document.getElementById('btn-mode-code');
+        const helpObjectMode = document.getElementById('help-object-mode');
+        const helpCodeMode = document.getElementById('help-code-mode');
+        const codeExample = document.getElementById('code-example');
+        const propJson = document.getElementById('prop-json');
+        
+        function setEditorMode(mode) {
+            editorMode = mode;
+            
+            if (mode === 'object') {
+                btnModeObject.style.background = 'var(--primary)';
+                btnModeObject.style.color = 'white';
+                btnModeCode.style.background = 'var(--gray-200)';
+                btnModeCode.style.color = 'var(--gray-600)';
+                helpObjectMode.style.display = 'block';
+                helpCodeMode.style.display = 'none';
+                codeExample.style.display = 'none';
+                propJson.placeholder = '{\n  type: \'columns\',\n  label: \'Columns\',\n  columns: 3,\n  content: \'Your content\'\n}';
+            } else {
+                btnModeCode.style.background = 'var(--warning)';
+                btnModeCode.style.color = 'white';
+                btnModeObject.style.background = 'var(--gray-200)';
+                btnModeObject.style.color = 'var(--gray-600)';
+                helpObjectMode.style.display = 'none';
+                helpCodeMode.style.display = 'block';
+                codeExample.style.display = 'block';
+                propJson.placeholder = '// Write your JavaScript code here\n// Use this to access block data\n// Return HTML string or DOM element\n\nconst { columns, content } = this;\n// ... your code ...\nreturn html;';
+            }
+        }
+        
+        if (btnModeObject) {
+            btnModeObject.addEventListener('click', () => setEditorMode('object'));
+        }
+        if (btnModeCode) {
+            btnModeCode.addEventListener('click', () => setEditorMode('code'));
+        }
+        
         // ===== SAFE ELEMENT CHECK =====
         const elementsToCheck = {
             'canvas-blocks': document.getElementById('canvas-blocks'),
             'canvas-empty': document.getElementById('canvas-empty'),
-            'schema-json': document.getElementById('schema-json'),
+            'schema-js': document.getElementById('schema-js'),
             'table-selector': document.getElementById('table-selector'),
             'table-id': document.getElementById('table-id'),
             'btn-auto-generate': document.getElementById('btn-auto-generate'),
@@ -2507,7 +2643,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
         const canvasBlocks = elementsToCheck['canvas-blocks'];
         const canvasEmpty = elementsToCheck['canvas-empty'];
-        const schemaJson = elementsToCheck['schema-json'];
+        const schemaJson = elementsToCheck['schema-js'];
         const tableSelector = elementsToCheck['table-selector'];
         const tableIdInput = elementsToCheck['table-id'];
         const btnAutoGenerate = elementsToCheck['btn-auto-generate'];
@@ -3116,6 +3252,25 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         }
 
         function buildBlockHTML(block, index) {
+            // If block has custom rendered HTML, use it
+            if (block.render) {
+                return `
+                    <div class="block-header">
+                        <div class="block-type-icon"><i class="fas fa-code"></i></div>
+                        <div class="block-title">${escapeHtml(block.label || 'Custom Block')}</div>
+                        <div class="block-actions">
+                            <button class="block-action" onclick="moveBlockUp(${index})" title="Move Up"><i class="fas fa-chevron-up"></i></button>
+                            <button class="block-action" onclick="moveBlockDown(${index})" title="Move Down"><i class="fas fa-chevron-down"></i></button>
+                            <button class="block-action" onclick="duplicateBlock(${index})" title="Duplicate"><i class="fas fa-copy"></i></button>
+                            <button class="block-action btn-delete" onclick="deleteBlock(${index})" title="Delete"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div class="block-body">
+                        <div class="custom-rendered-content">${block.render}</div>
+                    </div>
+                `;
+            }
+            
             const typeIcons = {
                 container: '<i class="fas fa-box"></i>',
                 columns: '<i class="fas fa-columns"></i>',
@@ -3607,31 +3762,342 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
                 if (tabName === 'json' && selectedIndex >= 0) {
                     const jsonArea = document.getElementById('prop-json');
-                    if (jsonArea) jsonArea.value = JSON.stringify(blocks[selectedIndex], null, 2);
+                    if (jsonArea) jsonArea.value = objectToJavaScript(blocks[selectedIndex]);
                 }
             });
         });
 
-        // APPLY JSON BUTTON
+        // APPLY JAVASCRIPT/OBJECT BUTTON
         const applyJsonBtn = document.getElementById('btn-apply-json');
         if (applyJsonBtn) {
             applyJsonBtn.addEventListener('click', function() {
                 if (selectedIndex < 0) {
-                    alert('?? No block selected');
+                    alert('🔴 Please select a block first!');
                     return;
                 }
+                
+                const code = document.getElementById('prop-json').value;
+                
+                if (!code.trim()) {
+                    alert('⚠️ Please enter some properties or code!');
+                    return;
+                }
+                
                 try {
-                    const jsonText = document.getElementById('prop-json').value;
-                    const parsed = JSON.parse(jsonText);
-                    blocks[selectedIndex] = Object.assign(blocks[selectedIndex], parsed);
+                    let parsed;
+                    
+                    if (editorMode === 'code') {
+                        // CODE MODE: Execute JavaScript code
+                        parsed = executeJavaScriptCode(code, blocks[selectedIndex]);
+                    } else {
+                        // OBJECT MODE: Parse as object
+                        parsed = parseJavaScript(code);
+                    }
+                    
+                    // Merge with existing block properties
+                    blocks[selectedIndex] = Object.assign({}, blocks[selectedIndex], parsed);
+                    
+                    // If code mode and result has render function or HTML, store it
+                    if (editorMode === 'code') {
+                        blocks[selectedIndex].customCode = code;
+                    }
+                    
                     saveState();
                     refreshAllBlocks();
                     selectBlock(selectedIndex);
-                    alert('? JSON applied successfully!');
+                    
+                    // Show success notification
+                    const modeLabel = editorMode === 'code' ? 'Code' : 'Properties';
+                    showNotification('✓ ' + modeLabel + ' applied successfully!', 'success');
                 } catch (e) {
-                    alert('? Invalid JSON: ' + e.message);
+                    // Show detailed error
+                    const errorMessage = e.message.replace(/\n/g, '<br>');
+                    showNotification('<strong>❌ Invalid Input</strong><br><br>' + errorMessage, 'error', 6000);
                 }
             });
+        }
+        
+        // Helper: Execute JavaScript code with sandboxed document
+        function executeJavaScriptCode(code, blockData) {
+            // Create a sandbox container
+            const sandbox = document.createElement('div');
+            sandbox.style.display = 'none';
+            document.body.appendChild(sandbox);
+            
+            // Track created elements
+            let createdElements = [];
+            let lastReturnedValue = null;
+            
+            try {
+                // Override document methods to capture DOM creation
+                const originalCreateElement = document.createElement;
+                const originalBodyAppendChild = document.body.appendChild;
+                const originalAppendChild = Element.prototype.appendChild;
+                const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+                
+                // Mock createElement to track and redirect to sandbox
+                document.createElement = function(tagName) {
+                    const element = originalCreateElement.call(document, tagName);
+                    createdElements.push(element);
+                    
+                    // Override appendChild to add to sandbox instead of body
+                    const originalAppendChildMethod = element.appendChild.bind(element);
+                    element.appendChild = function(child) {
+                        // If trying to append to body, redirect to sandbox
+                        if (this === document.body) {
+                            return sandbox.appendChild(child);
+                        }
+                        return originalAppendChildMethod(child);
+                    };
+                    
+                    return element;
+                };
+                
+                // Mock document.body.appendChild to add to sandbox
+                document.body.appendChild = function(child) {
+                    return sandbox.appendChild(child);
+                };
+                
+                // Execute the code with blockData as 'this'
+                const fn = new Function(code);
+                const boundFn = fn.bind(blockData);
+                const result = boundFn();
+                lastReturnedValue = result;
+                
+                // Restore original methods
+                document.createElement = originalCreateElement;
+                document.body.appendChild = originalBodyAppendChild;
+                Element.prototype.appendChild = originalAppendChild;
+                
+                // Determine what to return
+                if (typeof result === 'string') {
+                    // Returned HTML string
+                    return {
+                        render: result,
+                        customCode: code
+                    };
+                } else if (result instanceof Element) {
+                    // Returned DOM element
+                    return {
+                        render: result.outerHTML,
+                        customCode: code
+                    };
+                } else if (result && typeof result === 'object') {
+                    // Returned object with properties
+                    return result;
+                } else if (sandbox.innerHTML) {
+                    // Capture sandbox content
+                    return {
+                        render: sandbox.innerHTML,
+                        customCode: code
+                    };
+                } else {
+                    throw new Error('Code did not return a renderable result. Return HTML string, DOM element, or object with render property.');
+                }
+            } finally {
+                // Cleanup sandbox
+                document.body.removeChild(sandbox);
+            }
+        }
+        
+        // Helper: Convert object to JavaScript object literal string
+        function objectToJavaScript(obj) {
+            return JSON.stringify(obj, null, 2)
+                .replace(/"([^"]+)":/g, '$1:')
+                .replace(/"([^"]*?)"/g, "'$1'");
+        }
+
+        // Helper: Parse JavaScript object (supports JS syntax, JSON, and even code with functions)
+        function parseJavaScript(code) {
+            // Clean up the code
+            code = code.trim();
+            
+            if (!code) {
+                throw new Error('❌ Empty input! Please enter a JavaScript object.');
+            }
+            
+            // VALIDATION: Detect and block executable code patterns
+            const disallowedPatterns = [
+                { pattern: /document\./gi, name: 'document.*', hint: 'DOM manipulation is not allowed' },
+                { pattern: /window\./gi, name: 'window.*', hint: 'Browser API is not allowed' },
+                { pattern: /\.appendChild\(/gi, name: '.appendChild()', hint: 'DOM manipulation is not allowed' },
+                { pattern: /\.innerHTML/gi, name: '.innerHTML', hint: 'DOM manipulation is not allowed' },
+                { pattern: /\.addEventListener\(/gi, name: '.addEventListener()', hint: 'Event binding is not allowed' },
+                { pattern: /alert\(/gi, name: 'alert()', hint: 'Alerts are not allowed' },
+                { pattern: /console\./gi, name: 'console.*', hint: 'Console logging is not allowed' },
+                { pattern: /fetch\(/gi, name: 'fetch()', hint: 'Network requests are not allowed' },
+                { pattern: /\.getElement/gi, name: '.getElement*', hint: 'DOM queries are not allowed' },
+                { pattern: /\.querySelector/gi, name: '.querySelector*', hint: 'DOM queries are not allowed' },
+                { pattern: /function\s+\w+\s*\(/gi, name: 'function declarations', hint: 'Function definitions are not allowed' },
+                { pattern: /=>\s*\{/gi, name: 'arrow functions', hint: 'Function bodies are not allowed' },
+            ];
+            
+            for (const check of disallowedPatterns) {
+                if (check.pattern.test(code)) {
+                    throw new Error(
+                        '❌ Invalid: Found ' + check.name + '\n\n' +
+                        '💡 ' + check.hint + '\n\n' +
+                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+                        '📝 PURPOSE: This editor is for defining block PROPERTIES only\n' +
+                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                        '✅ CORRECT USAGE - Just define the object:\n\n' +
+                        '{\n' +
+                        '  type: "columns",\n' +
+                        '  columns: 3,\n' +
+                        '  label: "My Columns",\n' +
+                        '  content: "Your content here"\n' +
+                        '}\n\n' +
+                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                        '❌ WRONG - Don\'t write executable code:\n\n' +
+                        'const data = { type: "columns" };\n' +
+                        'document.body.appendChild(createColumns(data));\n\n' +
+                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                        '💡 TIP: Think of this as filling a form, not writing a program!'
+                    );
+                }
+            }
+            
+            // DETECT: Is this a code block with statements or an object literal?
+            const hasStatements = code.includes('const ') || code.includes('let ') || 
+                                  code.includes('var ') || code.includes('function ') ||
+                                  code.includes('return ') || code.includes(';');
+            
+            const isCodeBlock = hasStatements && !code.match(/^\s*\{[^}]*\}\s*$/);
+            
+            if (isCodeBlock) {
+                // This is a CODE BLOCK - execute it and get the result
+                try {
+                    let jsCode = code;
+                    
+                    // Strategy: Execute as function body and auto-return the last object
+                    if (!jsCode.includes('return ')) {
+                        const lines = jsCode.split('\n');
+                        let lastMeaningfulLine = '';
+                        
+                        // Find the last meaningful line (skip comments and empty lines)
+                        for (let i = lines.length - 1; i >= 0; i--) {
+                            const line = lines[i].trim();
+                            if (line && !line.startsWith('//') && line !== '{' && line !== '}' && line !== '') {
+                                lastMeaningfulLine = line;
+                                break;
+                            }
+                        }
+                        
+                        // Check if it's a variable declaration
+                        const varMatch = lastMeaningfulLine.match(/^(const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/);
+                        if (varMatch) {
+                            const varName = varMatch[2];
+                            jsCode = jsCode + '\nreturn ' + varName + ';';
+                        }
+                        // Check if it's a simple variable reference
+                        else if (/^[a-zA-Z_$][a-zA-Z0-9_$]*;?\s*$/.test(lastMeaningfulLine.replace(/;$/, ''))) {
+                            const varName = lastMeaningfulLine.replace(/;$/, '').trim();
+                            jsCode = jsCode + '\nreturn ' + varName + ';';
+                        }
+                        // Check if last line is an object literal
+                        else if (lastMeaningfulLine.startsWith('{') && lastMeaningfulLine.endsWith('}')) {
+                            jsCode = jsCode + '\nreturn ' + lastMeaningfulLine.replace(/;$/, '') + ';';
+                        }
+                    }
+                    
+                    // Execute the code
+                    const fn = new Function(jsCode);
+                    const result = fn();
+                    
+                    if (typeof result === 'object' && result !== null) {
+                        return result;
+                    } else {
+                        throw new Error('Code did not return an object. Add "return data;" at the end.');
+                    }
+                } catch (e) {
+                    throw new Error(
+                        '❌ Cannot execute JavaScript code.\n\n' +
+                        '📝 HOW TO FIX:\n\n' +
+                        '✅ Option 1 - Use OBJECT LITERAL (simplest):\n' +
+                        '  {\n' +
+                        '    type: "columns",\n' +
+                        '    columns: 3,\n' +
+                        '    label: "Columns"\n' +
+                        '  }\n\n' +
+                        '✅ Option 2 - Declare variable + RETURN it:\n' +
+                        '  const data = {\n' +
+                        '    type: "columns",\n' +
+                        '    columns: 3\n' +
+                        '  };\n' +
+                        '  return data;\n\n' +
+                        '✅ Option 3 - Use JSON format:\n' +
+                        '  {\n' +
+                        '    "type": "columns",\n' +
+                        '    "columns": 3\n' +
+                        '  }\n\n' +
+                        '❌ DO NOT include:\n' +
+                        '  - document.body.appendChild()\n' +
+                        '  - Function calls that modify DOM\n' +
+                        '  - console.log()\n\n' +
+                        '💡 TIP: This editor is for defining BLOCK PROPERTIES only,\n' +
+                        '     not for executing code.\n\n' +
+                        'Error: ' + e.message
+                    );
+                }
+            }
+            
+            // This is an OBJECT LITERAL or JSON - parse it
+            // Try 1: Parse as JSON first (fastest)
+            try {
+                const result = JSON.parse(code);
+                if (typeof result === 'object' && result !== null) {
+                    return result;
+                }
+            } catch (e) {
+                // Not valid JSON, continue to next method
+            }
+            
+            // Try 2: Convert JS object literal syntax to JSON and parse
+            try {
+                let normalized = code;
+                
+                // Remove trailing commas
+                normalized = normalized.replace(/,\s*([}\]])/g, '$1');
+                
+                // Convert single quotes to double quotes
+                normalized = normalized.replace(/'/g, '"');
+                
+                // Add quotes to unquoted property names
+                normalized = normalized.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+                
+                // Remove semicolons at the end
+                normalized = normalized.replace(/;\s*$/, '');
+                
+                const result = JSON.parse(normalized);
+                if (typeof result === 'object' && result !== null) {
+                    return result;
+                }
+            } catch (e) {
+                // Failed to convert
+            }
+            
+            // Try 3: Evaluate as expression
+            try {
+                const wrappedCode = `(${code})`;
+                const fn = new Function('return ' + wrappedCode);
+                const result = fn();
+                
+                if (typeof result === 'object' && result !== null) {
+                    return result;
+                } else {
+                    throw new Error('Result is not an object');
+                }
+            } catch (e) {
+                throw new Error(
+                    '❌ Cannot parse JavaScript object.\n\n' +
+                    '📝 Please use one of these formats:\n\n' +
+                    '✅ Object literal:\n' +
+                    '  { type: "columns", columns: 3 }\n\n' +
+                    '✅ JSON:\n' +
+                    '  { "type": "columns", "columns": 3 }\n\n' +
+                    'Error: ' + e.message
+                );
+            }
         }
 
         function syncProperty() {
@@ -3713,13 +4179,13 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
         // Save form
         document.getElementById('btn-save').addEventListener('click', function() {
-            document.getElementById('schema-json').value = JSON.stringify(blocks);
+            document.getElementById('schema-js').value = JSON.stringify(blocks);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
             document.getElementById('builder-form').submit();
         });
 
         document.getElementById('builder-form').addEventListener('submit', function() {
-            document.getElementById('schema-json').value = JSON.stringify(blocks);
+            document.getElementById('schema-js').value = JSON.stringify(blocks);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
         });
 

@@ -279,9 +279,9 @@ $this->title = 'Dashboard';
                                         <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Fields</p>
                                         <p class="text-lg font-bold font-headline"><?= $blockCount ?></p>
                                     </div>
-                                    <div>
-                                        <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Responses</p>
-                                        <p class="text-lg font-bold font-headline"><?= number_format($submissionCount) ?></p>
+                                    <div class="form-card-meta-item">
+                                        <i class="bi bi-sliders"></i>
+                                        <span><?= count(json_decode($form->schema_js ?? '[]', true)) ?> Fields</span>
                                     </div>
                                     <div>
                                         <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Completion</p>
@@ -289,27 +289,40 @@ $this->title = 'Dashboard';
                                     </div>
                                 </div>
                             </div>
-                            <div class="bg-surface-container-low/30 px-4 py-4 flex items-center justify-between">
-                                <div class="flex gap-2">
-                                    <?= Html::a('<span class="material-symbols-outlined text-[20px]">visibility</span>', ['form/view', 'id' => $form->id], [
-                                        'class' => 'p-2 hover:bg-white rounded-lg transition-colors text-on-surface-variant inline-flex no-underline',
-                                        'title' => 'View'
-                                    ]) ?>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[20px]">edit</span>', ['form/update', 'id' => $form->id], [
-                                        'class' => 'p-2 hover:bg-white rounded-lg transition-colors text-on-surface-variant inline-flex no-underline',
-                                        'title' => 'Edit'
-                                    ]) ?>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[20px]">input</span>', ['form/render', 'id' => $form->id], [
-                                        'class' => 'p-2 hover:bg-white rounded-lg transition-colors text-on-surface-variant inline-flex no-underline',
-                                        'title' => 'Fill'
-                                    ]) ?>
-                                </div>
-                                <?= Html::a('<span class="material-symbols-outlined text-[20px]">delete</span>', ['form/delete', 'id' => $form->id], [
-                                    'class' => 'p-2 hover:bg-error/5 hover:text-error rounded-lg transition-colors text-on-surface-variant inline-flex no-underline',
-                                    'title' => 'Delete',
-                                    'data' => [
-                                        'confirm' => 'Are you sure you want to delete this form? This action cannot be undone.',
-                                        'method' => 'post',
+                            <div class="form-card-body">
+                                <?php
+                                $blocks = json_decode($form->schema_js ?? '[]', true);
+                                $blockCount = count($blocks);
+                                ?>
+                                <p class="text-muted" style="font-size: 13px; margin: 0;">
+                                    <strong><?= $blockCount ?></strong> block<?= $blockCount !== 1 ? 's' : '' ?> configured and ready to use
+                                </p>
+                            </div>
+                            <div class="form-card-footer">
+                                <?= Html::a(
+                                    '<i class="bi bi-eye"></i> View',
+                                    ['form/view', 'id' => $form->id],
+                                    ['class' => 'form-card-btn']
+                                ) ?>
+                                <?= Html::a(
+                                    '<i class="bi bi-pencil-square"></i> Edit',
+                                    ['form/update', 'id' => $form->id],
+                                    ['class' => 'form-card-btn']
+                                ) ?>
+                                <?= Html::a(
+                                    '<i class="bi bi-play-fill"></i> Fill',
+                                    ['form/render', 'id' => $form->id],
+                                    ['class' => 'form-card-btn']
+                                ) ?>
+                                <?= Html::a(
+                                    '<i class="bi bi-trash"></i> Delete',
+                                    ['form/delete', 'id' => $form->id],
+                                    [
+                                        'class' => 'form-card-btn form-card-btn-delete',
+                                        'data' => [
+                                            'confirm' => 'Are you sure you want to delete this form? This action cannot be undone.',
+                                            'method' => 'post',
+                                        ]
                                     ]
                                 ]) ?>
                             </div>

@@ -50,12 +50,19 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
     * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+    
+    html, body {
+        margin: 0;
+        padding: 0;
     }
 
     .builder-wrapper {
         display: flex;
         flex-direction: column;
-        height: 100vh;
+        height: calc(100vh - 60px);
         overflow: hidden;
         background: var(--gray-100);
     }

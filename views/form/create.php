@@ -62,9 +62,11 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     .builder-wrapper {
         display: flex;
         flex-direction: column;
-        height: calc(100vh - 60px);
+        height: calc(100vh - 80px);
         overflow: hidden;
         background: var(--gray-100);
+        margin-top: 0;
+        border-radius: 0;
     }
 
     /* ============ TOP TOOLBAR ============ */

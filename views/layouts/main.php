@@ -118,12 +118,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
                     ? ['label' => '<i class="fas fa-sign-in-alt"></i> Login', 'url' => ['/site/login'], 'encode' => false]
                     : '<li class="nav-item"><a class="nav-link" href="/site/profile"><i class="fas fa-user-circle"></i> Profile</a></li>'
                     . '<li class="nav-item">'
-                    . Html::beginForm(['/site/logout'])
-                    . Html::submitButton(
-                        '<i class="fas fa-sign-out-alt"></i> Logout',
-                        ['class' => 'nav-link btn btn-link logout', 'style' => 'color: rgba(255, 255, 255, 0.8) !important;']
-                    )
-                    . Html::endForm()
+                    . '<a class="nav-link" href="/site/logout" data-method="post" id="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>'
                     . '</li>'
             ]
         ]);
@@ -160,6 +155,35 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     </footer>
 
     <?php $this->endBody() ?>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const logoutLink = document.getElementById('logout-link');
+            if (logoutLink) {
+                logoutLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Create a form and submit it
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = this.href;
+
+                    // Add CSRF token
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    if (csrfMeta) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = '_csrf';
+                        csrfInput.value = csrfMeta.getAttribute('content');
+                        form.appendChild(csrfInput);
+                    }
+
+                    document.body.appendChild(form);
+                    form.submit();
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>

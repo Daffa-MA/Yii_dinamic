@@ -324,7 +324,7 @@ $this->title = 'Dashboard';
                                             'method' => 'post',
                                         ]
                                     ]
-                                ]) ?>
+                                ) ?>
                             </div>
                         </div>
                     <?php endforeach; ?>

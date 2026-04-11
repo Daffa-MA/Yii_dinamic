@@ -20,7 +20,8 @@ $config = [
             'class' => 'yii\caching\FileCache',
         ],
         'session' => [
-            'savePath' => dirname(__DIR__) . '/runtime/session',
+            'class' => 'yii\web\Session',
+            'savePath' => __DIR__ . '/../runtime/session',
         ],
         'user' => [
             'identityClass' => 'app\models\User',

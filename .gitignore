@@ -34,3 +34,13 @@ tests/_support/_generated
 
 #vagrant folder
 /.vagrant
+
+# Runtime directories (keep structure)
+/runtime/cache/*
+!/runtime/cache/.gitignore
+/runtime/debug/*
+!/runtime/debug/.gitignore
+/runtime/logs/*
+!/runtime/logs/.gitignore
+/runtime/session/*
+!/runtime/session/.gitignore

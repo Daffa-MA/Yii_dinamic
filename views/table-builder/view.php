@@ -6,76 +6,519 @@
 /** @var array $tableData */
 
 use yii\bootstrap5\Html;
+use yii\helpers\Url;
 
-$this->title = 'Table: ' . $model->name;
+$this->title = 'Table Details: ' . $model->name;
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+$rowCount = count($tableData);
+$columnCount = count($columns);
+$primaryColumns = array_filter($columns, static fn($column) => (bool)$column->is_primary);
+$uniqueColumns = array_filter($columns, static fn($column) => (bool)$column->is_unique);
+$displayedRowsText = $model->is_created
+    ? ($rowCount === 100 ? 'Showing latest 100 rows' : "Showing {$rowCount} row" . ($rowCount === 1 ? '' : 's'))
+    : 'Table has not been created in the database yet';
 ?>
 
-<div class="table-builder-view" style="animation: fadeInUp 0.6s ease;">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="mb-1">🗄️ <?= Html::encode($model->name) ?></h1>
-            <p class="text-muted mb-0"><?= Html::encode($model->label) ?></p>
-        </div>
-        <div class="btn-group">
-            <?= Html::a('<i class="bi bi-pencil"></i> Edit', ['table-builder/update', 'id' => $model->id], [
-                'class' => 'btn btn-warning'
-            ]) ?>
-            <?php if (!$model->is_created): ?>
-                <?= Html::a('<i class="bi bi-play-fill"></i> Execute SQL', ['table-builder/execute-sql', 'id' => $model->id], [
-                    'class' => 'btn btn-success',
-                    'data' => ['confirm' => 'Create this table in database?']
-                ]) ?>
-            <?php else: ?>
-                <span class="badge bg-success btn" style="cursor:default"><i class="bi bi-check-circle"></i> Created in DB</span>
-            <?php endif; ?>
-            <?= Html::a('<i class="bi bi-arrow-left"></i> Back', ['table-builder/index'], [
-                'class' => 'btn btn-secondary'
-            ]) ?>
-        </div>
-    </div>
+<style>
+.table-detail-page {
+    --ink: #142033;
+    --muted: #60708a;
+    --line: #d9e2ef;
+    --panel: #ffffff;
+    --panel-soft: #f6f8fc;
+    --accent: #1d4ed8;
+    --accent-soft: #dbeafe;
+    --success: #15803d;
+    --success-soft: #dcfce7;
+    --warning: #b45309;
+    --warning-soft: #fef3c7;
+    --danger: #b91c1c;
+    --shadow: 0 18px 50px rgba(20, 32, 51, 0.08);
+    color: var(--ink);
+}
 
-    <?php if ($model->description): ?>
-        <div class="card mb-4" style="animation: fadeIn 0.8s ease;">
-            <div class="card-body">
-                <p class="mb-0 text-muted"><?= Html::encode($model->description) ?></p>
-            </div>
-        </div>
-    <?php endif; ?>
+.table-detail-page .hero {
+    background:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 28%),
+        linear-gradient(180deg, #ffffff, #f7f9fc);
+    border: 1px solid #e5ebf3;
+    border-radius: 24px;
+    padding: 28px;
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+}
 
-    <div class="row">
-        <!-- Table Data -->
-        <div class="col-lg-12">
-            <div class="card mb-4" style="animation: fadeInUp 0.6s ease 0.2s both;">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0"><i class="bi bi-table"></i> Table Data (<?= count($tableData) ?> rows)</h5>
-                    <?php if ($model->is_created): ?>
-                        <button class="btn btn-sm btn-light" onclick="location.reload()">
-                            <i class="bi bi-arrow-clockwise"></i> Refresh
-                        </button>
+.table-detail-page .hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.table-detail-page .hero-title {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.table-detail-page .hero-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: var(--accent);
+    border: 1px solid #bfdbfe;
+    flex-shrink: 0;
+}
+
+.table-detail-page h1 {
+    font-size: 34px;
+    line-height: 1.1;
+    margin: 0 0 8px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.table-detail-page .table-name {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 15px;
+    color: var(--muted);
+    margin: 0 0 6px;
+}
+
+.table-detail-page .hero-description {
+    max-width: 760px;
+    color: var(--muted);
+    margin: 0;
+    font-size: 14px;
+}
+
+.table-detail-page .actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.table-detail-page .btn-clean {
+    border-radius: 12px;
+    padding: 11px 16px;
+    font-weight: 600;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.table-detail-page .btn-clean:hover {
+    border-color: #bfd0e6;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
+}
+
+.table-detail-page .btn-primary-clean {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    color: #fff;
+    border-color: #1d4ed8;
+}
+
+.table-detail-page .btn-primary-clean:hover {
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.table-detail-page .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.table-detail-page .status-created {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.table-detail-page .status-pending {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.table-detail-page .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.table-detail-page .stat-card {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid #e7edf5;
+    border-radius: 18px;
+    padding: 18px;
+}
+
+.table-detail-page .stat-label {
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+}
+
+.table-detail-page .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+}
+
+.table-detail-page .stat-note {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0;
+}
+
+.table-detail-page .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(320px, 0.95fr);
+    gap: 24px;
+}
+
+.table-detail-page .stack {
+    display: grid;
+    gap: 24px;
+}
+
+.table-detail-page .panel {
+    background: var(--panel);
+    border: 1px solid #e3eaf3;
+    border-radius: 22px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.table-detail-page .panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #edf2f7;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    background: linear-gradient(180deg, #ffffff, #f9fbfd);
+}
+
+.table-detail-page .panel-title {
+    margin: 0 0 4px;
+    font-size: 20px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+}
+
+.table-detail-page .panel-subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.table-detail-page .panel-body {
+    padding: 0;
+}
+
+.table-detail-page .table-wrap {
+    overflow: auto;
+}
+
+.table-detail-page table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table-detail-page th,
+.table-detail-page td {
+    padding: 14px 18px;
+    border-bottom: 1px solid #eef3f8;
+    vertical-align: top;
+    font-size: 14px;
+}
+
+.table-detail-page th {
+    background: #f8fafc;
+    color: #44536a;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.table-detail-page tbody tr:hover {
+    background: #fbfdff;
+}
+
+.table-detail-page code {
+    background: #f3f7fb;
+    color: #1e3a5f;
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-size: 12px;
+}
+
+.table-detail-page .type-badge,
+.table-detail-page .flag-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.table-detail-page .type-badge {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.table-detail-page .flag-badge {
+    background: #eef2ff;
+    color: #4338ca;
+    margin-right: 6px;
+    margin-bottom: 6px;
+}
+
+.table-detail-page .meta-list {
+    display: grid;
+    gap: 0;
+}
+
+.table-detail-page .meta-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 22px;
+    border-bottom: 1px solid #eef3f8;
+    font-size: 14px;
+}
+
+.table-detail-page .meta-row:last-child {
+    border-bottom: 0;
+}
+
+.table-detail-page .meta-label {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.table-detail-page .meta-value {
+    text-align: right;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+.table-detail-page .empty-state {
+    padding: 44px 24px;
+    text-align: center;
+}
+
+.table-detail-page .empty-state .material-symbols-outlined {
+    font-size: 42px;
+    color: #8ea0b8;
+    margin-bottom: 12px;
+}
+
+.table-detail-page .empty-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0 0 8px;
+}
+
+.table-detail-page .empty-text {
+    color: var(--muted);
+    margin: 0;
+    font-size: 14px;
+}
+
+.table-detail-page .sql-box {
+    background: #0f172a;
+    color: #dbe7ff;
+    padding: 18px 20px;
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.7;
+    max-height: 340px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.table-detail-page .panel-footer {
+    padding: 16px 20px;
+    border-top: 1px solid #eaf0f6;
+    background: #fbfcfe;
+}
+
+.table-detail-page .muted-inline {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.table-detail-page .null-value {
+    color: #c2410c;
+    font-weight: 700;
+}
+
+.table-detail-page .bool-yes {
+    color: var(--success);
+    font-weight: 700;
+}
+
+.table-detail-page .bool-no {
+    color: var(--muted);
+    font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+    .table-detail-page .layout {
+        grid-template-columns: 1fr;
+    }
+
+    .table-detail-page .hero-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .table-detail-page .hero {
+        padding: 20px;
+    }
+
+    .table-detail-page .hero-top {
+        flex-direction: column;
+    }
+
+    .table-detail-page .actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .table-detail-page .hero-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .table-detail-page th,
+    .table-detail-page td {
+        padding: 12px 14px;
+    }
+}
+</style>
+
+<div class="table-detail-page">
+    <section class="hero">
+        <div class="hero-top">
+            <div class="hero-title">
+                <div class="hero-icon">
+                    <span class="material-symbols-outlined">table_chart</span>
+                </div>
+                <div>
+                    <div class="<?= $model->is_created ? 'status-pill status-created' : 'status-pill status-pending' ?>">
+                        <span class="material-symbols-outlined" style="font-size:16px;"><?= $model->is_created ? 'check_circle' : 'schedule' ?></span>
+                        <?= $model->is_created ? 'Created in Database' : 'Pending Database Creation' ?>
+                    </div>
+                    <h1><?= Html::encode($model->label ?: $model->name) ?></h1>
+                    <p class="table-name"><?= Html::encode($model->name) ?></p>
+                    <?php if ($model->description): ?>
+                        <p class="hero-description"><?= Html::encode($model->description) ?></p>
+                    <?php else: ?>
+                        <p class="hero-description">This page shows the actual table structure stored in metadata and the latest rows currently available in the database.</p>
                     <?php endif; ?>
                 </div>
-                <div class="card-body p-0">
+            </div>
+
+            <div class="actions">
+                <?= Html::a('Back to Tables', ['table-builder/index'], ['class' => 'btn-clean']) ?>
+                <?= Html::a('Edit Structure', ['table-builder/update', 'id' => $model->id], ['class' => 'btn-clean']) ?>
+                <?php if (!$model->is_created): ?>
+                    <?= Html::a('Create in Database', ['table-builder/execute-sql', 'id' => $model->id], [
+                        'class' => 'btn-clean btn-primary-clean',
+                        'data' => [
+                            'confirm' => 'Create this table in the database now?',
+                            'method' => 'post',
+                        ],
+                    ]) ?>
+                <?php else: ?>
+                    <?= Html::a('Refresh Data', ['table-builder/view', 'id' => $model->id], ['class' => 'btn-clean']) ?>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="hero-stats">
+            <div class="stat-card">
+                <span class="stat-label">Columns</span>
+                <div class="stat-value"><?= $columnCount ?></div>
+                <p class="stat-note"><?= count($primaryColumns) ?> primary key, <?= count($uniqueColumns) ?> unique</p>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Rows Loaded</span>
+                <div class="stat-value"><?= $rowCount ?></div>
+                <p class="stat-note"><?= Html::encode($displayedRowsText) ?></p>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Engine</span>
+                <div class="stat-value" style="font-size:22px;"><?= Html::encode($model->engine) ?></div>
+                <p class="stat-note"><?= Html::encode($model->charset) ?> / <?= Html::encode($model->collation) ?></p>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Created</span>
+                <div class="stat-value" style="font-size:22px;"><?= Html::encode(date('d M Y', strtotime($model->created_at))) ?></div>
+                <p class="stat-note"><?= Html::encode(date('H:i', strtotime($model->created_at))) ?></p>
+            </div>
+        </div>
+    </section>
+
+    <div class="layout">
+        <div class="stack">
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">Live Table Data</h2>
+                        <p class="panel-subtitle">Rendered from the actual database table at request time.</p>
+                    </div>
+                    <div class="muted-inline"><?= Html::encode($displayedRowsText) ?></div>
+                </div>
+                <div class="panel-body">
                     <?php if (!$model->is_created): ?>
-                        <div class="text-center text-muted py-5">
-                            <p>Table not created in database yet. Click "Execute SQL" to create it.</p>
+                        <div class="empty-state">
+                            <span class="material-symbols-outlined">database</span>
+                            <p class="empty-title">Table is not in the database yet</p>
+                            <p class="empty-text">Only the metadata exists. Use “Create in Database” to execute the generated SQL.</p>
                         </div>
                     <?php elseif (empty($tableData)): ?>
-                        <div class="text-center text-muted py-5">
-                            <div style="font-size:48px;margin-bottom:12px;">📭</div>
-                            <p>No data in this table yet.</p>
-                            <p class="small">Use forms to add data, or insert via SQL.</p>
+                        <div class="empty-state">
+                            <span class="material-symbols-outlined">inbox</span>
+                            <p class="empty-title">No rows found</p>
+                            <p class="empty-text">The table exists, but it currently has no data.</p>
                         </div>
                     <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-striped mb-0">
-                                <thead class="table-light">
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
                                     <tr>
-                                        <th>#</th>
+                                        <th style="width:72px;">#</th>
                                         <?php foreach ($columns as $col): ?>
-                                            <th>
-                                                <?= Html::encode($col->name) ?>
-                                                <small class="text-muted d-block"><?= $col->type ?><?= $col->length ? '('.$col->length.')' : '' ?></small>
-                                            </th>
+                                            <th><?= Html::encode($col->name) ?></th>
                                         <?php endforeach; ?>
                                     </tr>
                                 </thead>
@@ -86,15 +529,17 @@ $this->title = 'Table: ' . $model->name;
                                             <?php foreach ($columns as $col): ?>
                                                 <td>
                                                     <?php
-                                                    $value = $row[$col->name] ?? '-';
+                                                    $value = $row[$col->name] ?? null;
                                                     if ($value === null) {
-                                                        echo '<span class="text-muted">NULL</span>';
-                                                    } elseif ($col->type === 'BOOLEAN' || $col->type === 'TINYINT') {
-                                                        echo $value ? '<span class="badge bg-success">Yes</span>' : '<span class="badge bg-secondary">No</span>';
+                                                        echo '<span class="null-value">NULL</span>';
+                                                    } elseif (($col->type === 'BOOLEAN' || $col->type === 'TINYINT') && ($value === 0 || $value === 1 || $value === '0' || $value === '1')) {
+                                                        echo (string)$value === '1'
+                                                            ? '<span class="bool-yes">Yes</span>'
+                                                            : '<span class="bool-no">No</span>';
                                                     } elseif (is_array($value)) {
                                                         echo '<code>' . Html::encode(json_encode($value)) . '</code>';
                                                     } else {
-                                                        echo Html::encode($value);
+                                                        echo Html::encode((string)$value);
                                                     }
                                                     ?>
                                                 </td>
@@ -106,118 +551,159 @@ $this->title = 'Table: ' . $model->name;
                         </div>
                     <?php endif; ?>
                 </div>
-            </div>
-        </div>
-    </div>
+            </section>
 
-    <div class="row">
-        <!-- Columns Structure -->
-        <div class="col-md-8">
-            <div class="card" style="animation: fadeInUp 0.6s ease 0.3s both;">
-                <div class="card-header bg-info text-white">
-                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Columns (<?= count($columns) ?>)</h5>
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">Column Structure</h2>
+                        <p class="panel-subtitle">Actual metadata used to build this table.</p>
+                    </div>
                 </div>
-                <div class="card-body p-0">
+                <div class="panel-body">
                     <?php if (empty($columns)): ?>
-                        <div class="text-center text-muted py-5">
-                            <p>No columns defined.</p>
+                        <div class="empty-state">
+                            <span class="material-symbols-outlined">view_column</span>
+                            <p class="empty-title">No columns defined</p>
+                            <p class="empty-text">Add fields in the table builder before creating the table.</p>
                         </div>
                     <?php else: ?>
-                        <table class="table table-hover mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Name</th>
-                                    <th>Type</th>
-                                    <th>Nullable</th>
-                                    <th>Default</th>
-                                    <th>Flags</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($columns as $index => $col): ?>
-                                    <tr style="animation: fadeIn 0.3s ease <?= $index * 0.05 ?>s both;">
-                                        <td><?= $index + 1 ?></td>
-                                        <td><code><?= Html::encode($col->name) ?></code></td>
-                                        <td>
-                                            <span class="badge bg-light text-dark">
-                                                <?= Html::encode($col->type) ?>
-                                                <?php if ($col->length): ?>
-                                                    (<?= $col->length ?>)
-                                                <?php endif; ?>
-                                            </span>
-                                        </td>
-                                        <td><?= $col->is_nullable ? '<span class="text-success">Yes</span>' : '<span class="text-danger">No</span>' ?></td>
-                                        <td><code><?= Html::encode($col->default_value ?: 'NULL') ?></code></td>
-                                        <td>
-                                            <?php if ($col->is_primary): ?><span class="badge bg-primary me-1">PK</span><?php endif; ?>
-                                            <?php if ($col->is_unique): ?><span class="badge bg-info">UQ</span><?php endif; ?>
-                                        </td>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style="width:72px;">#</th>
+                                        <th>Name</th>
+                                        <th>Label</th>
+                                        <th>Type</th>
+                                        <th>Nullable</th>
+                                        <th>Default</th>
+                                        <th>Flags</th>
                                     </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($columns as $index => $col): ?>
+                                        <tr>
+                                            <td><?= $index + 1 ?></td>
+                                            <td><code><?= Html::encode($col->name) ?></code></td>
+                                            <td><?= Html::encode($col->label) ?></td>
+                                            <td>
+                                                <span class="type-badge">
+                                                    <?= Html::encode($col->type) ?><?= $col->length ? ' (' . (int)$col->length . ')' : '' ?>
+                                                </span>
+                                            </td>
+                                            <td><?= $col->is_nullable ? 'Yes' : 'No' ?></td>
+                                            <td>
+                                                <?= $col->default_value !== null && $col->default_value !== '' ? Html::encode($col->default_value) : '<span class="null-value">NULL</span>' ?>
+                                            </td>
+                                            <td>
+                                                <?php if ($col->is_primary): ?>
+                                                    <span class="flag-badge">PK</span>
+                                                <?php endif; ?>
+                                                <?php if ($col->is_unique): ?>
+                                                    <span class="flag-badge">UQ</span>
+                                                <?php endif; ?>
+                                                <?php if (!$col->is_primary && !$col->is_unique): ?>
+                                                    <span class="muted-inline">None</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
                     <?php endif; ?>
                 </div>
-            </div>
+            </section>
         </div>
 
-        <!-- Table Info -->
-        <div class="col-md-4">
-            <div class="card mb-4" style="animation: fadeInUp 0.6s ease 0.4s both;">
-                <div class="card-header bg-warning">
-                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> Table Info</h6>
+        <div class="stack">
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">Table Metadata</h2>
+                        <p class="panel-subtitle">Current facts stored for this table definition.</p>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <table class="table table-sm table-borderless mb-0">
-                        <tr><th width="120">Engine</th><td><?= $model->engine ?></td></tr>
-                        <tr><th>Charset</th><td><?= $model->charset ?></td></tr>
-                        <tr><th>Collation</th><td><?= $model->collation ?></td></tr>
-                        <tr><th>Status</th><td><?= $model->is_created ? '<span class="text-success">Created</span>' : '<span class="text-warning">Pending</span>' ?></td></tr>
-                        <tr><th>Rows</th><td><?= count($tableData) ?></td></tr>
-                        <tr><th>Created</th><td><?= date('M d, Y H:i', strtotime($model->created_at)) ?></td></tr>
-                    </table>
+                <div class="meta-list">
+                    <div class="meta-row">
+                        <div class="meta-label">Status</div>
+                        <div class="meta-value"><?= $model->is_created ? 'Created in database' : 'Metadata only' ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Engine</div>
+                        <div class="meta-value"><?= Html::encode($model->engine) ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Charset</div>
+                        <div class="meta-value"><?= Html::encode($model->charset) ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Collation</div>
+                        <div class="meta-value"><?= Html::encode($model->collation) ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Loaded rows</div>
+                        <div class="meta-value"><?= $rowCount ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Created at</div>
+                        <div class="meta-value"><?= Html::encode(date('d M Y H:i', strtotime($model->created_at))) ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Updated at</div>
+                        <div class="meta-value"><?= Html::encode(date('d M Y H:i', strtotime($model->updated_at))) ?></div>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div class="card" style="animation: fadeInUp 0.6s ease 0.5s both;">
-                <div class="card-header bg-dark text-white">
-                    <h6 class="mb-0"><i class="bi bi-code-slash"></i> SQL</h6>
+            <section class="panel">
+                <div class="panel-header">
+                    <div>
+                        <h2 class="panel-title">Generated SQL</h2>
+                        <p class="panel-subtitle">Preview of the exact SQL built from the current metadata.</p>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <pre id="sql-preview" class="bg-dark text-light p-3 rounded" style="font-size:12px;max-height:300px;overflow:auto;">Loading...</pre>
-                    <button class="btn btn-sm btn-outline-light mt-2" onclick="copySQL()">
-                        <i class="bi bi-clipboard"></i> Copy SQL
-                    </button>
+                <pre id="sql-preview" class="sql-box">Loading SQL preview...</pre>
+                <div class="panel-footer">
+                    <button type="button" class="btn-clean" id="copy-sql-btn">Copy SQL</button>
                 </div>
-            </div>
+            </section>
         </div>
     </div>
 </div>
 
 <script>
-// Load SQL preview
-fetch('<?= \yii\helpers\Url::to(["table-builder/preview-sql", "id" => $model->id]) ?>')
-    .then(r => r.json())
-    .then(data => {
-        document.getElementById('sql-preview').textContent = data.sql;
-    });
+document.addEventListener('DOMContentLoaded', function () {
+    const sqlPreview = document.getElementById('sql-preview');
+    const copySqlBtn = document.getElementById('copy-sql-btn');
 
-function copySQL() {
-    const sql = document.getElementById('sql-preview').textContent;
-    navigator.clipboard.writeText(sql).then(() => {
-        alert('SQL copied to clipboard!');
+    fetch('<?= Url::to(['table-builder/preview-sql', 'id' => $model->id]) ?>')
+        .then(function (response) {
+            return response.json();
+        })
+        .then(function (data) {
+            sqlPreview.textContent = data.sql || '-- SQL preview unavailable';
+        })
+        .catch(function () {
+            sqlPreview.textContent = '-- Failed to load SQL preview';
+        });
+
+    copySqlBtn.addEventListener('click', function () {
+        const sql = sqlPreview.textContent;
+        const originalText = copySqlBtn.textContent;
+
+        navigator.clipboard.writeText(sql).then(function () {
+            copySqlBtn.textContent = 'Copied';
+            setTimeout(function () {
+                copySqlBtn.textContent = originalText;
+            }, 1500);
+        }).catch(function () {
+            copySqlBtn.textContent = 'Copy failed';
+            setTimeout(function () {
+                copySqlBtn.textContent = originalText;
+            }, 1500);
+        });
     });
-}
+});
 </script>
-
-<style>
-@keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
-</style>

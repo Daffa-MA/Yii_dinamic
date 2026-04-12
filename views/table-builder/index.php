@@ -1,19 +1,406 @@
 <?php
 
 /** @var yii\web\View $this */
-/** @var app\models\DbTable[] $tables */
+/** @var array $tables */
 
 use yii\bootstrap5\Html;
 
 $this->title = 'Database Tables';
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
-// Styles for dashboard layout
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
-$this->registerJsFile('https://cdn.tailwindcss.com?plugins=forms,container-queries');
-$this->registerJs("
+$tableCount = count($tables);
+$createdCount = count(array_filter($tables, static fn($item) => (bool)$item->table->is_created));
+$pendingCount = $tableCount - $createdCount;
+$totalColumns = array_sum(array_map(static fn($item) => count($item->columns), $tables));
+?>
+
+<style>
+.table-index-page {
+    --ink: #142033;
+    --muted: #60708a;
+    --line: #d9e2ef;
+    --panel: #ffffff;
+    --accent: #1d4ed8;
+    --accent-soft: #dbeafe;
+    --success: #15803d;
+    --success-soft: #dcfce7;
+    --warning: #b45309;
+    --warning-soft: #fef3c7;
+    --danger: #b91c1c;
+    --danger-soft: #fee2e2;
+    --shadow: 0 20px 55px rgba(20, 32, 51, 0.08);
+    color: var(--ink);
+}
+
+main#main > .container > .alert {
+    margin-left: 16rem;
+    margin-top: 1.5rem;
+    width: calc(100% - 16rem);
+}
+
+.table-index-page .page-shell {
+    display: grid;
+    gap: 24px;
+}
+
+.table-index-page .hero,
+.table-index-page .panel,
+.table-index-page .table-card {
+    background: var(--panel);
+    border: 1px solid #e4ebf3;
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+}
+
+.table-index-page .hero {
+    padding: 28px;
+    background:
+        radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 28%),
+        linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.table-index-page .hero-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.table-index-page .hero-title {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.table-index-page .hero-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    color: var(--accent);
+    border: 1px solid #bfdbfe;
+}
+
+.table-index-page h1 {
+    margin: 0 0 8px;
+    font-size: 34px;
+    line-height: 1.08;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.table-index-page .hero-text,
+.table-index-page .stat-note,
+.table-index-page .panel-subtitle,
+.table-index-page .empty-text,
+.table-index-page .card-description,
+.table-index-page .meta-label {
+    color: var(--muted);
+}
+
+.table-index-page .hero-text {
+    margin: 0;
+    max-width: 780px;
+    font-size: 14px;
+}
+
+.table-index-page .hero-actions,
+.table-index-page .card-actions,
+.table-index-page .meta-chips,
+.table-index-page .column-chips {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.table-index-page .hero-actions {
+    justify-content: flex-end;
+}
+
+.table-index-page .btn-clean {
+    border-radius: 12px;
+    padding: 11px 16px;
+    border: 1px solid var(--line);
+    background: #fff;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+}
+
+.table-index-page .btn-clean:hover {
+    border-color: #bfd0e6;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
+}
+
+.table-index-page .btn-primary-clean {
+    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    border-color: #1d4ed8;
+    color: #fff;
+}
+
+.table-index-page .btn-primary-clean:hover {
+    color: #fff;
+}
+
+.table-index-page .hero-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.table-index-page .stat-card {
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid #e7edf5;
+    background: rgba(255, 255, 255, 0.84);
+}
+
+.table-index-page .stat-label {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.table-index-page .stat-value {
+    font-size: 26px;
+    line-height: 1;
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+
+.table-index-page .stat-note {
+    margin: 0;
+    font-size: 13px;
+}
+
+.table-index-page .panel-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #edf2f7;
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+    background: linear-gradient(180deg, #ffffff, #f9fbfd);
+}
+
+.table-index-page .panel-title {
+    margin: 0 0 4px;
+    font-size: 20px;
+    font-weight: 760;
+    letter-spacing: -0.02em;
+}
+
+.table-index-page .panel-subtitle {
+    margin: 0;
+    font-size: 13px;
+}
+
+.table-index-page .panel-body {
+    padding: 24px;
+}
+
+.table-index-page .table-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    align-items: stretch;
+}
+
+.table-index-page .table-card {
+    padding: 22px;
+    display: grid;
+    gap: 18px;
+    transition: all 0.2s ease;
+    align-content: start;
+    min-height: 100%;
+}
+
+.table-index-page .table-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 60px rgba(20, 32, 51, 0.1);
+}
+
+.table-index-page .card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.table-index-page .card-top > div:first-child {
+    min-width: 0;
+    flex: 1;
+}
+
+.table-index-page .card-title {
+    margin: 0 0 4px;
+    font-size: 22px;
+    line-height: 1.1;
+    font-weight: 780;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.table-index-page .card-name {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    background: #f3f7fb;
+    border-radius: 999px;
+    padding: 5px 10px;
+}
+
+.table-index-page .card-description {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 4.8em;
+}
+
+.table-index-page .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: normal;
+    flex-shrink: 0;
+    max-width: 100%;
+}
+
+.table-index-page .status-created {
+    background: var(--success-soft);
+    color: var(--success);
+}
+
+.table-index-page .status-pending {
+    background: var(--warning-soft);
+    color: var(--warning);
+}
+
+.table-index-page .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.table-index-page .meta-box {
+    border: 1px solid #e8eef6;
+    border-radius: 16px;
+    padding: 14px 16px;
+    background: #fbfdff;
+}
+
+.table-index-page .meta-value {
+    display: block;
+    font-size: 20px;
+    line-height: 1;
+    font-weight: 800;
+    margin-top: 4px;
+    overflow-wrap: anywhere;
+}
+
+.table-index-page .column-chip {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.table-index-page .btn-danger-clean:hover {
+    border-color: #efb0b0;
+    background: #fff7f7;
+    color: var(--danger);
+}
+
+.table-index-page .card-actions {
+    margin-top: auto;
+}
+
+.table-index-page .empty-state {
+    text-align: center;
+    padding: 44px 24px;
+    border: 1px dashed #ccd8e8;
+    background: #f9fbfe;
+    border-radius: 22px;
+}
+
+.table-index-page .empty-state .material-symbols-outlined {
+    font-size: 42px;
+    color: #8ea0b8;
+    margin-bottom: 10px;
+}
+
+.table-index-page .empty-title {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 760;
+}
+
+.table-index-page .empty-text {
+    margin: 0 0 18px;
+    font-size: 14px;
+}
+
+@media (max-width: 1100px) {
+    main#main > .container > .alert {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .table-index-page .hero-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .table-index-page .table-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .table-index-page .hero,
+    .table-index-page .panel-body,
+    .table-index-page .table-card {
+        padding: 20px;
+    }
+
+    .table-index-page .hero-top,
+    .table-index-page .card-top {
+        flex-direction: column;
+    }
+
+    .table-index-page .hero-actions {
+        justify-content: flex-start;
+    }
+
+    .table-index-page .hero-stats,
+    .table-index-page .meta-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
     tailwind.config = {
-        darkMode: 'class',
         theme: {
             extend: {
                 colors: {
@@ -32,11 +419,6 @@ $this->registerJs("
                     'outline-variant': '#c7c4d8',
                     'outline': '#777587',
                     'error': '#ba1a1a',
-                    'accent-1': '#06b6d4',
-                    'accent-2': '#8b5cf6',
-                    'accent-3': '#f97316',
-                    'accent-4': '#10b981',
-                    'accent-5': '#ec4899',
                 },
                 fontFamily: {
                     'headline': ['Manrope'],
@@ -45,155 +427,170 @@ $this->registerJs("
             }
         }
     }
-", \yii\web\View::POS_HEAD);
-?>
+</script>
 
 <style>
-    .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
 </style>
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
 
-<!-- Top Navigation Bar -->
-<nav class="fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#eff5ff]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
+<nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
     <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
-        <span class="material-symbols-outlined text-outline text-[20px]">search</span>
-        <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text"/>
+        <span class="material-symbols-outlined text-outline text-[20px]">table_chart</span>
+        <span class="text-sm text-on-surface-variant font-medium">Database Tables</span>
     </div>
     <div class="flex items-center gap-4">
-        <button class="material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
-        <div class="h-8 w-px bg-outline-variant/30"></div>
-        <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create New Form', ['form/create'], [
+        <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create Table', ['table-builder/create'], [
             'class' => 'bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
         ]) ?>
-        <div class="flex items-center gap-3 pl-4">
-            <img alt="User profile" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVAIMYF86keTHH4bWWsnc6u7upwBRSEk3FvJFjB4wyGvQxjTaWJjqAU9nx7f2YPKnoZKb-kP7pNyFHtjhAggRn0nsW21oGtSNUI1fZH-ddxHG35QnLC24RHVvAReNpdG-gdZoInGl6MMsS4OZcWCyLWu52BmaCzV6K8eTFMqMQMQ_HGc2dgYa6qxFdVSNOiJlHTjCPfpP1KqoRirRptx2ymuk_BKJrEm5kDTAWz-vU_e_4_Qeu3S25BXTLNpFN1WxftL-z6kTgLw"/>
-        </div>
     </div>
 </nav>
 
 <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'tables']) ?>
 
-<!-- Main Content -->
-<main class="pl-64 pt-24 min-h-screen">
+<main class="app-shell-main pl-64 pt-6 min-h-screen">
     <div class="max-w-[1400px] mx-auto px-8 py-8">
-        <!-- Header -->
-        <div class="flex justify-between items-end mb-10">
-            <div>
-                <div class="flex items-center gap-3 mb-2">
-                    <div class="w-10 h-10 bg-surface-tint/10 rounded-xl flex items-center justify-center">
-                        <span class="material-symbols-outlined text-surface-tint" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+        <div class="table-index-page">
+            <div class="page-shell">
+        <section class="hero">
+            <div class="hero-top">
+                <div class="hero-title">
+                    <div class="hero-icon">
+                        <span class="material-symbols-outlined">table_chart</span>
                     </div>
-                    <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">Database Tables</h1>
+                    <div>
+                        <h1>Database Tables</h1>
+                        <p class="hero-text">Manage actual table definitions saved in the application. Each card shows the current metadata status, column count, and whether the physical SQL table has already been created.</p>
+                    </div>
                 </div>
-                <p class="text-on-surface-variant font-medium">Create and manage database tables for your forms.</p>
-            </div>
-            <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create Table', ['table-builder/create'], [
-                'class' => 'bg-gradient-to-r from-surface-tint to-primary-container text-white px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
-            ]) ?>
-        </div>
 
-        <?php if (empty($tables)): ?>
-            <div class="bg-white rounded-2xl p-12 text-center border-2 border-dashed border-blue-300 shadow-sm">
-                <div class="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md">
-                    <span class="material-symbols-outlined text-5xl text-blue-600">table_chart</span>
+                <div class="hero-actions">
+                    <?= Html::a('Create Table', ['table-builder/create'], ['class' => 'btn-clean btn-primary-clean']) ?>
                 </div>
-                <h3 class="text-2xl font-extrabold mb-2 text-gray-900">No tables yet</h3>
-                <p class="text-gray-600 mb-6 font-medium">Create your first database table to store form data</p>
-                <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create First Table', ['table-builder/create'], [
-                    'class' => 'bg-gradient-to-r from-surface-tint to-primary-container text-white px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline inline-flex'
-                ]) ?>
             </div>
-        <?php else: ?>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <?php foreach ($tables as $item): ?>
-                    <?php $table = $item['table']; $columns = $item['columns']; ?>
-                    <div class="bg-white hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden border border-gray-200" 
-                         style="border-left: 5px solid <?= ['#4d44e3', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$loop->index % 5] ?>; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                        <!-- Color accent bar -->
-                        <?php 
-                        $colorBg = ['bg-indigo-50', 'bg-cyan-50', 'bg-purple-50', 'bg-orange-50', 'bg-emerald-50'][$loop->index % 5];
-                        $colorAccent = ['#4d44e3', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$loop->index % 5];
-                        ?>
-                        <div class="<?= $colorBg ?> px-6 py-4 border-b border-gray-100" style="border-left: 5px solid <?= $colorAccent ?>;">
-                        <div class="p-6">
-                            <div class="flex justify-between items-start mb-6">
-                                <div class="w-12 h-12 bg-gradient-to-br from-surface-tint/10 to-primary-container/10 rounded-xl flex items-center justify-center border border-surface-tint/20">
-                                    <span class="material-symbols-outlined text-surface-tint">table_chart</span>
-                                </div>
-                                <?php if ($table->is_created): ?>
-                                    <span class="text-xs font-bold text-secondary px-2 py-1 bg-secondary/10 rounded-full flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-[12px]">check_circle</span>
-                                        CREATED
-                                    </span>
-                                <?php else: ?>
-                                    <span class="text-xs font-bold text-tertiary px-2 py-1 bg-tertiary/10 rounded-full flex items-center gap-1">
-                                        <span class="material-symbols-outlined text-[12px]">pending</span>
-                                        PENDING
-                                    </span>
-                                <?php endif; ?>
-                            </div>
-                            <h3 class="text-lg font-bold mb-1"><?= Html::encode($table->name) ?></h3>
-                            <p class="text-xs text-on-surface-variant font-medium mb-6"><?= Html::encode($table->label) ?></p>
-                            <?php if ($table->description): ?>
-                                <p class="text-sm text-on-surface-variant mb-4"><?= Html::encode($table->description) ?></p>
-                            <?php endif; ?>
-                            <div class="flex items-center gap-6 py-4 border-b border-gray-100 mb-2" style="background: linear-gradient(to right, rgba(<?= ['77,68,227', '6,182,212', '139,92,246', '249,115,22', '16,185,129'][$loop->index % 5] ?>, 0.03), transparent);">
-                                <div>
-                                    <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Columns</p>
-                                    <p class="text-lg font-bold font-headline text-surface-tint"><?= count($columns) ?></p>
-                                </div>
-                                <div>
-                                    <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Engine</p>
-                                    <p class="text-lg font-bold font-headline text-primary-container"><?= $table->engine ?></p>
-                                </div>
-                            </div>
-                            <div class="flex flex-wrap gap-1">
-                                <?php foreach (array_slice($columns, 0, 3) as $col): ?>
-                                    <span class="text-[10px] font-medium bg-surface-container px-2 py-1 rounded-full"><?= Html::encode($col->name) ?></span>
-                                <?php endforeach; ?>
-                                <?php if (count($columns) > 3): ?>
-                                    <span class="text-[10px] font-medium bg-surface-container px-2 py-1 rounded-full">+<?= count($columns) - 3 ?> more</span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php 
-                        $footerBg = ['bg-indigo-50/50', 'bg-cyan-50/50', 'bg-purple-50/50', 'bg-orange-50/50', 'bg-emerald-50/50'][$loop->index % 5];
-                        ?>
-                        <div class="<?= $footerBg ?> px-4 py-4 flex items-center justify-between border-t border-gray-100">
-                            <div class="flex gap-1 flex-wrap">
-                                <?= Html::a('<span class="material-symbols-outlined text-[18px]">visibility</span> View', ['table-builder/view', 'id' => $table->id], [
-                                    'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                    'title' => 'View Table Details'
-                                ]) ?>
-                                <?= Html::a('<span class="material-symbols-outlined text-[18px]">edit</span> Edit', ['table-builder/update', 'id' => $table->id], [
-                                    'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                    'title' => 'Edit Table'
-                                ]) ?>
-                                <?php if (!$table->is_created): ?>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">play_arrow</span> Create', ['table-builder/execute-sql', 'id' => $table->id], [
-                                        'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-secondary hover:text-secondary transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                        'title' => 'Create Table in Database',
-                                        'data' => [
-                                            'confirm' => 'Create this table in the database?',
-                                            'method' => 'post',
-                                        ]
-                                    ]) ?>
-                                <?php endif; ?>
-                            </div>
-                            <?= Html::a('<span class="material-symbols-outlined text-[18px]">delete</span>', ['table-builder/delete', 'id' => $table->id], [
-                                'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all inline-flex no-underline text-on-surface-variant',
-                                'title' => 'Delete Table',
-                                'data' => [
-                                    'confirm' => 'Are you sure you want to delete this table? All data will be lost.',
-                                    'method' => 'post',
-                                ]
-                            ]) ?>
-                        </div>
+
+            <div class="hero-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Tables</span>
+                    <div class="stat-value"><?= $tableCount ?></div>
+                    <p class="stat-note">Saved table definitions</p>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Created</span>
+                    <div class="stat-value"><?= $createdCount ?></div>
+                    <p class="stat-note">Already available in SQL database</p>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Pending</span>
+                    <div class="stat-value"><?= $pendingCount ?></div>
+                    <p class="stat-note">Metadata only, not executed yet</p>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Columns</span>
+                    <div class="stat-value"><?= $totalColumns ?></div>
+                    <p class="stat-note">Total columns across all definitions</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Table List</h2>
+                    <p class="panel-subtitle">Only real table metadata is shown here. No dummy analytics, no placeholder cards.</p>
+                </div>
+            </div>
+            <div class="panel-body">
+                <?php if (empty($tables)): ?>
+                    <div class="empty-state">
+                        <span class="material-symbols-outlined">database</span>
+                        <p class="empty-title">No tables created yet</p>
+                        <p class="empty-text">Start by creating the first table definition for your project.</p>
+                        <?= Html::a('Create First Table', ['table-builder/create'], ['class' => 'btn-clean btn-primary-clean']) ?>
                     </div>
-                <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="table-grid">
+                        <?php foreach ($tables as $item): ?>
+                            <?php
+                            $table = $item->table;
+                            $columns = $item->columns;
+                            $statusClass = $table->is_created ? 'status-pill status-created' : 'status-pill status-pending';
+                            $statusIcon = $table->is_created ? 'check_circle' : 'schedule';
+                            $statusLabel = $table->is_created ? 'Created in Database' : 'Pending Database Creation';
+                            ?>
+                            <article class="table-card">
+                                <div class="card-top">
+                                    <div>
+                                        <h3 class="card-title"><?= Html::encode($table->label ?: $table->name) ?></h3>
+                                        <span class="card-name"><?= Html::encode($table->name) ?></span>
+                                    </div>
+                                    <div class="<?= $statusClass ?>">
+                                        <span class="material-symbols-outlined" style="font-size:16px;"><?= $statusIcon ?></span>
+                                        <?= Html::encode($statusLabel) ?>
+                                    </div>
+                                </div>
+
+                                <?php if (!empty($table->description)): ?>
+                                    <p class="card-description"><?= Html::encode($table->description) ?></p>
+                                <?php else: ?>
+                                    <p class="card-description">No description provided for this table definition.</p>
+                                <?php endif; ?>
+
+                                <div class="meta-grid">
+                                    <div class="meta-box">
+                                        <div class="meta-label">Columns</div>
+                                        <span class="meta-value"><?= count($columns) ?></span>
+                                    </div>
+                                    <div class="meta-box">
+                                        <div class="meta-label">Engine</div>
+                                        <span class="meta-value" style="font-size:18px;"><?= Html::encode($table->engine) ?></span>
+                                    </div>
+                                    <div class="meta-box">
+                                        <div class="meta-label">Created</div>
+                                        <span class="meta-value" style="font-size:18px;"><?= Html::encode(date('d M Y', strtotime($table->created_at))) ?></span>
+                                    </div>
+                                </div>
+
+                                <div class="column-chips">
+                                    <?php foreach (array_slice($columns, 0, 4) as $column): ?>
+                                        <span class="column-chip"><?= Html::encode($column->name) ?></span>
+                                    <?php endforeach; ?>
+                                    <?php if (count($columns) > 4): ?>
+                                        <span class="column-chip">+<?= count($columns) - 4 ?> more</span>
+                                    <?php endif; ?>
+                                </div>
+
+                                <div class="card-actions">
+                                    <?= Html::a('View', ['table-builder/view', 'id' => $table->id], ['class' => 'btn-clean']) ?>
+                                    <?= Html::a('Edit', ['table-builder/update', 'id' => $table->id], ['class' => 'btn-clean']) ?>
+                                    <?php if (!$table->is_created): ?>
+                                        <?= Html::a('Create in DB', ['table-builder/execute-sql', 'id' => $table->id], [
+                                            'class' => 'btn-clean',
+                                            'data' => [
+                                                'confirm' => 'Create this table in the database?',
+                                                'method' => 'post',
+                                            ],
+                                        ]) ?>
+                                    <?php endif; ?>
+                                    <?= Html::a('Delete', ['table-builder/delete', 'id' => $table->id], [
+                                        'class' => 'btn-clean btn-danger-clean',
+                                        'data' => [
+                                            'confirm' => 'Are you sure you want to delete this table? All related metadata will be removed.',
+                                            'method' => 'post',
+                                        ],
+                                    ]) ?>
+                                </div>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
             </div>
-        <?php endif; ?>
+        </section>
+            </div>
+        </div>
     </div>
 </main>
 </body>

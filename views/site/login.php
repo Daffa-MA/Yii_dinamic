@@ -35,7 +35,7 @@ body.login-page {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
+    padding: 5px;
 }
 
 .login-container {
@@ -507,12 +507,9 @@ CSS,
 
             <!-- Remember Me -->
             <div class="remember-section">
-                <?= $form->field($model, 'rememberMe')->checkbox([
-                    'class' => 'remember-checkbox',
-                    'label' => '<span class="remember-label">Remember me</span>',
-                    'template' => "{input}\n{label}\n{error}",
-                    'uncheck' => false
-                ])->label(false) ?>
+                <input type="hidden" name="LoginForm[rememberMe]" value="0">
+                <input type="checkbox" id="LoginForm-rememberMe" name="LoginForm[rememberMe]" value="1" <?= $model->rememberMe ? 'checked' : '' ?> class="remember-checkbox">
+                <label for="LoginForm-rememberMe" class="remember-label">Remember me</label>
             </div>
 
             <!-- Submit Button -->

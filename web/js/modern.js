@@ -32,20 +32,14 @@ class FormBuilderUI {
 
     document.addEventListener("dragover", (e) => {
       e.preventDefault();
-      if (
-        e.target.classList.contains("form-preview") ||
-        e.target.closest(".form-preview")
-      ) {
+      if (e.target.classList.contains("form-preview") || e.target.closest(".form-preview")) {
         this.handleDragOver(e);
       }
     });
 
     document.addEventListener("drop", (e) => {
       e.preventDefault();
-      if (
-        e.target.classList.contains("form-preview") ||
-        e.target.closest(".form-preview")
-      ) {
+      if (e.target.classList.contains("form-preview") || e.target.closest(".form-preview")) {
         this.handleDrop(e);
       }
     });
@@ -63,8 +57,7 @@ class FormBuilderUI {
 
   handleFieldDragStart(e) {
     this.draggingElement = e.target;
-    const fieldType =
-      e.target.dataset.fieldType || e.target.textContent.toLowerCase();
+    const fieldType = e.target.dataset.fieldType || e.target.textContent.toLowerCase();
 
     e.dataTransfer.effectAllowed = "copy";
     e.dataTransfer.setData("fieldType", fieldType);
@@ -147,132 +140,129 @@ class FormBuilderUI {
             </div>
         `;
 
-        // Add smooth animation
-        container.appendChild(field);
-        
-        // Trigger animation
-        field.style.animation = 'none';
-        field.offsetHeight; // Trigger reflow
-        field.style.animation = 'slideInUp 0.3s ease-out';
+    // Add smooth animation
+    container.appendChild(field);
 
-        // Setup field interactions
-        this.setupFieldInteractions(field);
-        
-        // Update form schema
-        this.updateFormSchema();
+    // Trigger animation
+    field.style.animation = "none";
+    field.offsetHeight; // Trigger reflow
+    field.style.animation = "slideInUp 0.3s ease-out";
+
+    // Setup field interactions
+    this.setupFieldInteractions(field);
+
+    // Update form schema
+    this.updateFormSchema();
+  }
+
+  getFieldInput(fieldType) {
+    const inputs = {
+      text: '<input type="text" class="form-control form-field-input" placeholder="Enter text...">',
+      number: '<input type="number" class="form-control form-field-input" placeholder="Enter number...">',
+      email: '<input type="email" class="form-control form-field-input" placeholder="Enter email...">',
+      textarea: '<textarea class="form-control form-field-input" rows="3" placeholder="Enter text..."></textarea>',
+      select: '<select class="form-control form-field-input"><option>Option 1</option><option>Option 2</option></select>',
+      checkbox: '<div><label><input type="checkbox"> Option 1</label><label><input type="checkbox"> Option 2</label></div>',
+      radio: '<div><label><input type="radio" name="radio"> Option 1</label><label><input type="radio" name="radio"> Option 2</label></div>',
+      date: '<input type="date" class="form-control form-field-input">',
+    };
+
+    return inputs[fieldType] || inputs["text"];
+  }
+
+  setupFieldManagement() {
+    // Placeholder - field management handled by main builder
+    return;
+  }
+
+  setupFieldInteractions(field) {
+    // Drag reordering
+    field.addEventListener("dragstart", (e) => {
+      this.draggingElement = field;
+      e.dataTransfer.effectAllowed = "move";
+      field.classList.add("dragging");
+    });
+
+    field.addEventListener("dragend", () => {
+      field.classList.remove("dragging");
+    });
+
+    // Hover effects
+    field.addEventListener("mouseenter", () => {
+      field.style.boxShadow = "0 0 0 3px rgba(37, 99, 235, 0.2)";
+    });
+
+    field.addEventListener("mouseleave", () => {
+      field.style.boxShadow = "";
+    });
+  }
+
+  deleteField(button) {
+    const field = button.closest(".form-field");
+
+    // Add fade animation before removal
+    field.style.animation = "fadeOut 0.3s ease-out forwards";
+
+    setTimeout(() => {
+      field.remove();
+      this.updateFormSchema();
+    }, 300);
+  }
+
+  editField(button) {
+    const field = button.closest(".form-field");
+    field.classList.add("editing");
+
+    // Show edit mode
+    const inputs = field.querySelectorAll('input[type="text"], textarea, select');
+    inputs[0]?.focus();
+  }
+
+  updateFormSchema() {
+    const fields = document.querySelectorAll(".form-field");
+    const schema = Array.from(fields).map((field) => ({
+      id: field.dataset.fieldId,
+      type: this.getFieldType(field),
+      label: field.querySelector('[placeholder*="Label"]')?.value || "Field",
+      required: field.querySelector('input[type="checkbox"]')?.checked || false,
+    }));
+
+    // Update hidden input or send to server
+    const schemaInput = document.querySelector('input[name="Form[schema_json]"]') || document.getElementById("schema-js");
+    if (schemaInput) {
+      schemaInput.value = JSON.stringify(schema);
+    }
+  }
+
+  getFieldType(field) {
+    const inputs = ["text", "number", "email", "textarea", "select", "checkbox", "radio", "date", "file"];
+
+    for (let type of inputs) {
+      if (field.querySelector(`input[type="${type}"], ${type}`)) {
+        return type;
+      }
     }
 
-    getFieldInput(fieldType) {
-        const inputs = {
-            'text': '<input type="text" class="form-control form-field-input" placeholder="Enter text...">',
-            'number': '<input type="number" class="form-control form-field-input" placeholder="Enter number...">',
-            'email': '<input type="email" class="form-control form-field-input" placeholder="Enter email...">',
-            'textarea': '<textarea class="form-control form-field-input" rows="3" placeholder="Enter text..."></textarea>',
-            'select': '<select class="form-control form-field-input"><option>Option 1</option><option>Option 2</option></select>',
-            'checkbox': '<div><label><input type="checkbox"> Option 1</label><label><input type="checkbox"> Option 2</label></div>',
-            'radio': '<div><label><input type="radio" name="radio"> Option 1</label><label><input type="radio" name="radio"> Option 2</label></div>',
-            'date': '<input type="date" class="form-control form-field-input">',
-        };
-        
-        return inputs[fieldType] || inputs['text'];
+    return "text";
+  }
+
+  // ====== FORM PREVIEW ======
+
+  setupFormPreview() {
+    const canvas = document.querySelector(".form-builder-canvas");
+
+    if (canvas) {
+      // Show empty state
+      if (canvas.querySelector(".form-preview").children.length === 0) {
+        this.showEmptyState(canvas.querySelector(".form-preview"));
+      }
     }
+  }
 
-    setupFieldManagement() {
-        // Placeholder - field management handled by main builder
-        return;
-    }
-
-    setupFieldInteractions(field) {
-        // Drag reordering
-        field.addEventListener('dragstart', (e) => {
-            this.draggingElement = field;
-            e.dataTransfer.effectAllowed = 'move';
-            field.classList.add('dragging');
-        });
-
-        field.addEventListener('dragend', () => {
-            field.classList.remove('dragging');
-        });
-
-        // Hover effects
-        field.addEventListener('mouseenter', () => {
-            field.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.2)';
-        });
-
-        field.addEventListener('mouseleave', () => {
-            field.style.boxShadow = '';
-        });
-    }
-
-    deleteField(button) {
-        const field = button.closest('.form-field');
-        
-        // Add fade animation before removal
-        field.style.animation = 'fadeOut 0.3s ease-out forwards';
-        
-        setTimeout(() => {
-            field.remove();
-            this.updateFormSchema();
-        }, 300);
-    }
-
-    editField(button) {
-        const field = button.closest('.form-field');
-        field.classList.add('editing');
-        
-        // Show edit mode
-        const inputs = field.querySelectorAll('input[type="text"], textarea, select');
-        inputs[0]?.focus();
-    }
-
-    updateFormSchema() {
-        const fields = document.querySelectorAll('.form-field');
-        const schema = Array.from(fields).map(field => ({
-            id: field.dataset.fieldId,
-            type: this.getFieldType(field),
-            label: field.querySelector('[placeholder*="Label"]')?.value || 'Field',
-            required: field.querySelector('input[type="checkbox"]')?.checked || false,
-        }));
-
-        // Update hidden input or send to server
-        const schemaInput = document.querySelector('input[name="Form[schema_js]"]') || document.getElementById('schema-js');
-        if (schemaInput) {
-            schemaInput.value = JSON.stringify(schema);
-        }
-    }
-
-    getFieldType(field) {
-        const inputs = [
-            'text', 'number', 'email', 'textarea', 'select', 
-            'checkbox', 'radio', 'date', 'file'
-        ];
-        
-        for (let type of inputs) {
-            if (field.querySelector(`input[type="${type}"], ${type}`)) {
-                return type;
-            }
-        }
-        
-        return 'text';
-    }
-
-    // ====== FORM PREVIEW ======
-
-    setupFormPreview() {
-        const canvas = document.querySelector('.form-builder-canvas');
-        
-        if (canvas) {
-            // Show empty state
-            if (canvas.querySelector('.form-preview').children.length === 0) {
-                this.showEmptyState(canvas.querySelector('.form-preview'));
-            }
-        }
-    }
-
-    showEmptyState(container) {
-        const emptyState = document.createElement('div');
-        emptyState.className = 'empty-canvas animate-fade-in';
-        emptyState.innerHTML = `
+  showEmptyState(container) {
+    const emptyState = document.createElement("div");
+    emptyState.className = "empty-canvas animate-fade-in";
+    emptyState.innerHTML = `
             <div class="empty-canvas-icon">📋</div>
             <div class="empty-canvas-text">No Fields Yet</div>
             <div class="empty-canvas-hint">Drag field types from the left to create your form</div>
@@ -296,7 +286,7 @@ class FormBuilderUI {
       },
       {
         threshold: 0.1,
-      },
+      }
     );
 
     document.querySelectorAll(".card, .form-card, .stat-card").forEach((el) => {
@@ -391,9 +381,7 @@ class FormInteractions {
   }
 
   setupInputAnimations() {
-    const inputs = document.querySelectorAll(
-      ".form-control, .form-field-input",
-    );
+    const inputs = document.querySelectorAll(".form-control, .form-field-input");
     inputs.forEach((input) => {
       input.addEventListener("focus", () => {
         input.parentElement.style.transform = "scale(1.02)";
@@ -462,8 +450,7 @@ class FormInteractions {
 
       btn.addEventListener("click", () => {
         const originalText = btn.textContent;
-        btn.innerHTML =
-          '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> Saving...';
+        btn.innerHTML = '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> Saving...';
         btn.disabled = true;
 
         setTimeout(() => {
@@ -515,9 +502,7 @@ class PageTransitions {
 
   setupPageExit() {
     document.addEventListener("click", (e) => {
-      const link = e.target.closest(
-        'a:not([href^="#"]):not([target="_blank"])',
-      );
+      const link = e.target.closest('a:not([href^="#"]):not([target="_blank"])');
       if (link && !link.href.includes("javascript:")) {
         // Optional: Add exit animation
         // document.body.style.animation = 'fadeOut 0.3s ease-out';

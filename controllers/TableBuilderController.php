@@ -11,6 +11,97 @@ use app\models\DbTableColumn;
 
 class TableBuilderController extends Controller
 {
+    private function buildCreateTableSql(DbTable $model, array $columns): string
+    {
+        $db = Yii::$app->db;
+        $columnDefs = [];
+        $primaryKeys = [];
+
+        foreach ($columns as $col) {
+            $type = $col->getMySQLType();
+            $nullable = $col->is_primary ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
+            $default = $col->default_value !== null ? 'DEFAULT ' . $db->quoteValue($col->default_value) : '';
+            $comment = $col->comment ? 'COMMENT ' . $db->quoteValue($col->comment) : '';
+
+            $def = "`{$col->name}` {$type} {$nullable} {$default} {$comment}";
+            $columnDefs[] = trim($def);
+
+            if ($col->is_primary) {
+                $primaryKeys[] = "`{$col->name}`";
+            }
+        }
+
+        if (!empty($primaryKeys)) {
+            $columnDefs[] = 'PRIMARY KEY (' . implode(', ', $primaryKeys) . ')';
+        }
+
+        foreach ($columns as $col) {
+            if ($col->is_unique && !$col->is_primary) {
+                $columnDefs[] = "UNIQUE KEY `uk_{$col->name}` (`{$col->name}`)";
+            }
+        }
+
+        return "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
+    }
+
+    private function buildColumnModels(array $columns, int $tableId): array
+    {
+        $columnModels = [];
+        $seenNames = [];
+
+        foreach ($columns as $index => $colData) {
+            if (empty($colData['name']) && empty($colData['label']) && empty($colData['type'])) {
+                continue;
+            }
+
+            $column = new DbTableColumn();
+            $column->table_id = $tableId;
+            $column->name = strtolower(trim((string)($colData['name'] ?? '')));
+            $column->label = trim((string)($colData['label'] ?? ''));
+            $column->type = (string)($colData['type'] ?? '');
+            $column->length = $colData['length'] !== '' && $colData['length'] !== null ? (int)$colData['length'] : null;
+            $column->is_nullable = (bool)($colData['is_nullable'] ?? false);
+            $column->is_primary = (bool)($colData['is_primary'] ?? false);
+            $column->is_unique = (bool)($colData['is_unique'] ?? false);
+            $column->default_value = $colData['default_value'] !== '' ? (string)$colData['default_value'] : null;
+            $column->comment = $colData['comment'] !== '' ? (string)$colData['comment'] : null;
+            $column->sort_order = $index;
+
+            if ($column->label === '' && $column->name !== '') {
+                $column->label = ucwords(str_replace('_', ' ', $column->name));
+            }
+
+            if ($column->name !== '' && !preg_match('/^[a-z][a-z0-9_]*$/', $column->name)) {
+                $column->addError('name', 'Column name must start with a letter and contain only lowercase letters, numbers, and underscores.');
+            }
+
+            if ($column->name !== '') {
+                if (isset($seenNames[$column->name])) {
+                    $column->addError('name', "Duplicate column name '{$column->name}' is not allowed.");
+                }
+                $seenNames[$column->name] = true;
+            }
+
+            $columnModels[] = $column;
+        }
+
+        return $columnModels;
+    }
+
+    private function collectColumnErrors(array $columnModels): array
+    {
+        $errors = [];
+
+        foreach ($columnModels as $column) {
+            if (!$column->validate()) {
+                $identifier = $column->label ?: $column->name ?: 'Unnamed column';
+                $errors[] = "Column '{$identifier}': " . implode(', ', $column->getErrorSummary(true));
+            }
+        }
+
+        return $errors;
+    }
+
     public function behaviors()
     {
         return [
@@ -37,10 +128,10 @@ class TableBuilderController extends Controller
         $tablesWithColumns = [];
         foreach ($tables as $table) {
             $columns = $table->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
-            $tablesWithColumns[] = [
-                'table' => $table,
-                'columns' => $columns,
-            ];
+            $item = new \stdClass();
+            $item->table = $table;
+            $item->columns = $columns;
+            $tablesWithColumns[] = $item;
         }
 
         return $this->render('index', [
@@ -71,42 +162,35 @@ class TableBuilderController extends Controller
 
             try {
                 if ($model->save()) {
-                    $columnErrors = [];
-                    $savedCount = 0;
+                    $transaction = Yii::$app->db->beginTransaction();
 
-                    foreach ($columns as $index => $colData) {
-                        if (!empty($colData['name']) && !empty($colData['type'])) {
-                            $column = new DbTableColumn();
-                            $column->table_id = $model->id;
-                            $column->name = $colData['name'];
-                            $column->label = $colData['label'] ?: $colData['name'];
-                            $column->type = $colData['type'];
-                            $column->length = $colData['length'] ?: null;
-                            // Fix: Check actual boolean value, not just isset
-                            $column->is_nullable = (bool)($colData['is_nullable'] ?? false);
-                            $column->is_primary = (bool)($colData['is_primary'] ?? false);
-                            $column->is_unique = (bool)($colData['is_unique'] ?? false);
-                            $column->default_value = $colData['default_value'] ?: null;
-                            $column->comment = $colData['comment'] ?: null;
-                            $column->sort_order = $index;
+                    try {
+                        $columnModels = $this->buildColumnModels($columns, (int)$model->id);
 
-                            // Check if save fails and collect errors
-                            if (!$column->save()) {
-                                $columnErrors[] = "Column '{$colData['name']}': " . implode(', ', $column->getErrorSummary(true));
-                            } else {
-                                $savedCount++;
+                        if (empty($columnModels)) {
+                            throw new \RuntimeException('Please add at least one valid column before creating the table.');
+                        }
+
+                        $columnErrors = $this->collectColumnErrors($columnModels);
+                        if (!empty($columnErrors)) {
+                            throw new \RuntimeException(implode('<br>', $columnErrors));
+                        }
+
+                        foreach ($columnModels as $column) {
+                            if (!$column->save(false)) {
+                                throw new \RuntimeException("Failed to save column '{$column->name}'.");
                             }
                         }
-                    }
 
-                    // If there were column save errors, show them
-                    if (!empty($columnErrors)) {
-                        Yii::$app->session->setFlash('warning', "Table created but some columns had errors:<br>" . implode('<br>', $columnErrors));
-                    } else {
-                        Yii::$app->session->setFlash('success', "Table created successfully with $savedCount column(s)! Click 'Execute SQL' to create it in database.");
-                    }
+                        $transaction->commit();
+                        Yii::$app->session->setFlash('success', "Table '{$model->name}' created successfully.");
 
-                    return $this->redirect(['view', 'id' => $model->id]);
+                        return $this->redirect(['index']);
+                    } catch (\Throwable $e) {
+                        $transaction->rollBack();
+                        $model->delete();
+                        Yii::$app->session->setFlash('error', $e->getMessage());
+                    }
                 } else {
                     // Model validation failed - show error and preserve columns
                     Yii::$app->session->setFlash('error', 'Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
@@ -155,6 +239,19 @@ class TableBuilderController extends Controller
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+        $savedColumns = array_map(static function (DbTableColumn $column) {
+            return [
+                'name' => $column->name,
+                'label' => $column->label,
+                'type' => $column->type,
+                'length' => $column->length,
+                'is_nullable' => (bool)$column->is_nullable,
+                'is_primary' => (bool)$column->is_primary,
+                'is_unique' => (bool)$column->is_unique,
+                'default_value' => $column->default_value,
+                'comment' => $column->comment,
+            ];
+        }, $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all());
 
         if ($model->load(Yii::$app->request->post())) {
             $columns = Yii::$app->request->post('columns', []);
@@ -162,49 +259,40 @@ class TableBuilderController extends Controller
             if (is_string($columns)) {
                 $columns = json_decode($columns, true) ?: [];
             }
+            $savedColumns = $columns;
             
             try {
                 if ($model->save()) {
-                    // Delete existing columns
-                    DbTableColumn::deleteAll(['table_id' => $model->id]);
-                    
-                    $columnErrors = [];
-                    $savedCount = 0;
-                    
-                    // Add new columns
-                    foreach ($columns as $index => $colData) {
-                        if (!empty($colData['name']) && !empty($colData['type'])) {
-                            $column = new DbTableColumn();
-                            $column->table_id = $model->id;
-                            $column->name = $colData['name'];
-                            $column->label = $colData['label'] ?: $colData['name'];
-                            $column->type = $colData['type'];
-                            $column->length = $colData['length'] ?: null;
-                            // Fix: Check actual boolean value, not just isset
-                            $column->is_nullable = (bool)($colData['is_nullable'] ?? false);
-                            $column->is_primary = (bool)($colData['is_primary'] ?? false);
-                            $column->is_unique = (bool)($colData['is_unique'] ?? false);
-                            $column->default_value = $colData['default_value'] ?: null;
-                            $column->comment = $colData['comment'] ?: null;
-                            $column->sort_order = $index;
-                            
-                            // Check if save fails and collect errors
-                            if (!$column->save()) {
-                                $columnErrors[] = "Column '{$colData['name']}': " . implode(', ', $column->getErrorSummary(true));
-                            } else {
-                                $savedCount++;
+                    $transaction = Yii::$app->db->beginTransaction();
+
+                    try {
+                        $columnModels = $this->buildColumnModels($columns, (int)$model->id);
+
+                        if (empty($columnModels)) {
+                            throw new \RuntimeException('Please keep at least one valid column on the table.');
+                        }
+
+                        $columnErrors = $this->collectColumnErrors($columnModels);
+                        if (!empty($columnErrors)) {
+                            throw new \RuntimeException(implode('<br>', $columnErrors));
+                        }
+
+                        DbTableColumn::deleteAll(['table_id' => $model->id]);
+
+                        foreach ($columnModels as $column) {
+                            if (!$column->save(false)) {
+                                throw new \RuntimeException("Failed to save column '{$column->name}'.");
                             }
                         }
+
+                        $transaction->commit();
+                        Yii::$app->session->setFlash('success', 'Table updated successfully.');
+
+                        return $this->redirect(['view', 'id' => $model->id]);
+                    } catch (\Throwable $e) {
+                        $transaction->rollBack();
+                        Yii::$app->session->setFlash('error', $e->getMessage());
                     }
-                    
-                    // If there were column save errors, show them
-                    if (!empty($columnErrors)) {
-                        Yii::$app->session->setFlash('warning', "Table updated but some columns had errors:<br>" . implode('<br>', $columnErrors));
-                    } else {
-                        Yii::$app->session->setFlash('success', "Table updated successfully with $savedCount column(s)!");
-                    }
-                    
-                    return $this->redirect(['view', 'id' => $model->id]);
                 } else {
                     Yii::$app->session->setFlash('error', 'Failed to save table: ' . implode(', ', $model->getErrorSummary(true)));
                 }
@@ -221,6 +309,7 @@ class TableBuilderController extends Controller
 
         return $this->render('update', [
             'model' => $model,
+            'savedColumns' => $savedColumns,
         ]);
     }
 
@@ -242,39 +331,11 @@ class TableBuilderController extends Controller
 
         try {
             $db = Yii::$app->db;
-            
-            // Build CREATE TABLE SQL
-            $columnDefs = [];
-            $primaryKeys = [];
-            
-            foreach ($columns as $col) {
-                $type = $col->getMySQLType();
-                // PRIMARY KEY columns must NOT be NULL
-                $nullable = $col->is_primary ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
-                $default = $col->default_value !== null ? "DEFAULT '{$col->default_value}'" : '';
-                $comment = $col->comment ? "COMMENT '{$col->comment}'" : '';
-                
-                $def = "`{$col->name}` {$type} {$nullable} {$default} {$comment}";
-                $columnDefs[] = trim($def);
-                
-                if ($col->is_primary) {
-                    $primaryKeys[] = "`{$col->name}`";
-                }
+            if (!$model->validate(['name', 'engine', 'charset', 'collation'])) {
+                throw new \RuntimeException(implode(', ', $model->getErrorSummary(true)));
             }
-            
-            if (!empty($primaryKeys)) {
-                $columnDefs[] = "PRIMARY KEY (" . implode(', ', $primaryKeys) . ")";
-            }
-            
-            // Add unique constraints
-            foreach ($columns as $col) {
-                if ($col->is_unique && !$col->is_primary) {
-                    $columnDefs[] = "UNIQUE KEY `uk_{$col->name}` (`{$col->name}`)";
-                }
-            }
-            
-            $sql = "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
-            
+
+            $sql = $this->buildCreateTableSql($model, $columns);
             $db->createCommand($sql)->execute();
             
             $model->is_created = true;
@@ -316,36 +377,8 @@ class TableBuilderController extends Controller
             return $this->asJson(['sql' => '-- No columns defined']);
         }
 
-        $columnDefs = [];
-        $primaryKeys = [];
-        
-        foreach ($columns as $col) {
-            $type = $col->getMySQLType();
-            // PRIMARY KEY columns must NOT be NULL
-            $nullable = $col->is_primary ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
-            $default = $col->default_value !== null ? "DEFAULT '{$col->default_value}'" : '';
-            $comment = $col->comment ? "COMMENT '{$col->comment}'" : '';
-            
-            $def = "`{$col->name}` {$type} {$nullable} {$default} {$comment}";
-            $columnDefs[] = trim($def);
-            
-            if ($col->is_primary) {
-                $primaryKeys[] = "`{$col->name}`";
-            }
-        }
-        
-        if (!empty($primaryKeys)) {
-            $columnDefs[] = "PRIMARY KEY (" . implode(', ', $primaryKeys) . ")";
-        }
-        
-        foreach ($columns as $col) {
-            if ($col->is_unique && !$col->is_primary) {
-                $columnDefs[] = "UNIQUE KEY `uk_{$col->name}` (`{$col->name}`)";
-            }
-        }
-        
-        $sql = "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
-        
+        $sql = $this->buildCreateTableSql($model, $columns);
+
         return $this->asJson(['sql' => $sql]);
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 namespace app\models;
 
 use Yii;
@@ -12,7 +13,7 @@ use yii\db\ActiveRecord;
  * @property integer $table_id
  * @property string $storage_type
  * @property string $name
- * @property string $schema_js
+ * @property string $schema_json
  * @property string $created_at
  * @property string $updated_at
  *
@@ -30,10 +31,10 @@ class Form extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'name', 'schema_js'], 'required'],
+            [['user_id', 'name', 'schema_json'], 'required'],
             [['user_id', 'table_id'], 'integer'],
             [['storage_type'], 'string', 'max' => 20],
-            [['schema_js'], 'string'],
+            [['schema_json'], 'string'],
             [['name'], 'string', 'max' => 255],
             [['storage_type'], 'in', 'range' => ['json', 'database']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
@@ -49,7 +50,7 @@ class Form extends ActiveRecord
             'table_id' => 'Database Table',
             'storage_type' => 'Storage Type',
             'name' => 'Form Name',
-            'schema_js' => 'Form Schema',
+            'schema_json' => 'Form Schema',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
@@ -72,12 +73,12 @@ class Form extends ActiveRecord
 
     public function getSchema()
     {
-        return json_decode($this->schema_js, true) ?: [];
+        return json_decode($this->schema_json, true) ?: [];
     }
 
     public function setSchema($schema)
     {
-        $this->schema_js = json_encode($schema, JSON_UNESCAPED_UNICODE);
+        $this->schema_json = json_encode($schema, JSON_UNESCAPED_UNICODE);
     }
 
     public function behaviors()

@@ -42,13 +42,13 @@ class FormController extends Controller
         $query = Form::find()
             ->where(['user_id' => Yii::$app->user->id])
             ->orderBy(['created_at' => SORT_DESC]);
-        
+
         // Search functionality
         $search = Yii::$app->request->get('q');
         if ($search) {
             $query->andWhere(['like', 'name', $search]);
         }
-        
+
         $forms = $query->all();
 
         return $this->render('index', [
@@ -64,7 +64,7 @@ class FormController extends Controller
     {
         $model = new Form();
         $model->user_id = Yii::$app->user->id;
-        $model->schema_js = '[]';
+        $model->schema_json = '[]';
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             Yii::$app->session->setFlash('success', 'Form created successfully!');
@@ -178,13 +178,13 @@ class FormController extends Controller
         $query = FormSubmission::find()
             ->where(['form_id' => $id])
             ->orderBy(['created_at' => SORT_DESC]);
-        
+
         $countQuery = clone $query;
         $pages = new \yii\data\Pagination([
             'totalCount' => $countQuery->count(),
             'defaultPageSize' => 10,
         ]);
-        
+
         $submissions = $query->offset($pages->offset)
             ->limit($pages->limit)
             ->all();
@@ -206,7 +206,7 @@ class FormController extends Controller
         $newForm = new Form();
         $newForm->user_id = Yii::$app->user->id;
         $newForm->name = $model->name . ' (Copy)';
-        $newForm->schema_js = $model->schema_js;
+        $newForm->schema_json = $model->schema_json;
 
         if ($newForm->save()) {
             Yii::$app->session->setFlash('success', 'Form duplicated successfully!');
@@ -224,7 +224,7 @@ class FormController extends Controller
     {
         $model = $this->findModel($id);
         $schema = $model->getSchema();
-        
+
         $submissions = FormSubmission::find()
             ->where(['form_id' => $id])
             ->orderBy(['created_at' => SORT_DESC])
@@ -233,19 +233,19 @@ class FormController extends Controller
         // Set headers for CSV download
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $model->name . '_submissions_' . date('Y-m-d') . '.csv"');
-        
+
         $output = fopen('php://output', 'w');
-        
+
         // Add BOM for UTF-8
-        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF));
-        
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
         // Header row
         $headers = ['ID', 'Submitted At'];
         foreach ($schema as $field) {
             $headers[] = $field['label'] . ' (' . $field['name'] . ')';
         }
         fputcsv($output, $headers);
-        
+
         // Data rows
         foreach ($submissions as $submission) {
             $data = $submission->getData();
@@ -255,7 +255,7 @@ class FormController extends Controller
             }
             fputcsv($output, $row);
         }
-        
+
         fclose($output);
         Yii::$app->end();
     }
@@ -271,12 +271,12 @@ class FormController extends Controller
         $body = Yii::$app->request->getRawBody();
         $data = json_decode($body, true);
         $tableId = $data['table_id'] ?? Yii::$app->request->post('table_id');
-        
-        \Yii::info('GetTableColumns: tableId=' . var_export($tableId, true) . ', body=' . $body, 'app');
-        
+
+        Yii::info('GetTableColumns: tableId=' . var_export($tableId, true) . ', body=' . $body, 'app');
+
         if (!$tableId) {
             return [
-                'success' => false, 
+                'success' => false,
                 'error' => 'No table selected',
                 'message' => 'Please select a table from the dropdown',
                 'debug' => ['received_table_id' => $tableId, 'body' => $body]
@@ -287,7 +287,7 @@ class FormController extends Controller
         $table = \app\models\DbTable::findOne(['id' => (int)$tableId, 'user_id' => Yii::$app->user->id]);
         if (!$table) {
             return [
-                'success' => false, 
+                'success' => false,
                 'error' => 'Table not found or access denied',
                 'message' => 'The selected table does not exist or you do not have permission to access it'
             ];

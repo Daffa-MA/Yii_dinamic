@@ -128,7 +128,7 @@ class DbTableColumn extends ActiveRecord
     {
         if (parent::beforeSave($insert)) {
             $this->name = strtolower(trim($this->name));
-            if ($insert) {
+            if ($insert && $this->sort_order === null) {
                 $maxOrder = static::find()->where(['table_id' => $this->table_id])->max('sort_order');
                 $this->sort_order = ($maxOrder ?? 0) + 1;
             }

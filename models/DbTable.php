@@ -10,6 +10,10 @@ use yii\db\ActiveRecord;
  */
 class DbTable extends ActiveRecord
 {
+    public const ALLOWED_ENGINES = ['InnoDB', 'MyISAM'];
+    public const ALLOWED_CHARSETS = ['utf8mb4', 'utf8'];
+    public const ALLOWED_COLLATIONS = ['utf8mb4_unicode_ci', 'utf8mb4_general_ci'];
+
     public static function tableName()
     {
         return 'db_tables';
@@ -26,6 +30,9 @@ class DbTable extends ActiveRecord
             [['engine'], 'string', 'max' => 20],
             [['charset'], 'string', 'max' => 20],
             [['collation'], 'string', 'max' => 50],
+            [['engine'], 'in', 'range' => self::ALLOWED_ENGINES],
+            [['charset'], 'in', 'range' => self::ALLOWED_CHARSETS],
+            [['collation'], 'in', 'range' => self::ALLOWED_COLLATIONS],
             [['name'], 'unique', 'targetAttribute' => ['user_id', 'name'], 'message' => 'You already have a table with this name.'],
             [['name'], 'match', 'pattern' => '/^[a-z][a-z0-9_]*$/', 'message' => 'Table name must start with a letter and contain only lowercase letters, numbers, and underscores.'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],

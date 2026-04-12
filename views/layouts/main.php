@@ -7,14 +7,8 @@ use app\assets\AppAsset;
 use app\widgets\Alert;
 use yii\bootstrap5\Breadcrumbs;
 use yii\bootstrap5\Html;
-use yii\bootstrap5\Nav;
-use yii\bootstrap5\NavBar;
 
 AppAsset::register($this);
-
-// Register FontAwesome globally
-$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['charset' => Yii::$app->charset], 'charset');
@@ -31,38 +25,10 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
     <style>
-        /* Modern Navigation */
-        #header .navbar {
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-            backdrop-filter: blur(10px);
-        }
-
-        #header .navbar-brand {
-            font-weight: 700;
-            font-size: 20px;
-            letter-spacing: -0.5px;
-        }
-
-        #header .nav-link {
-            font-weight: 500;
-            transition: all 0.3s ease;
-            color: rgba(255, 255, 255, 0.8) !important;
-        }
-
-        #header .nav-link:hover {
-            color: white !important;
-            transform: translateY(-2px);
-        }
-
         /* Body Styles */
         body {
             background: #f9fafb;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-        }
-
-        main {
-            padding-top: 80px !important;
         }
 
         /* Footer */
@@ -99,37 +65,6 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
 <body class="d-flex flex-column h-100<?= $this->context->route === 'site/login' ? ' login-page' : '' ?>">
     <?php $this->beginBody() ?>
 
-    <header id="header">
-        <?php if (Yii::$app->user->isGuest || in_array($this->context->route, ['site/login', 'site/error'])): ?>
-        <?php
-        NavBar::begin([
-            'brandLabel' => '<i class="fas fa-rocket"></i> ' . Yii::$app->name,
-            'brandUrl' => Yii::$app->homeUrl,
-            'options' => ['class' => 'navbar-expand-md navbar-dark fixed-top']
-        ]);
-        echo Nav::widget([
-            'options' => ['class' => 'navbar-nav ms-auto'],
-            'items' => Yii::$app->user->isGuest
-                ? [
-                    ['label' => '<i class="fas fa-home"></i> Home', 'url' => ['/site/index'], 'encode' => false],
-                    ['label' => '<i class="fas fa-sign-in-alt"></i> Login', 'url' => ['/site/login'], 'encode' => false]
-                  ]
-                : [
-                    ['label' => '<i class="fas fa-home"></i> Home', 'url' => ['/site/index'], 'encode' => false],
-                    ['label' => '<i class="fas fa-chart-line"></i> Dashboard', 'url' => ['/site/dashboard'], 'encode' => false],
-                    ['label' => '<i class="fas fa-file-alt"></i> Forms', 'url' => ['/form/index'], 'encode' => false],
-                    ['label' => '<i class="fas fa-table"></i> Tables', 'url' => ['/table-builder/index'], 'encode' => false],
-                    '<li class="nav-item"><a class="nav-link" href="/site/profile"><i class="fas fa-user-circle"></i> Profile</a></li>'
-                    . '<li class="nav-item">'
-                    . '<a class="nav-link" href="/site/logout" data-method="post" id="logout-link"><i class="fas fa-sign-out-alt"></i> Logout</a>'
-                    . '</li>'
-                  ]
-        ]);
-        NavBar::end();
-        ?>
-        <?php endif; ?>
-    </header>
-
     <main id="main" class="flex-shrink-0" role="main">
         <div class="container" style="max-width: 1400px;">
             <?php if (!empty($this->params['breadcrumbs'])): ?>
@@ -157,7 +92,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
                                 </div>
                             </div>
                         </div>
-                        
+
                         <!-- Center Section -->
                         <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
                             <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #464555;">
@@ -179,7 +114,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
                                 <span>for modern forms</span>
                             </div>
                         </div>
-                        
+
                         <!-- Right Section -->
                         <div style="display: flex; align-items: center; gap: 16px;">
                             <a href="#" style="width: 36px; height: 36px; border-radius: 8px; background: #e5eeff; display: flex; align-items: center; justify-content: center; color: #464555; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='#4f46e5'; this.style.color='white'" onmouseout="this.style.background='#e5eeff'; this.style.color='#464555'">
@@ -200,41 +135,19 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
 
     <style>
         @keyframes heartbeat {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.15); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.15);
+            }
         }
     </style>
 
     <?php $this->endBody() ?>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const logoutLink = document.getElementById('logout-link');
-            if (logoutLink) {
-                logoutLink.addEventListener('click', function(e) {
-                    e.preventDefault();
-
-                    // Create a form and submit it
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = this.href;
-
-                    // Add CSRF token
-                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-                    if (csrfMeta) {
-                        const csrfInput = document.createElement('input');
-                        csrfInput.type = 'hidden';
-                        csrfInput.name = '_csrf';
-                        csrfInput.value = csrfMeta.getAttribute('content');
-                        form.appendChild(csrfInput);
-                    }
-
-                    document.body.appendChild(form);
-                    form.submit();
-                });
-            }
-        });
-    </script>
 </body>
 
 </html>

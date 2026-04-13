@@ -44,3 +44,7 @@ tests/_support/_generated
 !/runtime/logs/.gitignore
 /runtime/session/*
 !/runtime/session/.gitignore
+
+# local environment config
+.env
+!.env.example

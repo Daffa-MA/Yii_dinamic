@@ -73,7 +73,7 @@ class Form extends ActiveRecord
 
     public function getSchema()
     {
-        return json_decode($this->schema_json, true) ?: [];
+        return json_decode((string)$this->schema_json, true) ?: [];
     }
 
     public function setSchema($schema)
@@ -81,14 +81,46 @@ class Form extends ActiveRecord
         $this->schema_json = json_encode($schema, JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * Backward-compatible alias:
+     * - if table has schema_json, use it
+     * - if table has legacy schema_js, map schema_json access to it
+     */
+    public function getSchema_json()
+    {
+        if ($this->hasAttribute('schema_json')) {
+            return $this->getAttribute('schema_json');
+        }
+
+        if ($this->hasAttribute('schema_js')) {
+            return $this->getAttribute('schema_js');
+        }
+
+        return null;
+    }
+
+    public function setSchema_json($value)
+    {
+        if ($this->hasAttribute('schema_json')) {
+            $this->setAttribute('schema_json', $value);
+            return;
+        }
+
+        if ($this->hasAttribute('schema_js')) {
+            $this->setAttribute('schema_js', $value);
+        }
+    }
+
     public function behaviors()
     {
+        $timestampExpression = $this->db->driverName === 'sqlite' ? 'CURRENT_TIMESTAMP' : 'NOW()';
+
         return [
             [
                 'class' => \yii\behaviors\TimestampBehavior::class,
                 'createdAtAttribute' => 'created_at',
                 'updatedAtAttribute' => 'updated_at',
-                'value' => new \yii\db\Expression('NOW()'),
+                'value' => new \yii\db\Expression($timestampExpression),
             ],
         ];
     }

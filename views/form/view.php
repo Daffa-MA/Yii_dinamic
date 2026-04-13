@@ -88,6 +88,13 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     <p class="text-on-surface-variant font-medium">View form details and submissions.</p>
                 </div>
                 <div class="flex items-center gap-3">
+                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">public</span> Publish', ['form/publish', 'id' => $model->id], [
+                        'class' => 'bg-secondary text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline',
+                        'data' => [
+                            'toggle' => 'modal',
+                            'target' => '#publish-modal',
+                        ]
+                    ]) ?>
                     <?= Html::a('<span class="material-symbols-outlined text-[18px]">content_copy</span> Duplicate', ['form/duplicate', 'id' => $model->id], [
                         'class' => 'bg-surface-container text-on-surface px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-surface-container-high transition-all active:scale-95 text-sm no-underline',
                         'data' => [
@@ -153,15 +160,20 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         <?php else: ?>
                             <div class="space-y-3">
                                 <?php foreach ($model->getSchema() as $index => $field): ?>
+                                    <?php
+                                        $fieldLabel = $field['label'] ?? ($field['type'] ?? 'Field ' . ($index + 1));
+                                        $fieldName = $field['name'] ?? '-';
+                                        $fieldType = $field['type'] ?? 'unknown';
+                                    ?>
                                     <div class="flex items-center justify-between p-4 bg-surface-container rounded-xl">
                                         <div class="flex items-center gap-3">
                                             <span class="w-8 h-8 bg-primary-container/10 rounded-lg flex items-center justify-center text-primary-container text-sm font-bold"><?= $index + 1 ?></span>
                                             <div>
-                                                <p class="text-sm font-semibold"><?= Html::encode($field['label']) ?></p>
-                                                <p class="text-xs text-on-surface-variant"><code><?= Html::encode($field['name']) ?></code></p>
+                                                <p class="text-sm font-semibold"><?= Html::encode($fieldLabel) ?></p>
+                                                <p class="text-xs text-on-surface-variant"><code><?= Html::encode($fieldName) ?></code></p>
                                             </div>
                                         </div>
-                                        <span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-xs font-medium"><?= Html::encode($field['type']) ?></span>
+                                        <span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-xs font-medium"><?= Html::encode($fieldType) ?></span>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -214,4 +226,25 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
         </div>
     </main>
+
+    <!-- Publish Modal -->
+    <div class="modal fade" id="publish-modal" tabindex="-1" aria-labelledby="publish-modal-label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #006c49, #00a773); color: white; border: none;">
+                    <h5 class="modal-title" id="publish-modal-label" style="display: flex; align-items: center; gap: 8px;">
+                        <span class="material-symbols-outlined">public</span>
+                        Publish Form
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" style="padding: 24px;">
+                    <?= $this->render('publish', [
+                        'model' => $model,
+                        'publishedForm' => null,
+                    ]) ?>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>

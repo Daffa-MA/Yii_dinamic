@@ -68,12 +68,14 @@ class DbTable extends ActiveRecord
 
     public function behaviors()
     {
+        $timestampExpression = $this->db->driverName === 'sqlite' ? 'CURRENT_TIMESTAMP' : 'NOW()';
+
         return [
             [
                 'class' => \yii\behaviors\TimestampBehavior::class,
                 'createdAtAttribute' => 'created_at',
                 'updatedAtAttribute' => 'updated_at',
-                'value' => new \yii\db\Expression('NOW()'),
+                'value' => new \yii\db\Expression($timestampExpression),
             ],
         ];
     }

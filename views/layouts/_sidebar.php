@@ -179,6 +179,10 @@ $activeMenu = $activeMenu ?? '';
             <span class="material-symbols-outlined <?= $activeMenu === 'forms' ? 'text-primary-container' : '' ?>" <?= $activeMenu === 'forms' ? 'style="font-variation-settings: \'FILL\' 1;"' : '' ?>>description</span>
             <span class="app-sidebar-link-text">Forms</span>
         </a>
+        <a class="app-sidebar-link flex items-center gap-3 <?= $activeMenu === 'published-forms' ? 'bg-gradient-to-r from-secondary/10 to-secondary/20 text-secondary' : 'text-slate-600 hover:bg-slate-100' ?> rounded-xl px-4 py-3 font-medium transition-all group" href="<?= \yii\helpers\Url::to(['published-form/index']) ?>">
+            <span class="material-symbols-outlined <?= $activeMenu === 'published-forms' ? 'text-secondary' : '' ?>" <?= $activeMenu === 'published-forms' ? 'style="font-variation-settings: \'FILL\' 1;"' : '' ?>>public</span>
+            <span class="app-sidebar-link-text">Data Form</span>
+        </a>
         <a class="app-sidebar-link flex items-center gap-3 <?= $activeMenu === 'tables' ? 'bg-gradient-to-r from-surface-tint/10 to-primary-container/10 text-surface-tint' : 'text-slate-600 hover:bg-slate-100' ?> rounded-xl px-4 py-3 font-medium transition-all group" href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>">
             <span class="material-symbols-outlined <?= $activeMenu === 'tables' ? 'text-surface-tint' : '' ?>" <?= $activeMenu === 'tables' ? 'style="font-variation-settings: \'FILL\' 1;"' : '' ?>>table_chart</span>
             <span class="app-sidebar-link-text">Tables</span>

@@ -6,6 +6,8 @@ class m240101_000005_create_db_tables_table extends Migration
 {
     public function safeUp()
     {
+        $isSqlite = $this->db->driverName === 'sqlite';
+
         // Tables metadata
         $this->createTable('db_tables', [
             'id' => $this->primaryKey(),
@@ -22,7 +24,9 @@ class m240101_000005_create_db_tables_table extends Migration
         ]);
 
         $this->createIndex('idx-db_tables-user_id', 'db_tables', 'user_id');
-        $this->addForeignKey('fk-db_tables-user_id', 'db_tables', 'user_id', 'users', 'id', 'CASCADE');
+        if (!$isSqlite) {
+            $this->addForeignKey('fk-db_tables-user_id', 'db_tables', 'user_id', 'users', 'id', 'CASCADE');
+        }
 
         // Table columns metadata
         $this->createTable('db_table_columns', [
@@ -42,16 +46,22 @@ class m240101_000005_create_db_tables_table extends Migration
         ]);
 
         $this->createIndex('idx-db_table_columns-table_id', 'db_table_columns', 'table_id');
-        $this->addForeignKey('fk-db_table_columns-table_id', 'db_table_columns', 'table_id', 'db_tables', 'id', 'CASCADE');
+        if (!$isSqlite) {
+            $this->addForeignKey('fk-db_table_columns-table_id', 'db_table_columns', 'table_id', 'db_tables', 'id', 'CASCADE');
+        }
     }
 
     public function safeDown()
     {
-        $this->dropForeignKey('fk-db_table_columns-table_id', 'db_table_columns');
+        if ($this->db->driverName !== 'sqlite') {
+            $this->dropForeignKey('fk-db_table_columns-table_id', 'db_table_columns');
+        }
         $this->dropIndex('idx-db_table_columns-table_id', 'db_table_columns');
         $this->dropTable('db_table_columns');
         
-        $this->dropForeignKey('fk-db_tables-user_id', 'db_tables');
+        if ($this->db->driverName !== 'sqlite') {
+            $this->dropForeignKey('fk-db_tables-user_id', 'db_tables');
+        }
         $this->dropIndex('idx-db_tables-user_id', 'db_tables');
         $this->dropTable('db_tables');
     }

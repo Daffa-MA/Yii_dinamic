@@ -8,6 +8,7 @@ use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
 use app\models\Form;
 use app\models\FormSubmission;
+use app\models\PublishedForm;
 
 class FormController extends Controller
 {
@@ -66,9 +67,44 @@ class FormController extends Controller
         $model->user_id = Yii::$app->user->id;
         $model->schema_json = '[]';
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', 'Form created successfully!');
-            return $this->redirect(['view', 'id' => $model->id]);
+        if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
+            $model->name = trim((string) $model->name);
+            if ($model->name === '') {
+                $model->name = 'Untitled Page ' . date('Y-m-d H:i:s');
+            }
+            if ($model->save()) {
+                $shouldPublish = (bool) Yii::$app->request->post('publish_now', false);
+
+                if ($shouldPublish) {
+                    $publishedForm = PublishedForm::find()
+                        ->where(['form_id' => $model->id, 'user_id' => Yii::$app->user->id])
+                        ->one();
+
+                    if ($publishedForm === null) {
+                        $publishedForm = new PublishedForm();
+                        $publishedForm->user_id = Yii::$app->user->id;
+                        $publishedForm->form_id = $model->id;
+                    }
+
+                    $publishedForm->name = $model->name;
+
+                    if ($publishedForm->save()) {
+                        Yii::$app->session->setFlash('success', 'Form created and published successfully!');
+                        return $this->redirect(['published-form/index']);
+                    }
+
+                    Yii::error('Failed to publish form after create: ' . print_r($publishedForm->errors, true), 'app');
+                    Yii::$app->session->setFlash('warning', 'Form created, but failed to publish. Please try publish again from the form page.');
+                    return $this->redirect(['view', 'id' => $model->id]);
+                }
+
+                Yii::$app->session->setFlash('success', 'Form created successfully!');
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
+
+            $firstError = $model->getFirstErrors();
+            $errorMessage = !empty($firstError) ? reset($firstError) : 'Failed to create form. Please check input data.';
+            Yii::$app->session->setFlash('error', $errorMessage);
         }
 
         return $this->render('create', [
@@ -83,9 +119,20 @@ class FormController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', 'Form updated successfully!');
-            return $this->redirect(['view', 'id' => $model->id]);
+        if ($model->load(Yii::$app->request->post())) {
+            $model->name = trim((string) $model->name);
+            if ($model->name === '') {
+                $model->name = 'Untitled Page ' . $model->id;
+            }
+
+            if ($model->save()) {
+                Yii::$app->session->setFlash('success', 'Form updated successfully!');
+                return $this->redirect(['view', 'id' => $model->id]);
+            }
+
+            $firstError = $model->getFirstErrors();
+            $errorMessage = !empty($firstError) ? reset($firstError) : 'Failed to update form. Please check input data.';
+            Yii::$app->session->setFlash('error', $errorMessage);
         }
 
         return $this->render('update', [
@@ -316,6 +363,83 @@ class FormController extends Controller
             'table_name' => $table->name,
             'column_count' => count($columns)
         ];
+    }
+
+    /**
+     * Publish a form (creates a published form entry)
+     */
+    public function actionPublish($id = null)
+    {
+        // Support both GET id and POST form_id
+        $formId = Yii::$app->request->post('form_id', $id);
+        
+        Yii::info("Publish action called with formId: $formId", 'app');
+        
+        if (!$formId) {
+            Yii::$app->session->setFlash('error', 'Form ID is required.');
+            return $this->redirect(['form/index']);
+        }
+        
+        $form = $this->findModel($formId);
+
+        // Check if already published
+        $existingPublished = PublishedForm::find()
+            ->where(['form_id' => $formId, 'user_id' => Yii::$app->user->id])
+            ->one();
+
+        if (Yii::$app->request->isPost) {
+            $name = Yii::$app->request->post('name', $form->name);
+            $publishModel = null;
+            
+            Yii::info("Publishing form with name: $name, formId: $formId", 'app');
+            
+            if ($existingPublished) {
+                // Update existing published form
+                $existingPublished->name = $name;
+                $publishModel = $existingPublished;
+                if ($existingPublished->save()) {
+                    Yii::$app->session->setFlash('success', 'Published form updated successfully!');
+                    return $this->redirect(['published-form/index']);
+                } else {
+                    Yii::error('Failed to update published form: ' . print_r($existingPublished->errors, true), 'app');
+                }
+            } else {
+                // Create new published form
+                $publishedForm = new PublishedForm();
+                $publishedForm->user_id = Yii::$app->user->id;
+                $publishedForm->form_id = $formId;
+                $publishedForm->name = $name;
+                $publishModel = $publishedForm;
+                
+                if ($publishedForm->save()) {
+                    Yii::$app->session->setFlash('success', 'Form published successfully!');
+                    return $this->redirect(['published-form/index']);
+                } else {
+                    Yii::error('Failed to create published form: ' . print_r($publishedForm->errors, true), 'app');
+                }
+            }
+            
+            // If save failed, show errors
+            $errorMessage = 'Failed to publish form. Please try again.';
+            if ($publishModel !== null && $publishModel->hasErrors()) {
+                $firstError = $publishModel->getFirstErrors();
+                if (!empty($firstError)) {
+                    $errorMessage .= ' ' . reset($firstError);
+                }
+            }
+            Yii::$app->session->setFlash('error', $errorMessage);
+        }
+
+        // For AJAX/modal requests, return the view
+        if (Yii::$app->request->isAjax) {
+            return $this->renderAjax('publish', [
+                'model' => $form,
+                'publishedForm' => $existingPublished,
+            ]);
+        }
+
+        // For regular requests, redirect back to form page
+        return $this->redirect(['form/update', 'id' => $formId]);
     }
 
     /**

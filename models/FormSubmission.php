@@ -77,7 +77,7 @@ class FormSubmission extends ActiveRecord
      */
     public function getData()
     {
-        return json_decode($this->data_json, true) ?: [];
+        return json_decode((string)$this->data_json, true) ?: [];
     }
 
     /**
@@ -90,17 +90,44 @@ class FormSubmission extends ActiveRecord
         $this->data_json = json_encode($data, JSON_UNESCAPED_UNICODE);
     }
 
+    public function getData_json()
+    {
+        if ($this->hasAttribute('data_json')) {
+            return $this->getAttribute('data_json');
+        }
+
+        if ($this->hasAttribute('data_js')) {
+            return $this->getAttribute('data_js');
+        }
+
+        return null;
+    }
+
+    public function setData_json($value)
+    {
+        if ($this->hasAttribute('data_json')) {
+            $this->setAttribute('data_json', $value);
+            return;
+        }
+
+        if ($this->hasAttribute('data_js')) {
+            $this->setAttribute('data_js', $value);
+        }
+    }
+
     /**
      * Before save - set timestamp
      */
     public function behaviors()
     {
+        $timestampExpression = $this->db->driverName === 'sqlite' ? 'CURRENT_TIMESTAMP' : 'NOW()';
+
         return [
             [
                 'class' => \yii\behaviors\TimestampBehavior::class,
                 'createdAtAttribute' => 'created_at',
                 'updatedAtAttribute' => null, // No update timestamp for submissions
-                'value' => new \yii\db\Expression('NOW()'),
+                'value' => new \yii\db\Expression($timestampExpression),
             ],
         ];
     }

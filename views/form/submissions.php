@@ -62,7 +62,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text" />
         </div>
         <div class="flex items-center gap-4">
-            <button class="material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
+            <button class="notification-button material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
             <div class="h-8 w-px bg-outline-variant/30"></div>
             <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create New Form', ['form/create'], [
                 'class' => 'bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
@@ -145,4 +145,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             <?php endif; ?>
         </div>
     </main>
+
+    <!-- Notification System -->
+    <script src="<?= Yii::$app->request->baseUrl ?>/js/notifications.js"></script>
 </body>

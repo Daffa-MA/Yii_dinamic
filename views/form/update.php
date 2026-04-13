@@ -1529,6 +1529,9 @@ $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1
             <button class="btn-toolbar" id="btn-redo" title="Redo"><i class="fas fa-redo"></i></button>
             <div class="toolbar-divider"></div>
             <?= Html::a('<i class="fas fa-eye"></i> Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
+            <button class="btn-toolbar" id="btn-publish" onclick="document.getElementById('publish-modal').style.display='flex'" style="background:linear-gradient(135deg,#006c49,#00a773);color:#fff;border:none;">
+                <i class="fas fa-globe"></i> Publish
+            </button>
             <button class="btn-toolbar btn-toolbar-primary" id="btn-save">
                 💾 <?= $model->isNewRecord ? 'Publish' : 'Update' ?>
             </button>
@@ -3826,12 +3829,20 @@ return html;</pre>
 
         // Save form
         document.getElementById('btn-save').addEventListener('click', function() {
+            const titleInput = document.querySelector('input[name="Form[name]"]');
+            if (titleInput && !titleInput.value.trim()) {
+                titleInput.value = 'Untitled Page ' + new Date().toISOString().slice(0, 19).replace('T', ' ');
+            }
             document.getElementById('schema-js').value = JSON.stringify(blocks);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
             document.getElementById('builder-form').submit();
         });
 
         document.getElementById('builder-form').addEventListener('submit', function() {
+            const titleInput = document.querySelector('input[name="Form[name]"]');
+            if (titleInput && !titleInput.value.trim()) {
+                titleInput.value = 'Untitled Page ' + new Date().toISOString().slice(0, 19).replace('T', ' ');
+            }
             document.getElementById('schema-js').value = JSON.stringify(blocks);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
         });
@@ -3953,3 +3964,51 @@ return html;</pre>
         updateEmptyState();
     });
 </script>
+    </main>
+
+    <!-- Publish Modal -->
+    <div id="publish-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:16px;max-width:500px;width:90%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="background:linear-gradient(135deg,#006c49,#00a773);color:#fff;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+                <h3 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined">public</span>
+                    Publish Form
+                </h3>
+                <button onclick="document.getElementById('publish-modal').style.display='none'" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:24px;padding:4px;">&times;</button>
+            </div>
+            <div style="padding:24px;">
+                <?= Html::beginForm(['form/publish', 'id' => $model->id], 'post', ['id' => 'publish-form-modal']) ?>
+                <div style="margin-bottom:16px;">
+                    <label style="display:block;font-weight:600;margin-bottom:8px;color:#0b1c30;">Published Name</label>
+                    <input type="text" name="name" value="<?= Html::encode($model->name) ?>" maxlength="255" required
+                        style="width:100%;padding:12px 16px;border:1px solid #c7c4d8;border-radius:12px;font-size:14px;transition:border 0.2s;"
+                        placeholder="Enter published form name..."
+                        onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='#c7c4d8'">
+                </div>
+                <div style="background:#e5eeff;border-left:4px solid #4f46e5;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+                    <p style="margin:0;font-size:13px;color:#464555;"><strong>Note:</strong> This will publish your form and make it accessible via a public URL.</p>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:12px;">
+                    <button type="button" onclick="document.getElementById('publish-modal').style.display='none'"
+                        style="padding:12px 24px;background:#f0f4f9;border:none;border-radius:12px;font-size:14px;font-weight:600;color:#464555;cursor:pointer;">Cancel</button>
+                    <button type="submit"
+                        style="padding:12px 24px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">public</span>
+                        Publish
+                    </button>
+                </div>
+                <?= Html::endForm() ?>
+                <script>
+                document.getElementById('publish-form-modal').addEventListener('submit', function(e) {
+                    const formName = this.querySelector('input[name="name"]').value.trim();
+                    if (!formName) {
+                        e.preventDefault();
+                        alert('Please enter a name for the published form.');
+                        return false;
+                    }
+                });
+                </script>
+            </div>
+        </div>
+    </div>
+</body>

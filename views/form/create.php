@@ -116,58 +116,65 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         padding: 0;
     }
 
-    .builder-wrapper {
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 180px);
-        overflow: hidden;
-        background: var(--gray-100);
-        margin-top: 28px;
-        border-radius: 24px;
-        border: 1px solid rgba(199, 196, 216, 0.35);
-        box-shadow: 0 20px 40px rgba(11, 28, 48, 0.06);
-    }
+.builder-wrapper {
+display: flex;
+flex-direction: column;
+height: calc(120vh - 140px);
+overflow: hidden;
+background: linear-gradient(135deg, white 0%, #fafbfe 100%);
+margin-top: -1px;
+border-radius: 16px;
+border: 1px solid #e8eef7;
+box-shadow: 0 10px 40px rgba(11, 28, 48, 0.08), 0 0 1px rgba(0,0,0,0.05);
+transition: all 0.3s ease;
+}
 
-    /* ============ TOP TOOLBAR ============ */
-    .builder-toolbar {
-        height: var(--toolbar-height);
-        background: white;
-        border-bottom: 1px solid var(--gray-100);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 24px;
-        flex-shrink: 0;
-        z-index: 10;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-    }
+.builder-wrapper:hover {
+box-shadow: 0 20px 50px rgba(11, 28, 48, 0.12), 0 0 1px rgba(0,0,0,0.05);
+}
 
-    .toolbar-left {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-    }
+/* ============ TOP TOOLBAR ============ */
+.builder-toolbar {
+height: var(--toolbar-height);
+background: linear-gradient(to right, #ffffff, #fafbfe);
+border-bottom: 1px solid #e8eef7;
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 0 24px;
+flex-shrink: 0;
+z-index: 10;
+box-shadow: 0 2px 8px rgba(11, 28, 48, 0.04);
+gap: 20px;
+flex-wrap: nowrap;
+}
 
-    .toolbar-center {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
+.toolbar-left {
+display: flex;
+align-items: center;
+gap: 16px;
+}
 
-    .toolbar-right {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
+.toolbar-center {
+display: flex;
+align-items: center;
+gap: 12px;
+}
 
-    .toolbar-logo {
-        font-weight: 700;
-        font-size: 18px;
-        color: var(--gray-900);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
+.toolbar-right {
+display: flex;
+align-items: center;
+gap: 12px;
+}
+
+.toolbar-logo {
+font-weight: 700;
+font-size: 18px;
+color: var(--gray-900);
+display: flex;
+align-items: center;
+gap: 8px;
+}
 
     .toolbar-divider {
         width: 1px;
@@ -176,107 +183,107 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         margin: 0 4px;
     }
 
-    .device-btn {
-        padding: 8px 12px;
-        border: none;
-        background: transparent;
-        border-radius: 8px;
-        cursor: pointer;
-        color: var(--gray-400);
-        transition: all 0.2s;
-        font-size: 16px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
+.device-btn {
+padding: 8px 12px;
+border: none;
+background: transparent;
+border-radius: 8px;
+cursor: pointer;
+color: var(--gray-400);
+transition: all 0.2s;
+font-size: 16px;
+display: flex;
+align-items: center;
+justify-content: center;
+}
 
     .device-btn i {
         font-size: 16px;
     }
 
-    .device-btn:hover {
-        background: var(--gray-50);
-        color: var(--gray-600);
-    }
+.device-btn:hover {
+background: var(--gray-50);
+color: var(--gray-600);
+}
 
-    .device-btn.active {
-        background: var(--primary);
-        color: white;
-    }
+.device-btn.active {
+background: var(--primary);
+color: white;
+}
 
-    .zoom-select {
-        padding: 8px 12px;
-        border: 1px solid var(--gray-200);
-        border-radius: 8px;
-        font-size: 13px;
-        background: white;
-        color: var(--gray-700);
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
+.zoom-select {
+padding: 8px 12px;
+border: 1px solid var(--gray-200);
+border-radius: 8px;
+font-size: 13px;
+background: white;
+color: var(--gray-700);
+font-weight: 500;
+cursor: pointer;
+transition: all 0.2s;
+}
 
-    .zoom-select:hover {
-        border-color: var(--gray-300);
-    }
+.zoom-select:hover {
+border-color: var(--gray-300);
+}
 
-    .btn-toolbar {
-        padding: 8px 16px;
-        border-radius: 8px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        border: 1px solid var(--gray-200);
-        background: white;
-        color: var(--gray-600);
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        white-space: nowrap;
-    }
+.btn-toolbar {
+padding: 8px 16px;
+border-radius: 8px;
+font-size: 13px;
+font-weight: 500;
+cursor: pointer;
+border: 1px solid var(--gray-200);
+background: white;
+color: var(--gray-600);
+transition: all 0.2s;
+display: flex;
+align-items: center;
+gap: 6px;
+white-space: nowrap;
+}
 
     .btn-toolbar i {
         font-size: 13px;
     }
 
-    .btn-toolbar:hover {
-        background: var(--gray-50);
-        border-color: var(--gray-300);
-        color: var(--gray-700);
-    }
+.btn-toolbar:hover {
+background: var(--gray-50);
+border-color: var(--gray-300);
+color: var(--gray-700);
+}
 
-    .btn-toolbar-primary {
-        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-        color: white;
-        border-color: transparent;
-        font-weight: 600;
-    }
+.btn-toolbar-primary {
+background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+color: white;
+border-color: transparent;
+font-weight: 600;
+}
 
-    .btn-toolbar-primary:hover {
-        opacity: 0.95;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-        transform: translateY(-1px);
-    }
+.btn-toolbar-primary:hover {
+opacity: 0.95;
+box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+transform: translateY(-1px);
+}
 
-    /* ============ MAIN LAYOUT ============ */
-    .builder-main {
-        display: flex;
-        flex: 1;
-        overflow: auto;
-        min-height: 0;
-    }
+/* ============ MAIN LAYOUT ============ */
+.builder-main {
+display: flex;
+flex: 1;
+overflow: auto;
+min-height: 0;
+}
 
-    /* ============ LEFT SIDEBAR - BLOCKS ============ */
-    .builder-sidebar-left {
-        width: var(--sidebar-width);
-        background: white;
-        border-right: 1px solid var(--gray-100);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        flex-shrink: 0;
-    }
+/* ============ LEFT SIDEBAR - BLOCKS ============ */
+.builder-sidebar-left {
+width: var(--sidebar-width);
+background: white;
+border-right: 1px solid var(--gray-100);
+display: flex;
+flex-direction: column;
+overflow: hidden;
+flex-shrink: 0;
+}
 
     /* Modern scrollbar styling */
     .builder-sidebar-left::-webkit-scrollbar,
@@ -315,74 +322,74 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         background-clip: padding-box;
     }
 
-    .sidebar-search {
-        padding: 14px 12px;
-        border-bottom: 1px solid var(--gray-100);
-    }
+.sidebar-search {
+padding: 14px 12px;
+border-bottom: 1px solid var(--gray-100);
+}
 
-    .sidebar-search input {
-        width: 100%;
-        padding: 10px 14px;
-        border: 1px solid var(--gray-200);
-        border-radius: 8px;
-        font-size: 13px;
-        background: white;
-        color: var(--gray-800);
-        transition: all 0.2s;
-    }
+.sidebar-search input {
+width: 100%;
+padding: 10px 14px;
+border: 1px solid var(--gray-200);
+border-radius: 8px;
+font-size: 13px;
+background: white;
+color: var(--gray-800);
+transition: all 0.2s;
+}
 
-    .sidebar-search input:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    }
+.sidebar-search input:focus {
+outline: none;
+border-color: var(--primary);
+box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
 
     .sidebar-search input::placeholder {
         color: var(--gray-400);
     }
 
-    .sidebar-categories {
-        flex: 1;
-        overflow-y: auto;
-        padding: 6px 6px;
-    }
+.sidebar-categories {
+flex: 1;
+overflow-y: auto;
+padding: 6px 6px;
+}
 
-    .block-category {
-        margin-bottom: 8px;
-    }
+.block-category {
+margin-bottom: 8px;
+}
 
-    .block-category-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 12px 14px;
-        cursor: pointer;
-        border-radius: 8px;
-        transition: all 0.2s;
-        user-select: none;
-        background: var(--gray-50);
-    }
+.block-category-header {
+display: flex;
+align-items: center;
+justify-content: space-between;
+padding: 12px 14px;
+cursor: pointer;
+border-radius: 8px;
+transition: all 0.2s;
+user-select: none;
+background: var(--gray-50);
+}
 
-    .block-category-header:hover {
-        background: var(--gray-100);
-    }
+.block-category-header:hover {
+background: var(--gray-100);
+}
 
-    .block-category-title {
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        color: var(--gray-600);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
+.block-category-title {
+font-size: 11px;
+font-weight: 700;
+text-transform: uppercase;
+letter-spacing: 0.6px;
+color: var(--gray-600);
+display: flex;
+align-items: center;
+gap: 8px;
+}
 
-    .block-category-arrow {
-        font-size: 11px;
-        color: var(--gray-400);
-        transition: transform 0.2s;
-    }
+.block-category-arrow {
+font-size: 11px;
+color: var(--gray-400);
+transition: transform 0.2s;
+}
 
     .block-category.open .block-category-arrow {
         transform: rotate(90deg);
@@ -397,105 +404,105 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         display: block;
     }
 
-    .block-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
-        margin: 4px 0;
-        background: white;
-        border: 1px solid var(--gray-200);
-        border-radius: 8px;
-        cursor: grab;
-        transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
-        user-select: none;
-    }
+.block-item {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 10px 12px;
+margin: 4px 0;
+background: white;
+border: 1px solid var(--gray-200);
+border-radius: 8px;
+cursor: grab;
+transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
+user-select: none;
+}
 
-    .block-item:hover {
-        border-color: var(--primary);
-        background: var(--puck-accent);
-        transform: translateX(4px);
-        box-shadow: 0 2px 8px var(--puck-accent-hover);
-    }
+.block-item:hover {
+border-color: var(--primary);
+background: var(--puck-accent);
+transform: translateX(4px);
+box-shadow: 0 2px 8px var(--puck-accent-hover);
+}
 
     .block-item:active {
         cursor: grabbing;
     }
 
-    .block-item-icon {
-        width: 36px;
-        height: 36px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--gray-100);
-        border-radius: 8px;
-        font-size: 16px;
-        flex-shrink: 0;
-        transition: all 0.2s;
-        color: var(--gray-600);
-    }
+.block-item-icon {
+width: 36px;
+height: 36px;
+display: flex;
+align-items: center;
+justify-content: center;
+background: var(--gray-100);
+border-radius: 8px;
+font-size: 16px;
+flex-shrink: 0;
+transition: all 0.2s;
+color: var(--gray-600);
+}
 
     .block-item-icon i {
         font-size: 16px;
     }
 
-    .block-item:hover .block-item-icon {
-        background: var(--primary);
-        color: white;
-        transform: scale(1.1);
-    }
+.block-item:hover .block-item-icon {
+background: var(--primary);
+color: white;
+transform: scale(1.1);
+}
 
-    .block-item-info {
-        flex: 1;
-        min-width: 0;
-    }
+.block-item-info {
+flex: 1;
+min-width: 0;
+}
 
-    .block-item-name {
-        font-size: 13px;
-        font-weight: 600;
-        color: var(--gray-800);
-    }
+.block-item-name {
+font-size: 13px;
+font-weight: 600;
+color: var(--gray-800);
+}
 
-    .block-item-desc {
-        font-size: 11px;
-        color: var(--gray-500);
-        margin-top: 2px;
-    }
+.block-item-desc {
+font-size: 11px;
+color: var(--gray-500);
+margin-top: 2px;
+}
 
-    .block-item-drag {
-        color: var(--gray-300);
-        font-size: 14px;
-        transition: color 0.2s;
-    }
+.block-item-drag {
+color: var(--gray-300);
+font-size: 14px;
+transition: color 0.2s;
+}
 
-    .block-item:hover .block-item-drag {
-        color: var(--primary-light);
-    }
+.block-item:hover .block-item-drag {
+color: var(--primary-light);
+}
 
-    /* ============ CENTER CANVAS ============ */
-    .builder-canvas {
-        flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
-        display: flex;
-        flex-direction: column;
-        background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
-        transition: all 0.2s ease;
-    }
+/* ============ CENTER CANVAS ============ */
+.builder-canvas {
+flex: 1;
+overflow-y: auto;
+overflow-x: hidden;
+display: flex;
+flex-direction: column;
+background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
+transition: all 0.2s ease;
+}
 
-    .builder-canvas.drag-over {
-        background: linear-gradient(to bottom, var(--puck-accent), rgba(2, 118, 255, 0.05));
-    }
+.builder-canvas.drag-over {
+background: linear-gradient(to bottom, var(--puck-accent), rgba(2, 118, 255, 0.05));
+}
 
-    .canvas-scroll-area {
-        flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding: 24px 20px;
-        display: block;
-        min-height: 0;
-    }
+.canvas-scroll-area {
+flex: 1;
+overflow-y: auto;
+overflow-x: hidden;
+padding: 24px 20px;
+display: block;
+min-height: 0;
+}
 
     .canvas-scroll-area::-webkit-scrollbar {
         width: 8px;
@@ -514,18 +521,18 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         background: var(--gray-400);
     }
 
-    .canvas-wrapper {
-        width: 100%;
-        max-width: 1280px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
-        min-height: 500px;
-        transition: all 0.3s ease;
-        overflow: visible;
-        height: auto;
-        margin: 0 auto;
-    }
+.canvas-wrapper {
+width: 100%;
+max-width: 1280px;
+background: white;
+border-radius: 16px;
+box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+min-height: 500px;
+transition: all 0.3s ease;
+overflow: visible;
+height: auto;
+margin: 0 auto;
+}
 
     .canvas-wrapper.tablet {
         max-width: 850px;
@@ -535,264 +542,264 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         max-width: 480px;
     }
 
-    .canvas-header {
-        padding: 16px 24px;
-        border-bottom: 1px solid var(--gray-100);
-        background: white;
-    }
+.canvas-header {
+padding: 16px 24px;
+border-bottom: 1px solid var(--gray-100);
+background: white;
+}
 
-    .canvas-form-name {
-        font-size: 24px;
-        font-weight: 700;
-        border: none;
-        outline: none;
-        width: 100%;
-        background: transparent;
-        color: var(--gray-900);
-        padding: 6px 0;
-        transition: color 0.2s;
-        letter-spacing: -0.5px;
-    }
+.canvas-form-name {
+font-size: 24px;
+font-weight: 700;
+border: none;
+outline: none;
+width: 100%;
+background: transparent;
+color: var(--gray-900);
+padding: 6px 0;
+transition: color 0.2s;
+letter-spacing: -0.5px;
+}
 
-    .canvas-form-name:focus {
-        color: var(--primary);
-    }
+.canvas-form-name:focus {
+color: var(--primary);
+}
 
-    .canvas-form-name::placeholder {
-        color: var(--gray-300);
-    }
+.canvas-form-name::placeholder {
+color: var(--gray-300);
+}
 
-    .canvas-body {
-        padding: 24px 20px;
-        min-height: 400px;
-        max-height: none;
-        transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
-        overflow-y: visible;
-        height: auto;
-    }
+.canvas-body {
+padding: 24px 20px;
+min-height: 400px;
+max-height: none;
+transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
+overflow-y: visible;
+height: auto;
+}
 
-    .canvas-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        min-height: 450px;
-        border: 2px dashed var(--gray-200);
-        border-radius: 12px;
-        color: var(--gray-400);
-        text-align: center;
-        background: var(--gray-50);
-        transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
-    }
+.canvas-empty {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+min-height: 450px;
+border: 2px dashed var(--gray-200);
+border-radius: 12px;
+color: var(--gray-400);
+text-align: center;
+background: var(--gray-50);
+transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
+}
 
-    .canvas-empty:hover {
-        border-color: var(--gray-300);
-        background: var(--gray-100);
-    }
+.canvas-empty:hover {
+border-color: var(--gray-300);
+background: var(--gray-100);
+}
 
-    .canvas-empty-icon {
-        font-size: 64px;
-        margin-bottom: 20px;
-        opacity: 0.5;
-    }
+.canvas-empty-icon {
+font-size: 64px;
+margin-bottom: 20px;
+opacity: 0.5;
+}
 
-    .canvas-empty-icon i {
-        color: var(--gray-300);
-    }
+.canvas-empty-icon i {
+color: var(--gray-300);
+}
 
-    .canvas-empty-text {
-        font-size: 18px;
-        font-weight: 600;
-        margin-bottom: 10px;
-        color: var(--gray-600);
-    }
+.canvas-empty-text {
+font-size: 18px;
+font-weight: 600;
+margin-bottom: 10px;
+color: var(--gray-600);
+}
 
-    .canvas-empty-hint {
-        font-size: 15px;
-    }
+.canvas-empty-hint {
+font-size: 15px;
+}
 
-    /* ============ CANVAS BLOCKS ============ */
-    .canvas-block {
-        position: relative;
-        margin-bottom: 16px;
-        border: 2px solid var(--gray-200);
-        border-radius: 12px;
-        transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
-        cursor: pointer;
-        background: white;
-        overflow: hidden;
-    }
+/* ============ CANVAS BLOCKS ============ */
+.canvas-block {
+position: relative;
+margin-bottom: 16px;
+border: 2px solid var(--gray-200);
+border-radius: 12px;
+transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
+cursor: pointer;
+background: white;
+overflow: hidden;
+}
 
-    .canvas-block:hover {
-        border-color: var(--primary-light);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
-        transform: translateY(-2px);
-    }
+.canvas-block:hover {
+border-color: var(--primary-light);
+box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+transform: translateY(-2px);
+}
 
-    .canvas-block.selected {
-        border-color: var(--primary);
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15);
-    }
+.canvas-block.selected {
+border-color: var(--primary);
+box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15);
+}
 
-    .canvas-block-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 14px;
-        background: var(--gray-50);
-        border-bottom: 1px solid var(--gray-100);
-    }
+.canvas-block-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 10px 14px;
+background: var(--gray-50);
+border-bottom: 1px solid var(--gray-100);
+}
 
-    .canvas-block-type {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--gray-600);
-    }
+.canvas-block-type {
+display: flex;
+align-items: center;
+gap: 8px;
+font-size: 12px;
+font-weight: 600;
+color: var(--gray-600);
+}
 
-    .canvas-block-type i {
-        font-size: 13px;
-    }
+.canvas-block-type i {
+font-size: 13px;
+}
 
-    .canvas-block-type .drag-handle i {
-        opacity: 0.6;
-    }
+.canvas-block-type .drag-handle i {
+opacity: 0.6;
+}
 
-    .canvas-block-actions {
-        display: flex;
-        gap: 6px;
-    }
+.canvas-block-actions {
+display: flex;
+gap: 6px;
+}
 
-    .canvas-block-btn {
-        width: 28px;
-        height: 28px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid var(--gray-200);
-        border-radius: 6px;
-        background: white;
-        color: var(--gray-400);
-        cursor: pointer;
-        font-size: 12px;
-        transition: all 0.15s;
-    }
+.canvas-block-btn {
+width: 28px;
+height: 28px;
+display: flex;
+align-items: center;
+justify-content: center;
+border: 1px solid var(--gray-200);
+border-radius: 6px;
+background: white;
+color: var(--gray-400);
+cursor: pointer;
+font-size: 12px;
+transition: all 0.15s;
+}
 
-    .canvas-block-btn:hover {
-        background: var(--gray-100);
-        color: var(--gray-600);
-        border-color: var(--gray-300);
-    }
+.canvas-block-btn:hover {
+background: var(--gray-100);
+color: var(--gray-600);
+border-color: var(--gray-300);
+}
 
-    .canvas-block-btn.delete:hover {
-        background: #fee2e2;
-        color: var(--danger);
-        border-color: #fecaca;
-    }
+.canvas-block-btn.delete:hover {
+background: #fee2e2;
+color: var(--danger);
+border-color: #fecaca;
+}
 
-    .canvas-block-btn i {
-        font-size: 12px;
-    }
+.canvas-block-btn i {
+font-size: 12px;
+}
 
-    .canvas-block-preview {
-        padding: 28px 24px;
-        min-height: 60px;
-    }
+.canvas-block-preview {
+padding: 28px 24px;
+min-height: 60px;
+}
 
-    /* Block preview styles */
-    .preview-heading {
-        font-size: 24px;
-        font-weight: 700;
-        color: var(--gray-900);
-        margin: 0;
-    }
+/* Block preview styles */
+.preview-heading {
+font-size: 24px;
+font-weight: 700;
+color: var(--gray-900);
+margin: 0;
+}
 
-    .preview-subheading {
-        font-size: 18px;
-        font-weight: 600;
-        color: var(--gray-700);
-        margin: 0;
-    }
+.preview-subheading {
+font-size: 18px;
+font-weight: 600;
+color: var(--gray-700);
+margin: 0;
+}
 
-    .preview-text {
-        color: var(--gray-600);
-        margin: 0;
-        line-height: 1.6;
-    }
+.preview-text {
+color: var(--gray-600);
+margin: 0;
+line-height: 1.6;
+}
 
-    .preview-image {
-        width: 100%;
-        height: 200px;
-        background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--gray-400);
-        font-size: 32px;
-        border: 1px solid var(--gray-200);
-    }
+.preview-image {
+width: 100%;
+height: 200px;
+background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+border-radius: 12px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: var(--gray-400);
+font-size: 32px;
+border: 1px solid var(--gray-200);
+}
 
-    .preview-video {
-        width: 100%;
-        height: 250px;
-        background: var(--gray-900);
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 48px;
-        border: 1px solid var(--gray-800);
-    }
+.preview-video {
+width: 100%;
+height: 250px;
+background: var(--gray-900);
+border-radius: 12px;
+display: flex;
+align-items: center;
+justify-content: center;
+color: white;
+font-size: 48px;
+border: 1px solid var(--gray-800);
+}
 
-    .preview-button {
-        display: inline-block;
-        padding: 12px 28px;
-        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-        color: white;
-        border-radius: 8px;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s;
-        border: none;
-        cursor: pointer;
-    }
+.preview-button {
+display: inline-block;
+padding: 12px 28px;
+background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+color: white;
+border-radius: 8px;
+font-weight: 600;
+text-decoration: none;
+transition: all 0.2s;
+border: none;
+cursor: pointer;
+}
 
-    .preview-divider {
-        border: none;
-        border-top: 2px solid var(--gray-200);
-        margin: 16px 0;
-    }
+.preview-divider {
+border: none;
+border-top: 2px solid var(--gray-200);
+margin: 16px 0;
+}
 
-    .preview-spacer {
-        height: 32px;
-        background: linear-gradient(90deg, var(--gray-50), var(--gray-100), var(--gray-50));
-        border-radius: 4px;
-    }
+.preview-spacer {
+height: 32px;
+background: linear-gradient(90deg, var(--gray-50), var(--gray-100), var(--gray-50));
+border-radius: 4px;
+}
 
-    .preview-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 14px;
-    }
+.preview-grid {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 14px;
+}
 
-    .preview-grid-item {
-        height: 80px;
-        background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
-        border-radius: 8px;
-        border: 1px solid var(--gray-200);
-    }
+.preview-grid-item {
+height: 80px;
+background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
+border-radius: 8px;
+border: 1px solid var(--gray-200);
+}
 
-    .preview-product-card {
-        border: 1px solid var(--gray-200);
-        border-radius: 12px;
-        overflow: hidden;
-        transition: all 0.2s;
-        background: white;
-    }
+.preview-product-card {
+border: 1px solid var(--gray-200);
+border-radius: 12px;
+overflow: hidden;
+transition: all 0.2s;
+background: white;
+}
 
     .preview-product-card:hover {
         border-color: var(--primary-light);
@@ -1078,13 +1085,13 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         font-size: 18px;
     }
 
-    .preview-newsletter {
-        padding: 24px;
-        background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-        border-radius: 12px;
-        color: white;
-        text-align: center;
-    }
+.preview-newsletter {
+padding: 24px;
+background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+border-radius: 12px;
+color: white;
+text-align: center;
+}
 
     .preview-newsletter-title {
         font-size: 20px;
@@ -1107,53 +1114,53 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         justify-content: center;
     }
 
-    .preview-countdown-item {
-        padding: 12px 16px;
-        background: var(--gray-900);
-        color: white;
-        border-radius: 8px;
-        text-align: center;
-        min-width: 60px;
-    }
+.preview-countdown-item {
+padding: 12px 16px;
+background: var(--gray-900);
+color: white;
+border-radius: 8px;
+text-align: center;
+min-width: 60px;
+}
 
     .preview-countdown-number {
         font-size: 24px;
         font-weight: 700;
     }
 
-    .preview-countdown-label {
-        font-size: 10px;
-        text-transform: uppercase;
-        color: var(--gray-400);
-    }
+.preview-countdown-label {
+font-size: 10px;
+text-transform: uppercase;
+color: var(--gray-400);
+}
 
-    .preview-progress {
-        height: 8px;
-        background: var(--gray-200);
-        border-radius: 4px;
-        overflow: hidden;
-    }
+.preview-progress {
+height: 8px;
+background: var(--gray-200);
+border-radius: 4px;
+overflow: hidden;
+}
 
-    .preview-progress-bar {
-        height: 100%;
-        background: var(--primary);
-        border-radius: 4px;
-    }
+.preview-progress-bar {
+height: 100%;
+background: var(--primary);
+border-radius: 4px;
+}
 
     .preview-timeline {
         position: relative;
         padding-left: 24px;
     }
 
-    .preview-timeline::before {
-        content: '';
-        position: absolute;
-        left: 8px;
-        top: 0;
-        bottom: 0;
-        width: 2px;
-        background: var(--gray-200);
-    }
+.preview-timeline::before {
+content: '';
+position: absolute;
+left: 8px;
+top: 0;
+bottom: 0;
+width: 2px;
+background: var(--gray-200);
+}
 
     .preview-timeline-item {
         position: relative;
@@ -1161,15 +1168,15 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         padding-left: 16px;
     }
 
-    .preview-timeline-dot {
-        position: absolute;
-        left: -20px;
-        top: 4px;
-        width: 12px;
-        height: 12px;
-        background: var(--primary);
-        border-radius: 50%;
-    }
+.preview-timeline-dot {
+position: absolute;
+left: -20px;
+top: 4px;
+width: 12px;
+height: 12px;
+background: var(--primary);
+border-radius: 50%;
+}
 
     .preview-table {
         width: 100%;
@@ -1361,63 +1368,63 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         border-radius: 4px 4px 0 0;
     }
 
-    /* ============ RIGHT SIDEBAR - PROPERTIES ============ */
-    .builder-sidebar-right {
-        width: 360px;
-        background: white;
-        border-left: 1px solid var(--gray-100);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        flex-shrink: 0;
-    }
+/* ============ RIGHT SIDEBAR - PROPERTIES ============ */
+.builder-sidebar-right {
+width: 360px;
+background: white;
+border-left: 1px solid var(--gray-100);
+display: flex;
+flex-direction: column;
+overflow: hidden;
+flex-shrink: 0;
+}
 
-    .properties-header {
-        padding: 24px 24px;
-        border-bottom: 1px solid var(--gray-100);
-        font-weight: 700;
-        font-size: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        color: var(--gray-900);
-    }
+.properties-header {
+padding: 24px 24px;
+border-bottom: 1px solid var(--gray-100);
+font-weight: 700;
+font-size: 16px;
+display: flex;
+align-items: center;
+gap: 8px;
+color: var(--gray-900);
+}
 
-    .properties-tabs {
-        display: flex;
-        border-bottom: 1px solid var(--gray-100);
-        background: var(--gray-50);
-    }
+.properties-tabs {
+display: flex;
+border-bottom: 1px solid var(--gray-100);
+background: var(--gray-50);
+}
 
-    .properties-tab {
-        flex: 1;
-        padding: 14px 12px;
-        text-align: center;
-        font-size: 12px;
-        font-weight: 600;
-        color: var(--gray-500);
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s;
-        text-transform: uppercase;
-        letter-spacing: 0.4px;
-    }
+.properties-tab {
+flex: 1;
+padding: 14px 12px;
+text-align: center;
+font-size: 12px;
+font-weight: 600;
+color: var(--gray-500);
+cursor: pointer;
+border-bottom: 2px solid transparent;
+transition: all 0.2s;
+text-transform: uppercase;
+letter-spacing: 0.4px;
+}
 
-    .properties-tab:hover {
-        color: var(--gray-700);
-    }
+.properties-tab:hover {
+color: var(--gray-700);
+}
 
-    .properties-tab.active {
-        color: var(--primary);
-        border-bottom-color: var(--primary);
-        background: white;
-    }
+.properties-tab.active {
+color: var(--primary);
+border-bottom-color: var(--primary);
+background: white;
+}
 
-    .properties-content {
-        flex: 1;
-        overflow-y: auto;
-        padding: 16px 18px 32px 18px;
-    }
+.properties-content {
+flex: 1;
+overflow-y: auto;
+padding: 16px 18px 32px 18px;
+}
 
     .property-section {
         margin-bottom: 24px;
@@ -1717,10 +1724,10 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         transform: translateZ(0);
     }
 
-    .sortable-ghost {
-        opacity: 0.4;
-        border: 2px dashed var(--primary) !important;
-    }
+.sortable-ghost {
+opacity: 0.4;
+border: 2px dashed var(--primary) !important;
+}
 
     /* Mobile smooth scrolling */
     @supports (scroll-behavior: smooth) {
@@ -1744,45 +1751,49 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
         }
     }
 
-    /* ============ RESPONSIVE ============ */
-    @media (max-width: 1200px) {
-        :root {
-            --sidebar-width: 260px;
-        }
+/* ============ RESPONSIVE ============ */
+@media (max-width: 1200px) {
+:root {
+--sidebar-width: 260px;
+}
 
-        .builder-sidebar-right {
-            width: 280px;
-        }
-    }
+.builder-sidebar-right {
+width: 280px;
+}
+}
 
-    @media (max-width: 992px) {
-        .builder-sidebar-right {
-            display: none;
-        }
-    }
+@media (max-width: 992px) {
+.builder-sidebar-right {
+display: none;
+}
+}
 </style>
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
 
-    <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-        <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
-            <span class="material-symbols-outlined text-outline text-[20px]">edit_square</span>
-            <span class="text-sm text-on-surface-variant font-medium"><?= $model->isNewRecord ? 'Create Form' : 'Update Form' ?></span>
-        </div>
+    <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/95 via-[#fafbfd]/95 to-[#f3f5fb]/95 backdrop-blur-2xl shadow-[0_8px_32px_rgba(11,28,48,0.08), 0_1px_0px_rgba(0,0,0,0.05)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="flex items-center gap-4">
-            <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Back to Forms', ['form/index'], [
-                'class' => 'bg-white text-on-surface-variant px-5 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline border border-outline-variant/40'
+            <div class="flex items-center bg-gradient-to-r from-[#f0f4f9]/40 to-[#e8eef7]/40 px-4 py-2 rounded-xl gap-3 backdrop-blur-sm border border-[#c7c4d8]/20">
+                <span class="material-symbols-outlined text-[#3525cd] text-[20px]">edit_square</span>
+                <span class="text-sm text-[#464555] font-semibold"><?= $model->isNewRecord ? 'Create Form' : 'Update Form' ?></span>
+            </div>
+            <div class="w-px h-8 bg-gradient-to-b from-transparent via-[#c7c4d8]/30 to-transparent"></div>
+            <span class="text-xs text-[#777587] font-medium tracking-wide">Form Builder</span>
+        </div>
+        <div class="flex items-center gap-3">
+            <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Forms', ['form/index'], [
+                'class' => 'bg-white text-[#464555] px-4 py-2 rounded-lg font-medium flex items-center gap-2 hover:bg-[#f8fafd] transition-all hover:shadow-[0_4px_12px_rgba(99,102,241,0.08)] active:scale-95 text-sm no-underline border border-[#e2e2e8] hover:border-[#d2d2d8]'
             ]) ?>
-            <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create New Form', ['form/create'], [
-                'class' => 'bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
+            <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> New Form', ['form/create'], [
+                'class' => 'bg-gradient-to-r from-[#3525cd] to-[#0276ff] text-white px-5 py-2 rounded-lg font-semibold flex items-center gap-2 hover:shadow-[0_8px_20px_rgba(99,102,241,0.3)] transition-all hover:scale-105 active:scale-95 text-sm no-underline border border-[#0276ff]/20'
             ]) ?>
         </div>
     </nav>
 
     <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'forms']) ?>
 
-    <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-        <div class="max-w-[1400px] mx-auto px-8 py-8">
+    <main class="app-shell-main pt-8 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
+        <div class="max-w-7xl mx-auto px-6 py-6">
 
             <div class="builder-wrapper">
                 <!-- TOOLBAR -->
@@ -1833,16 +1844,16 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                         </select>
                     </div>
 
-                    <div class="toolbar-right">
-                        <button class="btn-toolbar" id="btn-undo" title="Undo"><span class="material-symbols-outlined" style="font-size:18px;">undo</span></button>
-                        <button class="btn-toolbar" id="btn-redo" title="Redo"><span class="material-symbols-outlined" style="font-size:18px;">redo</span></button>
-                        <div class="toolbar-divider"></div>
-                        <?= Html::a('<span class="material-symbols-outlined" style="font-size:18px;">visibility</span> Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
-                        <button class="btn-toolbar btn-toolbar-primary" id="btn-save">
-                            💾 <?= $model->isNewRecord ? 'Publish' : 'Update' ?>
-                        </button>
-                    </div>
-                </div>
+        <div class="toolbar-right">
+            <button class="btn-toolbar" id="btn-undo" title="Undo"><span class="material-symbols-outlined" style="font-size:18px;">undo</span></button>
+            <button class="btn-toolbar" id="btn-redo" title="Redo"><span class="material-symbols-outlined" style="font-size:18px;">redo</span></button>
+            <div class="toolbar-divider"></div>
+            <?= Html::a('<span class="material-symbols-outlined" style="font-size:18px;">visibility</span> Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
+            <button class="btn-toolbar btn-toolbar-primary" id="btn-save">
+                💾 <?= $model->isNewRecord ? 'Publish' : 'Update' ?>
+            </button>
+        </div>
+    </div>
 
                 <!-- MAIN -->
                 <div class="builder-main">
@@ -2424,8 +2435,8 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                                     <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
                                 </div>
 
-                                <?= Html::hiddenInput('Form[schema_json]', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-js']) ?>
-                                <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
+                    <?= Html::hiddenInput('Form[schema_json]', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-js']) ?>
+                    <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
 
                                 <div class="canvas-body" id="canvas-body">
                                     <div class="canvas-empty" id="canvas-empty">
@@ -2442,14 +2453,14 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
                             </div>
                         </div>
 
-                        <!-- Bottom Action Bar (outside scroll area, always visible) -->
-                        <div class="canvas-action-bar">
-                            <div style="display:flex;justify-content:flex-end;gap:12px;max-width:1280px;margin:0 auto;padding:0 40px;">
-                                <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
-                                <button type="submit" formid="builder-form" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
-                            </div>
-                        </div>
-                    </div>
+            <!-- Bottom Action Bar (outside scroll area, always visible) -->
+            <div class="canvas-action-bar">
+                <div style="display:flex;justify-content:flex-end;gap:12px;max-width:1280px;margin:0 auto;padding:0 40px;">
+                    <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
+                    <button type="submit" formid="builder-form" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
+                </div>
+            </div>
+        </div>
 
                     <!-- RIGHT SIDEBAR - PROPERTIES -->
                     <div class="builder-sidebar-right">
@@ -2924,413 +2935,413 @@ return html;</pre>
                         selectBlock(blocks.length - 1);
                     }
 
-                    function getDefaultBlock(type) {
-                        const defaults = {
-                            container: {
-                                type: 'container',
-                                label: 'Container',
-                                content: '',
-                                bgColor: '#ffffff',
-                                padding: 'md'
-                            },
-                            columns: {
-                                type: 'columns',
-                                label: 'Columns',
-                                columns: 3,
-                                content: ''
-                            },
-                            grid: {
-                                type: 'grid',
-                                label: 'Grid',
-                                columns: 3,
-                                content: ''
-                            },
-                            section: {
-                                type: 'section',
-                                label: 'Section',
-                                bgColor: '#f9fafb',
-                                content: ''
-                            },
-                            divider: {
-                                type: 'divider',
-                                label: 'Divider',
-                                style: 'solid'
-                            },
-                            spacer: {
-                                type: 'spacer',
-                                label: 'Spacer',
-                                height: 32
-                            },
-                            heading: {
-                                type: 'heading',
-                                label: 'Heading',
-                                content: 'Your Heading Here',
-                                level: 'h2',
-                                align: 'left'
-                            },
-                            text: {
-                                type: 'text',
-                                label: 'Text',
-                                content: 'Your text content goes here. You can edit this in the properties panel.'
-                            },
-                            richtext: {
-                                type: 'richtext',
-                                label: 'Rich Text',
-                                content: '<p>Your <strong>rich</strong> text here.</p>'
-                            },
-                            list: {
-                                type: 'list',
-                                label: 'List',
-                                items: 'Item 1\nItem 2\nItem 3',
-                                ordered: false
-                            },
-                            quote: {
-                                type: 'quote',
-                                label: 'Quote',
-                                content: '"This is a great quote."',
-                                author: '- Author Name'
-                            },
-                            code: {
-                                type: 'code',
-                                label: 'Code',
-                                content: 'console.log("Hello World");'
-                            },
-                            image: {
-                                type: 'image',
-                                label: 'Image',
-                                src: '',
-                                alt: 'Image',
-                                caption: ''
-                            },
-                            gallery: {
-                                type: 'gallery',
-                                label: 'Gallery',
-                                images: 4,
-                                columns: 4
-                            },
-                            video: {
-                                type: 'video',
-                                label: 'Video',
-                                url: 'https://youtube.com/embed/...',
-                                autoplay: false
-                            },
-                            icon: {
-                                type: 'icon',
-                                label: 'Icon',
-                                icon: '⭐',
-                                size: 48,
-                                color: '#6366f1'
-                            },
-                            avatar: {
-                                type: 'avatar',
-                                label: 'Avatar',
-                                src: '',
-                                name: 'User',
-                                role: 'Role'
-                            },
-                            'text-input': {
-                                type: 'text-input',
-                                label: 'Text Input',
-                                placeholder: 'Enter text...',
-                                required: false
-                            },
-                            textarea: {
-                                type: 'textarea',
-                                label: 'Textarea',
-                                placeholder: 'Enter message...',
-                                required: false
-                            },
-                            email: {
-                                type: 'email',
-                                label: 'Email',
-                                placeholder: 'email@example.com',
-                                required: false
-                            },
-                            number: {
-                                type: 'number',
-                                label: 'Number',
-                                placeholder: '0',
-                                required: false
-                            },
-                            password: {
-                                type: 'password',
-                                label: 'Password',
-                                placeholder: '••••••••',
-                                required: false
-                            },
-                            select: {
-                                type: 'select',
-                                label: 'Dropdown',
-                                options: 'Option 1\nOption 2\nOption 3',
-                                required: false
-                            },
-                            checkbox: {
-                                type: 'checkbox',
-                                label: 'Checkbox',
-                                text: 'I agree to the terms',
-                                required: false
-                            },
-                            radio: {
-                                type: 'radio',
-                                label: 'Radio',
-                                options: 'Option 1\nOption 2\nOption 3',
-                                required: false
-                            },
-                            date: {
-                                type: 'date',
-                                label: 'Date',
-                                required: false
-                            },
-                            file: {
-                                type: 'file',
-                                label: 'File Upload',
-                                accept: '*',
-                                required: false
-                            },
-                            hidden: {
-                                type: 'hidden',
-                                label: 'Hidden Field',
-                                name: 'hidden_field',
-                                value: ''
-                            },
-                            submit: {
-                                type: 'submit',
-                                label: 'Submit Button',
-                                text: 'Submit',
-                                variant: 'primary'
-                            },
-                            'product-card': {
-                                type: 'product-card',
-                                label: 'Product',
-                                name: 'Product Name',
-                                price: '99.99',
-                                image: '',
-                                badge: 'sale'
-                            },
-                            'product-grid': {
-                                type: 'product-grid',
-                                label: 'Product Grid',
-                                products: 4,
-                                columns: 3
-                            },
-                            price: {
-                                type: 'price',
-                                label: 'Price',
-                                amount: '99.99',
-                                currency: '$',
-                                oldPrice: '149.99'
-                            },
-                            'add-to-cart': {
-                                type: 'add-to-cart',
-                                label: 'Add to Cart',
-                                text: 'Add to Cart',
-                                variant: 'primary'
-                            },
-                            'product-badge': {
-                                type: 'product-badge',
-                                label: 'Badge',
-                                text: 'SALE',
-                                variant: 'sale'
-                            },
-                            stars: {
-                                type: 'stars',
-                                label: 'Stars',
-                                rating: 4,
-                                max: 5
-                            },
-                            'stock-status': {
-                                type: 'stock-status',
-                                label: 'Stock',
-                                status: 'instock',
-                                text: 'In Stock'
-                            },
-                            'buy-now': {
-                                type: 'buy-now',
-                                label: 'Buy Now',
-                                text: 'Buy Now'
-                            },
-                            hero: {
-                                type: 'hero',
-                                label: 'Hero',
-                                title: 'Welcome to Our Site',
-                                subtitle: 'Build amazing things',
-                                buttonText: 'Get Started',
-                                buttonUrl: '#'
-                            },
-                            team: {
-                                type: 'team',
-                                label: 'Team Member',
-                                name: 'John Doe',
-                                role: 'CEO',
-                                image: ''
-                            },
-                            testimonial: {
-                                type: 'testimonial',
-                                label: 'Testimonial',
-                                text: '"Amazing service!"',
-                                author: 'Jane Smith',
-                                role: 'Customer'
-                            },
-                            pricing: {
-                                type: 'pricing',
-                                label: 'Pricing',
-                                name: 'Pro Plan',
-                                price: '29',
-                                period: '/month',
-                                features: 'Feature 1\nFeature 2\nFeature 3',
-                                highlighted: false
-                            },
-                            faq: {
-                                type: 'faq',
-                                label: 'FAQ',
-                                question: 'Frequently Asked Question?',
-                                answer: 'This is the answer to the question.'
-                            },
-                            stats: {
-                                type: 'stats',
-                                label: 'Stats',
-                                number: '1000',
-                                label: 'Happy Customers',
-                                suffix: '+'
-                            },
-                            features: {
-                                type: 'features',
-                                label: 'Feature',
-                                icon: 'star',
-                                title: 'Feature Title',
-                                description: 'Feature description goes here.'
-                            },
-                            'contact-card': {
-                                type: 'contact-card',
-                                label: 'Contact',
-                                icon: 'phone',
-                                title: 'Phone',
-                                info: '+1 234 567 890'
-                            },
-                            button: {
-                                type: 'button',
-                                label: 'Button',
-                                text: 'Click Me',
-                                url: '#',
-                                variant: 'primary'
-                            },
-                            link: {
-                                type: 'link',
-                                label: 'Link',
-                                text: 'Click here',
-                                url: '#'
-                            },
-                            tabs: {
-                                type: 'tabs',
-                                label: 'Tabs',
-                                tabs: 'Tab 1\nTab 2\nTab 3'
-                            },
-                            accordion: {
-                                type: 'accordion',
-                                label: 'Accordion',
-                                question: 'Accordion Title',
-                                answer: 'Accordion content goes here.'
-                            },
-                            progress: {
-                                type: 'progress',
-                                label: 'Progress',
-                                value: 75,
-                                color: '#6366f1'
-                            },
-                            timeline: {
-                                type: 'timeline',
-                                label: 'Timeline',
-                                title: 'Event Title',
-                                date: '2024',
-                                description: 'Event description.'
-                            },
-                            newsletter: {
-                                type: 'newsletter',
-                                label: 'Newsletter',
-                                title: 'Subscribe to Newsletter',
-                                placeholder: 'Enter your email',
-                                buttonText: 'Subscribe'
-                            },
-                            countdown: {
-                                type: 'countdown',
-                                label: 'Countdown',
-                                targetDate: '2024-12-31'
-                            },
-                            alert: {
-                                type: 'alert',
-                                label: 'Alert',
-                                message: 'This is an alert message.',
-                                variant: 'info'
-                            },
-                            cta: {
-                                type: 'cta',
-                                label: 'CTA',
-                                title: 'Ready to get started?',
-                                subtitle: 'Join thousands of happy users',
-                                buttonText: 'Start Now',
-                                buttonUrl: '#'
-                            },
-                            'social-links': {
-                                type: 'social-links',
-                                label: 'Social Links',
-                                platforms: 'Facebook\nTwitter\nInstagram\nLinkedIn'
-                            },
-                            'share-buttons': {
-                                type: 'share-buttons',
-                                label: 'Share Buttons',
-                                platforms: 'Facebook\nTwitter\nLinkedIn'
-                            },
-                            embed: {
-                                type: 'embed',
-                                label: 'Embed',
-                                url: 'https://youtube.com/embed/...'
-                            },
-                            table: {
-                                type: 'table',
-                                label: 'Table',
-                                headers: 'Name,Age,Email',
-                                rows: 'John,30,john@email.com\nJane,25,jane@email.com'
-                            },
-                            badge: {
-                                type: 'badge',
-                                label: 'Badge',
-                                text: 'Badge',
-                                variant: 'primary'
-                            },
-                            chart: {
-                                type: 'chart',
-                                label: 'Chart',
-                                data: '20,35,25,45,30'
-                            },
-                            map: {
-                                type: 'map',
-                                label: 'Map',
-                                embedUrl: 'https://maps.google.com/maps?q=...'
-                            },
-                            html: {
-                                type: 'html',
-                                label: 'Custom HTML',
-                                code: '<div>Custom HTML here</div>'
-                            },
-                            template: {
-                                type: 'template',
-                                label: 'Template',
-                                templateId: ''
-                            }
-                        };
-                        return Object.assign({
-                            type: type
-                        }, defaults[type] || {});
-                    }
+        function getDefaultBlock(type) {
+            const defaults = {
+                container: {
+                    type: 'container',
+                    label: 'Container',
+                    content: '',
+                    bgColor: '#ffffff',
+                    padding: 'md'
+                },
+                columns: {
+                    type: 'columns',
+                    label: 'Columns',
+                    columns: 3,
+                    content: ''
+                },
+                grid: {
+                    type: 'grid',
+                    label: 'Grid',
+                    columns: 3,
+                    content: ''
+                },
+                section: {
+                    type: 'section',
+                    label: 'Section',
+                    bgColor: '#f9fafb',
+                    content: ''
+                },
+                divider: {
+                    type: 'divider',
+                    label: 'Divider',
+                    style: 'solid'
+                },
+                spacer: {
+                    type: 'spacer',
+                    label: 'Spacer',
+                    height: 32
+                },
+                heading: {
+                    type: 'heading',
+                    label: 'Heading',
+                    content: 'Your Heading Here',
+                    level: 'h2',
+                    align: 'left'
+                },
+                text: {
+                    type: 'text',
+                    label: 'Text',
+                    content: 'Your text content goes here. You can edit this in the properties panel.'
+                },
+                richtext: {
+                    type: 'richtext',
+                    label: 'Rich Text',
+                    content: '<p>Your <strong>rich</strong> text here.</p>'
+                },
+                list: {
+                    type: 'list',
+                    label: 'List',
+                    items: 'Item 1\nItem 2\nItem 3',
+                    ordered: false
+                },
+                quote: {
+                    type: 'quote',
+                    label: 'Quote',
+                    content: '"This is a great quote."',
+                    author: '- Author Name'
+                },
+                code: {
+                    type: 'code',
+                    label: 'Code',
+                    content: 'console.log("Hello World");'
+                },
+                image: {
+                    type: 'image',
+                    label: 'Image',
+                    src: '',
+                    alt: 'Image',
+                    caption: ''
+                },
+                gallery: {
+                    type: 'gallery',
+                    label: 'Gallery',
+                    images: 4,
+                    columns: 4
+                },
+                video: {
+                    type: 'video',
+                    label: 'Video',
+                    url: 'https://youtube.com/embed/...',
+                    autoplay: false
+                },
+                icon: {
+                    type: 'icon',
+                    label: 'Icon',
+                    icon: '⭐',
+                    size: 48,
+                    color: '#6366f1'
+                },
+                avatar: {
+                    type: 'avatar',
+                    label: 'Avatar',
+                    src: '',
+                    name: 'User',
+                    role: 'Role'
+                },
+                'text-input': {
+                    type: 'text-input',
+                    label: 'Text Input',
+                    placeholder: 'Enter text...',
+                    required: false
+                },
+                textarea: {
+                    type: 'textarea',
+                    label: 'Textarea',
+                    placeholder: 'Enter message...',
+                    required: false
+                },
+                email: {
+                    type: 'email',
+                    label: 'Email',
+                    placeholder: 'email@example.com',
+                    required: false
+                },
+                number: {
+                    type: 'number',
+                    label: 'Number',
+                    placeholder: '0',
+                    required: false
+                },
+                password: {
+                    type: 'password',
+                    label: 'Password',
+                    placeholder: '••••••••',
+                    required: false
+                },
+                select: {
+                    type: 'select',
+                    label: 'Dropdown',
+                    options: 'Option 1\nOption 2\nOption 3',
+                    required: false
+                },
+                checkbox: {
+                    type: 'checkbox',
+                    label: 'Checkbox',
+                    text: 'I agree to the terms',
+                    required: false
+                },
+                radio: {
+                    type: 'radio',
+                    label: 'Radio',
+                    options: 'Option 1\nOption 2\nOption 3',
+                    required: false
+                },
+                date: {
+                    type: 'date',
+                    label: 'Date',
+                    required: false
+                },
+                file: {
+                    type: 'file',
+                    label: 'File Upload',
+                    accept: '*',
+                    required: false
+                },
+                hidden: {
+                    type: 'hidden',
+                    label: 'Hidden Field',
+                    name: 'hidden_field',
+                    value: ''
+                },
+                submit: {
+                    type: 'submit',
+                    label: 'Submit Button',
+                    text: 'Submit',
+                    variant: 'primary'
+                },
+                'product-card': {
+                    type: 'product-card',
+                    label: 'Product',
+                    name: 'Product Name',
+                    price: '99.99',
+                    image: '',
+                    badge: 'sale'
+                },
+                'product-grid': {
+                    type: 'product-grid',
+                    label: 'Product Grid',
+                    products: 4,
+                    columns: 3
+                },
+                price: {
+                    type: 'price',
+                    label: 'Price',
+                    amount: '99.99',
+                    currency: '$',
+                    oldPrice: '149.99'
+                },
+                'add-to-cart': {
+                    type: 'add-to-cart',
+                    label: 'Add to Cart',
+                    text: 'Add to Cart',
+                    variant: 'primary'
+                },
+                'product-badge': {
+                    type: 'product-badge',
+                    label: 'Badge',
+                    text: 'SALE',
+                    variant: 'sale'
+                },
+                stars: {
+                    type: 'stars',
+                    label: 'Stars',
+                    rating: 4,
+                    max: 5
+                },
+                'stock-status': {
+                    type: 'stock-status',
+                    label: 'Stock',
+                    status: 'instock',
+                    text: 'In Stock'
+                },
+                'buy-now': {
+                    type: 'buy-now',
+                    label: 'Buy Now',
+                    text: 'Buy Now'
+                },
+                hero: {
+                    type: 'hero',
+                    label: 'Hero',
+                    title: 'Welcome to Our Site',
+                    subtitle: 'Build amazing things',
+                    buttonText: 'Get Started',
+                    buttonUrl: '#'
+                },
+                team: {
+                    type: 'team',
+                    label: 'Team Member',
+                    name: 'John Doe',
+                    role: 'CEO',
+                    image: ''
+                },
+                testimonial: {
+                    type: 'testimonial',
+                    label: 'Testimonial',
+                    text: '"Amazing service!"',
+                    author: 'Jane Smith',
+                    role: 'Customer'
+                },
+                pricing: {
+                    type: 'pricing',
+                    label: 'Pricing',
+                    name: 'Pro Plan',
+                    price: '29',
+                    period: '/month',
+                    features: 'Feature 1\nFeature 2\nFeature 3',
+                    highlighted: false
+                },
+                faq: {
+                    type: 'faq',
+                    label: 'FAQ',
+                    question: 'Frequently Asked Question?',
+                    answer: 'This is the answer to the question.'
+                },
+                stats: {
+                    type: 'stats',
+                    label: 'Stats',
+                    number: '1000',
+                    label: 'Happy Customers',
+                    suffix: '+'
+                },
+                features: {
+                    type: 'features',
+                    label: 'Feature',
+                    icon: 'star',
+                    title: 'Feature Title',
+                    description: 'Feature description goes here.'
+                },
+                'contact-card': {
+                    type: 'contact-card',
+                    label: 'Contact',
+                    icon: 'phone',
+                    title: 'Phone',
+                    info: '+1 234 567 890'
+                },
+                button: {
+                    type: 'button',
+                    label: 'Button',
+                    text: 'Click Me',
+                    url: '#',
+                    variant: 'primary'
+                },
+                link: {
+                    type: 'link',
+                    label: 'Link',
+                    text: 'Click here',
+                    url: '#'
+                },
+                tabs: {
+                    type: 'tabs',
+                    label: 'Tabs',
+                    tabs: 'Tab 1\nTab 2\nTab 3'
+                },
+                accordion: {
+                    type: 'accordion',
+                    label: 'Accordion',
+                    question: 'Accordion Title',
+                    answer: 'Accordion content goes here.'
+                },
+                progress: {
+                    type: 'progress',
+                    label: 'Progress',
+                    value: 75,
+                    color: '#6366f1'
+                },
+                timeline: {
+                    type: 'timeline',
+                    label: 'Timeline',
+                    title: 'Event Title',
+                    date: '2024',
+                    description: 'Event description.'
+                },
+                newsletter: {
+                    type: 'newsletter',
+                    label: 'Newsletter',
+                    title: 'Subscribe to Newsletter',
+                    placeholder: 'Enter your email',
+                    buttonText: 'Subscribe'
+                },
+                countdown: {
+                    type: 'countdown',
+                    label: 'Countdown',
+                    targetDate: '2024-12-31'
+                },
+                alert: {
+                    type: 'alert',
+                    label: 'Alert',
+                    message: 'This is an alert message.',
+                    variant: 'info'
+                },
+                cta: {
+                    type: 'cta',
+                    label: 'CTA',
+                    title: 'Ready to get started?',
+                    subtitle: 'Join thousands of happy users',
+                    buttonText: 'Start Now',
+                    buttonUrl: '#'
+                },
+                'social-links': {
+                    type: 'social-links',
+                    label: 'Social Links',
+                    platforms: 'Facebook\nTwitter\nInstagram\nLinkedIn'
+                },
+                'share-buttons': {
+                    type: 'share-buttons',
+                    label: 'Share Buttons',
+                    platforms: 'Facebook\nTwitter\nLinkedIn'
+                },
+                embed: {
+                    type: 'embed',
+                    label: 'Embed',
+                    url: 'https://youtube.com/embed/...'
+                },
+                table: {
+                    type: 'table',
+                    label: 'Table',
+                    headers: 'Name,Age,Email',
+                    rows: 'John,30,john@email.com\nJane,25,jane@email.com'
+                },
+                badge: {
+                    type: 'badge',
+                    label: 'Badge',
+                    text: 'Badge',
+                    variant: 'primary'
+                },
+                chart: {
+                    type: 'chart',
+                    label: 'Chart',
+                    data: '20,35,25,45,30'
+                },
+                map: {
+                    type: 'map',
+                    label: 'Map',
+                    embedUrl: 'https://maps.google.com/maps?q=...'
+                },
+                html: {
+                    type: 'html',
+                    label: 'Custom HTML',
+                    code: '<div>Custom HTML here</div>'
+                },
+                template: {
+                    type: 'template',
+                    label: 'Template',
+                    templateId: ''
+                }
+            };
+            return Object.assign({
+                type: type
+            }, defaults[type] || {});
+        }
 
-                    function renderBlock(block, index) {
-                        const div = document.createElement('div');
-                        div.className = 'canvas-block';
-                        div.dataset.index = index;
-                        div.innerHTML = buildBlockHTML(block, index);
-                        attachBlockEvents(div, index);
-                        canvasBlocks.appendChild(div);
-                    }
+        function renderBlock(block, index) {
+            const div = document.createElement('div');
+            div.className = 'canvas-block';
+            div.dataset.index = index;
+            div.innerHTML = buildBlockHTML(block, index);
+            attachBlockEvents(div, index);
+            canvasBlocks.appendChild(div);
+        }
 
                     function buildBlockHTML(block, index) {
                         // If block has custom rendered HTML, use it
@@ -3427,7 +3438,6 @@ return html;</pre>
                 <div class="canvas-block-type">
                     <span class="drag-handle" title="Drag to reorder"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
                     <span>${typeIcons[block.type] || '<i class="fas fa-cube"></i>'}</span>
-                    <span>${escapeHtml(block.label)}</span>
                 </div>
                 <div class="canvas-block-actions">
                     <button type="button" class="canvas-block-btn move-up" ${index===0?'disabled':''}><i class="fas fa-chevron-up"></i></button>
@@ -3439,216 +3449,216 @@ return html;</pre>
             <div class="canvas-block-preview">${preview}</div>`;
                     }
 
-                    function buildPreview(block) {
-                        switch (block.type) {
-                            case 'container':
-                                return '<div style="padding:20px;border:1px dashed var(--gray-300);border-radius:8px;">Container</div>';
-                            case 'columns':
-                                return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;"></div>').join('') + '</div>';
-                            case 'grid':
-                                return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;"></div>').join('') + '</div>';
-                            case 'section':
-                                return '<div style="padding:40px;background:var(--gray-50);border-radius:8px;text-align:center;color:var(--gray-400);">Section</div>';
-                            case 'divider':
-                                return '<hr class="preview-divider">';
-                            case 'spacer':
-                                return '<div class="preview-spacer" style="height:' + (block.height || 32) + 'px;"></div>';
-                            case 'heading':
-                                return '<' + (block.level || 'h2') + ' class="preview-heading" style="text-align:' + (block.align || 'left') + ';">' + escapeHtml(block.content || 'Heading') + '</' + (block.level || 'h2') + '>';
-                            case 'text':
-                                return '<p class="preview-text">' + escapeHtml(block.content || 'Text content') + '</p>';
-                            case 'richtext':
-                                return '<div>' + block.content + '</div>';
-                            case 'list':
-                                const items = (block.items || 'Item 1\nItem 2').split('\n');
-                                const tag = block.ordered ? 'ol' : 'ul';
-                                return '<' + tag + ' class="preview-list">' + items.map(function(i) {
-                                    return '<li>' + escapeHtml(i.trim()) + '</li>';
-                                }).join('') + '</' + tag + '>';
-                            case 'quote':
-                                return '<blockquote class="preview-quote">' + escapeHtml(block.content || 'Quote') + '<br><small>' + escapeHtml(block.author || '') + '</small></blockquote>';
-                            case 'code':
-                                return '<pre class="preview-code">' + escapeHtml(block.content || 'code') + '</pre>';
-                            case 'image':
-                                return block.src ? '<img src="' + escapeHtml(block.src) + '" style="width:100%;height:200px;object-fit:cover;border-radius:8px;" alt="' + escapeHtml(block.alt || '') + '">' : '<div class="preview-image"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>';
-                            case 'gallery':
-                                return '<div class="preview-gallery">' + Array(block.images || 4).fill('<div class="preview-gallery-item"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>').join('') + '</div>';
-                            case 'video':
-                                return '<div class="preview-video"><i class="fas fa-play"></i></div>';
-                            case 'icon':
-                                return '<div class="preview-icon-box"><div class="preview-icon-circle" style="background:' + (block.color || 'var(--primary)') + ';">' + escapeHtml(block.icon || '✨') + '</div><div>' + escapeHtml(block.label || 'Icon') + '</div></div>';
-                            case 'avatar':
-                                return '<div class="preview-team"><div class="preview-team-avatar"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div><div><div class="preview-team-name">' + escapeHtml(block.name || 'User') + '</div><div class="preview-team-role">' + escapeHtml(block.role || '') + '</div></div></div>';
-                            case 'text-input':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Text') + (block.required ? ' <span style="color:var(--danger)">*</span>' : '') + '</div><input class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
-                            case 'textarea':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Textarea') + '</div><textarea class="preview-textarea" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled></textarea>';
-                            case 'email':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Email') + '</div><input type="email" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
-                            case 'number':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Number') + '</div><input type="number" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
-                            case 'password':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Password') + '</div><input type="password" class="preview-input" placeholder="••••••••" disabled>';
-                            case 'select':
-                                const opts = (block.options || 'Option 1\nOption 2').split('\n');
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Select') + '</div><select class="preview-select" disabled>' + opts.map(function(o) {
-                                    return '<option>' + escapeHtml(o.trim()) + '</option>';
-                                }).join('') + '</select>';
-                            case 'checkbox':
-                                return '<div class="preview-checkbox"><input type="checkbox" disabled><span>' + escapeHtml(block.text || block.label || 'Checkbox') + '</span></div>';
-                            case 'radio':
-                                const radios = (block.options || 'Option 1\nOption 2').split('\n');
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Radio') + '</div>' + radios.map(function(o) {
-                                    return '<div class="preview-radio"><input type="radio" disabled><span>' + escapeHtml(o.trim()) + '</span></div>';
-                                }).join('');
-                            case 'date':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'Date') + '</div><input type="date" class="preview-date" disabled>';
-                            case 'file':
-                                return '<div class="property-label">' + escapeHtml(block.label || 'File') + '</div><div class="preview-file">📎 Click to upload or drag and drop</div>';
-                            case 'hidden':
-                                return '<div style="padding:8px;background:var(--gray-100);border-radius:4px;font-size:12px;color:var(--gray-400);"><span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span> Hidden: ' + escapeHtml(block.name || '') + '</div>';
-                            case 'submit':
-                                const variants = {
-                                    primary: 'var(--primary)',
-                                    success: 'var(--success)',
-                                    warning: 'var(--warning)',
-                                    danger: 'var(--danger)'
-                                };
-                                return '<button class="preview-button" style="background:' + (variants[block.variant] || 'var(--primary)') + ';">' + escapeHtml(block.text || 'Submit') + '</button>';
-                            case 'product-card':
-                                return '<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">' + escapeHtml(block.name || 'Product') + '</div><div class="preview-product-price">$' + escapeHtml(block.price || '0') + '</div></div></div>';
-                            case 'product-grid':
-                                return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:12px;">' + Array(block.products || 4).fill('<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">Product</div><div class="preview-product-price">$99</div></div></div>').join('') + '</div>';
-                            case 'price':
-                                return '<div><span class="preview-price">' + escapeHtml(block.currency || '$') + escapeHtml(block.amount || '0') + '</span>' + (block.oldPrice ? '<span class="preview-price-old">' + escapeHtml(block.currency || '$') + escapeHtml(block.oldPrice) + '</span>' : '') + '</div>';
-                            case 'add-to-cart':
-                                return '<button class="preview-button" style="background:var(--success);">🛒 ' + escapeHtml(block.text || 'Add to Cart') + '</button>';
-                            case 'product-badge':
-                                const badgeVars = {
-                                    sale: 'preview-badge-sale',
-                                    new: 'preview-badge-new',
-                                    hot: 'preview-badge-hot'
-                                };
-                                return '<span class="preview-badge ' + (badgeVars[block.variant] || 'preview-badge-sale') + '">' + escapeHtml(block.text || 'SALE') + '</span>';
-                            case 'stars':
-                                return '<div class="preview-stars">' + '★'.repeat(block.rating || 4) + '☆'.repeat((block.max || 5) - (block.rating || 4)) + '</div>';
-                            case 'stock-status':
-                                return '<span style="color:' + (block.status === 'instock' ? 'var(--success)' : 'var(--danger)') + ';\"><i class="fas fa-' + (block.status === 'instock' ? 'check-circle' : 'times-circle') + '" style="margin-right:6px;"></i>' + escapeHtml(block.text || 'In Stock') + '</span>';
-                            case 'buy-now':
-                                return '<button class="preview-button" style="background:var(--warning);color:#000;"><i class="fas fa-bolt" style="margin-right:6px;"></i>' + escapeHtml(block.text || 'Buy Now') + '</button>';
-                            case 'hero':
-                                return '<div style="text-align:center;padding:40px 20px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;color:white;"><h2 style="margin:0 0 8px;">' + escapeHtml(block.title || 'Hero') + '</h2><p style="margin:0 0 16px;opacity:0.9;">' + escapeHtml(block.subtitle || '') + '</p><span class="preview-button" style="background:white;color:#667eea;">' + escapeHtml(block.buttonText || 'Get Started') + '</span></div>';
-                            case 'team':
-                                return '<div class="preview-team"><div class="preview-team-avatar"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div><div><div class="preview-team-name">' + escapeHtml(block.name || 'Name') + '</div><div class="preview-team-role">' + escapeHtml(block.role || '') + '</div></div></div>';
-                            case 'testimonial':
-                                return '<div class="preview-testimonial"><div class="preview-testimonial-text">' + escapeHtml(block.text || 'Testimonial') + '</div><div class="preview-testimonial-author">' + escapeHtml(block.author || '') + '</div></div>';
-                            case 'pricing':
-                                const feats = (block.features || '').split('\n');
-                                return '<div class="preview-pricing"><div class="preview-pricing-name">' + escapeHtml(block.name || 'Plan') + '</div><div class="preview-pricing-price">' + escapeHtml(block.currency || '$') + escapeHtml(block.price || '0') + '<small style="font-size:14px;color:var(--gray-400);">' + escapeHtml(block.period || '') + '</small></div><ul class="preview-pricing-features">' + feats.map(function(f) {
-                                    return '<li><i class="fas fa-check" style="color:var(--success);margin-right:6px;"></i>' + escapeHtml(f.trim()) + '</li>';
-                                }).join('') + '</ul><button class="preview-button">Choose Plan</button></div>';
-                            case 'faq':
-                                return '<div class="preview-faq-item"><div class="preview-faq-question"><span class="material-symbols-outlined" style="font-size:18px;">help</span> ' + escapeHtml(block.question || 'Question?') + '</div><div class="preview-faq-answer">' + escapeHtml(block.answer || 'Answer') + '</div></div>';
-                            case 'stats':
-                                return '<div style="text-align:center;padding:20px;"><div class="preview-stat-number">' + escapeHtml(block.number || '0') + escapeHtml(block.suffix || '') + '</div><div class="preview-stat-label">' + escapeHtml(block.label || '') + '</div></div>';
-                            case 'features':
-                                return '<div style="display:flex;gap:12px;align-items:start;padding:16px;border:1px solid var(--gray-200);border-radius:12px;"><div style="font-size:24px;color:var(--primary);">' + (block.icon || '<span class="material-symbols-outlined" style="font-size:18px;">star</span>') + '</div><div><div style="font-weight:600;">' + escapeHtml(block.title || 'Feature') + '</div><div style="font-size:13px;color:var(--gray-400);">' + escapeHtml(block.description || '') + '</div></div></div>';
-                            case 'contact-card':
-                                const iconMap = {
-                                    'phone': '<span class="material-symbols-outlined" style="font-size:18px;">phone</span>',
-                                    'star': '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
-                                    'mail': '<span class="material-symbols-outlined" style="font-size:18px;">mail</span>',
-                                    'location': '<i class="fas fa-map-marker-alt"></i>'
-                                };
-                                return '<div class="preview-contact-card"><div class="preview-contact-icon">' + (iconMap[block.icon] || '<span class="material-symbols-outlined" style="font-size:18px;">phone</span>') + '</div><div><div style="font-weight:600;">' + escapeHtml(block.title || '') + '</div><div style="font-size:13px;color:var(--gray-400);">' + escapeHtml(block.info || '') + '</div></div></div>';
-                            case 'button':
-                                const btnVars = {
-                                    primary: 'var(--primary)',
-                                    success: 'var(--success)',
-                                    warning: 'var(--warning)',
-                                    danger: 'var(--danger)',
-                                    outline: 'transparent;border:2px solid var(--primary);color:var(--primary)'
-                                };
-                                return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="#">' + escapeHtml(block.text || 'Button') + '</a>';
-                            case 'link':
-                                return '<a href="#" style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
-                            case 'tabs':
-                                const tabs = (block.tabs || 'Tab 1\nTab 2').split('\n');
-                                return '<div class="preview-tabs">' + tabs.map(function(t, i) {
-                                    return '<div class="preview-tab' + (i === 0 ? ' active' : '') + '">' + escapeHtml(t.trim()) + '</div>';
-                                }).join('') + '</div><div style="padding:16px;color:var(--gray-400);">Tab content here</div>';
-                            case 'accordion':
-                                return '<div class="preview-accordion-item"><div class="preview-accordion-header">▸ ' + escapeHtml(block.question || 'Question?') + '</div><div class="preview-accordion-body">' + escapeHtml(block.answer || '') + '</div></div>';
-                            case 'progress':
-                                return '<div><div class="property-label" style="font-size:13px;">' + escapeHtml(block.label || 'Progress') + ': ' + (block.value || 0) + '%</div><div class="preview-progress"><div class="preview-progress-bar" style="width:' + (block.value || 0) + '%;background:' + (block.color || 'var(--primary)') + ';"></div></div></div>';
-                            case 'timeline':
-                                return '<div class="preview-timeline"><div class="preview-timeline-item"><div class="preview-timeline-dot"></div><div style="font-weight:600;">' + escapeHtml(block.title || '') + '</div><div style="font-size:12px;color:var(--gray-400);">' + escapeHtml(block.date || '') + '</div><div style="font-size:13px;color:var(--gray-600);">' + escapeHtml(block.description || '') + '</div></div></div>';
-                            case 'newsletter':
-                                return '<div class="preview-newsletter"><div class="preview-newsletter-title">' + escapeHtml(block.title || 'Newsletter') + '</div><input class="preview-newsletter-input" placeholder="' + escapeHtml(block.placeholder || 'Email') + '"><br><button class="preview-button" style="background:white;color:var(--primary);">' + escapeHtml(block.buttonText || 'Subscribe') + '</button></div>';
-                            case 'countdown':
-                                return '<div class="preview-countdown"><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Days</div></div><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Hours</div></div><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Mins</div></div><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Secs</div></div></div>';
-                            case 'alert':
-                                const alertVars = {
-                                    info: 'preview-alert-info',
-                                    success: 'preview-alert-success',
-                                    warning: 'preview-alert-warning',
-                                    error: 'preview-alert-error'
-                                };
-                                return '<div class="preview-alert ' + (alertVars[block.variant] || 'preview-alert-info') + '">' + escapeHtml(block.message || 'Alert') + '</div>';
-                            case 'cta':
-                                return '<div style="text-align:center;padding:40px 20px;background:var(--gray-50);border-radius:12px;"><h3 style="margin:0 0 8px;">' + escapeHtml(block.title || 'CTA') + '</h3><p style="margin:0 0 16px;color:var(--gray-400);">' + escapeHtml(block.subtitle || '') + '</p><button class="preview-button">' + escapeHtml(block.buttonText || 'Start Now') + '</button></div>';
-                            case 'social-links':
-                                const platforms = (block.platforms || 'Facebook\nTwitter').split('\n');
-                                const icons = {
-                                    'facebook': '<i class="fab fa-facebook"></i>',
-                                    'twitter': '<i class="fab fa-twitter"></i>',
-                                    'instagram': '<i class="fab fa-instagram"></i>',
-                                    'linkedin': '<i class="fab fa-linkedin"></i>',
-                                    'youtube': '<i class="fab fa-youtube"></i>',
-                                    'tiktok': '<i class="fab fa-tiktok"></i>'
-                                };
-                                return '<div class="preview-social">' + platforms.map(function(p) {
-                                    return '<div class="preview-social-icon">' + (icons[p.trim().toLowerCase()] || '<span class="material-symbols-outlined" style="font-size:18px;">link</span>') + '</div>';
-                                }).join('') + '</div>';
-                            case 'share-buttons':
-                                return '<div style="display:flex;gap:8px;"><div class="preview-social-icon"><i class="fab fa-facebook"></i></div><div class="preview-social-icon"><i class="fab fa-twitter"></i></div><div class="preview-social-icon"><i class="fab fa-linkedin"></i></div></div>';
-                            case 'embed':
-                                return '<div style="height:200px;background:var(--gray-900);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:32px;"><span class="material-symbols-outlined" style="font-size:18px;">videocam</span> Embed</div>';
-                            case 'table':
-                                const headers = (block.headers || 'Col1,Col2').split(',');
-                                const rows = (block.rows || '').split('\n');
-                                return '<table class="preview-table"><thead><tr>' + headers.map(function(h) {
-                                    return '<th>' + escapeHtml(h.trim()) + '</th>';
-                                }).join('') + '</tr></thead><tbody>' + rows.map(function(r) {
-                                    return '<tr>' + r.split(',').map(function(c) {
-                                        return '<td>' + escapeHtml(c.trim()) + '</td>';
-                                    }).join('') + '</tr>';
-                                }).join('') + '</tbody></table>';
-                            case 'badge':
-                                const badgeColors = {
-                                    primary: 'background:var(--primary);color:white;',
-                                    success: 'background:var(--success);color:white;',
-                                    warning: 'background:var(--warning);color:white;',
-                                    danger: 'background:var(--danger);color:white;',
-                                    info: 'background:var(--info);color:white;'
-                                };
-                                return '<span class="preview-badge-tag" style="' + (badgeColors[block.variant] || 'background:var(--gray-100);color:var(--gray-600);') + '">' + escapeHtml(block.text || 'Badge') + '</span>';
-                            case 'chart':
-                                const data = (block.data || '20,35,25').split(',');
-                                const max = Math.max.apply(null, data.map(Number));
-                                return '<div class="preview-chart">' + data.map(function(v) {
-                                    return '<div class="preview-chart-bar" style="height:' + ((v / max) * 100) + '%;"></div>';
-                                }).join('') + '</div>';
-                            case 'map':
-                                return '<div class="preview-map"><i class="fas fa-map"></i></div>';
-                            case 'html':
-                                return '<div class="preview-code">' + escapeHtml(block.code || '<!-- HTML -->') + '</div>';
-                            case 'template':
-                                return '<div style="padding:20px;border:2px dashed var(--gray-300);border-radius:8px;text-align:center;color:var(--gray-400);"><span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span> Template: ' + (block.templateId || 'None') + '</div>';
-                            default:
-                                return '<div style="padding:20px;text-align:center;color:var(--gray-400);">Block: ' + escapeHtml(block.type) + '</div>';
-                        }
-                    }
+        function buildPreview(block) {
+            switch (block.type) {
+                case 'container':
+                    return '<div style="padding:20px;border:1px dashed var(--gray-300);border-radius:8px;">Container</div>';
+                case 'columns':
+                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;"></div>').join('') + '</div>';
+                case 'grid':
+                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;"></div>').join('') + '</div>';
+                case 'section':
+                    return '<div style="padding:40px;background:var(--gray-50);border-radius:8px;text-align:center;color:var(--gray-400);">Section</div>';
+                case 'divider':
+                    return '<hr class="preview-divider">';
+                case 'spacer':
+                    return '<div class="preview-spacer" style="height:' + (block.height || 32) + 'px;"></div>';
+                case 'heading':
+                    return '<' + (block.level || 'h2') + ' class="preview-heading" style="text-align:' + (block.align || 'left') + ';">' + escapeHtml(block.content || 'Heading') + '</' + (block.level || 'h2') + '>';
+                case 'text':
+                    return '<p class="preview-text">' + escapeHtml(block.content || 'Text content') + '</p>';
+                case 'richtext':
+                    return '<div>' + block.content + '</div>';
+                case 'list':
+                    const items = (block.items || 'Item 1\nItem 2').split('\n');
+                    const tag = block.ordered ? 'ol' : 'ul';
+                    return '<' + tag + ' class="preview-list">' + items.map(function(i) {
+                        return '<li>' + escapeHtml(i.trim()) + '</li>';
+                    }).join('') + '</' + tag + '>';
+                case 'quote':
+                    return '<blockquote class="preview-quote">' + escapeHtml(block.content || 'Quote') + '<br><small>' + escapeHtml(block.author || '') + '</small></blockquote>';
+                case 'code':
+                    return '<pre class="preview-code">' + escapeHtml(block.content || 'code') + '</pre>';
+                case 'image':
+                    return block.src ? '<img src="' + escapeHtml(block.src) + '" style="width:100%;height:200px;object-fit:cover;border-radius:8px;" alt="' + escapeHtml(block.alt || '') + '">' : '<div class="preview-image"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>';
+                case 'gallery':
+                    return '<div class="preview-gallery">' + Array(block.images || 4).fill('<div class="preview-gallery-item"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>').join('') + '</div>';
+                case 'video':
+                    return '<div class="preview-video"><i class="fas fa-play"></i></div>';
+                case 'icon':
+                    return '<div class="preview-icon-box"><div class="preview-icon-circle" style="background:' + (block.color || 'var(--primary)') + ';">' + escapeHtml(block.icon || '✨') + '</div><div>' + escapeHtml(block.label || 'Icon') + '</div></div>';
+                case 'avatar':
+                    return '<div class="preview-team"><div class="preview-team-avatar"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div><div><div class="preview-team-name">' + escapeHtml(block.name || 'User') + '</div><div class="preview-team-role">' + escapeHtml(block.role || '') + '</div></div></div>';
+                case 'text-input':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Text') + (block.required ? ' <span style="color:var(--danger)">*</span>' : '') + '</div><input class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
+                case 'textarea':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Textarea') + '</div><textarea class="preview-textarea" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled></textarea>';
+                case 'email':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Email') + '</div><input type="email" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
+                case 'number':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Number') + '</div><input type="number" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
+                case 'password':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Password') + '</div><input type="password" class="preview-input" placeholder="••••••••" disabled>';
+                case 'select':
+                    const opts = (block.options || 'Option 1\nOption 2').split('\n');
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Select') + '</div><select class="preview-select" disabled>' + opts.map(function(o) {
+                        return '<option>' + escapeHtml(o.trim()) + '</option>';
+                    }).join('') + '</select>';
+                case 'checkbox':
+                    return '<div class="preview-checkbox"><input type="checkbox" disabled><span>' + escapeHtml(block.text || block.label || 'Checkbox') + '</span></div>';
+                case 'radio':
+                    const radios = (block.options || 'Option 1\nOption 2').split('\n');
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Radio') + '</div>' + radios.map(function(o) {
+                        return '<div class="preview-radio"><input type="radio" disabled><span>' + escapeHtml(o.trim()) + '</span></div>';
+                    }).join('');
+                case 'date':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Date') + '</div><input type="date" class="preview-date" disabled>';
+                case 'file':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'File') + '</div><div class="preview-file">📎 Click to upload or drag and drop</div>';
+                case 'hidden':
+                    return '<div style="padding:8px;background:var(--gray-100);border-radius:4px;font-size:12px;color:var(--gray-400);"><span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span> Hidden: ' + escapeHtml(block.name || '') + '</div>';
+                case 'submit':
+                    const variants = {
+                        primary: 'var(--primary)',
+                        success: 'var(--success)',
+                        warning: 'var(--warning)',
+                        danger: 'var(--danger)'
+                    };
+                    return '<button class="preview-button" style="background:' + (variants[block.variant] || 'var(--primary)') + ';">' + escapeHtml(block.text || 'Submit') + '</button>';
+                case 'product-card':
+                    return '<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">' + escapeHtml(block.name || 'Product') + '</div><div class="preview-product-price">$' + escapeHtml(block.price || '0') + '</div></div></div>';
+                case 'product-grid':
+                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:12px;">' + Array(block.products || 4).fill('<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">Product</div><div class="preview-product-price">$99</div></div></div>').join('') + '</div>';
+                case 'price':
+                    return '<div><span class="preview-price">' + escapeHtml(block.currency || '$') + escapeHtml(block.amount || '0') + '</span>' + (block.oldPrice ? '<span class="preview-price-old">' + escapeHtml(block.currency || '$') + escapeHtml(block.oldPrice) + '</span>' : '') + '</div>';
+                case 'add-to-cart':
+                    return '<button class="preview-button" style="background:var(--success);">🛒 ' + escapeHtml(block.text || 'Add to Cart') + '</button>';
+                case 'product-badge':
+                    const badgeVars = {
+                        sale: 'preview-badge-sale',
+                        new: 'preview-badge-new',
+                        hot: 'preview-badge-hot'
+                    };
+                    return '<span class="preview-badge ' + (badgeVars[block.variant] || 'preview-badge-sale') + '">' + escapeHtml(block.text || 'SALE') + '</span>';
+                case 'stars':
+                    return '<div class="preview-stars">' + '★'.repeat(block.rating || 4) + '☆'.repeat((block.max || 5) - (block.rating || 4)) + '</div>';
+                case 'stock-status':
+                    return '<span style="color:' + (block.status === 'instock' ? 'var(--success)' : 'var(--danger)') + ';\"><i class="fas fa-' + (block.status === 'instock' ? 'check-circle' : 'times-circle') + '" style="margin-right:6px;"></i>' + escapeHtml(block.text || 'In Stock') + '</span>';
+                case 'buy-now':
+                    return '<button class="preview-button" style="background:var(--warning);color:#000;"><i class="fas fa-bolt" style="margin-right:6px;"></i>' + escapeHtml(block.text || 'Buy Now') + '</button>';
+                case 'hero':
+                    return '<div style="text-align:center;padding:40px 20px;background:linear-gradient(135deg,#667eea,#764ba2);border-radius:12px;color:white;"><h2 style="margin:0 0 8px;">' + escapeHtml(block.title || 'Hero') + '</h2><p style="margin:0 0 16px;opacity:0.9;">' + escapeHtml(block.subtitle || '') + '</p><span class="preview-button" style="background:white;color:#667eea;">' + escapeHtml(block.buttonText || 'Get Started') + '</span></div>';
+                case 'team':
+                    return '<div class="preview-team"><div class="preview-team-avatar"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div><div><div class="preview-team-name">' + escapeHtml(block.name || 'Name') + '</div><div class="preview-team-role">' + escapeHtml(block.role || '') + '</div></div></div>';
+                case 'testimonial':
+                    return '<div class="preview-testimonial"><div class="preview-testimonial-text">' + escapeHtml(block.text || 'Testimonial') + '</div><div class="preview-testimonial-author">' + escapeHtml(block.author || '') + '</div></div>';
+                case 'pricing':
+                    const feats = (block.features || '').split('\n');
+                    return '<div class="preview-pricing"><div class="preview-pricing-name">' + escapeHtml(block.name || 'Plan') + '</div><div class="preview-pricing-price">' + escapeHtml(block.currency || '$') + escapeHtml(block.price || '0') + '<small style="font-size:14px;color:var(--gray-400);">' + escapeHtml(block.period || '') + '</small></div><ul class="preview-pricing-features">' + feats.map(function(f) {
+                        return '<li><i class="fas fa-check" style="color:var(--success);margin-right:6px;"></i>' + escapeHtml(f.trim()) + '</li>';
+                    }).join('') + '</ul><button class="preview-button">Choose Plan</button></div>';
+                case 'faq':
+                    return '<div class="preview-faq-item"><div class="preview-faq-question"><span class="material-symbols-outlined" style="font-size:18px;">help</span> ' + escapeHtml(block.question || 'Question?') + '</div><div class="preview-faq-answer">' + escapeHtml(block.answer || 'Answer') + '</div></div>';
+                case 'stats':
+                    return '<div style="text-align:center;padding:20px;"><div class="preview-stat-number">' + escapeHtml(block.number || '0') + escapeHtml(block.suffix || '') + '</div><div class="preview-stat-label">' + escapeHtml(block.label || '') + '</div></div>';
+                case 'features':
+                    return '<div style="display:flex;gap:12px;align-items:start;padding:16px;border:1px solid var(--gray-200);border-radius:12px;"><div style="font-size:24px;color:var(--primary);">' + (block.icon || '<span class="material-symbols-outlined" style="font-size:18px;">star</span>') + '</div><div><div style="font-weight:600;">' + escapeHtml(block.title || 'Feature') + '</div><div style="font-size:13px;color:var(--gray-400);">' + escapeHtml(block.description || '') + '</div></div></div>';
+                case 'contact-card':
+                    const iconMap = {
+                        'phone': '<span class="material-symbols-outlined" style="font-size:18px;">phone</span>',
+                        'star': '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
+                        'mail': '<span class="material-symbols-outlined" style="font-size:18px;">mail</span>',
+                        'location': '<i class="fas fa-map-marker-alt"></i>'
+                    };
+                    return '<div class="preview-contact-card"><div class="preview-contact-icon">' + (iconMap[block.icon] || '<span class="material-symbols-outlined" style="font-size:18px;">phone</span>') + '</div><div><div style="font-weight:600;">' + escapeHtml(block.title || '') + '</div><div style="font-size:13px;color:var(--gray-400);">' + escapeHtml(block.info || '') + '</div></div></div>';
+                case 'button':
+                    const btnVars = {
+                        primary: 'var(--primary)',
+                        success: 'var(--success)',
+                        warning: 'var(--warning)',
+                        danger: 'var(--danger)',
+                        outline: 'transparent;border:2px solid var(--primary);color:var(--primary)'
+                    };
+                    return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="#">' + escapeHtml(block.text || 'Button') + '</a>';
+                case 'link':
+                    return '<a href="#" style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
+                case 'tabs':
+                    const tabs = (block.tabs || 'Tab 1\nTab 2').split('\n');
+                    return '<div class="preview-tabs">' + tabs.map(function(t, i) {
+                        return '<div class="preview-tab' + (i === 0 ? ' active' : '') + '">' + escapeHtml(t.trim()) + '</div>';
+                    }).join('') + '</div><div style="padding:16px;color:var(--gray-400);">Tab content here</div>';
+                case 'accordion':
+                    return '<div class="preview-accordion-item"><div class="preview-accordion-header">▸ ' + escapeHtml(block.question || 'Question?') + '</div><div class="preview-accordion-body">' + escapeHtml(block.answer || '') + '</div></div>';
+                case 'progress':
+                    return '<div><div class="property-label" style="font-size:13px;">' + escapeHtml(block.label || 'Progress') + ': ' + (block.value || 0) + '%</div><div class="preview-progress"><div class="preview-progress-bar" style="width:' + (block.value || 0) + '%;background:' + (block.color || 'var(--primary)') + ';"></div></div></div>';
+                case 'timeline':
+                    return '<div class="preview-timeline"><div class="preview-timeline-item"><div class="preview-timeline-dot"></div><div style="font-weight:600;">' + escapeHtml(block.title || '') + '</div><div style="font-size:12px;color:var(--gray-400);">' + escapeHtml(block.date || '') + '</div><div style="font-size:13px;color:var(--gray-600);">' + escapeHtml(block.description || '') + '</div></div></div>';
+                case 'newsletter':
+                    return '<div class="preview-newsletter"><div class="preview-newsletter-title">' + escapeHtml(block.title || 'Newsletter') + '</div><input class="preview-newsletter-input" placeholder="' + escapeHtml(block.placeholder || 'Email') + '"><br><button class="preview-button" style="background:white;color:var(--primary);">' + escapeHtml(block.buttonText || 'Subscribe') + '</button></div>';
+                case 'countdown':
+                    return '<div class="preview-countdown"><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Days</div></div><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Hours</div></div><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Mins</div></div><div class="preview-countdown-item"><div class="preview-countdown-number">00</div><div class="preview-countdown-label">Secs</div></div></div>';
+                case 'alert':
+                    const alertVars = {
+                        info: 'preview-alert-info',
+                        success: 'preview-alert-success',
+                        warning: 'preview-alert-warning',
+                        error: 'preview-alert-error'
+                    };
+                    return '<div class="preview-alert ' + (alertVars[block.variant] || 'preview-alert-info') + '">' + escapeHtml(block.message || 'Alert') + '</div>';
+                case 'cta':
+                    return '<div style="text-align:center;padding:40px 20px;background:var(--gray-50);border-radius:12px;"><h3 style="margin:0 0 8px;">' + escapeHtml(block.title || 'CTA') + '</h3><p style="margin:0 0 16px;color:var(--gray-400);">' + escapeHtml(block.subtitle || '') + '</p><button class="preview-button">' + escapeHtml(block.buttonText || 'Start Now') + '</button></div>';
+                case 'social-links':
+                    const platforms = (block.platforms || 'Facebook\nTwitter').split('\n');
+                    const icons = {
+                        'facebook': '<i class="fab fa-facebook"></i>',
+                        'twitter': '<i class="fab fa-twitter"></i>',
+                        'instagram': '<i class="fab fa-instagram"></i>',
+                        'linkedin': '<i class="fab fa-linkedin"></i>',
+                        'youtube': '<i class="fab fa-youtube"></i>',
+                        'tiktok': '<i class="fab fa-tiktok"></i>'
+                    };
+                    return '<div class="preview-social">' + platforms.map(function(p) {
+                        return '<div class="preview-social-icon">' + (icons[p.trim().toLowerCase()] || '<span class="material-symbols-outlined" style="font-size:18px;">link</span>') + '</div>';
+                    }).join('') + '</div>';
+                case 'share-buttons':
+                    return '<div style="display:flex;gap:8px;"><div class="preview-social-icon"><i class="fab fa-facebook"></i></div><div class="preview-social-icon"><i class="fab fa-twitter"></i></div><div class="preview-social-icon"><i class="fab fa-linkedin"></i></div></div>';
+                case 'embed':
+                    return '<div style="height:200px;background:var(--gray-900);border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:32px;"><span class="material-symbols-outlined" style="font-size:18px;">videocam</span> Embed</div>';
+                case 'table':
+                    const headers = (block.headers || 'Col1,Col2').split(',');
+                    const rows = (block.rows || '').split('\n');
+                    return '<table class="preview-table"><thead><tr>' + headers.map(function(h) {
+                        return '<th>' + escapeHtml(h.trim()) + '</th>';
+                    }).join('') + '</tr></thead><tbody>' + rows.map(function(r) {
+                        return '<tr>' + r.split(',').map(function(c) {
+                            return '<td>' + escapeHtml(c.trim()) + '</td>';
+                        }).join('') + '</tr>';
+                    }).join('') + '</tbody></table>';
+                case 'badge':
+                    const badgeColors = {
+                        primary: 'background:var(--primary);color:white;',
+                        success: 'background:var(--success);color:white;',
+                        warning: 'background:var(--warning);color:white;',
+                        danger: 'background:var(--danger);color:white;',
+                        info: 'background:var(--info);color:white;'
+                    };
+                    return '<span class="preview-badge-tag" style="' + (badgeColors[block.variant] || 'background:var(--gray-100);color:var(--gray-600);') + '">' + escapeHtml(block.text || 'Badge') + '</span>';
+                case 'chart':
+                    const data = (block.data || '20,35,25').split(',');
+                    const max = Math.max.apply(null, data.map(Number));
+                    return '<div class="preview-chart">' + data.map(function(v) {
+                        return '<div class="preview-chart-bar" style="height:' + ((v / max) * 100) + '%;"></div>';
+                    }).join('') + '</div>';
+                case 'map':
+                    return '<div class="preview-map"><i class="fas fa-map"></i></div>';
+                case 'html':
+                    return '<div class="preview-code">' + escapeHtml(block.code || '<!-- HTML -->') + '</div>';
+                case 'template':
+                    return '<div style="padding:20px;border:2px dashed var(--gray-300);border-radius:8px;text-align:center;color:var(--gray-400);"><span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span> Template: ' + (block.templateId || 'None') + '</div>';
+                default:
+                    return '<div style="padding:20px;text-align:center;color:var(--gray-400);">Block: ' + escapeHtml(block.type) + '</div>';
+            }
+        }
 
                     function attachBlockEvents(div, index) {
                         div.addEventListener('click', function(e) {
@@ -4305,17 +4315,17 @@ return html;</pre>
                         }
                     });
 
-                    // Save form
-                    document.getElementById('btn-save').addEventListener('click', function() {
-                        document.getElementById('schema-js').value = JSON.stringify(blocks);
-                        document.getElementById('table-id').value = document.getElementById('table-selector').value;
-                        document.getElementById('builder-form').submit();
-                    });
+        // Save form
+        document.getElementById('btn-save').addEventListener('click', function() {
+            document.getElementById('schema-js').value = JSON.stringify(blocks);
+            document.getElementById('table-id').value = document.getElementById('table-selector').value;
+            document.getElementById('builder-form').submit();
+        });
 
-                    document.getElementById('builder-form').addEventListener('submit', function() {
-                        document.getElementById('schema-js').value = JSON.stringify(blocks);
-                        document.getElementById('table-id').value = document.getElementById('table-selector').value;
-                    });
+        document.getElementById('builder-form').addEventListener('submit', function() {
+            document.getElementById('schema-js').value = JSON.stringify(blocks);
+            document.getElementById('table-id').value = document.getElementById('table-selector').value;
+        });
 
                     // Table selector change - update hidden input
                     document.getElementById('table-selector').addEventListener('change', function() {
@@ -4583,6 +4593,66 @@ return html;</pre>
                 });
             </script>
 
+        <!-- Publish Modal -->
+        <div id="publish-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:16px;max-width:500px;width:90%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="background:linear-gradient(135deg,#006c49,#00a773);color:#fff;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+                    <h3 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px;">
+                        <span class="material-symbols-outlined">public</span>
+                        Publish Form
+                    </h3>
+                    <button onclick="document.getElementById('publish-modal').style.display='none'" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:24px;padding:4px;">&times;</button>
+                </div>
+                <div style="padding:24px;">
+                    <?php if ($model->isNewRecord): ?>
+                    <!-- For new forms, we need to save first -->
+                    <div style="background:#fff3cd;border-left:4px solid #f5a623;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+                        <p style="margin:0;font-size:13px;color:#856404;"><strong>Note:</strong> You need to save the form first before publishing. Click "Publish" button below to save and then you can publish from the form list.</p>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button type="button" onclick="document.getElementById('publish-modal').style.display='none'"
+                            style="padding:12px 24px;background:#f0f4f9;border:none;border-radius:12px;font-size:14px;font-weight:600;color:#464555;cursor:pointer;">Cancel</button>
+                        <button type="submit" form="builder-form" name="publish_now" value="1"
+                            style="padding:12px 24px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">save</span>
+                            Save Form First
+                        </button>
+                    </div>
+                    <?php else: ?>
+                    <?= Html::beginForm(['form/publish', 'id' => $model->id], 'post', ['id' => 'publish-form-modal']) ?>
+                    <div style="margin-bottom:16px;">
+                        <label style="display:block;font-weight:600;margin-bottom:8px;color:#0b1c30;">Published Name</label>
+                        <input type="text" name="name" value="<?= Html::encode($model->name) ?>" maxlength="255" required
+                            style="width:100%;padding:12px 16px;border:1px solid #c7c4d8;border-radius:12px;font-size:14px;transition:border 0.2s;"
+                            placeholder="Enter published form name..."
+                            onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='#c7c4d8'">
+                    </div>
+                    <div style="background:#e5eeff;border-left:4px solid #4f46e5;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+                        <p style="margin:0;font-size:13px;color:#464555;"><strong>Note:</strong> This will publish your form and make it accessible via a public URL.</p>
+                    </div>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button type="button" onclick="document.getElementById('publish-modal').style.display='none'"
+                            style="padding:12px 24px;background:#f0f4f9;border:none;border-radius:12px;font-size:14px;font-weight:600;color:#464555;cursor:pointer;">Cancel</button>
+                        <button type="submit"
+                            style="padding:12px 24px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">public</span>
+                            Publish
+                        </button>
+                    </div>
+                    <?= Html::endForm() ?>
+                    <script>
+                    document.getElementById('publish-form-modal').addEventListener('submit', function(e) {
+                        const formName = this.querySelector('input[name="name"]').value.trim();
+                        if (!formName) {
+                            e.preventDefault();
+                            alert('Please enter a name for the published form.');
+                            return false;
+                        }
+                    });
+                    </script>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
     </main>
 </body>

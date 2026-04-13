@@ -263,10 +263,6 @@ $this->title = 'Dashboard';
                                             'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
                                             'title' => 'Edit Form'
                                         ]) ?>
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">input</span> Fill', ['form/render', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-secondary hover:text-secondary transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                            'title' => 'Fill Form'
-                                        ]) ?>
                                         <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Data', ['form/submissions', 'id' => $form->id], [
                                             'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
                                             'title' => 'View Submissions'

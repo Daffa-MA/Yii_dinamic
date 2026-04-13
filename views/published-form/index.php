@@ -10,6 +10,9 @@ $this->title = 'Data Form';
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
+
+// QR Code library
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js', ['position' => \yii\web\View::POS_HEAD]);
 ?>
 
 <!-- Tailwind CSS v3 -->
@@ -48,6 +51,14 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
+
+    /* Line clamp utility for text truncation */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
 </style>
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
@@ -83,6 +94,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     </div>
                     <p class="text-on-surface-variant font-medium">Manage your published forms.</p>
                 </div>
+                <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Publish New Form', ['published-form/create'], [
+                    'class' => 'bg-gradient-to-r from-primary-container to-primary text-white px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
+                ]) ?>
             </div>
 
             <!-- Search Bar -->
@@ -115,60 +129,244 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     <p class="text-gray-600 mb-6 font-medium">Publish a form to get started</p>
                 </div>
             <?php else: ?>
-                <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-gradient-to-r from-primary-container/5 to-primary/5 border-b border-gray-200">
-                                <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-outline">Name</th>
-                                <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-outline">URL</th>
-                                <th class="px-6 py-4 text-left text-[10px] font-bold uppercase tracking-widest text-outline">Created At</th>
-                                <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-outline">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            <?php foreach ($publishedForms as $publishedForm): ?>
-                                <tr class="hover:bg-surface-container-low/30 transition-colors">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div class="w-10 h-10 bg-primary-container/10 rounded-lg flex items-center justify-center">
-                                                <span class="material-symbols-outlined text-primary-container text-[20px]">description</span>
-                                            </div>
-                                            <div>
-                                                <p class="text-sm font-semibold text-on-surface"><?= Html::encode($publishedForm->name) ?></p>
-                                                <p class="text-xs text-on-surface-variant"><?= Html::encode($publishedForm->form->name ?? 'Unknown Form') ?></p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <code class="text-xs bg-surface-container px-2 py-1 rounded"><?= Html::encode($publishedForm->slug) ?></code>
-                                    </td>
-                                    <td class="px-6 py-4">
-                                        <span class="text-sm text-on-surface-variant"><?= Yii::$app->formatter->asDate($publishedForm->created_at, 'medium') ?></span>
-                                    </td>
-                                    <td class="px-6 py-4 text-right">
-                                        <div class="flex items-center justify-end gap-2">
-                                            <?= Html::a('<span class="material-symbols-outlined text-[18px]">open_in_new</span> View', ['form/render', 'id' => $publishedForm->form_id], [
-                                                'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                                'target' => '_blank'
-                                            ]) ?>
-                                            <?= Html::a('<span class="material-symbols-outlined text-[18px]">edit</span> Edit', ['published-form/update', 'id' => $publishedForm->id], [
-                                                'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-secondary hover:text-secondary transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant'
-                                            ]) ?>
-                                            <?= Html::a('<span class="material-symbols-outlined text-[18px]">delete</span>', ['published-form/delete', 'id' => $publishedForm->id], [
-                                                'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all inline-flex no-underline text-on-surface-variant',
-                                                'data' => [
-                                                    'confirm' => 'Are you sure you want to delete this published form?',
-                                                    'method' => 'post',
-                                                ]
-                                            ]) ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <?php foreach ($publishedForms as $index => $publishedForm): ?>
+                        <?php
+                        // Color themes for cards
+                        $colorAccent = ['#4f46e5', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$index % 5];
+                        $colorBg = ['bg-violet-50', 'bg-cyan-50', 'bg-purple-50', 'bg-orange-50', 'bg-emerald-50'][$index % 5];
+                        ?>
+                        <div class="group bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden border border-gray-200 hover:border-primary-container/30"
+                            style="border-left: 5px solid <?= $colorAccent ?>;">
+                            <!-- Header with icon and status -->
+                            <div class="<?= $colorBg ?> px-6 py-5 border-b border-gray-100">
+                                <div class="flex justify-between items-start">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-primary-container/10 to-primary/10 rounded-xl flex items-center justify-center border border-primary-container/20 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                        <span class="material-symbols-outlined text-primary-container text-2xl">public</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full shadow-sm">
+                                        <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                                        <span class="text-[10px] font-bold text-secondary uppercase tracking-tight">Published</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Card Body -->
+                            <div class="p-6">
+                                <h3 class="text-lg font-bold mb-2 text-on-surface line-clamp-2 group-hover:text-primary-container transition-colors"><?= Html::encode($publishedForm->name) ?></h3>
+                                <p class="text-xs text-on-surface-variant font-medium mb-4">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[14px] text-outline">description</span>
+                                        <?= Html::encode($publishedForm->form->name ?? 'Unknown Form') ?>
+                                    </span>
+                                </p>
+
+                                <!-- URL Slug -->
+                                <div class="bg-surface-container rounded-lg px-4 py-3 mb-4">
+                                    <p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">URL Slug</p>
+                                    <code class="text-xs font-mono text-primary-container"><?= Html::encode($publishedForm->slug) ?></code>
+                                </div>
+
+                                <!-- Created Date -->
+                                <p class="text-xs text-on-surface-variant mb-6">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[14px] text-outline">calendar_today</span>
+                                        <?= Yii::$app->formatter->asDate($publishedForm->created_at) ?>
+                                    </span>
+                                </p>
+
+                                <!-- Action Buttons -->
+                                <div class="flex flex-wrap gap-2">
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">list_alt</span>', ['form/submissions', 'id' => $publishedForm->form_id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-primary-container text-white rounded-lg hover:bg-primary-container/90 transition-all no-underline text-xs',
+                                        'title' => 'View Submissions / Jawaban User',
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">open_in_new</span>', ['form/public-render', 'id' => $publishedForm->form_id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-all no-underline text-xs',
+                                        'title' => 'View Public Form',
+                                        'target' => '_blank'
+                                    ]) ?>
+                                    <button onclick="showPublicUrlModal(<?= $publishedForm->id ?>)"
+                                        class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all text-xs text-on-surface-variant"
+                                        title="Copy Public URL">
+                                        <span class="material-symbols-outlined text-[16px]">link</span>
+                                    </button>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">edit</span>', ['published-form/update', 'id' => $publishedForm->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'Edit Settings'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">delete</span>', ['published-form/delete', 'id' => $publishedForm->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'Unpublish',
+                                        'data' => [
+                                            'confirm' => 'Are you sure you want to unpublish this form? The public link will no longer work.',
+                                            'method' => 'post',
+                                        ]
+                                    ]) ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
                 </div>
             <?php endif; ?>
         </div>
     </main>
+
+    <!-- Public URL Modal -->
+    <div id="publicUrlModal" class="fixed inset-0 z-50 hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <!-- Backdrop -->
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity backdrop-blur-sm" onclick="closePublicUrlModal()"></div>
+
+        <!-- Modal Panel -->
+        <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-lg">
+                <!-- Modal Header -->
+                <div class="bg-gradient-to-r from-secondary to-green-600 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-white text-2xl">public</span>
+                        <h3 class="text-xl font-bold text-white" id="modal-title">Form Published</h3>
+                    </div>
+                    <button onclick="closePublicUrlModal()" class="text-white hover:bg-white/20 rounded-lg p-2 transition-all">
+                        <span class="material-symbols-outlined text-2xl">close</span>
+                    </button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="px-6 py-8">
+                    <!-- Success Icon -->
+                    <div class="flex justify-center mb-6">
+                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center">
+                            <span class="material-symbols-outlined text-green-600 text-5xl" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                        </div>
+                    </div>
+
+                    <!-- Success Message -->
+                    <div class="text-center mb-8">
+                        <h4 class="text-2xl font-bold text-gray-900 mb-2">Form Published Successfully!</h4>
+                        <p class="text-gray-600 text-sm">Your form is now live and accessible via the link below.</p>
+                    </div>
+
+                    <!-- Public URL Section -->
+                    <div class="mb-6">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">Public Form Link</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="publicUrlInput" readonly
+                                class="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary-container"
+                                value="Loading...">
+                            <button onclick="copyPublicUrl()" id="copyUrlBtn"
+                                class="px-6 py-3 bg-primary-container text-white rounded-xl font-semibold hover:bg-primary transition-all flex items-center gap-2 whitespace-nowrap">
+                                <span class="material-symbols-outlined text-lg">content_copy</span>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Section -->
+                    <div class="bg-gray-50 rounded-2xl p-6 text-center">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-4">QR Code</label>
+                        <div class="inline-block bg-white p-4 rounded-xl shadow-md">
+                            <div id="qrcode" class="flex items-center justify-center"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-4">Scan this QR code to access the form</p>
+                    </div>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="px-6 py-4 bg-gray-50 flex gap-3">
+                    <a href="#" id="openFormBtn" target="_blank"
+                        class="flex-1 bg-secondary text-white px-6 py-3 rounded-xl font-semibold flex items-center justify-center gap-2 hover:bg-secondary/90 transition-all no-underline">
+                        <span class="material-symbols-outlined text-lg">open_in_new</span>
+                        Open Form
+                    </a>
+                    <button onclick="closePublicUrlModal()"
+                        class="flex-1 bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-all">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPublicUrl = '';
+
+        function showPublicUrlModal(publishedFormId) {
+            // Show modal
+            document.getElementById('publicUrlModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+
+            // Reset QR code
+            document.getElementById('qrcode').innerHTML = '';
+
+            // Fetch public URL from server
+            fetch('<?= \yii\helpers\Url::to(['published-form/get-public-url', 'id' => '__ID__']) ?>'.replace('__ID__', publishedFormId))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        currentPublicUrl = data.url;
+
+                        // Update URL input
+                        document.getElementById('publicUrlInput').value = data.url;
+
+                        // Update Open Form button
+                        document.getElementById('openFormBtn').href = data.url;
+
+                        // Generate QR code
+                        if (typeof QRCode !== 'undefined') {
+                            new QRCode(document.getElementById('qrcode'), {
+                                text: data.url,
+                                width: 180,
+                                height: 180,
+                                colorDark: '#0b1c30',
+                                colorLight: '#ffffff',
+                                correctLevel: QRCode.CorrectLevel.H
+                            });
+                        }
+                    } else {
+                        alert('Failed to get public URL');
+                        closePublicUrlModal();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error fetching public URL');
+                    closePublicUrlModal();
+                });
+        }
+
+        function closePublicUrlModal() {
+            document.getElementById('publicUrlModal').classList.add('hidden');
+            document.body.style.overflow = '';
+            currentPublicUrl = '';
+        }
+
+        function copyPublicUrl() {
+            if (!currentPublicUrl) return;
+
+            navigator.clipboard.writeText(currentPublicUrl).then(() => {
+                // Show success feedback
+                const btn = document.getElementById('copyUrlBtn');
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<span class="material-symbols-outlined text-lg">check</span><span>Copied!</span>';
+                btn.classList.add('bg-green-600');
+                btn.classList.remove('bg-primary-container');
+
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.remove('bg-green-600');
+                    btn.classList.add('bg-primary-container');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy URL');
+            });
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closePublicUrlModal();
+            }
+        });
+    </script>
 </body>

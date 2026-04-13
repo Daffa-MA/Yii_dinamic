@@ -23,6 +23,11 @@ class PublishedFormController extends Controller
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
+                        'actions' => ['get-public-url'],
+                        'allow' => true,
+                        'roles' => ['@'],
+                    ],
+                    [
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -136,5 +141,50 @@ class PublishedFormController extends Controller
         }
 
         throw new NotFoundHttpException('The requested published form does not exist.');
+    }
+
+    /**
+     * Get public URL and QR code for a published form (AJAX)
+     */
+    public function actionGetPublicUrl($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $model = $this->findModel($id);
+        
+        // Get the public URL (ngrok or localhost)
+        $publicUrl = $this->getPublicUrl() . '/form/public-render/' . $model->form_id;
+        
+        return [
+            'success' => true,
+            'url' => $publicUrl,
+            'formName' => $model->name,
+            'slug' => $model->slug,
+        ];
+    }
+
+    /**
+     * Get the public URL (ngrok or localhost)
+     * @return string
+     */
+    protected function getPublicUrl()
+    {
+        // 1. Check environment variable for manual configuration (ngrok URL)
+        $publicBaseUrl = getenv('PUBLIC_BASE_URL');
+        if ($publicBaseUrl) {
+            return rtrim($publicBaseUrl, '/');
+        }
+
+        // 2. Check if request is coming through ngrok proxy
+        $forwardedHost = Yii::$app->request->headers->get('X-Forwarded-Host');
+        $forwardedProto = Yii::$app->request->headers->get('X-Forwarded-Proto', 'https');
+
+        if ($forwardedHost) {
+            // Request is coming through ngrok
+            return $forwardedProto . '://' . $forwardedHost;
+        }
+
+        // 3. Fallback to localhost for direct access
+        return Yii::$app->request->hostInfo;
     }
 }

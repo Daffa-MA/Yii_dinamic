@@ -75,46 +75,46 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
     }
 
     :root {
---primary: #0276ff;
---primary-light: #3b95ff;
---primary-dark: #005fcc;
---success: #30a46c;
---warning: #f5a623;
---danger: #e5484d;
---info: #3b82f6;
---sidebar-width: 280px;
---right-sidebar-width: 320px;
---toolbar-height: 56px;
---puck-bg: #f3f3f6;
---puck-surface: #ffffff;
---puck-border: #e2e2e8;
---puck-border-hover: #d2d2d8;
---puck-text: #1a1a24;
---puck-text-secondary: #6b6b7b;
---puck-text-muted: #9e9eae;
---gray-50: #f9fafb;
---gray-100: #f3f4f6;
---gray-200: #e5e7eb;
---gray-300: #d1d5db;
---gray-400: #9ca3af;
---gray-600: #4b5563;
---gray-800: #1f2937;
---gray-900: #111827;
---puck-accent: rgba(2, 118, 255, 0.12);
---puck-accent-hover: rgba(2, 118, 255, 0.20);
-}
+        --primary: #0276ff;
+        --primary-light: #3b95ff;
+        --primary-dark: #005fcc;
+        --success: #30a46c;
+        --warning: #f5a623;
+        --danger: #e5484d;
+        --info: #3b82f6;
+        --sidebar-width: 280px;
+        --right-sidebar-width: 320px;
+        --toolbar-height: 56px;
+        --puck-bg: #f3f3f6;
+        --puck-surface: #ffffff;
+        --puck-border: #e2e2e8;
+        --puck-border-hover: #d2d2d8;
+        --puck-text: #1a1a24;
+        --puck-text-secondary: #6b6b7b;
+        --puck-text-muted: #9e9eae;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-600: #4b5563;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --puck-accent: rgba(2, 118, 255, 0.12);
+        --puck-accent-hover: rgba(2, 118, 255, 0.20);
+    }
 
-* {
-box-sizing: border-box;
-margin: 0;
-padding: 0;
-}
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
 
-html,
-body {
-margin: 0;
-padding: 0;
-}
+    html,
+    body {
+        margin: 0;
+        padding: 0;
+    }
 
 .builder-wrapper {
 display: flex;
@@ -153,43 +153,35 @@ flex-wrap: nowrap;
 display: flex;
 align-items: center;
 gap: 16px;
-min-width: 0;
-flex-wrap: nowrap;
 }
 
 .toolbar-center {
 display: flex;
 align-items: center;
 gap: 12px;
-flex-wrap: nowrap;
 }
 
 .toolbar-right {
 display: flex;
 align-items: center;
 gap: 12px;
-flex-wrap: nowrap;
 }
 
 .toolbar-logo {
 font-weight: 700;
-font-size: 16px;
-color: #0b1c30;
+font-size: 18px;
+color: var(--gray-900);
 display: flex;
 align-items: center;
 gap: 8px;
-background: linear-gradient(135deg, #3525cd, #0276ff);
--webkit-background-clip: text;
--webkit-text-fill-color: transparent;
-background-clip: text;
 }
 
-.toolbar-divider {
-width: 1px;
-height: 28px;
-background: var(--gray-100);
-margin: 0 4px;
-}
+    .toolbar-divider {
+        width: 1px;
+        height: 28px;
+        background: var(--gray-100);
+        margin: 0 4px;
+    }
 
 .device-btn {
 padding: 8px 12px;
@@ -197,7 +189,7 @@ border: none;
 background: transparent;
 border-radius: 8px;
 cursor: pointer;
-color: #777587;
+color: var(--gray-400);
 transition: all 0.2s;
 font-size: 16px;
 display: flex;
@@ -205,43 +197,34 @@ align-items: center;
 justify-content: center;
 }
 
-.device-btn i {
-font-size: 16px;
-}
+    .device-btn i {
+        font-size: 16px;
+    }
 
 .device-btn:hover {
-background: #f8fafd;
-color: #464555;
+background: var(--gray-50);
+color: var(--gray-600);
 }
 
 .device-btn.active {
-background: linear-gradient(135deg, #3525cd, #0276ff);
+background: var(--primary);
 color: white;
-box-shadow: 0 4px 12px rgba(53, 37, 205, 0.3);
 }
 
 .zoom-select {
 padding: 8px 12px;
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-200);
 border-radius: 8px;
 font-size: 13px;
 background: white;
-color: #464555;
+color: var(--gray-700);
 font-weight: 500;
 cursor: pointer;
 transition: all 0.2s;
-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .zoom-select:hover {
-border-color: #d2d2d8;
-background: #fafbfe;
-}
-
-.zoom-select:focus {
-outline: none;
-border-color: #3525cd;
-box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.1);
+border-color: var(--gray-300);
 }
 
 .btn-toolbar {
@@ -250,48 +233,37 @@ border-radius: 8px;
 font-size: 13px;
 font-weight: 500;
 cursor: pointer;
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-200);
 background: white;
-color: #464555;
+color: var(--gray-600);
 transition: all 0.2s;
 display: flex;
 align-items: center;
 gap: 6px;
 white-space: nowrap;
-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
-.btn-toolbar i {
-font-size: 13px;
-}
+    .btn-toolbar i {
+        font-size: 13px;
+    }
 
 .btn-toolbar:hover {
-background: #f8fafd;
-border-color: #d2d2d8;
-color: #0b1c30;
-box-shadow: 0 2px 8px rgba(53, 37, 205, 0.08);
-}
-
-.btn-toolbar:active {
-transform: scale(0.98);
+background: var(--gray-50);
+border-color: var(--gray-300);
+color: var(--gray-700);
 }
 
 .btn-toolbar-primary {
-background: linear-gradient(135deg, #3525cd 0%, #0276ff 100%);
+background: linear-gradient(135deg, var(--primary), var(--primary-dark));
 color: white;
 border-color: transparent;
 font-weight: 600;
-box-shadow: 0 4px 15px rgba(53, 37, 205, 0.3);
 }
 
 .btn-toolbar-primary:hover {
 opacity: 0.95;
-box-shadow: 0 8px 25px rgba(53, 37, 205, 0.4);
-transform: translateY(-2px);
-}
-
-.btn-toolbar-primary:active {
-transform: translateY(0);
+box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+transform: translateY(-1px);
 }
 
 /* ============ MAIN LAYOUT ============ */
@@ -300,112 +272,106 @@ display: flex;
 flex: 1;
 overflow: auto;
 min-height: 0;
-flex-direction: row;
 }
 
 /* ============ LEFT SIDEBAR - BLOCKS ============ */
 .builder-sidebar-left {
 width: var(--sidebar-width);
-background: linear-gradient(to bottom, #ffffff, #fafbfe);
-border-right: 1px solid #e8eef7;
+background: white;
+border-right: 1px solid var(--gray-100);
 display: flex;
 flex-direction: column;
 overflow: hidden;
 flex-shrink: 0;
-box-shadow: inset -1px 0 0 rgba(53, 37, 205, 0.05);
 }
 
-/* Modern scrollbar styling */
-.builder-sidebar-left::-webkit-scrollbar,
-.sidebar-categories::-webkit-scrollbar,
-.builder-canvas::-webkit-scrollbar,
-.properties-content::-webkit-scrollbar,
-.builder-sidebar-right::-webkit-scrollbar {
-width: 12px;
-}
+    /* Modern scrollbar styling */
+    .builder-sidebar-left::-webkit-scrollbar,
+    .sidebar-categories::-webkit-scrollbar,
+    .builder-canvas::-webkit-scrollbar,
+    .properties-content::-webkit-scrollbar,
+    .builder-sidebar-right::-webkit-scrollbar {
+        width: 12px;
+    }
 
-.builder-sidebar-left::-webkit-scrollbar-track,
-.sidebar-categories::-webkit-scrollbar-track,
-.builder-canvas::-webkit-scrollbar-track,
-.properties-content::-webkit-scrollbar-track,
-.builder-sidebar-right::-webkit-scrollbar-track {
-background: transparent;
-}
+    .builder-sidebar-left::-webkit-scrollbar-track,
+    .sidebar-categories::-webkit-scrollbar-track,
+    .builder-canvas::-webkit-scrollbar-track,
+    .properties-content::-webkit-scrollbar-track,
+    .builder-sidebar-right::-webkit-scrollbar-track {
+        background: transparent;
+    }
 
-.builder-sidebar-left::-webkit-scrollbar-thumb,
-.sidebar-categories::-webkit-scrollbar-thumb,
-.builder-canvas::-webkit-scrollbar-thumb,
-.properties-content::-webkit-scrollbar-thumb,
-.builder-sidebar-right::-webkit-scrollbar-thumb {
-background: #b4b9c4;
-border-radius: 6px;
-border: 3px solid transparent;
-background-clip: padding-box;
-}
+    .builder-sidebar-left::-webkit-scrollbar-thumb,
+    .sidebar-categories::-webkit-scrollbar-thumb,
+    .builder-canvas::-webkit-scrollbar-thumb,
+    .properties-content::-webkit-scrollbar-thumb,
+    .builder-sidebar-right::-webkit-scrollbar-thumb {
+        background: #b4b9c4;
+        border-radius: 6px;
+        border: 3px solid transparent;
+        background-clip: padding-box;
+    }
 
-.builder-sidebar-left::-webkit-scrollbar-thumb:hover,
-.sidebar-categories::-webkit-scrollbar-thumb:hover,
-.builder-canvas::-webkit-scrollbar-thumb:hover,
-.properties-content::-webkit-scrollbar-thumb:hover,
-.builder-sidebar-right::-webkit-scrollbar-thumb:hover {
-background: #8b92a0;
-background-clip: padding-box;
-}
+    .builder-sidebar-left::-webkit-scrollbar-thumb:hover,
+    .sidebar-categories::-webkit-scrollbar-thumb:hover,
+    .builder-canvas::-webkit-scrollbar-thumb:hover,
+    .properties-content::-webkit-scrollbar-thumb:hover,
+    .builder-sidebar-right::-webkit-scrollbar-thumb:hover {
+        background: #8b92a0;
+        background-clip: padding-box;
+    }
 
 .sidebar-search {
-padding: 8px 8px;
-border-bottom: 1px solid #e8eef7;
-background: rgba(245, 247, 251, 0.5);
+padding: 14px 12px;
+border-bottom: 1px solid var(--gray-100);
 }
 
 .sidebar-search input {
 width: 100%;
-padding: 6px 10px;
-border: 1px solid #e8eef7;
+padding: 10px 14px;
+border: 1px solid var(--gray-200);
 border-radius: 8px;
 font-size: 13px;
 background: white;
-color: #0b1c30;
+color: var(--gray-800);
 transition: all 0.2s;
-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
 .sidebar-search input:focus {
 outline: none;
-border-color: #3525cd;
-box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.1), 0 2px 8px rgba(53, 37, 205, 0.08);
+border-color: var(--primary);
+box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-.sidebar-search input::placeholder {
-color: var(--gray-400);
-}
+    .sidebar-search input::placeholder {
+        color: var(--gray-400);
+    }
 
 .sidebar-categories {
 flex: 1;
 overflow-y: auto;
-padding: 4px 4px;
+padding: 6px 6px;
 }
 
 .block-category {
-margin-bottom: 4px;
+margin-bottom: 8px;
 }
 
 .block-category-header {
 display: flex;
 align-items: center;
 justify-content: space-between;
-padding: 8px 10px;
+padding: 12px 14px;
 cursor: pointer;
 border-radius: 8px;
 transition: all 0.2s;
 user-select: none;
-background: rgba(245, 247, 251, 0.4);
+background: var(--gray-50);
 }
 
 .block-category-header:hover {
-background: rgba(245, 247, 251, 0.8);
-border-left: 3px solid #3525cd;
-padding-left: 7px;
+background: var(--gray-100);
 }
 
 .block-category-title {
@@ -413,112 +379,105 @@ font-size: 11px;
 font-weight: 700;
 text-transform: uppercase;
 letter-spacing: 0.6px;
-color: #464555;
+color: var(--gray-600);
 display: flex;
 align-items: center;
-gap: 4px;
+gap: 8px;
 }
 
 .block-category-arrow {
 font-size: 11px;
-color: #777587;
+color: var(--gray-400);
 transition: transform 0.2s;
 }
 
-.block-category.open .block-category-arrow {
-transform: rotate(90deg);
-}
+    .block-category.open .block-category-arrow {
+        transform: rotate(90deg);
+    }
 
-.block-category-items {
-display: none;
-padding: 4px 0;
-}
+    .block-category-items {
+        display: none;
+        padding: 4px 0;
+    }
 
-.block-category.open .block-category-items {
-display: block;
-}
+    .block-category.open .block-category-items {
+        display: block;
+    }
 
 .block-item {
 display: flex;
 align-items: center;
-gap: 6px;
-padding: 6px 8px;
-margin: 2px 0;
+gap: 10px;
+padding: 10px 12px;
+margin: 4px 0;
 background: white;
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-200);
 border-radius: 8px;
 cursor: grab;
 transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 user-select: none;
-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .block-item:hover {
-border-color: #3525cd;
-background: linear-gradient(135deg, rgba(53, 37, 205, 0.03), rgba(2, 118, 255, 0.03));
+border-color: var(--primary);
+background: var(--puck-accent);
 transform: translateX(4px);
-box-shadow: 0 4px 12px rgba(53, 37, 205, 0.12);
+box-shadow: 0 2px 8px var(--puck-accent-hover);
 }
 
-.block-item:active {
-cursor: grabbing;
-}
+    .block-item:active {
+        cursor: grabbing;
+    }
 
 .block-item-icon {
-width: 32px;
-height: 32px;
+width: 36px;
+height: 36px;
 display: flex;
 align-items: center;
 justify-content: center;
-background: linear-gradient(135deg, rgba(245, 247, 251, 0.8), rgba(232, 238, 247, 0.6));
+background: var(--gray-100);
 border-radius: 8px;
 font-size: 16px;
 flex-shrink: 0;
 transition: all 0.2s;
-color: #464555;
-border: 1px solid rgba(232, 238, 247, 0.6);
+color: var(--gray-600);
 }
 
-.block-item-icon i {
-font-size: 16px;
-}
+    .block-item-icon i {
+        font-size: 16px;
+    }
 
 .block-item:hover .block-item-icon {
-background: linear-gradient(135deg, #3525cd, #0276ff);
+background: var(--primary);
 color: white;
 transform: scale(1.1);
-border-color: #3525cd;
-box-shadow: 0 4px 12px rgba(53, 37, 205, 0.3);
-}
-
-.block-item-name {
-font-size: 13px;
-font-weight: 600;
-color: #0b1c30;
-line-height: 1.2;
-}
-
-.block-item-desc {
-font-size: 11px;
-color: #777587;
-margin-top: 0px;
-line-height: 1.2;
-}
-
-.block-item-drag {
-color: #d2d2d8;
-font-size: 14px;
-transition: color 0.2s;
-flex-shrink: 0;
-}
-
-.block-item:hover .block-item-drag {
-color: #3525cd;
 }
 
 .block-item-info {
 flex: 1;
 min-width: 0;
+}
+
+.block-item-name {
+font-size: 13px;
+font-weight: 600;
+color: var(--gray-800);
+}
+
+.block-item-desc {
+font-size: 11px;
+color: var(--gray-500);
+margin-top: 2px;
+}
+
+.block-item-drag {
+color: var(--gray-300);
+font-size: 14px;
+transition: color 0.2s;
+}
+
+.block-item:hover .block-item-drag {
+color: var(--primary-light);
 }
 
 /* ============ CENTER CANVAS ============ */
@@ -528,12 +487,12 @@ overflow-y: auto;
 overflow-x: hidden;
 display: flex;
 flex-direction: column;
-background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 50%, #ede9fe 100%);
+background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
 transition: all 0.2s ease;
 }
 
 .builder-canvas.drag-over {
-background: linear-gradient(135deg, rgba(53, 37, 205, 0.08), rgba(2, 118, 255, 0.05));
+background: linear-gradient(to bottom, var(--puck-accent), rgba(2, 118, 255, 0.05));
 }
 
 .canvas-scroll-area {
@@ -543,56 +502,50 @@ overflow-x: hidden;
 padding: 24px 20px;
 display: block;
 min-height: 0;
-min-width: 0;
 }
 
-.canvas-scroll-area::-webkit-scrollbar {
-width: 8px;
-}
+    .canvas-scroll-area::-webkit-scrollbar {
+        width: 8px;
+    }
 
-.canvas-scroll-area::-webkit-scrollbar-track {
-background: transparent;
-}
+    .canvas-scroll-area::-webkit-scrollbar-track {
+        background: transparent;
+    }
 
-.canvas-scroll-area::-webkit-scrollbar-thumb {
-background: var(--gray-300);
-border-radius: 4px;
-}
+    .canvas-scroll-area::-webkit-scrollbar-thumb {
+        background: var(--gray-300);
+        border-radius: 4px;
+    }
 
-.canvas-scroll-area::-webkit-scrollbar-thumb:hover {
-background: var(--gray-400);
-}
+    .canvas-scroll-area::-webkit-scrollbar-thumb:hover {
+        background: var(--gray-400);
+    }
 
 .canvas-wrapper {
 width: 100%;
 max-width: 1280px;
 background: white;
-border-radius: 12px;
-box-shadow: 0 4px 20px rgba(11, 28, 48, 0.08), 0 0 1px rgba(0, 0, 0, 0.05);
+border-radius: 16px;
+box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
 min-height: 500px;
 transition: all 0.3s ease;
-overflow: hidden;
+overflow: visible;
 height: auto;
 margin: 0 auto;
-border: 1px solid rgba(232, 238, 247, 0.6);
 }
 
-.canvas-wrapper:hover {
-box-shadow: 0 8px 32px rgba(11, 28, 48, 0.12), 0 0 1px rgba(0, 0, 0, 0.05);
-}
+    .canvas-wrapper.tablet {
+        max-width: 850px;
+    }
 
-.canvas-wrapper.tablet {
-max-width: 850px;
-}
-
-.canvas-wrapper.mobile {
-max-width: 480px;
-}
+    .canvas-wrapper.mobile {
+        max-width: 480px;
+    }
 
 .canvas-header {
-padding: 20px 24px;
-border-bottom: 1px solid #e8eef7;
-background: linear-gradient(to right, #ffffff, #fafbfe);
+padding: 16px 24px;
+border-bottom: 1px solid var(--gray-100);
+background: white;
 }
 
 .canvas-form-name {
@@ -602,70 +555,27 @@ border: none;
 outline: none;
 width: 100%;
 background: transparent;
-color: #0b1c30;
+color: var(--gray-900);
 padding: 6px 0;
 transition: color 0.2s;
 letter-spacing: -0.5px;
 }
 
 .canvas-form-name:focus {
-color: #3525cd;
-border-bottom: 2px solid #3525cd;
-padding-bottom: 4px;
+color: var(--primary);
 }
 
 .canvas-form-name::placeholder {
-color: #c7c4d8;
+color: var(--gray-300);
 }
 
 .canvas-body {
-padding: 16px 20px;
+padding: 24px 20px;
 min-height: 400px;
 max-height: none;
 transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 overflow-y: visible;
-overflow-x: hidden;
 height: auto;
-box-sizing: border-box;
-width: 100%;
-max-width: 100%;
-}
-
-.canvas-body,
-#canvas-blocks,
-.canvas-block,
-.canvas-block-header,
-.canvas-block-preview {
-box-sizing: border-box;
-}
-
-#canvas-blocks {
-display: grid;
-grid-template-columns: repeat(12, 1fr);
-gap: 8px;
-min-height: 50px;
-width: 100%;
-max-width: 100%;
-padding: 0;
-border: none;
-border-radius: 0;
-background: transparent;
-/* Force auto-flow: blocks turun ke row berikutnya */
-grid-auto-flow: dense;
-grid-auto-rows: max-content;
-/* Prevent overlap */
-contain: layout;
-box-sizing: border-box;
-}
-
-#canvas-blocks:empty::before {
-content: 'Drag blocks here to start building';
-font-size: 13px;
-color: #d1d5db;
-grid-column: 1 / -1;
-text-align: center;
-padding: 32px 20px;
-font-style: italic;
 }
 
 .canvas-empty {
@@ -674,154 +584,92 @@ flex-direction: column;
 align-items: center;
 justify-content: center;
 min-height: 450px;
-border: 2px dashed #e5e7eb;
-border-radius: 8px;
-color: #9ca3af;
+border: 2px dashed var(--gray-200);
+border-radius: 12px;
+color: var(--gray-400);
 text-align: center;
-background: #fafafa;
+background: var(--gray-50);
 transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 }
 
 .canvas-empty:hover {
-border-color: #d1d5db;
-background: #f3f4f6;
+border-color: var(--gray-300);
+background: var(--gray-100);
 }
 
 .canvas-empty-icon {
 font-size: 64px;
 margin-bottom: 20px;
-opacity: 0.6;
+opacity: 0.5;
+}
+
+.canvas-empty-icon i {
+color: var(--gray-300);
 }
 
 .canvas-empty-text {
 font-size: 18px;
 font-weight: 600;
 margin-bottom: 10px;
-color: #464555;
+color: var(--gray-600);
 }
 
 .canvas-empty-hint {
 font-size: 15px;
-color: #777587;
 }
 
 /* ============ CANVAS BLOCKS ============ */
 .canvas-block {
 position: relative;
-grid-column: 1 / span 12;
-border: none;
-border-radius: 0;
+margin-bottom: 16px;
+border: 2px solid var(--gray-200);
+border-radius: 12px;
 transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 cursor: pointer;
-background: transparent;
+background: white;
 overflow: hidden;
-box-shadow: none;
-min-height: auto;
-padding: 0;
-width: 100%;
-max-width: 100%;
-box-sizing: border-box;
-}
-
-/* Container and Section blocks - subtle background */
-.canvas-block[data-type="container"],
-.canvas-block[data-type="section"] {
-background: #f9fafb;
-border: 1px solid #e5e7eb;
-border-radius: 6px;
-padding: 2px;
-overflow: hidden;
-box-sizing: border-box;
-min-height: 30px;
-max-width: 100%;
-}
-
-/* Enforce grid column via attribute */
-.canvas-block[data-grid-col] {
-grid-column: var(--grid-col, 1 / span 12);
 }
 
 .canvas-block:hover {
-background: linear-gradient(to right, rgba(53, 37, 205, 0.01), transparent);
-}
-
-.canvas-block[data-type="container"]:hover,
-.canvas-block[data-type="section"]:hover {
-background: #f3f4f6;
-border-color: #d1d5db;
+border-color: var(--primary-light);
+box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+transform: translateY(-2px);
 }
 
 .canvas-block.selected {
-box-shadow: inset 0 0 0 2px #3525cd;
-background: rgba(53, 37, 205, 0.02);
-}
-
-.canvas-block[data-type="container"].selected,
-.canvas-block[data-type="section"].selected {
-box-shadow: inset 0 0 0 2px #3525cd;
-background: #f3f4f6;
-border-color: #3525cd;
-}
-
-/* Apply injected grid column value */
-.canvas-block[data-grid-col] {
-grid-column: var(--grid-col, 1 / span 12);
+border-color: var(--primary);
+box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 12px rgba(99, 102, 241, 0.15);
 }
 
 .canvas-block-header {
 display: flex;
 justify-content: space-between;
-align-items: flex-start;
-padding: 0;
-background: transparent;
-border-bottom: none;
-gap: 8px;
-min-height: 20px;
-width: 100%;
-}
-
-.canvas-block[data-type="container"] .canvas-block-header,
-.canvas-block[data-type="section"] .canvas-block-header {
-padding: 0 0 8px 0;
+align-items: center;
+padding: 10px 14px;
+background: var(--gray-50);
+border-bottom: 1px solid var(--gray-100);
 }
 
 .canvas-block-type {
 display: flex;
 align-items: center;
-gap: 6px;
-font-size: 10px;
+gap: 8px;
+font-size: 12px;
 font-weight: 600;
-color: #9ca3af;
-text-transform: uppercase;
-letter-spacing: 0.3px;
-padding-top: 2px;
+color: var(--gray-600);
 }
 
 .canvas-block-type i {
-font-size: 12px;
-}
-
-.canvas-block-type .drag-handle {
-cursor: grab;
-padding: 2px;
-margin: -2px 0;
-color: #d1d5db;
-transition: color 0.2s ease;
-}
-
-.canvas-block-type .drag-handle:hover {
-color: #9ca3af;
+font-size: 13px;
 }
 
 .canvas-block-type .drag-handle i {
-opacity: 1;
-font-size: 14px;
+opacity: 0.6;
 }
 
 .canvas-block-actions {
 display: flex;
-gap: 2px;
-align-items: center;
+gap: 6px;
 }
 
 .canvas-block-btn {
@@ -830,145 +678,87 @@ height: 28px;
 display: flex;
 align-items: center;
 justify-content: center;
-border: 1px solid #e5e7eb;
-border-radius: 3px;
-background: #f9fafb;
-color: #9ca3af;
+border: 1px solid var(--gray-200);
+border-radius: 6px;
+background: white;
+color: var(--gray-400);
 cursor: pointer;
-font-size: 11px;
-transition: all 0.1s ease;
-box-shadow: none;
-flex-shrink: 0;
+font-size: 12px;
+transition: all 0.15s;
 }
 
 .canvas-block-btn:hover {
-background: #f3f4f6;
-color: #6b7280;
-border-color: #d1d5db;
-box-shadow: none;
-}
-
-.canvas-block-btn:active {
-background: #e5e7eb;
-color: #4b5563;
-box-shadow: none;
-}
-
-.canvas-block-btn:disabled {
-opacity: 0.4;
-cursor: not-allowed;
-background: #f5f5f5;
+background: var(--gray-100);
+color: var(--gray-600);
+border-color: var(--gray-300);
 }
 
 .canvas-block-btn.delete:hover {
 background: #fee2e2;
-color: #dc2626;
+color: var(--danger);
 border-color: #fecaca;
 }
 
 .canvas-block-btn i {
-font-size: 11px;
+font-size: 12px;
 }
 
 .canvas-block-preview {
-padding: 0;
-min-height: auto;
-width: 100%;
-display: block;
-background: transparent;
-border-radius: 0;
-overflow: hidden;
-box-sizing: border-box;
-max-width: 100%;
-}
-
-/* Ensure all nested grids respect parent boundaries */
-.canvas-block-preview > div[style*="grid"] {
-width: 100%;
-box-sizing: border-box;
-overflow: hidden;
-}
-
-/* Container block internal content constraint */
-.canvas-block[data-type="container"] .canvas-block-preview,
-.canvas-block[data-type="section"] .canvas-block-preview {
-min-height: auto;
-}
-
-/* Responsive grid blocks */
-.canvas-block[data-grid-col] {
-grid-column: var(--grid-col);
-}
-
-.canvas-block[data-grid-span] {
-width: 100%;
-}
-
-/* Canvas Action Bar */
-.canvas-action-bar {
-height: 70px;
-background: linear-gradient(to right, #ffffff, #fafbfe);
-border-top: 1px solid #e8eef7;
-display: flex;
-align-items: center;
-padding: 0 24px;
-flex-shrink: 0;
-z-index: 10;
-box-shadow: 0 -2px 8px rgba(11, 28, 48, 0.04);
+padding: 28px 24px;
+min-height: 60px;
 }
 
 /* Block preview styles */
 .preview-heading {
 font-size: 24px;
 font-weight: 700;
-color: #1f2937;
+color: var(--gray-900);
 margin: 0;
 }
 
 .preview-subheading {
 font-size: 18px;
 font-weight: 600;
-color: #464555;
+color: var(--gray-700);
 margin: 0;
 }
 
 .preview-text {
-color: #6b7280;
+color: var(--gray-600);
 margin: 0;
 line-height: 1.6;
-font-size: 14px;
 }
 
 .preview-image {
 width: 100%;
 height: 200px;
-background: linear-gradient(135deg, rgba(245, 247, 251, 0.6), rgba(232, 238, 247, 0.4));
+background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
 border-radius: 12px;
 display: flex;
 align-items: center;
 justify-content: center;
-color: #bbb;
+color: var(--gray-400);
 font-size: 32px;
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-200);
 }
 
 .preview-video {
 width: 100%;
 height: 250px;
-background: linear-gradient(135deg, #0b1c30, #1a2a3a);
+background: var(--gray-900);
 border-radius: 12px;
 display: flex;
 align-items: center;
 justify-content: center;
 color: white;
 font-size: 48px;
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-800);
 }
 
 .preview-button {
 display: inline-block;
 padding: 12px 28px;
-background: linear-gradient(135deg, #3525cd, #0276ff);
+background: linear-gradient(135deg, var(--primary), var(--primary-dark));
 color: white;
 border-radius: 8px;
 font-weight: 600;
@@ -976,402 +766,391 @@ text-decoration: none;
 transition: all 0.2s;
 border: none;
 cursor: pointer;
-box-shadow: 0 4px 12px rgba(53, 37, 205, 0.3);
-}
-
-.preview-button:hover {
-box-shadow: 0 6px 20px rgba(53, 37, 205, 0.4);
-transform: translateY(-2px);
 }
 
 .preview-divider {
 border: none;
-border-top: 1px solid #d1d5db;
-margin: 12px 0;
+border-top: 2px solid var(--gray-200);
+margin: 16px 0;
 }
 
 .preview-spacer {
-height: 24px;
-background: transparent;
-border-radius: 0;
+height: 32px;
+background: linear-gradient(90deg, var(--gray-50), var(--gray-100), var(--gray-50));
+border-radius: 4px;
 }
 
 .preview-grid {
 display: grid;
 grid-template-columns: repeat(3, 1fr);
 gap: 14px;
-width: 100%;
-max-width: 100%;
-box-sizing: border-box;
 }
 
 .preview-grid-item {
 height: 80px;
-background: linear-gradient(135deg, rgba(245, 247, 251, 0.6), rgba(232, 238, 247, 0.4));
+background: linear-gradient(135deg, var(--gray-100), var(--gray-50));
 border-radius: 8px;
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-200);
 }
 
 .preview-product-card {
-border: 1px solid #e8eef7;
+border: 1px solid var(--gray-200);
 border-radius: 12px;
 overflow: hidden;
 transition: all 0.2s;
 background: white;
-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 
-.preview-product-card:hover {
-border-color: var(--primary-light);
-box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
-}
+    .preview-product-card:hover {
+        border-color: var(--primary-light);
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+    }
 
-.preview-product-img {
-height: 120px;
-background: var(--gray-100);
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 32px;
-}
+    .preview-product-img {
+        height: 120px;
+        background: var(--gray-100);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+    }
 
-.preview-product-body {
-padding: 12px;
-}
+    .preview-product-body {
+        padding: 12px;
+    }
 
-.preview-product-name {
-font-weight: 600;
-font-size: 14px;
-margin-bottom: 4px;
-}
+    .preview-product-name {
+        font-weight: 600;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
 
-.preview-product-price {
-color: var(--primary);
-font-weight: 700;
-font-size: 16px;
-}
+    .preview-product-price {
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 16px;
+    }
 
-.preview-price {
-font-size: 24px;
-font-weight: 700;
-color: var(--primary);
-}
+    .preview-price {
+        font-size: 24px;
+        font-weight: 700;
+        color: var(--primary);
+    }
 
-.preview-price-old {
-font-size: 16px;
-color: var(--gray-400);
-text-decoration: line-through;
-margin-left: 8px;
-}
+    .preview-price-old {
+        font-size: 16px;
+        color: var(--gray-400);
+        text-decoration: line-through;
+        margin-left: 8px;
+    }
 
-.preview-badge {
-display: inline-block;
-padding: 4px 12px;
-border-radius: 20px;
-font-size: 12px;
-font-weight: 600;
-}
+    .preview-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
 
-.preview-badge-sale {
-background: #fee2e2;
-color: var(--danger);
-}
+    .preview-badge-sale {
+        background: #fee2e2;
+        color: var(--danger);
+    }
 
-.preview-badge-new {
-background: #d1fae5;
-color: var(--success);
-}
+    .preview-badge-new {
+        background: #d1fae5;
+        color: var(--success);
+    }
 
-.preview-badge-hot {
-background: #fef3c7;
-color: var(--warning);
-}
+    .preview-badge-hot {
+        background: #fef3c7;
+        color: var(--warning);
+    }
 
-.preview-stars {
-color: #fbbf24;
-font-size: 18px;
-}
+    .preview-stars {
+        color: #fbbf24;
+        font-size: 18px;
+    }
 
-.preview-input {
-width: 100%;
-padding: 10px 14px;
-border: 1px solid var(--gray-300);
-border-radius: 8px;
-font-size: 14px;
-background: var(--gray-50);
-pointer-events: none;
-}
+    .preview-input {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--gray-50);
+        pointer-events: none;
+    }
 
-.preview-textarea {
-width: 100%;
-padding: 10px 14px;
-border: 1px solid var(--gray-300);
-border-radius: 8px;
-font-size: 14px;
-min-height: 80px;
-background: var(--gray-50);
-pointer-events: none;
-}
+    .preview-textarea {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 14px;
+        min-height: 80px;
+        background: var(--gray-50);
+        pointer-events: none;
+    }
 
-.preview-select {
-width: 100%;
-padding: 10px 14px;
-border: 1px solid var(--gray-300);
-border-radius: 8px;
-font-size: 14px;
-background: var(--gray-50);
-pointer-events: none;
-}
+    .preview-select {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--gray-50);
+        pointer-events: none;
+    }
 
-.preview-checkbox {
-display: flex;
-align-items: center;
-gap: 8px;
-}
+    .preview-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-.preview-radio {
-display: flex;
-align-items: center;
-gap: 8px;
-}
+    .preview-radio {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-.preview-date {
-width: 100%;
-padding: 10px 14px;
-border: 1px solid var(--gray-300);
-border-radius: 8px;
-font-size: 14px;
-background: var(--gray-50);
-pointer-events: none;
-}
+    .preview-date {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 14px;
+        background: var(--gray-50);
+        pointer-events: none;
+    }
 
-.preview-file {
-width: 100%;
-padding: 24px;
-border: 2px dashed var(--gray-300);
-border-radius: 12px;
-text-align: center;
-color: var(--gray-500);
-background: var(--gray-50);
-transition: all 0.2s;
-}
+    .preview-file {
+        width: 100%;
+        padding: 24px;
+        border: 2px dashed var(--gray-300);
+        border-radius: 12px;
+        text-align: center;
+        color: var(--gray-500);
+        background: var(--gray-50);
+        transition: all 0.2s;
+    }
 
-.preview-file:hover {
-border-color: var(--primary);
-background: linear-gradient(135deg, rgba(99, 102, 241, 0.02), rgba(99, 102, 241, 0.05));
-}
+    .preview-file:hover {
+        border-color: var(--primary);
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.02), rgba(99, 102, 241, 0.05));
+    }
 
-.preview-gallery {
-display: grid;
-grid-template-columns: repeat(4, 1fr);
-gap: 8px;
-}
+    .preview-gallery {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
 
-.preview-gallery-item {
-height: 60px;
-background: var(--gray-100);
-border-radius: 6px;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 20px;
-}
+    .preview-gallery-item {
+        height: 60px;
+        background: var(--gray-100);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+    }
 
-.preview-team {
-display: flex;
-align-items: center;
-gap: 12px;
-padding: 16px;
-border: 1px solid var(--gray-200);
-border-radius: 12px;
-}
+    .preview-team {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+    }
 
-.preview-team-avatar {
-width: 60px;
-height: 60px;
-background: var(--gray-200);
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 24px;
-}
+    .preview-team-avatar {
+        width: 60px;
+        height: 60px;
+        background: var(--gray-200);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
 
-.preview-team-name {
-font-weight: 600;
-}
+    .preview-team-name {
+        font-weight: 600;
+    }
 
-.preview-team-role {
-font-size: 13px;
-color: var(--gray-400);
-}
+    .preview-team-role {
+        font-size: 13px;
+        color: var(--gray-400);
+    }
 
-.preview-testimonial {
-padding: 20px;
-background: var(--gray-50);
-border-radius: 12px;
-border-left: 4px solid var(--primary);
-}
+    .preview-testimonial {
+        padding: 20px;
+        background: var(--gray-50);
+        border-radius: 12px;
+        border-left: 4px solid var(--primary);
+    }
 
-.preview-testimonial-text {
-font-style: italic;
-color: var(--gray-600);
-margin-bottom: 12px;
-}
+    .preview-testimonial-text {
+        font-style: italic;
+        color: var(--gray-600);
+        margin-bottom: 12px;
+    }
 
-.preview-testimonial-author {
-font-weight: 600;
-}
+    .preview-testimonial-author {
+        font-weight: 600;
+    }
 
-.preview-faq-item {
-padding: 16px;
-border: 1px solid var(--gray-200);
-border-radius: 8px;
-margin-bottom: 8px;
-}
+    .preview-faq-item {
+        padding: 16px;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        margin-bottom: 8px;
+    }
 
-.preview-faq-question {
-font-weight: 600;
-margin-bottom: 8px;
-}
+    .preview-faq-question {
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
 
-.preview-faq-answer {
-color: var(--gray-600);
-font-size: 14px;
-}
+    .preview-faq-answer {
+        color: var(--gray-600);
+        font-size: 14px;
+    }
 
-.preview-pricing {
-padding: 24px;
-border: 2px solid var(--gray-200);
-border-radius: 16px;
-text-align: center;
-}
+    .preview-pricing {
+        padding: 24px;
+        border: 2px solid var(--gray-200);
+        border-radius: 16px;
+        text-align: center;
+    }
 
-.preview-pricing-name {
-font-weight: 600;
-font-size: 18px;
-margin-bottom: 8px;
-}
+    .preview-pricing-name {
+        font-weight: 600;
+        font-size: 18px;
+        margin-bottom: 8px;
+    }
 
-.preview-pricing-price {
-font-size: 36px;
-font-weight: 700;
-color: var(--primary);
-margin-bottom: 16px;
-}
+    .preview-pricing-price {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 16px;
+    }
 
-.preview-pricing-features {
-list-style: none;
-padding: 0;
-margin-bottom: 20px;
-}
+    .preview-pricing-features {
+        list-style: none;
+        padding: 0;
+        margin-bottom: 20px;
+    }
 
-.preview-pricing-features li {
-padding: 8px 0;
-color: var(--gray-600);
-}
+    .preview-pricing-features li {
+        padding: 8px 0;
+        color: var(--gray-600);
+    }
 
-.preview-stats {
-display: grid;
-grid-template-columns: repeat(3, 1fr);
-gap: 16px;
-text-align: center;
-}
+    .preview-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        text-align: center;
+    }
 
-.preview-stat-number {
-font-size: 32px;
-font-weight: 700;
-color: var(--primary);
-}
+    .preview-stat-number {
+        font-size: 32px;
+        font-weight: 700;
+        color: var(--primary);
+    }
 
-.preview-stat-label {
-font-size: 13px;
-color: var(--gray-400);
-}
+    .preview-stat-label {
+        font-size: 13px;
+        color: var(--gray-400);
+    }
 
-.preview-social {
-display: flex;
-gap: 12px;
-}
+    .preview-social {
+        display: flex;
+        gap: 12px;
+    }
 
-.preview-social-icon {
-width: 40px;
-height: 40px;
-background: var(--gray-100);
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 18px;
-}
+    .preview-social-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--gray-100);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+    }
 
 .preview-newsletter {
 padding: 24px;
-background: linear-gradient(135deg, #3525cd, #0276ff);
+background: linear-gradient(135deg, var(--primary), var(--primary-dark));
 border-radius: 12px;
 color: white;
 text-align: center;
 }
 
-.preview-newsletter-title {
-font-size: 20px;
-font-weight: 700;
-margin-bottom: 8px;
-}
+    .preview-newsletter-title {
+        font-size: 20px;
+        font-weight: 700;
+        margin-bottom: 8px;
+    }
 
-.preview-newsletter-input {
-width: 100%;
-max-width: 300px;
-padding: 10px 16px;
-border: none;
-border-radius: 8px;
-margin: 12px 0;
-}
+    .preview-newsletter-input {
+        width: 100%;
+        max-width: 300px;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 8px;
+        margin: 12px 0;
+    }
 
-.preview-countdown {
-display: flex;
-gap: 12px;
-justify-content: center;
-}
+    .preview-countdown {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+    }
 
 .preview-countdown-item {
 padding: 12px 16px;
-background: linear-gradient(135deg, rgba(11, 28, 48, 0.8), rgba(26, 42, 58, 0.8));
+background: var(--gray-900);
 color: white;
 border-radius: 8px;
 text-align: center;
 min-width: 60px;
-border: 1px solid rgba(232, 238, 247, 0.2);
 }
 
-.preview-countdown-number {
-font-size: 24px;
-font-weight: 700;
-}
+    .preview-countdown-number {
+        font-size: 24px;
+        font-weight: 700;
+    }
 
 .preview-countdown-label {
 font-size: 10px;
 text-transform: uppercase;
-color: rgba(255, 255, 255, 0.6);
+color: var(--gray-400);
 }
 
 .preview-progress {
 height: 8px;
-background: #e8eef7;
+background: var(--gray-200);
 border-radius: 4px;
 overflow: hidden;
 }
 
 .preview-progress-bar {
 height: 100%;
-background: linear-gradient(90deg, #3525cd, #0276ff);
+background: var(--primary);
 border-radius: 4px;
 }
 
-.preview-timeline {
-position: relative;
-padding-left: 24px;
-}
+    .preview-timeline {
+        position: relative;
+        padding-left: 24px;
+    }
 
 .preview-timeline::before {
 content: '';
@@ -1380,14 +1159,14 @@ left: 8px;
 top: 0;
 bottom: 0;
 width: 2px;
-background: #e8eef7;
+background: var(--gray-200);
 }
 
-.preview-timeline-item {
-position: relative;
-margin-bottom: 16px;
-padding-left: 16px;
-}
+    .preview-timeline-item {
+        position: relative;
+        margin-bottom: 16px;
+        padding-left: 16px;
+    }
 
 .preview-timeline-dot {
 position: absolute;
@@ -1395,257 +1174,250 @@ left: -20px;
 top: 4px;
 width: 12px;
 height: 12px;
-background: linear-gradient(135deg, #3525cd, #0276ff);
+background: var(--primary);
 border-radius: 50%;
 }
 
-.preview-table {
-width: 100%;
-border-collapse: collapse;
-}
+    .preview-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
 
-.preview-table th,
-.preview-table td {
-padding: 10px 12px;
-border: 1px solid var(--gray-200);
-text-align: left;
-}
+    .preview-table th,
+    .preview-table td {
+        padding: 10px 12px;
+        border: 1px solid var(--gray-200);
+        text-align: left;
+    }
 
-.preview-table th {
-background: var(--gray-50);
-font-weight: 600;
-}
+    .preview-table th {
+        background: var(--gray-50);
+        font-weight: 600;
+    }
 
-.preview-alert {
-padding: 16px;
-border-radius: 8px;
-margin-bottom: 12px;
-}
+    .preview-alert {
+        padding: 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+    }
 
-.preview-alert-info {
-background: #dbeafe;
-color: #1e40af;
-border-left: 4px solid var(--info);
-}
+    .preview-alert-info {
+        background: #dbeafe;
+        color: #1e40af;
+        border-left: 4px solid var(--info);
+    }
 
-.preview-alert-success {
-background: #d1fae5;
-color: #065f46;
-border-left: 4px solid var(--success);
-}
+    .preview-alert-success {
+        background: #d1fae5;
+        color: #065f46;
+        border-left: 4px solid var(--success);
+    }
 
-.preview-alert-warning {
-background: #fef3c7;
-color: #92400e;
-border-left: 4px solid var(--warning);
-}
+    .preview-alert-warning {
+        background: #fef3c7;
+        color: #92400e;
+        border-left: 4px solid var(--warning);
+    }
 
-.preview-alert-error {
-background: #fee2e2;
-color: #991b1b;
-border-left: 4px solid var(--danger);
-}
+    .preview-alert-error {
+        background: #fee2e2;
+        color: #991b1b;
+        border-left: 4px solid var(--danger);
+    }
 
-.preview-accordion-item {
-border: 1px solid var(--gray-200);
-border-radius: 8px;
-margin-bottom: 8px;
-overflow: hidden;
-}
+    .preview-accordion-item {
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        margin-bottom: 8px;
+        overflow: hidden;
+    }
 
-.preview-accordion-header {
-padding: 12px 16px;
-background: var(--gray-50);
-font-weight: 600;
-}
+    .preview-accordion-header {
+        padding: 12px 16px;
+        background: var(--gray-50);
+        font-weight: 600;
+    }
 
-.preview-accordion-body {
-padding: 12px 16px;
-color: var(--gray-600);
-}
+    .preview-accordion-body {
+        padding: 12px 16px;
+        color: var(--gray-600);
+    }
 
-.preview-tabs {
-display: flex;
-border-bottom: 2px solid var(--gray-200);
-margin-bottom: 16px;
-}
+    .preview-tabs {
+        display: flex;
+        border-bottom: 2px solid var(--gray-200);
+        margin-bottom: 16px;
+    }
 
-.preview-tab {
-padding: 10px 20px;
-font-weight: 500;
-color: var(--gray-400);
-border-bottom: 2px solid transparent;
-margin-bottom: -2px;
-}
+    .preview-tab {
+        padding: 10px 20px;
+        font-weight: 500;
+        color: var(--gray-400);
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+    }
 
-.preview-tab.active {
-color: var(--primary);
-border-bottom-color: var(--primary);
-}
+    .preview-tab.active {
+        color: var(--primary);
+        border-bottom-color: var(--primary);
+    }
 
-.preview-map {
-height: 200px;
-background: var(--gray-100);
-border-radius: 8px;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 48px;
-}
+    .preview-map {
+        height: 200px;
+        background: var(--gray-100);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+    }
 
-.preview-contact-card {
-display: flex;
-align-items: center;
-gap: 12px;
-padding: 16px;
-border: 1px solid var(--gray-200);
-border-radius: 12px;
-}
+    .preview-contact-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--gray-200);
+        border-radius: 12px;
+    }
 
-.preview-contact-icon {
-width: 40px;
-height: 40px;
-background: var(--primary);
-color: white;
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-}
+    .preview-contact-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.preview-badge-tag {
-display: inline-block;
-padding: 4px 10px;
-background: var(--gray-100);
-border-radius: 20px;
-font-size: 12px;
-color: var(--gray-600);
-margin: 2px;
-}
+    .preview-badge-tag {
+        display: inline-block;
+        padding: 4px 10px;
+        background: var(--gray-100);
+        border-radius: 20px;
+        font-size: 12px;
+        color: var(--gray-600);
+        margin: 2px;
+    }
 
-.preview-icon-box {
-text-align: center;
-padding: 20px;
-}
+    .preview-icon-box {
+        text-align: center;
+        padding: 20px;
+    }
 
-.preview-icon-circle {
-width: 56px;
-height: 56px;
-background: var(--primary);
-color: white;
-border-radius: 50%;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 24px;
-margin: 0 auto 12px;
-}
+    .preview-icon-circle {
+        width: 56px;
+        height: 56px;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        margin: 0 auto 12px;
+    }
 
-.preview-list {
-list-style: none;
-padding: 0;
-}
+    .preview-list {
+        list-style: none;
+        padding: 0;
+    }
 
-.preview-list li {
-padding: 8px 0;
-border-bottom: 1px solid var(--gray-100);
-display: flex;
-align-items: center;
-gap: 8px;
-}
+    .preview-list li {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--gray-100);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
 
-.preview-quote {
-padding: 20px;
-border-left: 4px solid var(--primary);
-background: var(--gray-50);
-border-radius: 0 8px 8px 0;
-font-style: italic;
-color: var(--gray-600);
-}
+    .preview-quote {
+        padding: 20px;
+        border-left: 4px solid var(--primary);
+        background: var(--gray-50);
+        border-radius: 0 8px 8px 0;
+        font-style: italic;
+        color: var(--gray-600);
+    }
 
-.preview-code {
-background: var(--gray-900);
-color: #a5f3fc;
-padding: 16px;
-border-radius: 8px;
-font-family: monospace;
-font-size: 13px;
-overflow-x: auto;
-}
+    .preview-code {
+        background: var(--gray-900);
+        color: #a5f3fc;
+        padding: 16px;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 13px;
+        overflow-x: auto;
+    }
 
-.preview-chart {
-height: 150px;
-background: var(--gray-50);
-border-radius: 8px;
-display: flex;
-align-items: flex-end;
-padding: 16px;
-gap: 8px;
-}
+    .preview-chart {
+        height: 150px;
+        background: var(--gray-50);
+        border-radius: 8px;
+        display: flex;
+        align-items: flex-end;
+        padding: 16px;
+        gap: 8px;
+    }
 
-.preview-chart-bar {
-flex: 1;
-background: var(--primary);
-border-radius: 4px 4px 0 0;
-}
+    .preview-chart-bar {
+        flex: 1;
+        background: var(--primary);
+        border-radius: 4px 4px 0 0;
+    }
 
 /* ============ RIGHT SIDEBAR - PROPERTIES ============ */
 .builder-sidebar-right {
 width: 360px;
-background: linear-gradient(to bottom, #ffffff, #fafbfe);
-border-left: 1px solid #e8eef7;
+background: white;
+border-left: 1px solid var(--gray-100);
 display: flex;
 flex-direction: column;
 overflow: hidden;
 flex-shrink: 0;
-box-shadow: inset 1px 0 0 rgba(53, 37, 205, 0.05);
 }
 
 .properties-header {
-padding: 20px 24px;
-border-bottom: 1px solid #e8eef7;
+padding: 24px 24px;
+border-bottom: 1px solid var(--gray-100);
 font-weight: 700;
 font-size: 16px;
 display: flex;
 align-items: center;
 gap: 8px;
-color: #0b1c30;
-background: linear-gradient(to right, rgba(245, 247, 251, 0.3), transparent);
+color: var(--gray-900);
 }
 
 .properties-tabs {
 display: flex;
-border-bottom: 1px solid #e8eef7;
-background: rgba(245, 247, 251, 0.5);
-padding: 0 6px;
-gap: 4px;
+border-bottom: 1px solid var(--gray-100);
+background: var(--gray-50);
 }
 
 .properties-tab {
 flex: 1;
-padding: 12px 10px;
+padding: 14px 12px;
 text-align: center;
-font-size: 11px;
+font-size: 12px;
 font-weight: 600;
-color: #777587;
+color: var(--gray-500);
 cursor: pointer;
 border-bottom: 2px solid transparent;
 transition: all 0.2s;
 text-transform: uppercase;
 letter-spacing: 0.4px;
-border-radius: 6px 6px 0 0;
 }
 
 .properties-tab:hover {
-color: #464555;
-background: rgba(255, 255, 255, 0.5);
+color: var(--gray-700);
 }
 
 .properties-tab.active {
-color: #3525cd;
-border-bottom-color: #3525cd;
+color: var(--primary);
+border-bottom-color: var(--primary);
 background: white;
-box-shadow: 0 2px 8px rgba(53, 37, 205, 0.1);
 }
 
 .properties-content {
@@ -1654,821 +1426,344 @@ overflow-y: auto;
 padding: 16px 18px 32px 18px;
 }
 
-.property-section {
-margin-bottom: 24px;
-}
+    .property-section {
+        margin-bottom: 24px;
+    }
 
-.property-section-title {
-font-size: 10px;
-font-weight: 700;
-text-transform: uppercase;
-letter-spacing: 0.6px;
-color: #464555;
-margin-bottom: 12px;
-display: flex;
-align-items: center;
-gap: 6px;
-}
+    .property-section-title {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: var(--gray-500);
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--gray-100);
+    }
 
-.property-field {
-margin-bottom: 16px;
-}
+    .property-field {
+        margin-bottom: 18px;
+    }
 
-.property-label {
-display: block;
-font-size: 12px;
-font-weight: 600;
-color: #0b1c30;
-margin-bottom: 6px;
-}
+    .property-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--gray-700);
+        margin-bottom: 6px;
+        text-transform: capitalize;
+    }
 
-.property-input {
-width: 100%;
-padding: 8px 12px;
-border: 1px solid #e8eef7;
-border-radius: 6px;
-font-size: 13px;
-background: white;
-color: #0b1c30;
-transition: all 0.2s;
-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
+    .property-input,
+    .property-select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        font-size: 13px;
+        transition: all 0.2s;
+    }
 
-.property-input:focus {
-outline: none;
-border-color: #3525cd;
-box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.1), 0 2px 6px rgba(53, 37, 205, 0.08);
-}
+    .property-input:focus,
+    .property-select:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
 
-.property-textarea {
-width: 100%;
-padding: 8px 12px;
-border: 1px solid #e8eef7;
-border-radius: 6px;
-font-size: 13px;
-background: white;
-color: #0b1c30;
-font-family: inherit;
-resize: vertical;
-min-height: 80px;
-transition: all 0.2s;
-box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
+    .property-select {
+        background: white;
+    }
 
-.property-textarea:focus {
-outline: none;
-border-color: #3525cd;
-box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.1), 0 2px 6px rgba(53, 37, 205, 0.08);
-}
+    .property-textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        font-size: 13px;
+        min-height: 60px;
+        resize: vertical;
+    }
 
-.property-color {
-width: 100%;
-height: 40px;
-border: 1px solid #e8eef7;
-border-radius: 6px;
-cursor: pointer;
-background: white;
-transition: all 0.2s;
-}
+    .property-textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
 
-.property-color:hover {
-border-color: #3525cd;
-}
+    .property-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--gray-50);
+        border-radius: 8px;
+        cursor: pointer;
+    }
 
-.property-color:focus {
-outline: none;
-border-color: #3525cd;
-box-shadow: 0 0 0 3px rgba(53, 37, 205, 0.1);
-}
+    .property-checkbox input {
+        accent-color: var(--primary);
+    }
 
-.property-section {
-margin-bottom: 24px;
-}
+    .property-hint {
+        font-size: 11px;
+        color: var(--gray-400);
+        margin-top: 4px;
+    }
 
-.property-section-title {
-font-size: 10px;
-font-weight: 700;
-text-transform: uppercase;
-letter-spacing: 0.6px;
-color: var(--gray-500);
-margin-bottom: 12px;
-padding-bottom: 10px;
-border-bottom: 1px solid var(--gray-100);
-}
+    .property-color {
+        width: 40px;
+        height: 32px;
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        cursor: pointer;
+        padding: 2px;
+    }
 
-.property-field {
-margin-bottom: 18px;
-}
+    /* ============ ANIMATIONS ============ */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
 
-.property-label {
-display: block;
-font-size: 12px;
-font-weight: 600;
-color: var(--gray-700);
-margin-bottom: 6px;
-text-transform: capitalize;
-}
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
-.property-input,
-.property-select {
-width: 100%;
-padding: 8px 12px;
-border: 1px solid var(--gray-200);
-border-radius: 8px;
-font-size: 13px;
-transition: all 0.2s;
-}
+    @keyframes slideInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
 
-.property-input:focus,
-.property-select:focus {
-outline: none;
-border-color: var(--primary);
-box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
 
-.property-select {
-background: white;
-}
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
 
-.property-textarea {
-width: 100%;
-padding: 8px 12px;
-border: 1px solid var(--gray-200);
-border-radius: 8px;
-font-size: 13px;
-min-height: 60px;
-resize: vertical;
-}
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
 
-.property-textarea:focus {
-outline: none;
-border-color: var(--primary);
-}
+    @keyframes slideInLeft {
+        from {
+            opacity: 0;
+            transform: translateX(-30px);
+        }
 
-.property-checkbox {
-display: flex;
-align-items: center;
-gap: 8px;
-padding: 8px 12px;
-background: var(--gray-50);
-border-radius: 8px;
-cursor: pointer;
-}
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
 
-.property-checkbox input {
-accent-color: var(--primary);
-}
+    @keyframes slideInRight {
+        from {
+            opacity: 0;
+            transform: translateX(30px);
+        }
 
-.property-hint {
-font-size: 11px;
-color: var(--gray-400);
-margin-top: 4px;
-}
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
 
-.property-color {
-width: 40px;
-height: 32px;
-border: 1px solid var(--gray-200);
-border-radius: 6px;
-cursor: pointer;
-padding: 2px;
-}
+    @keyframes scaleIn {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
 
-/* ============ ANIMATIONS ============ */
-@keyframes fadeInUp {
-from {
-opacity: 0;
-transform: translateY(10px);
-}
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
 
-to {
-opacity: 1;
-transform: translateY(0);
-}
-}
+    @keyframes zoomIn {
+        from {
+            opacity: 0;
+            transform: scale(0.9);
+        }
 
-@keyframes slideInUp {
-from {
-opacity: 0;
-transform: translateY(30px);
-}
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
 
-to {
-opacity: 1;
-transform: translateY(0);
-}
-}
+    .canvas-block {
+        animation: slideIn 0.3s ease;
+    }
 
-@keyframes slideIn {
-from {
-opacity: 0;
-transform: translateX(-10px);
-}
+    .canvas-block[data-aos] {
+        opacity: 0;
+    }
 
-to {
-opacity: 1;
-transform: translateX(0);
-}
-}
+    .canvas-block[data-aos].aos-animate {
+        animation: slideInUp 0.6s ease forwards;
+    }
 
-@keyframes slideInLeft {
-from {
-opacity: 0;
-transform: translateX(-30px);
-}
+    /* Scroll animation effects */
+    .scroll-animate {
+        opacity: 0;
+        transform: translateY(20px);
+        transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
 
-to {
-opacity: 1;
-transform: translateX(0);
-}
-}
+    .scroll-animate.in-view {
+        opacity: 1;
+        transform: translateY(0);
+    }
 
-@keyframes slideInRight {
-from {
-opacity: 0;
-transform: translateX(30px);
-}
+    .scroll-animate-left {
+        opacity: 0;
+        transform: translateX(-40px);
+        transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
 
-to {
-opacity: 1;
-transform: translateX(0);
-}
-}
+    .scroll-animate-left.in-view {
+        opacity: 1;
+        transform: translateX(0);
+    }
 
-@keyframes scaleIn {
-from {
-opacity: 0;
-transform: scale(0.95);
-}
+    .scroll-animate-right {
+        opacity: 0;
+        transform: translateX(40px);
+        transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    }
 
-to {
-opacity: 1;
-transform: scale(1);
-}
-}
+    .scroll-animate-right.in-view {
+        opacity: 1;
+        transform: translateX(0);
+    }
 
-@keyframes zoomIn {
-from {
-opacity: 0;
-transform: scale(0.9);
-}
+    .scroll-animate-scale {
+        opacity: 0;
+        transform: scale(0.95);
+        transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
 
-to {
-opacity: 1;
-transform: scale(1);
-}
-}
+    .scroll-animate-scale.in-view {
+        opacity: 1;
+        transform: scale(1);
+    }
 
-.canvas-block {
-animation: slideIn 0.3s ease;
-}
+    /* Parallax effect */
+    .parallax-element {
+        will-change: transform;
+    }
 
-.canvas-block[data-aos] {
-opacity: 0;
-}
+    /* Stagger effect for multiple elements */
+    .scroll-stagger .canvas-block:nth-child(1) {
+        transition-delay: 0s;
+    }
 
-.canvas-block[data-aos].aos-animate {
-animation: slideInUp 0.6s ease forwards;
-}
+    .scroll-stagger .canvas-block:nth-child(2) {
+        transition-delay: 0.1s;
+    }
 
-/* Scroll animation effects */
-.scroll-animate {
-opacity: 0;
-transform: translateY(20px);
-transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
+    .scroll-stagger .canvas-block:nth-child(3) {
+        transition-delay: 0.2s;
+    }
 
-.scroll-animate.in-view {
-opacity: 1;
-transform: translateY(0);
-}
+    .scroll-stagger .canvas-block:nth-child(4) {
+        transition-delay: 0.3s;
+    }
 
-.scroll-animate-left {
-opacity: 0;
-transform: translateX(-40px);
-transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
+    .scroll-stagger .canvas-block:nth-child(5) {
+        transition-delay: 0.4s;
+    }
 
-.scroll-animate-left.in-view {
-opacity: 1;
-transform: translateX(0);
-}
+    .scroll-stagger .canvas-block:nth-child(n+6) {
+        transition-delay: 0.5s;
+    }
 
-.scroll-animate-right {
-opacity: 0;
-transform: translateX(40px);
-transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
-}
+    /* Canvas wrapper smooth scroll */
+    .builder-canvas {
+        scroll-behavior: smooth;
+    }
 
-.scroll-animate-right.in-view {
-opacity: 1;
-transform: translateX(0);
-}
+    /* Enhanced canvas block animations on scroll */
+    .canvas-block {
+        transform-origin: center;
+    }
 
-.scroll-animate-scale {
-opacity: 0;
-transform: scale(0.95);
-transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-}
+    .canvas-block.fade-in-entrance {
+        animation: fadeInUp 0.6s ease-out forwards;
+    }
 
-.scroll-animate-scale.in-view {
-opacity: 1;
-transform: scale(1);
-}
+    .canvas-block.slide-in-entrance {
+        animation: slideInLeft 0.6s ease-out forwards;
+    }
 
-/* Parallax effect */
-.parallax-element {
-will-change: transform;
-}
+    .canvas-block.scale-in-entrance {
+        animation: scaleIn 0.6s ease-out forwards;
+    }
 
-/* Stagger effect for multiple elements */
-.scroll-stagger .canvas-block:nth-child(1) {
-transition-delay: 0s;
-}
+    /* Parallax container */
+    .parallax-container {
+        perspective: 1000px;
+        overflow: hidden;
+    }
 
-.scroll-stagger .canvas-block:nth-child(2) {
-transition-delay: 0.1s;
-}
-
-.scroll-stagger .canvas-block:nth-child(3) {
-transition-delay: 0.2s;
-}
-
-.scroll-stagger .canvas-block:nth-child(4) {
-transition-delay: 0.3s;
-}
-
-.scroll-stagger .canvas-block:nth-child(5) {
-transition-delay: 0.4s;
-}
-
-.scroll-stagger .canvas-block:nth-child(n+6) {
-transition-delay: 0.5s;
-}
-
-/* Canvas wrapper smooth scroll */
-.builder-canvas {
-scroll-behavior: smooth;
-}
-
-/* Enhanced canvas block animations on scroll */
-.canvas-block {
-transform-origin: center;
-}
-
-.canvas-block.fade-in-entrance {
-animation: fadeInUp 0.6s ease-out forwards;
-}
-
-.canvas-block.slide-in-entrance {
-animation: slideInLeft 0.6s ease-out forwards;
-}
-
-.canvas-block.scale-in-entrance {
-animation: scaleIn 0.6s ease-out forwards;
-}
-
-/* Parallax container */
-.parallax-container {
-perspective: 1000px;
-overflow: hidden;
-}
-
-.parallax-item {
-will-change: transform;
-transform: translateZ(0);
-}
+    .parallax-item {
+        will-change: transform;
+        transform: translateZ(0);
+    }
 
 .sortable-ghost {
 opacity: 0.4;
-border: 2px dashed #3525cd !important;
-background: linear-gradient(135deg, rgba(53, 37, 205, 0.05), rgba(2, 118, 255, 0.02)) !important;
+border: 2px dashed var(--primary) !important;
 }
 
-/* Mobile smooth scrolling */
-@supports (scroll-behavior: smooth) {
-.builder-canvas {
-scroll-behavior: smooth;
-}
-}
+    /* Mobile smooth scrolling */
+    @supports (scroll-behavior: smooth) {
+        .builder-canvas {
+            scroll-behavior: smooth;
+        }
+    }
 
-/* Optimize animations for reduced motion preference */
-@media (prefers-reduced-motion: reduce) {
+    /* Optimize animations for reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
 
-.scroll-animate,
-.scroll-animate-left,
-.scroll-animate-right,
-.scroll-animate-scale,
-.canvas-block {
-animation: none !important;
-transition: none !important;
-opacity: 1 !important;
-transform: none !important;
-}
-}
+        .scroll-animate,
+        .scroll-animate-left,
+        .scroll-animate-right,
+        .scroll-animate-scale,
+        .canvas-block {
+            animation: none !important;
+            transition: none !important;
+            opacity: 1 !important;
+            transform: none !important;
+        }
+    }
 
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1200px) {
 :root {
---sidebar-width: 250px;
+--sidebar-width: 260px;
 }
 
 .builder-sidebar-right {
-width: 320px;
+width: 280px;
 }
 }
 
 @media (max-width: 992px) {
 .builder-sidebar-right {
-display: none;
-}
-
-.builder-wrapper {
-height: calc(100vh - 140px);
-}
-}
-
-@media (max-width: 768px) {
-:root {
---sidebar-width: 200px;
-}
-
-.builder-canvas {
-padding: 12px;
-}
-
-.canvas-scroll-area {
-padding: 16px 12px;
-}
-
-.canvas-wrapper {
-border-radius: 8px;
-}
-}
-
-/* ============ MOBILE RESPONSIVENESS ============ */
-@media (max-width: 1024px) {
-.builder-main {
-flex-direction: column;
-}
-
-.builder-sidebar-left {
-width: 100%;
-max-height: 200px;
-border-right: none;
-border-bottom: 1px solid #e8eef7;
-order: -2;
-}
-
-.builder-canvas {
-flex: 1;
-order: -1;
-}
-
-.builder-sidebar-right {
-width: 100%;
-max-height: 200px;
-border-left: none;
-border-top: 1px solid #e8eef7;
-order: 0;
-}
-}
-
-@media (max-width: 768px) {
-.builder-wrapper {
-height: calc(100vh - 200px);
-margin-top: 8px;
-border-radius: 12px;
-}
-
-.builder-toolbar {
-padding: 0 16px;
-height: 48px;
-gap: 12px;
-flex-wrap: wrap;
-}
-
-.toolbar-left,
-.toolbar-center,
-.toolbar-right {
-gap: 8px;
-}
-
-.toolbar-logo {
-font-size: 14px;
-}
-
-.device-btn {
-padding: 6px 8px;
-font-size: 14px;
-}
-
-.zoom-select {
-padding: 6px 8px;
-font-size: 12px;
-}
-
-.btn-toolbar {
-padding: 6px 12px;
-font-size: 12px;
-}
-
-.block-item {
-padding: 4px 6px;
-margin: 1px 0;
-gap: 4px;
-}
-
-.block-item-icon {
-width: 28px;
-height: 28px;
-font-size: 14px;
-}
-
-.block-item-name {
-font-size: 12px;
-}
-
-.block-item-desc {
-font-size: 10px;
-display: none;
-}
-
-.sidebar-search input {
-padding: 4px 8px;
-font-size: 12px;
-}
-
-.sidebar-categories {
-padding: 2px 2px;
-}
-
-.canvas-header {
-padding: 12px 16px;
-}
-
-.canvas-form-name {
-font-size: 14px;
-}
-
-.canvas-body {
-padding: 12px 16px;
-}
-
-#canvas-blocks {
-gap: 6px;
-}
-
-.canvas-block {
-min-height: auto;
-}
-
-.canvas-block-header {
-min-height: 18px;
-}
-
-.canvas-block-type {
-font-size: 9px;
-gap: 3px;
-}
-
-.canvas-block-btn {
-width: 24px;
-height: 24px;
-font-size: 10px;
-}
-
-.canvas-block-preview {
-font-size: 13px;
-}
-
-/* Properties Panel */
-.properties-header {
-padding: 12px 16px;
-}
-
-.property-section {
-padding: 12px;
-}
-
-.property-section-title {
-font-size: 12px;
-padding: 8px 0;
-}
-
-.property-label {
-font-size: 12px;
-}
-
-.property-input,
-.property-select,
-.property-textarea {
-font-size: 12px;
-padding: 6px 8px;
-}
-}
-
-@media (max-width: 480px) {
-.builder-toolbar {
-height: auto;
-min-height: 48px;
-padding: 8px 12px;
-}
-
-.toolbar-left,
-.toolbar-center,
-.toolbar-right {
-width: 100%;
-justify-content: center;
-}
-
-.toolbar-divider {
-display: none;
-}
-
-.builder-main {
-flex-direction: column;
-}
-
-.builder-sidebar-left {
-width: 100%;
-max-height: 150px;
-overflow-y: auto;
-}
-
-.builder-canvas {
-min-height: 300px;
-}
-
-.builder-sidebar-right {
-width: 100%;
-max-height: 150px;
-overflow-y: auto;
-}
-
-.sidebar-search {
-padding: 6px 6px;
-}
-
-.sidebar-search input {
-padding: 4px 6px;
-font-size: 11px;
-}
-
-.sidebar-categories {
-padding: 2px 2px;
-}
-
-.block-category-header {
-padding: 6px 8px;
-}
-
-.block-category-title {
-font-size: 10px;
-gap: 3px;
-}
-
-.block-item {
-padding: 3px 4px;
-margin: 1px 0;
-gap: 3px;
-}
-
-.block-item-icon {
-width: 24px;
-height: 24px;
-font-size: 12px;
-}
-
-.block-item-name {
-font-size: 11px;
-}
-
-.block-item-desc {
-display: none;
-}
-
-.block-item-drag {
-display: none;
-}
-
-.canvas-wrapper {
-max-width: 100%;
-min-height: 400px;
-border-radius: 8px;
-}
-
-.canvas-header {
-padding: 8px 12px;
-}
-
-.canvas-form-name {
-font-size: 13px;
-}
-
-.canvas-body {
-padding: 8px 12px;
-}
-
-#canvas-blocks {
-gap: 4px;
-}
-
-.canvas-block-type {
-font-size: 8px;
-}
-
-.canvas-block-btn {
-width: 22px;
-height: 22px;
-font-size: 9px;
-}
-
-.preview-heading {
-font-size: 18px;
-}
-
-.preview-text {
-font-size: 12px;
-}
-
-/* Hide properties on mobile by default */
-.builder-sidebar-right {
-display: none;
-}
-
-/* Toggle button styles */
-.mobile-panel-toggle {
-position: fixed;
-bottom: 20px;
-right: 20px;
-width: 50px;
-height: 50px;
-border-radius: 50%;
-background: linear-gradient(135deg, #3525cd, #0276ff);
-color: white;
-border: none;
-cursor: pointer;
-z-index: 100;
-display: flex;
-align-items: center;
-justify-content: center;
-font-size: 24px;
-box-shadow: 0 4px 12px rgba(53, 37, 205, 0.4);
-transition: all 0.2s;
-}
-
-.mobile-panel-toggle:active {
-transform: scale(0.95);
-}
-
-.mobile-panel-toggle:hover {
-box-shadow: 0 6px 20px rgba(53, 37, 205, 0.5);
-}
-}
-
-/* Landscape mode adjustments */
-@media (max-height: 600px) and (max-width: 1024px) {
-.builder-main {
-flex-direction: row;
-}
-
-.builder-sidebar-left {
-width: 200px;
-max-height: 100%;
-border-right: 1px solid #e8eef7;
-border-bottom: none;
-order: 0;
-}
-
-.builder-canvas {
-flex: 1;
-order: 1;
-}
-
-.builder-sidebar-right {
-width: 200px;
-max-height: 100%;
-border-left: 1px solid #e8eef7;
-border-top: none;
-order: 2;
-}
-}
-
-/* Print styles */
-@media print {
-.builder-toolbar,
-.builder-sidebar-left,
-.builder-sidebar-right {
-display: none;
-}
-
-.builder-canvas {
-padding: 0;
-}
-
-.canvas-block-header,
-.canvas-block-actions {
 display: none;
 }
 }
@@ -2500,810 +1795,804 @@ display: none;
     <main class="app-shell-main pt-8 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="max-w-7xl mx-auto px-6 py-6">
 
-<div class="builder-wrapper">
-    <!-- TOOLBAR -->
-    <div class="builder-toolbar">
-        <div class="toolbar-left">
-            <span class="toolbar-logo"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Visual Builder</span>
-            <div class="toolbar-divider"></div>
-            <span style="font-size:14px;color:var(--gray-600);"><?= $model->isNewRecord ? 'New Page' : Html::encode($model->name) ?></span>
-        </div>
+            <div class="builder-wrapper">
+                <!-- TOOLBAR -->
+                <div class="builder-toolbar">
+                    <div class="toolbar-left">
+                        <span class="toolbar-logo"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Visual Builder</span>
+                        <div class="toolbar-divider"></div>
+                        <span style="font-size:14px;color:var(--gray-600);"><?= $model->isNewRecord ? 'New Page' : Html::encode($model->name) ?></span>
+                    </div>
 
-        <div class="toolbar-center">
-            <!-- Database Table Selection -->
-            <?php
-            $tables = \app\models\DbTable::find()
-                ->where(['user_id' => Yii::$app->user->id])
-                ->orderBy(['id' => SORT_ASC])
-                ->asArray()
-                ->all();
-            $hasTable = !empty($tables);
-            ?>
-            <select id="table-selector" class="zoom-select" title="Select table to auto-generate form fields" <?= !$hasTable ? 'disabled' : '' ?>>
-                <option value=""><span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">storage</span>Select a table...</option>
-                <?php foreach ($tables as $table): ?>
-                    <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $model->table_id == $table['id'] ? 'selected' : '' ?>>
-                        <span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">table_chart</span><?= Html::encode($table['name']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
-            <?php if ($hasTable): ?>
-                <button class="btn-toolbar" id="btn-auto-generate" title="Auto-generate form fields from table">
-                    <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Auto-Generate
-                </button>
-            <?php else: ?>
-                <button class="btn-toolbar" id="btn-auto-generate" disabled title="No tables available - Create a table first">
-                    <span class="material-symbols-outlined" style="font-size:18px;">block</span> No Tables
-                </button>
-            <?php endif; ?>
+                    <div class="toolbar-center">
+                        <!-- Database Table Selection -->
+                        <?php
+                        $tables = \app\models\DbTable::find()
+                            ->where(['user_id' => Yii::$app->user->id])
+                            ->orderBy(['id' => SORT_ASC])
+                            ->asArray()
+                            ->all();
+                        $hasTable = !empty($tables);
+                        ?>
+                        <select id="table-selector" class="zoom-select" title="Select table to auto-generate form fields" <?= !$hasTable ? 'disabled' : '' ?>>
+                            <option value=""><span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">storage</span>Select a table...</option>
+                            <?php foreach ($tables as $table): ?>
+                                <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $model->table_id == $table['id'] ? 'selected' : '' ?>>
+                                    <span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">table_chart</span><?= Html::encode($table['name']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php if ($hasTable): ?>
+                            <button class="btn-toolbar" id="btn-auto-generate" title="Auto-generate form fields from table">
+                                <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Auto-Generate
+                            </button>
+                        <?php else: ?>
+                            <button class="btn-toolbar" id="btn-auto-generate" disabled title="No tables available - Create a table first">
+                                <span class="material-symbols-outlined" style="font-size:18px;">block</span> No Tables
+                            </button>
+                        <?php endif; ?>
 
-            <div class="toolbar-divider"></div>
-            <button class="device-btn active" data-device="desktop" title="Desktop"><span class="material-symbols-outlined" style="font-size:18px;">desktop_windows</span></button>
-            <button class="device-btn" data-device="tablet" title="Tablet"><span class="material-symbols-outlined" style="font-size:18px;">tablet_mac</span></button>
-            <button class="device-btn" data-device="mobile" title="Mobile"><span class="material-symbols-outlined" style="font-size:18px;">phone_android</span></button>
-            <div class="toolbar-divider"></div>
-            <select class="zoom-select" id="zoom-select">
-                <option value="100">100%</option>
-                <option value="75">75%</option>
-                <option value="50">50%</option>
-            </select>
-        </div>
+                        <div class="toolbar-divider"></div>
+                        <button class="device-btn active" data-device="desktop" title="Desktop"><span class="material-symbols-outlined" style="font-size:18px;">desktop_windows</span></button>
+                        <button class="device-btn" data-device="tablet" title="Tablet"><span class="material-symbols-outlined" style="font-size:18px;">tablet_mac</span></button>
+                        <button class="device-btn" data-device="mobile" title="Mobile"><span class="material-symbols-outlined" style="font-size:18px;">phone_android</span></button>
+                        <div class="toolbar-divider"></div>
+                        <select class="zoom-select" id="zoom-select">
+                            <option value="100">100%</option>
+                            <option value="75">75%</option>
+                            <option value="50">50%</option>
+                        </select>
+                    </div>
 
         <div class="toolbar-right">
             <button class="btn-toolbar" id="btn-undo" title="Undo"><span class="material-symbols-outlined" style="font-size:18px;">undo</span></button>
             <button class="btn-toolbar" id="btn-redo" title="Redo"><span class="material-symbols-outlined" style="font-size:18px;">redo</span></button>
             <div class="toolbar-divider"></div>
             <?= Html::a('<span class="material-symbols-outlined" style="font-size:18px;">visibility</span> Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
-            <?php if (!$model->isNewRecord): ?>
-            <button type="button" class="btn-toolbar" id="btn-publish" onclick="document.getElementById('publish-modal').style.display='flex'" style="background:linear-gradient(135deg,#006c49,#00a773);color:#fff;border:none;">
-                <span class="material-symbols-outlined" style="font-size:18px;">public</span> Publish
-            </button>
-            <?php endif; ?>
-            <button type="button" class="btn-toolbar btn-toolbar-primary" id="btn-save">
+            <button class="btn-toolbar btn-toolbar-primary" id="btn-save">
                 💾 <?= $model->isNewRecord ? 'Publish' : 'Update' ?>
             </button>
         </div>
     </div>
 
-    <!-- MAIN -->
-    <div class="builder-main">
-        <!-- LEFT SIDEBAR - BLOCKS -->
-        <div class="builder-sidebar-left">
-            <div class="sidebar-search">
-                <input type="text" id="block-search" placeholder="🔍 Search blocks...">
-            </div>
-            <div class="sidebar-categories" id="blocks-container">
+                <!-- MAIN -->
+                <div class="builder-main">
+                    <!-- LEFT SIDEBAR - BLOCKS -->
+                    <div class="builder-sidebar-left">
+                        <div class="sidebar-search">
+                            <input type="text" id="block-search" placeholder="🔍 Search blocks...">
+                        </div>
+                        <div class="sidebar-categories" id="blocks-container">
 
-                <!-- LAYOUT BLOCKS -->
-                <div class="block-category open" data-category="layout">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">layers</span> Layout</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="container">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Container</div>
-                                <div class="block-item-desc">Wrapper container</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="columns">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">view_column</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Columns</div>
-                                <div class="block-item-desc">Multi-column layout</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="grid">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">grid_view</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Grid</div>
-                                <div class="block-item-desc">Grid layout</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="section">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Section</div>
-                                <div class="block-item-desc">Full-width section</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="divider">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">horizontal_rule</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Divider</div>
-                                <div class="block-item-desc">Horizontal line</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="spacer">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">height</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Spacer</div>
-                                <div class="block-item-desc">Empty space</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- LAYOUT BLOCKS -->
+                            <div class="block-category open" data-category="layout">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">layers</span> Layout</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="container">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Container</div>
+                                            <div class="block-item-desc">Wrapper container</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="columns">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">view_column</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Columns</div>
+                                            <div class="block-item-desc">Multi-column layout</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="grid">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">grid_view</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Grid</div>
+                                            <div class="block-item-desc">Grid layout</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="section">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Section</div>
+                                            <div class="block-item-desc">Full-width section</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="divider">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">horizontal_rule</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Divider</div>
+                                            <div class="block-item-desc">Horizontal line</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="spacer">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">height</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Spacer</div>
+                                            <div class="block-item-desc">Empty space</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- TYPOGRAPHY -->
-                <div class="block-category open" data-category="typography">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">title</span> Typography</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="heading">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">title</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Heading</div>
-                                <div class="block-item-desc">H1-H6 heading</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="text">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">text_fields</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Text</div>
-                                <div class="block-item-desc">Paragraph text</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="richtext">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">description</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Rich Text</div>
-                                <div class="block-item-desc">Formatted text</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="list">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_list_bulleted</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">List</div>
-                                <div class="block-item-desc">Bullet/numbered list</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="quote">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_quote</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Quote</div>
-                                <div class="block-item-desc">Blockquote</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="code">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Code</div>
-                                <div class="block-item-desc">Code block</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- TYPOGRAPHY -->
+                            <div class="block-category open" data-category="typography">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">title</span> Typography</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="heading">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">title</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Heading</div>
+                                            <div class="block-item-desc">H1-H6 heading</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="text">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">text_fields</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Text</div>
+                                            <div class="block-item-desc">Paragraph text</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="richtext">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">description</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Rich Text</div>
+                                            <div class="block-item-desc">Formatted text</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="list">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_list_bulleted</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">List</div>
+                                            <div class="block-item-desc">Bullet/numbered list</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="quote">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_quote</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Quote</div>
+                                            <div class="block-item-desc">Blockquote</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="code">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Code</div>
+                                            <div class="block-item-desc">Code block</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- MEDIA -->
-                <div class="block-category open" data-category="media">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">image</span> Media</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="image">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Image</div>
-                                <div class="block-item-desc">Single image</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="gallery">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Gallery</div>
-                                <div class="block-item-desc">Image gallery</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="video">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">videocam</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Video</div>
-                                <div class="block-item-desc">Video embed</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="icon">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Icon</div>
-                                <div class="block-item-desc">Icon element</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="avatar">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Avatar</div>
-                                <div class="block-item-desc">User avatar</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- MEDIA -->
+                            <div class="block-category open" data-category="media">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">image</span> Media</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="image">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Image</div>
+                                            <div class="block-item-desc">Single image</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="gallery">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Gallery</div>
+                                            <div class="block-item-desc">Image gallery</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="video">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">videocam</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Video</div>
+                                            <div class="block-item-desc">Video embed</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="icon">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Icon</div>
+                                            <div class="block-item-desc">Icon element</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="avatar">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Avatar</div>
+                                            <div class="block-item-desc">User avatar</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- FORM ELEMENTS -->
-                <div class="block-category open" data-category="forms">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">list</span> Form Elements</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="text-input">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">keyboard</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Text Input</div>
-                                <div class="block-item-desc">Single line text</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="textarea">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_align_left</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Textarea</div>
-                                <div class="block-item-desc">Multi-line text</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="email">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">mail</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Email</div>
-                                <div class="block-item-desc">Email input</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="number">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">tag</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Number</div>
-                                <div class="block-item-desc">Number input</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="password">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">lock</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Password</div>
-                                <div class="block-item-desc">Password field</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="select">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">list</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Dropdown</div>
-                                <div class="block-item-desc">Select dropdown</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="checkbox">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Checkbox</div>
-                                <div class="block-item-desc">Checkbox input</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="radio">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Radio</div>
-                                <div class="block-item-desc">Radio buttons</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="date">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Date</div>
-                                <div class="block-item-desc">Date picker</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="file">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">attach_file</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">File Upload</div>
-                                <div class="block-item-desc">File upload field</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="hidden">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Hidden</div>
-                                <div class="block-item-desc">Hidden field</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="submit">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Submit Button</div>
-                                <div class="block-item-desc">Form submit button</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- FORM ELEMENTS -->
+                            <div class="block-category open" data-category="forms">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">list</span> Form Elements</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="text-input">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">keyboard</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Text Input</div>
+                                            <div class="block-item-desc">Single line text</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="textarea">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_align_left</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Textarea</div>
+                                            <div class="block-item-desc">Multi-line text</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="email">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">mail</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Email</div>
+                                            <div class="block-item-desc">Email input</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="number">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">tag</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Number</div>
+                                            <div class="block-item-desc">Number input</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="password">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">lock</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Password</div>
+                                            <div class="block-item-desc">Password field</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="select">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">list</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Dropdown</div>
+                                            <div class="block-item-desc">Select dropdown</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="checkbox">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Checkbox</div>
+                                            <div class="block-item-desc">Checkbox input</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="radio">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Radio</div>
+                                            <div class="block-item-desc">Radio buttons</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="date">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Date</div>
+                                            <div class="block-item-desc">Date picker</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="file">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">attach_file</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">File Upload</div>
+                                            <div class="block-item-desc">File upload field</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="hidden">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Hidden</div>
+                                            <div class="block-item-desc">Hidden field</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="submit">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Submit Button</div>
+                                            <div class="block-item-desc">Form submit button</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- E-COMMERCE -->
-                <div class="block-category open" data-category="ecommerce">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span> E-Commerce</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="product-card">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Product Card</div>
-                                <div class="block-item-desc">Single product</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="product-grid">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">grid_on</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Product Grid</div>
-                                <div class="block-item-desc">Product grid</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="price">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Price</div>
-                                <div class="block-item-desc">Price display</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="add-to-cart">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Add to Cart</div>
-                                <div class="block-item-desc">Cart button</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="product-badge">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">local_offer</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Badge</div>
-                                <div class="block-item-desc">Sale/New/Hot badge</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="stars">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Star Rating</div>
-                                <div class="block-item-desc">Star rating</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="stock-status">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Stock Status</div>
-                                <div class="block-item-desc">In/Out of stock</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="buy-now">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Buy Now</div>
-                                <div class="block-item-desc">Buy now button</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- E-COMMERCE -->
+                            <div class="block-category open" data-category="ecommerce">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span> E-Commerce</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="product-card">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Product Card</div>
+                                            <div class="block-item-desc">Single product</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="product-grid">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">grid_on</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Product Grid</div>
+                                            <div class="block-item-desc">Product grid</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="price">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Price</div>
+                                            <div class="block-item-desc">Price display</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="add-to-cart">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Add to Cart</div>
+                                            <div class="block-item-desc">Cart button</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="product-badge">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">local_offer</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Badge</div>
+                                            <div class="block-item-desc">Sale/New/Hot badge</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="stars">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Star Rating</div>
+                                            <div class="block-item-desc">Star rating</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="stock-status">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Stock Status</div>
+                                            <div class="block-item-desc">In/Out of stock</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="buy-now">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Buy Now</div>
+                                            <div class="block-item-desc">Buy now button</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- BUSINESS -->
-                <div class="block-category open" data-category="business">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">business_center</span> Business</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="hero">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">target</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Hero Section</div>
-                                <div class="block-item-desc">Hero banner</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="team">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">group</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Team Member</div>
-                                <div class="block-item-desc">Team card</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="testimonial">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">forum</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Testimonial</div>
-                                <div class="block-item-desc">Customer review</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="pricing">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">diamond</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Pricing Card</div>
-                                <div class="block-item-desc">Pricing plan</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="faq">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">help</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">FAQ</div>
-                                <div class="block-item-desc">FAQ item</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="stats">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Stats Counter</div>
-                                <div class="block-item-desc">Number counter</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="features">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Features</div>
-                                <div class="block-item-desc">Feature list</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="contact-card">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">phone</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Contact Card</div>
-                                <div class="block-item-desc">Contact info</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- BUSINESS -->
+                            <div class="block-category open" data-category="business">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">business_center</span> Business</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="hero">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">target</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Hero Section</div>
+                                            <div class="block-item-desc">Hero banner</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="team">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">group</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Team Member</div>
+                                            <div class="block-item-desc">Team card</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="testimonial">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">forum</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Testimonial</div>
+                                            <div class="block-item-desc">Customer review</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="pricing">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">diamond</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Pricing Card</div>
+                                            <div class="block-item-desc">Pricing plan</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="faq">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">help</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">FAQ</div>
+                                            <div class="block-item-desc">FAQ item</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="stats">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Stats Counter</div>
+                                            <div class="block-item-desc">Number counter</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="features">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Features</div>
+                                            <div class="block-item-desc">Feature list</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="contact-card">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">phone</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Contact Card</div>
+                                            <div class="block-item-desc">Contact info</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- INTERACTIVE -->
-                <div class="block-category open" data-category="interactive">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Interactive</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="button">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Button</div>
-                                <div class="block-item-desc">CTA button</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="link">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">link</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Link</div>
-                                <div class="block-item-desc">Text link</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="tabs">
-                            <div class="block-item-icon"><i class="fas fa-folder"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Tabs</div>
-                                <div class="block-item-desc">Tab container</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="accordion">
-                            <div class="block-item-icon"><i class="fas fa-folder-open"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Accordion</div>
-                                <div class="block-item-desc">Collapsible content</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="progress">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Progress Bar</div>
-                                <div class="block-item-desc">Progress indicator</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="timeline">
-                            <div class="block-item-icon"><i class="fas fa-stream"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Timeline</div>
-                                <div class="block-item-desc">Timeline item</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- INTERACTIVE -->
+                            <div class="block-category open" data-category="interactive">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Interactive</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="button">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Button</div>
+                                            <div class="block-item-desc">CTA button</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="link">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">link</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Link</div>
+                                            <div class="block-item-desc">Text link</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="tabs">
+                                        <div class="block-item-icon"><i class="fas fa-folder"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Tabs</div>
+                                            <div class="block-item-desc">Tab container</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="accordion">
+                                        <div class="block-item-icon"><i class="fas fa-folder-open"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Accordion</div>
+                                            <div class="block-item-desc">Collapsible content</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="progress">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Progress Bar</div>
+                                            <div class="block-item-desc">Progress indicator</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="timeline">
+                                        <div class="block-item-icon"><i class="fas fa-stream"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Timeline</div>
+                                            <div class="block-item-desc">Timeline item</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- MARKETING -->
-                <div class="block-category open" data-category="marketing">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><i class="fas fa-bullhorn"></i> Marketing</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="newsletter">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">mail</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Newsletter</div>
-                                <div class="block-item-desc">Email signup</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="countdown">
-                            <div class="block-item-icon"><i class="fas fa-hourglass-end"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Countdown</div>
-                                <div class="block-item-desc">Countdown timer</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="alert">
-                            <div class="block-item-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Alert</div>
-                                <div class="block-item-desc">Notification banner</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="cta">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">target</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Call to Action</div>
-                                <div class="block-item-desc">CTA section</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- MARKETING -->
+                            <div class="block-category open" data-category="marketing">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><i class="fas fa-bullhorn"></i> Marketing</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="newsletter">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">mail</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Newsletter</div>
+                                            <div class="block-item-desc">Email signup</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="countdown">
+                                        <div class="block-item-icon"><i class="fas fa-hourglass-end"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Countdown</div>
+                                            <div class="block-item-desc">Countdown timer</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="alert">
+                                        <div class="block-item-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Alert</div>
+                                            <div class="block-item-desc">Notification banner</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="cta">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">target</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Call to Action</div>
+                                            <div class="block-item-desc">CTA section</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- SOCIAL -->
-                <div class="block-category open" data-category="social">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><i class="fas fa-share-alt"></i> Social</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="social-links">
-                            <div class="block-item-icon"><i class="fas fa-share-alt"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Social Links</div>
-                                <div class="block-item-desc">Social media icons</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="share-buttons">
-                            <div class="block-item-icon"><i class="fas fa-share-nodes"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Share Buttons</div>
-                                <div class="block-item-desc">Social share</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="embed">
-                            <div class="block-item-icon"><i class="fas fa-tv"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Embed</div>
-                                <div class="block-item-desc">YouTube/Instagram</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- SOCIAL -->
+                            <div class="block-category open" data-category="social">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><i class="fas fa-share-alt"></i> Social</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="social-links">
+                                        <div class="block-item-icon"><i class="fas fa-share-alt"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Social Links</div>
+                                            <div class="block-item-desc">Social media icons</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="share-buttons">
+                                        <div class="block-item-icon"><i class="fas fa-share-nodes"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Share Buttons</div>
+                                            <div class="block-item-desc">Social share</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="embed">
+                                        <div class="block-item-icon"><i class="fas fa-tv"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Embed</div>
+                                            <div class="block-item-desc">YouTube/Instagram</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- DATA -->
-                <div class="block-category open" data-category="data">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span> Data</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="table">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">table_chart</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Table</div>
-                                <div class="block-item-desc">Data table</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="badge">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">local_offer</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Badge/Tag</div>
-                                <div class="block-item-desc">Label badge</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="chart">
-                            <div class="block-item-icon"><i class="fas fa-chart-line"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Chart</div>
-                                <div class="block-item-desc">Bar chart placeholder</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                        <div class="block-item" draggable="true" data-type="map">
-                            <div class="block-item-icon"><i class="fas fa-map"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Map</div>
-                                <div class="block-item-desc">Google Map embed</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
-                    </div>
-                </div>
+                            <!-- DATA -->
+                            <div class="block-category open" data-category="data">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span> Data</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="table">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">table_chart</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Table</div>
+                                            <div class="block-item-desc">Data table</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="badge">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">local_offer</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Badge/Tag</div>
+                                            <div class="block-item-desc">Label badge</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="chart">
+                                        <div class="block-item-icon"><i class="fas fa-chart-line"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Chart</div>
+                                            <div class="block-item-desc">Bar chart placeholder</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="map">
+                                        <div class="block-item-icon"><i class="fas fa-map"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Map</div>
+                                            <div class="block-item-desc">Google Map embed</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
 
-                <!-- ADVANCED -->
-                <div class="block-category open" data-category="advanced">
-                    <div class="block-category-header">
-                        <span class="block-category-title"><i class="fas fa-tools"></i> Advanced</span>
-                        <span class="block-category-arrow">▶</span>
-                    </div>
-                    <div class="block-category-items">
-                        <div class="block-item" draggable="true" data-type="html">
-                            <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Custom HTML</div>
-                                <div class="block-item-desc">Raw HTML code</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                            <!-- ADVANCED -->
+                            <div class="block-category open" data-category="advanced">
+                                <div class="block-category-header">
+                                    <span class="block-category-title"><i class="fas fa-tools"></i> Advanced</span>
+                                    <span class="block-category-arrow">▶</span>
+                                </div>
+                                <div class="block-category-items">
+                                    <div class="block-item" draggable="true" data-type="html">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Custom HTML</div>
+                                            <div class="block-item-desc">Raw HTML code</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="template">
+                                        <div class="block-item-icon"><i class="fas fa-file-contract"></i></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Template</div>
+                                            <div class="block-item-desc">Reusable template</div>
+                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                    </div>
+                                </div>
+                            </div>
+
                         </div>
-                        <div class="block-item" draggable="true" data-type="template">
-                            <div class="block-item-icon"><i class="fas fa-file-contract"></i></div>
-                            <div class="block-item-info">
-                                <div class="block-item-name">Template</div>
-                                <div class="block-item-desc">Reusable template</div>
-                            </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                        </div>
                     </div>
-                </div>
 
-            </div>
-        </div>
+                    <!-- CENTER CANVAS -->
+                    <div class="builder-canvas">
+                        <div class="canvas-scroll-area">
+                            <div class="canvas-wrapper" id="canvas-wrapper">
+                                <?= Html::beginForm(['form/' . ($model->isNewRecord ? 'create' : 'update'), 'id' => $model->isNewRecord ? null : $model->id], 'post', ['id' => 'builder-form']) ?>
 
-        <!-- CENTER CANVAS -->
-        <div class="builder-canvas">
-            <div class="canvas-scroll-area">
-                <div class="canvas-wrapper" id="canvas-wrapper">
-                    <?= Html::beginForm(['form/' . ($model->isNewRecord ? 'create' : 'update'), 'id' => $model->isNewRecord ? null : $model->id], 'post', ['id' => 'builder-form']) ?>
-
-                    <div class="canvas-header">
-                        <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
-                    </div>
+                                <div class="canvas-header">
+                                    <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
+                                </div>
 
                     <?= Html::hiddenInput('Form[schema_json]', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-js']) ?>
                     <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
-                    <?= Html::hiddenInput('publish_now', '0', ['id' => 'publish-now-input']) ?>
 
-                    <div class="canvas-body" id="canvas-body">
-                        <div class="canvas-empty" id="canvas-empty">
-                            <div class="canvas-empty-icon">🧩</div>
-                            <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
-                            <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                                <div class="canvas-body" id="canvas-body">
+                                    <div class="canvas-empty" id="canvas-empty">
+                                        <div class="canvas-empty-icon">🧩</div>
+                                        <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
+                                        <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                                    </div>
+                                    <div id="canvas-blocks" style="min-height:50px;"></div>
+                                    <!-- Padding spacer to prevent blocks from being cut off -->
+                                    <div style="height: 80px; flex-shrink: 0;"></div>
+                                </div>
+
+                                <?= Html::endForm() ?>
+                            </div>
                         </div>
-                        <div id="canvas-blocks" style="min-height:50px;"></div>
-                        <!-- Padding spacer to prevent blocks from being cut off -->
-                        <div style="height: 80px; flex-shrink: 0;"></div>
-                    </div>
-
-                    <?= Html::endForm() ?>
-                </div>
-            </div>
 
             <!-- Bottom Action Bar (outside scroll area, always visible) -->
             <div class="canvas-action-bar">
                 <div style="display:flex;justify-content:flex-end;gap:12px;max-width:1280px;margin:0 auto;padding:0 40px;">
                     <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
-                    <button type="submit" form="builder-form" name="publish_now" value="<?= $model->isNewRecord ? '1' : '0' ?>" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
+                    <button type="submit" formid="builder-form" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
                 </div>
             </div>
         </div>
 
-        <!-- RIGHT SIDEBAR - PROPERTIES -->
-        <div class="builder-sidebar-right">
-            <div class="properties-header"><span class="material-symbols-outlined" style="font-size:18px;">tune</span> Properties</div>
-            <div class="properties-tabs">
-                <div class="properties-tab active" data-tab="content">Content</div>
-                <div class="properties-tab" data-tab="style">Style</div>
-                <div class="properties-tab" data-tab="advanced">Advanced</div>
-                <div class="properties-tab" data-tab="json">Script JS</div>
-            </div>
-            <div class="properties-content">
-                <div id="props-empty" class="text-center text-muted py-5">
-                    <div style="font-size:48px;margin-bottom:12px;"><i class="fas fa-crosshairs"></i></div>
-                    <p>Select a block to edit</p>
-                </div>
+                    <!-- RIGHT SIDEBAR - PROPERTIES -->
+                    <div class="builder-sidebar-right">
+                        <div class="properties-header"><span class="material-symbols-outlined" style="font-size:18px;">tune</span> Properties</div>
+                        <div class="properties-tabs">
+                            <div class="properties-tab active" data-tab="content">Content</div>
+                            <div class="properties-tab" data-tab="style">Style</div>
+                            <div class="properties-tab" data-tab="advanced">Advanced</div>
+                            <div class="properties-tab" data-tab="json">Script JS</div>
+                        </div>
+                        <div class="properties-content">
+                            <div id="props-empty" class="text-center text-muted py-5">
+                                <div style="font-size:48px;margin-bottom:12px;"><i class="fas fa-crosshairs"></i></div>
+                                <p>Select a block to edit</p>
+                            </div>
 
-                <div id="props-content" class="props-tab" style="display:none;">
-                    <div class="property-section">
-                        <div class="property-section-title">Content</div>
-                        <div class="property-field">
-                            <label class="property-label">Label/Title</label>
-                            <input type="text" class="property-input" id="prop-label" placeholder="Enter text...">
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Description</label>
-                            <textarea class="property-textarea" id="prop-desc" placeholder="Enter description..."></textarea>
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">URL/Link</label>
-                            <input type="text" class="property-input" id="prop-url" placeholder="https://...">
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Image URL</label>
-                            <input type="text" class="property-input" id="prop-image" placeholder="https://...">
-                        </div>
-                    </div>
-                </div>
+                            <div id="props-content" class="props-tab" style="display:none;">
+                                <div class="property-section">
+                                    <div class="property-section-title">Content</div>
+                                    <div class="property-field">
+                                        <label class="property-label">Label/Title</label>
+                                        <input type="text" class="property-input" id="prop-label" placeholder="Enter text...">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Description</label>
+                                        <textarea class="property-textarea" id="prop-desc" placeholder="Enter description..."></textarea>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">URL/Link</label>
+                                        <input type="text" class="property-input" id="prop-url" placeholder="https://...">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Image URL</label>
+                                        <input type="text" class="property-input" id="prop-image" placeholder="https://...">
+                                    </div>
+                                </div>
+                            </div>
 
-                <div id="props-style" class="props-tab" style="display:none;">
-                    <div class="property-section">
-                        <div class="property-section-title">Appearance</div>
-                        <div class="property-field">
-                            <label class="property-label">Background Color</label>
-                            <input type="color" class="property-color" id="prop-bg-color" value="#ffffff">
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Text Color</label>
-                            <input type="color" class="property-color" id="prop-text-color" value="#1f2937">
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Padding</label>
-                            <select class="property-select" id="prop-padding">
-                                <option value="none">None</option>
-                                <option value="sm">Small</option>
-                                <option value="md" selected>Medium</option>
-                                <option value="lg">Large</option>
-                                <option value="xl">Extra Large</option>
-                            </select>
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Border Radius</label>
-                            <select class="property-select" id="prop-radius">
-                                <option value="none">None</option>
-                                <option value="sm">Small</option>
-                                <option value="md" selected>Medium</option>
-                                <option value="lg">Large</option>
-                                <option value="full">Full (Circle)</option>
-                            </select>
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Text Alignment</label>
-                            <select class="property-select" id="prop-align">
-                                <option value="left">Left</option>
-                                <option value="center">Center</option>
-                                <option value="right">Right</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
+                            <div id="props-style" class="props-tab" style="display:none;">
+                                <div class="property-section">
+                                    <div class="property-section-title">Appearance</div>
+                                    <div class="property-field">
+                                        <label class="property-label">Background Color</label>
+                                        <input type="color" class="property-color" id="prop-bg-color" value="#ffffff">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Text Color</label>
+                                        <input type="color" class="property-color" id="prop-text-color" value="#1f2937">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Padding</label>
+                                        <select class="property-select" id="prop-padding">
+                                            <option value="none">None</option>
+                                            <option value="sm">Small</option>
+                                            <option value="md" selected>Medium</option>
+                                            <option value="lg">Large</option>
+                                            <option value="xl">Extra Large</option>
+                                        </select>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Border Radius</label>
+                                        <select class="property-select" id="prop-radius">
+                                            <option value="none">None</option>
+                                            <option value="sm">Small</option>
+                                            <option value="md" selected>Medium</option>
+                                            <option value="lg">Large</option>
+                                            <option value="full">Full (Circle)</option>
+                                        </select>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Text Alignment</label>
+                                        <select class="property-select" id="prop-align">
+                                            <option value="left">Left</option>
+                                            <option value="center">Center</option>
+                                            <option value="right">Right</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
 
-                <div id="props-advanced" class="props-tab" style="display:none;">
-                    <div class="property-section">
-                        <div class="property-section-title">Advanced</div>
-                        <div class="property-field">
-                            <label class="property-checkbox"><input type="checkbox" id="prop-hidden"><span>Hidden</span></label>
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">CSS Class</label>
-                            <input type="text" class="property-input" id="prop-class" placeholder="custom-class">
-                        </div>
-                        <div class="property-field">
-                            <label class="property-label">Custom CSS</label>
-                            <textarea class="property-textarea" id="prop-css" placeholder="color: red;"></textarea>
-                        </div>
-                    </div>
-                </div>
+                            <div id="props-advanced" class="props-tab" style="display:none;">
+                                <div class="property-section">
+                                    <div class="property-section-title">Advanced</div>
+                                    <div class="property-field">
+                                        <label class="property-checkbox"><input type="checkbox" id="prop-hidden"><span>Hidden</span></label>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">CSS Class</label>
+                                        <input type="text" class="property-input" id="prop-class" placeholder="custom-class">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Custom CSS</label>
+                                        <textarea class="property-textarea" id="prop-css" placeholder="color: red;"></textarea>
+                                    </div>
+                                </div>
+                            </div>
 
-                <div id="props-json" class="props-tab" style="display:none;">
-                    <div class="property-section" style="padding:0;">
-                        <!-- Mode Toggle -->
-                        <div style="display:flex;gap:8px;margin-bottom:16px;background:var(--gray-100);padding:8px;border-radius:8px;">
-                            <button id="btn-mode-object" class="btn-toolbar" style="flex:1;background:var(--primary);color:white;border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;">🎨 Object Mode</button>
-                            <button id="btn-mode-code" class="btn-toolbar" style="flex:1;background:var(--gray-200);color:var(--gray-600);border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;">⚡ Code Mode</button>
-                        </div>
+                            <div id="props-json" class="props-tab" style="display:none;">
+                                <div class="property-section" style="padding:0;">
+                                    <!-- Mode Toggle -->
+                                    <div style="display:flex;gap:8px;margin-bottom:16px;background:var(--gray-100);padding:8px;border-radius:8px;">
+                                        <button id="btn-mode-object" class="btn-toolbar" style="flex:1;background:var(--primary);color:white;border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;">🎨 Object Mode</button>
+                                        <button id="btn-mode-code" class="btn-toolbar" style="flex:1;background:var(--gray-200);color:var(--gray-600);border:none;font-size:12px;font-weight:600;padding:8px 12px;border-radius:6px;">⚡ Code Mode</button>
+                                    </div>
 
-                        <!-- Object Mode Help -->
-                        <div id="help-object-mode" style="font-size:12px;color:var(--gray-600);margin-bottom:12px;line-height:1.5;padding:0 4px;">
-                            <strong>🎨 Object Mode:</strong> Define block properties as JavaScript object
-                        </div>
+                                    <!-- Object Mode Help -->
+                                    <div id="help-object-mode" style="font-size:12px;color:var(--gray-600);margin-bottom:12px;line-height:1.5;padding:0 4px;">
+                                        <strong>🎨 Object Mode:</strong> Define block properties as JavaScript object
+                                    </div>
 
-                        <!-- Code Mode Help -->
-                        <div id="help-code-mode" style="display:none;font-size:12px;color:var(--warning);margin-bottom:12px;line-height:1.5;background:var(--warning-light);padding:12px;border-radius:8px;">
-                            <strong>⚡ Code Mode:</strong> Write executable JavaScript code<br>
-                            💡 Use <code style="background:var(--gray-200);padding:2px 6px;border-radius:4px;font-size:11px;">this</code> to access block data<br>
-                            💡 Return HTML string or DOM element to render
-                        </div>
+                                    <!-- Code Mode Help -->
+                                    <div id="help-code-mode" style="display:none;font-size:12px;color:var(--warning);margin-bottom:12px;line-height:1.5;background:var(--warning-light);padding:12px;border-radius:8px;">
+                                        <strong>⚡ Code Mode:</strong> Write executable JavaScript code<br>
+                                        💡 Use <code style="background:var(--gray-200);padding:2px 6px;border-radius:4px;font-size:11px;">this</code> to access block data<br>
+                                        💡 Return HTML string or DOM element to render
+                                    </div>
 
-                        <!-- Code Editor -->
-                        <div style="position:relative;margin-bottom:12px;">
-                            <textarea id="prop-json" style="font-family:'Courier New', monospace;font-size:12px;height:280px;border:1px solid var(--gray-300);padding:12px;background:var(--gray-50);width:100%;resize:vertical;border-radius:8px;line-height:1.5;tab-size:2;" placeholder="{
+                                    <!-- Code Editor -->
+                                    <div style="position:relative;margin-bottom:12px;">
+                                        <textarea id="prop-json" style="font-family:'Courier New', monospace;font-size:12px;height:280px;border:1px solid var(--gray-300);padding:12px;background:var(--gray-50);width:100%;resize:vertical;border-radius:8px;line-height:1.5;tab-size:2;" placeholder="{
   type: 'columns',
   label: 'Columns',
   columns: 3,
   content: 'Your content'
 }" spellcheck="false"></textarea>
-                            <div style="position:absolute;top:8px;right:8px;font-size:10px;color:var(--gray-400);pointer-events:none;">JavaScript</div>
-                        </div>
+                                        <div style="position:absolute;top:8px;right:8px;font-size:10px;color:var(--gray-400);pointer-events:none;">JavaScript</div>
+                                    </div>
 
-                        <!-- Code Mode Example -->
-                        <div id="code-example" style="display:none;background:var(--info-light);padding:12px;border-radius:8px;margin-bottom:12px;border-left:4px solid var(--info);">
-                            <div style="font-size:11px;font-weight:600;color:var(--info);margin-bottom:8px;">💡 Example - Custom Rendering:</div>
-                            <pre style="font-family:'Courier New',monospace;font-size:11px;margin:0;color:var(--gray-700);white-space:pre-wrap;line-height:1.5;background:var(--gray-50);padding:10px;border-radius:6px;">// Access block data
+                                    <!-- Code Mode Example -->
+                                    <div id="code-example" style="display:none;background:var(--info-light);padding:12px;border-radius:8px;margin-bottom:12px;border-left:4px solid var(--info);">
+                                        <div style="font-size:11px;font-weight:600;color:var(--info);margin-bottom:8px;">💡 Example - Custom Rendering:</div>
+                                        <pre style="font-family:'Courier New',monospace;font-size:11px;margin:0;color:var(--gray-700);white-space:pre-wrap;line-height:1.5;background:var(--gray-50);padding:10px;border-radius:6px;">// Access block data
 const { columns, content } = this;
 
 // Create HTML
@@ -3315,30 +2604,30 @@ html += '&lt;/div&gt;';
 
 // Return rendered HTML
 return html;</pre>
-                        </div>
+                                    </div>
 
-                        <!-- Apply Button -->
-                        <button id="btn-apply-json" class="btn-toolbar" style="width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border:none;font-weight:600;padding:12px;border-radius:8px;font-size:13px;margin-bottom:8px;">⚡ Apply Changes</button>
+                                    <!-- Apply Button -->
+                                    <button id="btn-apply-json" class="btn-toolbar" style="width:100%;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:white;border:none;font-weight:600;padding:12px;border-radius:8px;font-size:13px;margin-bottom:8px;">⚡ Apply Changes</button>
 
-                        <!-- Delete Button -->
-                        <div id="props-delete-section" class="property-section" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-200);">
-                            <button class="btn-toolbar w-100" style="border-color:var(--danger);color:var(--danger);background:var(--danger-light);" id="btn-delete-block">🗑️ Delete Block</button>
+                                    <!-- Delete Button -->
+                                    <div id="props-delete-section" class="property-section" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--gray-200);">
+                                        <button class="btn-toolbar w-100" style="border-color:var(--danger);color:var(--danger);background:var(--danger-light);" id="btn-delete-block">🗑️ Delete Block</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // ===== NOTIFICATION SYSTEM =====
-        function showNotification(message, type = 'info', duration = 3000) {
-            const notification = document.createElement('div');
-            const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6';
+            <script>
+                document.addEventListener('DOMContentLoaded', function() {
+                    // ===== NOTIFICATION SYSTEM =====
+                    function showNotification(message, type = 'info', duration = 3000) {
+                        const notification = document.createElement('div');
+                        const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6';
 
-            notification.style.cssText = `
+                        notification.style.cssText = `
                 position: fixed;
                 top: 20px;
                 right: 20px;
@@ -3353,21 +2642,21 @@ return html;</pre>
                 max-width: 400px;
                 animation: slideInRight 0.3s ease-out;
             `;
-            notification.innerHTML = message;
+                        notification.innerHTML = message;
 
-            document.body.appendChild(notification);
+                        document.body.appendChild(notification);
 
-            setTimeout(() => {
-                notification.style.animation = 'slideOutRight 0.3s ease-out';
-                setTimeout(() => notification.remove(), 300);
-            }, duration);
-        }
+                        setTimeout(() => {
+                            notification.style.animation = 'slideOutRight 0.3s ease-out';
+                            setTimeout(() => notification.remove(), 300);
+                        }, duration);
+                    }
 
-        // Add animation styles if not present
-        if (!document.getElementById('notification-styles')) {
-            const style = document.createElement('style');
-            style.id = 'notification-styles';
-            style.textContent = `
+                    // Add animation styles if not present
+                    if (!document.getElementById('notification-styles')) {
+                        const style = document.createElement('style');
+                        style.id = 'notification-styles';
+                        style.textContent = `
                 @keyframes slideInRight {
                     from { transform: translateX(400px); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
@@ -3377,274 +2666,274 @@ return html;</pre>
                     to { transform: translateX(400px); opacity: 0; }
                 }
             `;
-            document.head.appendChild(style);
-        }
-
-        // ===== EDITOR MODE TOGGLE =====
-        let editorMode = 'object'; // 'object' or 'code'
-
-        const btnModeObject = document.getElementById('btn-mode-object');
-        const btnModeCode = document.getElementById('btn-mode-code');
-        const helpObjectMode = document.getElementById('help-object-mode');
-        const helpCodeMode = document.getElementById('help-code-mode');
-        const codeExample = document.getElementById('code-example');
-        const propJson = document.getElementById('prop-json');
-
-        function setEditorMode(mode) {
-            editorMode = mode;
-
-            if (mode === 'object') {
-                btnModeObject.style.background = 'var(--primary)';
-                btnModeObject.style.color = 'white';
-                btnModeCode.style.background = 'var(--gray-200)';
-                btnModeCode.style.color = 'var(--gray-600)';
-                helpObjectMode.style.display = 'block';
-                helpCodeMode.style.display = 'none';
-                codeExample.style.display = 'none';
-                propJson.placeholder = '{\n  type: \'columns\',\n  label: \'Columns\',\n  columns: 3,\n  content: \'Your content\'\n}';
-            } else {
-                btnModeCode.style.background = 'var(--warning)';
-                btnModeCode.style.color = 'white';
-                btnModeObject.style.background = 'var(--gray-200)';
-                btnModeObject.style.color = 'var(--gray-600)';
-                helpObjectMode.style.display = 'none';
-                helpCodeMode.style.display = 'block';
-                codeExample.style.display = 'block';
-                propJson.placeholder = '// Write your JavaScript code here\n// Use this to access block data\n// Return HTML string or DOM element\n\nconst { columns, content } = this;\n// ... your code ...\nreturn html;';
-            }
-        }
-
-        if (btnModeObject) {
-            btnModeObject.addEventListener('click', () => setEditorMode('object'));
-        }
-        if (btnModeCode) {
-            btnModeCode.addEventListener('click', () => setEditorMode('code'));
-        }
-
-        // ===== SAFE ELEMENT CHECK =====
-        const elementsToCheck = {
-            'canvas-blocks': document.getElementById('canvas-blocks'),
-            'canvas-empty': document.getElementById('canvas-empty'),
-            'schema-js': document.getElementById('schema-js'),
-            'table-selector': document.getElementById('table-selector'),
-            'table-id': document.getElementById('table-id'),
-            'btn-auto-generate': document.getElementById('btn-auto-generate'),
-            'block-search': document.getElementById('block-search'),
-            'builder-form': document.getElementById('builder-form'),
-            'btn-save': document.getElementById('btn-save'),
-            'canvas-wrapper': document.getElementById('canvas-wrapper')
-        };
-
-        console.log('Elements check:', Object.entries(elementsToCheck).map(([k, v]) => k + ': ' + (v ? 'Found' : 'MISSING')).join(', '));
-
-        // ===== CORE SCRIPT =====
-        let blocks = [];
-        let selectedIndex = -1;
-        let sortableInstance = null;
-        let undoStack = [];
-        let redoStack = [];
-
-        const canvasBlocks = elementsToCheck['canvas-blocks'];
-        const canvasEmpty = elementsToCheck['canvas-empty'];
-        const schemaJson = elementsToCheck['schema-js'];
-        const tableSelector = elementsToCheck['table-selector'];
-        const tableIdInput = elementsToCheck['table-id'];
-        const btnAutoGenerate = elementsToCheck['btn-auto-generate'];
-
-        if (!canvasBlocks || !schemaJson) {
-            console.error('FATAL: Required elements missing!');
-            return;
-        }
-
-        // ===== AUTO-SELECT FIRST TABLE IF EXISTS =====
-        if (tableSelector && tableSelector.options.length > 1) {
-            // If no table is selected and model has no table_id, auto-select first table
-            if (!tableSelector.value) {
-                // Try to find "toko" table first (it has columns)
-                let selectedIdx = -1;
-                for (let i = 1; i < tableSelector.options.length; i++) {
-                    const optionText = tableSelector.options[i].text;
-                    if (optionText.includes('toko')) {
-                        selectedIdx = i;
-                        break;
+                        document.head.appendChild(style);
                     }
-                }
 
-                // If not found, select first available table
-                if (selectedIdx === -1) {
-                    for (let i = 1; i < tableSelector.options.length; i++) {
-                        if (tableSelector.options[i].value) {
-                            selectedIdx = i;
-                            break;
+                    // ===== EDITOR MODE TOGGLE =====
+                    let editorMode = 'object'; // 'object' or 'code'
+
+                    const btnModeObject = document.getElementById('btn-mode-object');
+                    const btnModeCode = document.getElementById('btn-mode-code');
+                    const helpObjectMode = document.getElementById('help-object-mode');
+                    const helpCodeMode = document.getElementById('help-code-mode');
+                    const codeExample = document.getElementById('code-example');
+                    const propJson = document.getElementById('prop-json');
+
+                    function setEditorMode(mode) {
+                        editorMode = mode;
+
+                        if (mode === 'object') {
+                            btnModeObject.style.background = 'var(--primary)';
+                            btnModeObject.style.color = 'white';
+                            btnModeCode.style.background = 'var(--gray-200)';
+                            btnModeCode.style.color = 'var(--gray-600)';
+                            helpObjectMode.style.display = 'block';
+                            helpCodeMode.style.display = 'none';
+                            codeExample.style.display = 'none';
+                            propJson.placeholder = '{\n  type: \'columns\',\n  label: \'Columns\',\n  columns: 3,\n  content: \'Your content\'\n}';
+                        } else {
+                            btnModeCode.style.background = 'var(--warning)';
+                            btnModeCode.style.color = 'white';
+                            btnModeObject.style.background = 'var(--gray-200)';
+                            btnModeObject.style.color = 'var(--gray-600)';
+                            helpObjectMode.style.display = 'none';
+                            helpCodeMode.style.display = 'block';
+                            codeExample.style.display = 'block';
+                            propJson.placeholder = '// Write your JavaScript code here\n// Use this to access block data\n// Return HTML string or DOM element\n\nconst { columns, content } = this;\n// ... your code ...\nreturn html;';
                         }
                     }
-                }
 
-                if (selectedIdx > 0) {
-                    tableSelector.selectedIndex = selectedIdx;
-                    console.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
-                }
-            }
-        }
+                    if (btnModeObject) {
+                        btnModeObject.addEventListener('click', () => setEditorMode('object'));
+                    }
+                    if (btnModeCode) {
+                        btnModeCode.addEventListener('click', () => setEditorMode('code'));
+                    }
 
-        // Initialize Sortable for canvas blocks ONLY
-        if (canvasBlocks) {
-            sortableInstance = new Sortable(canvasBlocks, {
-                animation: 200,
-                ghostClass: 'sortable-ghost',
-                handle: '.drag-handle',
-                group: 'blocks',
-                onEnd: function(evt) {
-                    const newOrder = [];
-                    canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el, i) {
-                        const idx = parseInt(el.dataset.index);
-                        if (idx >= 0 && idx < blocks.length) {
-                            newOrder.push(blocks[idx]);
+                    // ===== SAFE ELEMENT CHECK =====
+                    const elementsToCheck = {
+                        'canvas-blocks': document.getElementById('canvas-blocks'),
+                        'canvas-empty': document.getElementById('canvas-empty'),
+                        'schema-js': document.getElementById('schema-js'),
+                        'table-selector': document.getElementById('table-selector'),
+                        'table-id': document.getElementById('table-id'),
+                        'btn-auto-generate': document.getElementById('btn-auto-generate'),
+                        'block-search': document.getElementById('block-search'),
+                        'builder-form': document.getElementById('builder-form'),
+                        'btn-save': document.getElementById('btn-save'),
+                        'canvas-wrapper': document.getElementById('canvas-wrapper')
+                    };
+
+                    console.log('Elements check:', Object.entries(elementsToCheck).map(([k, v]) => k + ': ' + (v ? 'Found' : 'MISSING')).join(', '));
+
+                    // ===== CORE SCRIPT =====
+                    let blocks = [];
+                    let selectedIndex = -1;
+                    let sortableInstance = null;
+                    let undoStack = [];
+                    let redoStack = [];
+
+                    const canvasBlocks = elementsToCheck['canvas-blocks'];
+                    const canvasEmpty = elementsToCheck['canvas-empty'];
+                    const schemaJson = elementsToCheck['schema-js'];
+                    const tableSelector = elementsToCheck['table-selector'];
+                    const tableIdInput = elementsToCheck['table-id'];
+                    const btnAutoGenerate = elementsToCheck['btn-auto-generate'];
+
+                    if (!canvasBlocks || !schemaJson) {
+                        console.error('FATAL: Required elements missing!');
+                        return;
+                    }
+
+                    // ===== AUTO-SELECT FIRST TABLE IF EXISTS =====
+                    if (tableSelector && tableSelector.options.length > 1) {
+                        // If no table is selected and model has no table_id, auto-select first table
+                        if (!tableSelector.value) {
+                            // Try to find "toko" table first (it has columns)
+                            let selectedIdx = -1;
+                            for (let i = 1; i < tableSelector.options.length; i++) {
+                                const optionText = tableSelector.options[i].text;
+                                if (optionText.includes('toko')) {
+                                    selectedIdx = i;
+                                    break;
+                                }
+                            }
+
+                            // If not found, select first available table
+                            if (selectedIdx === -1) {
+                                for (let i = 1; i < tableSelector.options.length; i++) {
+                                    if (tableSelector.options[i].value) {
+                                        selectedIdx = i;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (selectedIdx > 0) {
+                                tableSelector.selectedIndex = selectedIdx;
+                                console.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
+                            }
+                        }
+                    }
+
+                    // Initialize Sortable for canvas blocks ONLY
+                    if (canvasBlocks) {
+                        sortableInstance = new Sortable(canvasBlocks, {
+                            animation: 200,
+                            ghostClass: 'sortable-ghost',
+                            handle: '.drag-handle',
+                            group: 'blocks',
+                            onEnd: function(evt) {
+                                const newOrder = [];
+                                canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el, i) {
+                                    const idx = parseInt(el.dataset.index);
+                                    if (idx >= 0 && idx < blocks.length) {
+                                        newOrder.push(blocks[idx]);
+                                    }
+                                });
+                                blocks = newOrder;
+                                updateCanvasIndices();
+                                saveState();
+                            }
+                        });
+                    }
+
+                    // Drag from sidebar blocks to canvas (using event delegation on parent)
+                    const sidebarCategories = document.querySelector('.sidebar-categories');
+
+                    if (sidebarCategories) {
+                        sidebarCategories.addEventListener('dragstart', function(e) {
+                            if (e.target.classList.contains('block-item')) {
+                                e.dataTransfer.effectAllowed = 'copy';
+                                e.dataTransfer.setData('blockType', e.target.dataset.type);
+                                e.target.style.opacity = '0.5';
+                            }
+                        });
+
+                        sidebarCategories.addEventListener('dragend', function(e) {
+                            if (e.target.classList.contains('block-item')) {
+                                e.target.style.opacity = '1';
+                            }
+                        });
+                    }
+
+                    // dragover - uses document since it bubbles
+                    document.addEventListener('dragover', function(e) {
+                        if (e.dataTransfer.types.includes('blockType')) {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'copy';
+                            const canvasBody = document.getElementById('canvas-body');
+                            const builderCanvas = document.querySelector('.builder-canvas');
+                            if (canvasBody && canvasBody.contains(e.target)) {
+                                builderCanvas.classList.add('drag-over');
+                                canvasBlocks.style.borderColor = 'var(--primary)';
+                                canvasBlocks.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
+                                canvasBlocks.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
+                                if (canvasEmpty) {
+                                    canvasEmpty.style.borderColor = 'var(--primary)';
+                                    canvasEmpty.style.backgroundColor = '#f5f3ff';
+                                    canvasEmpty.style.transform = 'scale(1.01)';
+                                }
+                            }
                         }
                     });
-                    blocks = newOrder;
-                    updateCanvasIndices();
-                    saveState();
-                }
-            });
-        }
 
-        // Drag from sidebar blocks to canvas (using event delegation on parent)
-        const sidebarCategories = document.querySelector('.sidebar-categories');
+                    // dragleave
+                    document.addEventListener('dragleave', function(e) {
+                        const canvasBody = document.getElementById('canvas-body');
+                        const builderCanvas = document.querySelector('.builder-canvas');
+                        if (canvasBody && !canvasBody.contains(e.relatedTarget)) {
+                            builderCanvas.classList.remove('drag-over');
+                            canvasBlocks.style.borderColor = '';
+                            canvasBlocks.style.backgroundColor = '';
+                            canvasBlocks.style.boxShadow = '';
+                            if (canvasEmpty) {
+                                canvasEmpty.style.borderColor = '';
+                                canvasEmpty.style.backgroundColor = '';
+                                canvasEmpty.style.transform = '';
+                            }
+                        }
+                    });
 
-        if (sidebarCategories) {
-            sidebarCategories.addEventListener('dragstart', function(e) {
-                if (e.target.classList.contains('block-item')) {
-                    e.dataTransfer.effectAllowed = 'copy';
-                    e.dataTransfer.setData('blockType', e.target.dataset.type);
-                    e.target.style.opacity = '0.5';
-                }
-            });
+                    // drop
+                    document.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        const blockType = e.dataTransfer.getData('blockType');
+                        const canvasBody = document.getElementById('canvas-body');
+                        const builderCanvas = document.querySelector('.builder-canvas');
+                        if (blockType && canvasBody && canvasBody.contains(e.target)) {
+                            builderCanvas.classList.remove('drag-over');
+                            canvasBlocks.style.borderColor = '';
+                            canvasBlocks.style.backgroundColor = '';
+                            canvasBlocks.style.boxShadow = '';
+                            if (canvasEmpty) {
+                                canvasEmpty.style.borderColor = '';
+                                canvasEmpty.style.backgroundColor = '';
+                                canvasEmpty.style.transform = '';
+                            }
+                            addBlock(blockType);
+                        }
+                    });
 
-            sidebarCategories.addEventListener('dragend', function(e) {
-                if (e.target.classList.contains('block-item')) {
-                    e.target.style.opacity = '1';
-                }
-            });
-        }
+                    // Block search
+                    document.getElementById('block-search').addEventListener('input', function() {
+                        const query = this.value.toLowerCase();
+                        document.querySelectorAll('.block-item').forEach(function(item) {
+                            const name = item.querySelector('.block-item-name').textContent.toLowerCase();
+                            const desc = item.querySelector('.block-item-desc').textContent.toLowerCase();
+                            item.style.display = (name.indexOf(query) > -1 || desc.indexOf(query) > -1) ? '' : 'none';
+                        });
+                    });
 
-        // dragover - uses document since it bubbles
-        document.addEventListener('dragover', function(e) {
-            if (e.dataTransfer.types.includes('blockType')) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'copy';
-                const canvasBody = document.getElementById('canvas-body');
-                const builderCanvas = document.querySelector('.builder-canvas');
-                if (canvasBody && canvasBody.contains(e.target)) {
-                    builderCanvas.classList.add('drag-over');
-                    canvasBlocks.style.borderColor = 'var(--primary)';
-                    canvasBlocks.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
-                    canvasBlocks.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
-                    if (canvasEmpty) {
-                        canvasEmpty.style.borderColor = 'var(--primary)';
-                        canvasEmpty.style.backgroundColor = '#f5f3ff';
-                        canvasEmpty.style.transform = 'scale(1.01)';
+                    // Category toggle
+                    document.querySelectorAll('.block-category-header').forEach(function(header) {
+                        header.addEventListener('click', function() {
+                            this.parentElement.classList.toggle('open');
+                        });
+                    });
+
+                    // Block click to add
+                    document.querySelectorAll('.block-item').forEach(function(item) {
+                        item.addEventListener('click', function() {
+                            addBlock(this.dataset.type);
+                        });
+                    });
+
+                    // Device buttons
+                    document.querySelectorAll('.device-btn').forEach(function(btn) {
+                        btn.addEventListener('click', function() {
+                            document.querySelectorAll('.device-btn').forEach(function(b) {
+                                b.classList.remove('active');
+                            });
+                            this.classList.add('active');
+                            const wrapper = document.getElementById('canvas-wrapper');
+                            wrapper.classList.remove('tablet', 'mobile');
+                            if (this.dataset.device !== 'desktop') wrapper.classList.add(this.dataset.device);
+                        });
+                    });
+
+                    // Properties tabs
+                    document.querySelectorAll('.properties-tab').forEach(function(tab) {
+                        tab.addEventListener('click', function() {
+                            document.querySelectorAll('.properties-tab').forEach(function(t) {
+                                t.classList.remove('active');
+                            });
+                            this.classList.add('active');
+                            document.querySelectorAll('.props-tab').forEach(function(el) {
+                                el.style.display = 'none';
+                            });
+                            document.getElementById('props-' + this.dataset.tab).style.display = '';
+                        });
+                    });
+
+                    function addBlock(type) {
+                        saveState();
+                        const block = getDefaultBlock(type);
+                        blocks.push(block);
+                        renderBlock(block, blocks.length - 1);
+                        updateEmptyState();
+                        selectBlock(blocks.length - 1);
                     }
-                }
-            }
-        });
-
-        // dragleave
-        document.addEventListener('dragleave', function(e) {
-            const canvasBody = document.getElementById('canvas-body');
-            const builderCanvas = document.querySelector('.builder-canvas');
-            if (canvasBody && !canvasBody.contains(e.relatedTarget)) {
-                builderCanvas.classList.remove('drag-over');
-                canvasBlocks.style.borderColor = '';
-                canvasBlocks.style.backgroundColor = '';
-                canvasBlocks.style.boxShadow = '';
-                if (canvasEmpty) {
-                    canvasEmpty.style.borderColor = '';
-                    canvasEmpty.style.backgroundColor = '';
-                    canvasEmpty.style.transform = '';
-                }
-            }
-        });
-
-        // drop
-        document.addEventListener('drop', function(e) {
-            e.preventDefault();
-            const blockType = e.dataTransfer.getData('blockType');
-            const canvasBody = document.getElementById('canvas-body');
-            const builderCanvas = document.querySelector('.builder-canvas');
-            if (blockType && canvasBody && canvasBody.contains(e.target)) {
-                builderCanvas.classList.remove('drag-over');
-                canvasBlocks.style.borderColor = '';
-                canvasBlocks.style.backgroundColor = '';
-                canvasBlocks.style.boxShadow = '';
-                if (canvasEmpty) {
-                    canvasEmpty.style.borderColor = '';
-                    canvasEmpty.style.backgroundColor = '';
-                    canvasEmpty.style.transform = '';
-                }
-                addBlock(blockType);
-            }
-        });
-
-        // Block search
-        document.getElementById('block-search').addEventListener('input', function() {
-            const query = this.value.toLowerCase();
-            document.querySelectorAll('.block-item').forEach(function(item) {
-                const name = item.querySelector('.block-item-name').textContent.toLowerCase();
-                const desc = item.querySelector('.block-item-desc').textContent.toLowerCase();
-                item.style.display = (name.indexOf(query) > -1 || desc.indexOf(query) > -1) ? '' : 'none';
-            });
-        });
-
-        // Category toggle
-        document.querySelectorAll('.block-category-header').forEach(function(header) {
-            header.addEventListener('click', function() {
-                this.parentElement.classList.toggle('open');
-            });
-        });
-
-        // Block click to add
-        document.querySelectorAll('.block-item').forEach(function(item) {
-            item.addEventListener('click', function() {
-                addBlock(this.dataset.type);
-            });
-        });
-
-        // Device buttons
-        document.querySelectorAll('.device-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.device-btn').forEach(function(b) {
-                    b.classList.remove('active');
-                });
-                this.classList.add('active');
-                const wrapper = document.getElementById('canvas-wrapper');
-                wrapper.classList.remove('tablet', 'mobile');
-                if (this.dataset.device !== 'desktop') wrapper.classList.add(this.dataset.device);
-            });
-        });
-
-        // Properties tabs
-        document.querySelectorAll('.properties-tab').forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                document.querySelectorAll('.properties-tab').forEach(function(t) {
-                    t.classList.remove('active');
-                });
-                this.classList.add('active');
-                document.querySelectorAll('.props-tab').forEach(function(el) {
-                    el.style.display = 'none';
-                });
-                document.getElementById('props-' + this.dataset.tab).style.display = '';
-            });
-        });
-
-        function addBlock(type) {
-            saveState();
-            const block = getDefaultBlock(type);
-            blocks.push(block);
-            renderBlock(block, blocks.length - 1);
-            updateEmptyState();
-            selectBlock(blocks.length - 1);
-        }
 
         function getDefaultBlock(type) {
             const defaults = {
@@ -3653,9 +2942,7 @@ return html;</pre>
                     label: 'Container',
                     content: '',
                     bgColor: '#ffffff',
-                    padding: 'md',
-                    gridCol: 1,
-                    gridSpan: 12
+                    padding: 'md'
                 },
                 columns: {
                     type: 'columns',
@@ -3673,9 +2960,7 @@ return html;</pre>
                     type: 'section',
                     label: 'Section',
                     bgColor: '#f9fafb',
-                    content: '',
-                    gridCol: 1,
-                    gridSpan: 12
+                    content: ''
                 },
                 divider: {
                     type: 'divider',
@@ -3685,48 +2970,36 @@ return html;</pre>
                 spacer: {
                     type: 'spacer',
                     label: 'Spacer',
-                    height: 32,
-                    gridCol: 1,
-                    gridSpan: 12
+                    height: 32
                 },
                 heading: {
                     type: 'heading',
                     label: 'Heading',
                     content: 'Your Heading Here',
                     level: 'h2',
-                    align: 'left',
-                    gridCol: 1,
-                    gridSpan: 12
+                    align: 'left'
                 },
                 text: {
                     type: 'text',
                     label: 'Text',
-                    content: 'Your text content goes here. You can edit this in the properties panel.',
-                    gridCol: 1,
-                    gridSpan: 12
+                    content: 'Your text content goes here. You can edit this in the properties panel.'
                 },
                 richtext: {
                     type: 'richtext',
                     label: 'Rich Text',
-                    content: '<p>Your <strong>rich</strong> text here.</p>',
-                    gridCol: 1,
-                    gridSpan: 12
+                    content: '<p>Your <strong>rich</strong> text here.</p>'
                 },
                 list: {
                     type: 'list',
                     label: 'List',
                     items: 'Item 1\nItem 2\nItem 3',
-                    ordered: false,
-                    gridCol: 1,
-                    gridSpan: 12
+                    ordered: false
                 },
                 quote: {
                     type: 'quote',
                     label: 'Quote',
                     content: '"This is a great quote."',
-                    author: '- Author Name',
-                    gridCol: 1,
-                    gridSpan: 12
+                    author: '- Author Name'
                 },
                 code: {
                     type: 'code',
@@ -4065,53 +3338,15 @@ return html;</pre>
             const div = document.createElement('div');
             div.className = 'canvas-block';
             div.dataset.index = index;
-            
-            // ===== ENFORCE GRID SYSTEM =====
-            // Default positioning
-            let gridCol = block.gridCol || 1;        // Column start (1-12)
-            let gridSpan = block.gridSpan || 12;     // Column span
-            
-            // ===== VALIDATION & CONSTRAINT =====
-            // Span tidak boleh > 12
-            if (gridSpan > 12) {
-                console.warn(`Block ${index}: gridSpan ${gridSpan} > 12, force to 12`);
-                gridSpan = 12;
-            }
-            
-            // Jika col + span > 13, reset ke full width
-            if (gridCol + gridSpan - 1 > 12) {
-                console.warn(`Block ${index}: col ${gridCol} + span ${gridSpan} > 12, reset to full width`);
-                gridCol = 1;
-                gridSpan = 12;
-            }
-            
-            // Ensure gridCol valid (1-12)
-            if (gridCol < 1 || gridCol > 12) {
-                console.warn(`Block ${index}: gridCol ${gridCol} invalid, reset to 1`);
-                gridCol = 1;
-            }
-            
-            // ===== INJECT POSITIONING =====
-            const gridColumnValue = `${gridCol} / span ${gridSpan}`;
-            div.style.gridColumn = gridColumnValue;
-            div.setAttribute('data-grid-col', gridColumnValue);
-            div.setAttribute('data-grid-span', gridSpan);
-            div.setAttribute('data-grid-start', gridCol);
-            div.setAttribute('data-type', block.type || 'unknown');
-            div.style.setProperty('--grid-col', gridColumnValue);
-            
-            // ===== DEBUG INFO =====
-            div.setAttribute('data-debug', `col:${gridCol} span:${gridSpan} total:${gridCol + gridSpan - 1}`);
-            
             div.innerHTML = buildBlockHTML(block, index);
             attachBlockEvents(div, index);
             canvasBlocks.appendChild(div);
         }
 
-        function buildBlockHTML(block, index) {
-            // If block has custom rendered HTML, use it
-            if (block.render) {
-                return `
+                    function buildBlockHTML(block, index) {
+                        // If block has custom rendered HTML, use it
+                        if (block.render) {
+                            return `
                     <div class="block-header">
                         <div class="block-type-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
                         <div class="block-title">${escapeHtml(block.label || 'Custom Block')}</div>
@@ -4126,79 +3361,79 @@ return html;</pre>
                         <div class="custom-rendered-content">${block.render}</div>
                     </div>
                 `;
-            }
+                        }
 
-            const typeIcons = {
-                container: '<span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span>',
-                columns: '<span class="material-symbols-outlined" style="font-size:18px;">view_column</span>',
-                grid: '<span class="material-symbols-outlined" style="font-size:18px;">grid_view</span>',
-                section: '<span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span>',
-                divider: '<span class="material-symbols-outlined" style="font-size:18px;">horizontal_rule</span>',
-                spacer: '<span class="material-symbols-outlined" style="font-size:18px;">height</span>',
-                heading: '<span class="material-symbols-outlined" style="font-size:18px;">title</span>',
-                text: '<span class="material-symbols-outlined" style="font-size:18px;">text_fields</span>',
-                richtext: '<span class="material-symbols-outlined" style="font-size:18px;">description</span>',
-                list: '<span class="material-symbols-outlined" style="font-size:18px;">format_list_bulleted</span>',
-                quote: '<span class="material-symbols-outlined" style="font-size:18px;">format_quote</span>',
-                code: '<span class="material-symbols-outlined" style="font-size:18px;">code</span>',
-                image: '<span class="material-symbols-outlined" style="font-size:18px;">image</span>',
-                gallery: '<span class="material-symbols-outlined" style="font-size:18px;">image</span>',
-                video: '<span class="material-symbols-outlined" style="font-size:18px;">videocam</span>',
-                icon: '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
-                avatar: '<span class="material-symbols-outlined" style="font-size:18px;">account_circle</span>',
-                'text-input': '<span class="material-symbols-outlined" style="font-size:18px;">keyboard</span>',
-                textarea: '<span class="material-symbols-outlined" style="font-size:18px;">format_align_left</span>',
-                email: '<span class="material-symbols-outlined" style="font-size:18px;">mail</span>',
-                number: '<span class="material-symbols-outlined" style="font-size:18px;">tag</span>',
-                password: '<span class="material-symbols-outlined" style="font-size:18px;">lock</span>',
-                select: '<span class="material-symbols-outlined" style="font-size:18px;">list</span>',
-                checkbox: '<span class="material-symbols-outlined" style="font-size:18px;">check_box</span>',
-                radio: '<span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span>',
-                date: '<span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span>',
-                file: '<span class="material-symbols-outlined" style="font-size:18px;">attach_file</span>',
-                hidden: '<span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span>',
-                submit: '<span class="material-symbols-outlined" style="font-size:18px;">check</span>',
-                'product-card': '<span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span>',
-                'product-grid': '<span class="material-symbols-outlined" style="font-size:18px;">grid_on</span>',
-                price: '<span class="material-symbols-outlined" style="font-size:18px;">payments</span>',
-                'add-to-cart': '<span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span>',
-                'product-badge': '<span class="material-symbols-outlined" style="font-size:18px;">local_offer</span>',
-                stars: '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
-                'stock-status': '<span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span>',
-                'buy-now': '<span class="material-symbols-outlined" style="font-size:18px;">bolt</span>',
-                hero: '<span class="material-symbols-outlined" style="font-size:18px;">target</span>',
-                team: '<span class="material-symbols-outlined" style="font-size:18px;">group</span>',
-                testimonial: '<span class="material-symbols-outlined" style="font-size:18px;">format_quote</span>',
-                pricing: '<span class="material-symbols-outlined" style="font-size:18px;">diamond</span>',
-                faq: '<span class="material-symbols-outlined" style="font-size:18px;">help</span>',
-                stats: '<span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span>',
-                features: '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
-                'contact-card': '<span class="material-symbols-outlined" style="font-size:18px;">phone</span>',
-                button: '<span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span>',
-                link: '<span class="material-symbols-outlined" style="font-size:18px;">link</span>',
-                tabs: '<i class="fas fa-folder"></i>',
-                accordion: '<i class="fas fa-folder-open"></i>',
-                progress: '<span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span>',
-                timeline: '<span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span>',
-                newsletter: '<i class="fas fa-envelope-open"></i>',
-                countdown: '<i class="fas fa-hourglass-end"></i>',
-                alert: '<i class="fas fa-exclamation-triangle"></i>',
-                cta: '<span class="material-symbols-outlined" style="font-size:18px;">target</span>',
-                'social-links': '<i class="fas fa-share-alt"></i>',
-                'share-buttons': '<i class="fas fa-share-nodes"></i>',
-                embed: '<i class="fas fa-tv"></i>',
-                table: '<span class="material-symbols-outlined" style="font-size:18px;">table_chart</span>',
-                badge: '<span class="material-symbols-outlined" style="font-size:18px;">local_offer</span>',
-                chart: '<i class="fas fa-chart-line"></i>',
-                map: '<i class="fas fa-map"></i>',
-                html: '<span class="material-symbols-outlined" style="font-size:18px;">code</span>',
-                template: '<i class="fas fa-file-contract"></i>'
-            };
+                        const typeIcons = {
+                            container: '<span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span>',
+                            columns: '<span class="material-symbols-outlined" style="font-size:18px;">view_column</span>',
+                            grid: '<span class="material-symbols-outlined" style="font-size:18px;">grid_view</span>',
+                            section: '<span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span>',
+                            divider: '<span class="material-symbols-outlined" style="font-size:18px;">horizontal_rule</span>',
+                            spacer: '<span class="material-symbols-outlined" style="font-size:18px;">height</span>',
+                            heading: '<span class="material-symbols-outlined" style="font-size:18px;">title</span>',
+                            text: '<span class="material-symbols-outlined" style="font-size:18px;">text_fields</span>',
+                            richtext: '<span class="material-symbols-outlined" style="font-size:18px;">description</span>',
+                            list: '<span class="material-symbols-outlined" style="font-size:18px;">format_list_bulleted</span>',
+                            quote: '<span class="material-symbols-outlined" style="font-size:18px;">format_quote</span>',
+                            code: '<span class="material-symbols-outlined" style="font-size:18px;">code</span>',
+                            image: '<span class="material-symbols-outlined" style="font-size:18px;">image</span>',
+                            gallery: '<span class="material-symbols-outlined" style="font-size:18px;">image</span>',
+                            video: '<span class="material-symbols-outlined" style="font-size:18px;">videocam</span>',
+                            icon: '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
+                            avatar: '<span class="material-symbols-outlined" style="font-size:18px;">account_circle</span>',
+                            'text-input': '<span class="material-symbols-outlined" style="font-size:18px;">keyboard</span>',
+                            textarea: '<span class="material-symbols-outlined" style="font-size:18px;">format_align_left</span>',
+                            email: '<span class="material-symbols-outlined" style="font-size:18px;">mail</span>',
+                            number: '<span class="material-symbols-outlined" style="font-size:18px;">tag</span>',
+                            password: '<span class="material-symbols-outlined" style="font-size:18px;">lock</span>',
+                            select: '<span class="material-symbols-outlined" style="font-size:18px;">list</span>',
+                            checkbox: '<span class="material-symbols-outlined" style="font-size:18px;">check_box</span>',
+                            radio: '<span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span>',
+                            date: '<span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span>',
+                            file: '<span class="material-symbols-outlined" style="font-size:18px;">attach_file</span>',
+                            hidden: '<span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span>',
+                            submit: '<span class="material-symbols-outlined" style="font-size:18px;">check</span>',
+                            'product-card': '<span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span>',
+                            'product-grid': '<span class="material-symbols-outlined" style="font-size:18px;">grid_on</span>',
+                            price: '<span class="material-symbols-outlined" style="font-size:18px;">payments</span>',
+                            'add-to-cart': '<span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span>',
+                            'product-badge': '<span class="material-symbols-outlined" style="font-size:18px;">local_offer</span>',
+                            stars: '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
+                            'stock-status': '<span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span>',
+                            'buy-now': '<span class="material-symbols-outlined" style="font-size:18px;">bolt</span>',
+                            hero: '<span class="material-symbols-outlined" style="font-size:18px;">target</span>',
+                            team: '<span class="material-symbols-outlined" style="font-size:18px;">group</span>',
+                            testimonial: '<span class="material-symbols-outlined" style="font-size:18px;">format_quote</span>',
+                            pricing: '<span class="material-symbols-outlined" style="font-size:18px;">diamond</span>',
+                            faq: '<span class="material-symbols-outlined" style="font-size:18px;">help</span>',
+                            stats: '<span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span>',
+                            features: '<span class="material-symbols-outlined" style="font-size:18px;">star</span>',
+                            'contact-card': '<span class="material-symbols-outlined" style="font-size:18px;">phone</span>',
+                            button: '<span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span>',
+                            link: '<span class="material-symbols-outlined" style="font-size:18px;">link</span>',
+                            tabs: '<i class="fas fa-folder"></i>',
+                            accordion: '<i class="fas fa-folder-open"></i>',
+                            progress: '<span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span>',
+                            timeline: '<span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span>',
+                            newsletter: '<i class="fas fa-envelope-open"></i>',
+                            countdown: '<i class="fas fa-hourglass-end"></i>',
+                            alert: '<i class="fas fa-exclamation-triangle"></i>',
+                            cta: '<span class="material-symbols-outlined" style="font-size:18px;">target</span>',
+                            'social-links': '<i class="fas fa-share-alt"></i>',
+                            'share-buttons': '<i class="fas fa-share-nodes"></i>',
+                            embed: '<i class="fas fa-tv"></i>',
+                            table: '<span class="material-symbols-outlined" style="font-size:18px;">table_chart</span>',
+                            badge: '<span class="material-symbols-outlined" style="font-size:18px;">local_offer</span>',
+                            chart: '<i class="fas fa-chart-line"></i>',
+                            map: '<i class="fas fa-map"></i>',
+                            html: '<span class="material-symbols-outlined" style="font-size:18px;">code</span>',
+                            template: '<i class="fas fa-file-contract"></i>'
+                        };
 
-            const preview = buildPreview(block);
-            const selected = index === selectedIndex ? ' selected' : '';
+                        const preview = buildPreview(block);
+                        const selected = index === selectedIndex ? ' selected' : '';
 
-            return `
+                        return `
             <div class="canvas-block-header">
                 <div class="canvas-block-type">
                     <span class="drag-handle" title="Drag to reorder"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
@@ -4212,18 +3447,18 @@ return html;</pre>
                 </div>
             </div>
             <div class="canvas-block-preview">${preview}</div>`;
-        }
+                    }
 
         function buildPreview(block) {
             switch (block.type) {
                 case 'container':
-                    return '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:6px;font-weight:500;width:100%;box-sizing:border-box;">Container</div>';
+                    return '<div style="padding:20px;border:1px dashed var(--gray-300);border-radius:8px;">Container</div>';
                 case 'columns':
-                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:4px;width:100%;box-sizing:border-box;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;box-sizing:border-box;"></div>').join('') + '</div>';
+                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;"></div>').join('') + '</div>';
                 case 'grid':
-                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:4px;width:100%;box-sizing:border-box;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;box-sizing:border-box;"></div>').join('') + '</div>';
+                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;">' + Array(block.columns || 3).fill('<div style="height:60px;background:var(--gray-100);border-radius:6px;"></div>').join('') + '</div>';
                 case 'section':
-                    return '<div style="text-align:center;color:#9ca3af;font-size:13px;padding:12px;font-weight:500;">Section</div>';
+                    return '<div style="padding:40px;background:var(--gray-50);border-radius:8px;text-align:center;color:var(--gray-400);">Section</div>';
                 case 'divider':
                     return '<hr class="preview-divider">';
                 case 'spacer':
@@ -4293,7 +3528,7 @@ return html;</pre>
                 case 'product-card':
                     return '<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">' + escapeHtml(block.name || 'Product') + '</div><div class="preview-product-price">$' + escapeHtml(block.price || '0') + '</div></div></div>';
                 case 'product-grid':
-                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:8px;width:100%;box-sizing:border-box;overflow:hidden;">' + Array(block.products || 4).fill('<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">Product</div><div class="preview-product-price">$99</div></div></div>').join('') + '</div>';
+                    return '<div style="display:grid;grid-template-columns:repeat(' + (block.columns || 3) + ',1fr);gap:12px;">' + Array(block.products || 4).fill('<div class="preview-product-card"><div class="preview-product-img">📦</div><div class="preview-product-body"><div class="preview-product-name">Product</div><div class="preview-product-price">$99</div></div></div>').join('') + '</div>';
                 case 'price':
                     return '<div><span class="preview-price">' + escapeHtml(block.currency || '$') + escapeHtml(block.amount || '0') + '</span>' + (block.oldPrice ? '<span class="preview-price-old">' + escapeHtml(block.currency || '$') + escapeHtml(block.oldPrice) + '</span>' : '') + '</div>';
                 case 'add-to-cart':
@@ -4425,67 +3660,67 @@ return html;</pre>
             }
         }
 
-        function attachBlockEvents(div, index) {
-            div.addEventListener('click', function(e) {
-                if (!e.target.closest('.canvas-block-btn') && !e.target.closest('.drag-handle')) {
-                    selectBlock(index);
-                }
-            });
+                    function attachBlockEvents(div, index) {
+                        div.addEventListener('click', function(e) {
+                            if (!e.target.closest('.canvas-block-btn') && !e.target.closest('.drag-handle')) {
+                                selectBlock(index);
+                            }
+                        });
 
-            const upBtn = div.querySelector('.move-up');
-            const downBtn = div.querySelector('.move-down');
-            const dupBtn = div.querySelector('.duplicate');
-            const delBtn = div.querySelector('.delete');
+                        const upBtn = div.querySelector('.move-up');
+                        const downBtn = div.querySelector('.move-down');
+                        const dupBtn = div.querySelector('.duplicate');
+                        const delBtn = div.querySelector('.delete');
 
-            if (upBtn) upBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (index > 0) {
-                    saveState();
-                    [blocks[index], blocks[index - 1]] = [blocks[index - 1], blocks[index]];
-                    refreshAllBlocks();
-                    selectBlock(index - 1);
-                }
-            });
+                        if (upBtn) upBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            if (index > 0) {
+                                saveState();
+                                [blocks[index], blocks[index - 1]] = [blocks[index - 1], blocks[index]];
+                                refreshAllBlocks();
+                                selectBlock(index - 1);
+                            }
+                        });
 
-            if (downBtn) downBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                if (index < blocks.length - 1) {
-                    saveState();
-                    [blocks[index], blocks[index + 1]] = [blocks[index + 1], blocks[index]];
-                    refreshAllBlocks();
-                    selectBlock(index + 1);
-                }
-            });
+                        if (downBtn) downBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            if (index < blocks.length - 1) {
+                                saveState();
+                                [blocks[index], blocks[index + 1]] = [blocks[index + 1], blocks[index]];
+                                refreshAllBlocks();
+                                selectBlock(index + 1);
+                            }
+                        });
 
-            if (dupBtn) dupBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                saveState();
-                const copy = Object.assign({}, blocks[index]);
-                copy.label = copy.label + ' (copy)';
-                blocks.splice(index + 1, 0, copy);
-                refreshAllBlocks();
-                selectBlock(index + 1);
-            });
+                        if (dupBtn) dupBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            saveState();
+                            const copy = Object.assign({}, blocks[index]);
+                            copy.label = copy.label + ' (copy)';
+                            blocks.splice(index + 1, 0, copy);
+                            refreshAllBlocks();
+                            selectBlock(index + 1);
+                        });
 
-            if (delBtn) delBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                showDeleteConfirmModal(function() {
-                    saveState();
-                    blocks.splice(index, 1);
-                    if (selectedIndex === index) {
-                        selectedIndex = -1;
-                        hideProperties();
-                    } else if (selectedIndex > index) selectedIndex--;
-                    refreshAllBlocks();
-                    updateEmptyState();
-                });
-            });
-        }
+                        if (delBtn) delBtn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            showDeleteConfirmModal(function() {
+                                saveState();
+                                blocks.splice(index, 1);
+                                if (selectedIndex === index) {
+                                    selectedIndex = -1;
+                                    hideProperties();
+                                } else if (selectedIndex > index) selectedIndex--;
+                                refreshAllBlocks();
+                                updateEmptyState();
+                            });
+                        });
+                    }
 
-        // Custom Delete Confirmation Modal
-        function showDeleteConfirmModal(callback) {
-            const modal = document.createElement('div');
-            modal.style.cssText = `
+                    // Custom Delete Confirmation Modal
+                    function showDeleteConfirmModal(callback) {
+                        const modal = document.createElement('div');
+                        modal.style.cssText = `
             position: fixed;
             top: 0;
             left: 0;
@@ -4498,7 +3733,7 @@ return html;</pre>
             z-index: 9999;
             animation: fadeIn 0.3s ease;
         `;
-            modal.innerHTML = `
+                        modal.innerHTML = `
             <div style="background: white; border-radius: 12px; padding: 24px; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.3s ease;">
                 <div style="font-size: 48px; margin-bottom: 16px;">🗑️</div>
                 <h3 style="margin: 0 0 8px; font-size: 18px; font-weight: 600; color: var(--gray-900);">Delete this block?</h3>
@@ -4514,858 +3749,849 @@ return html;</pre>
             </style>
         `;
 
-            document.body.appendChild(modal);
+                        document.body.appendChild(modal);
 
-            const cancelBtn = modal.querySelector('#cancel-btn');
-            const confirmBtn = modal.querySelector('#confirm-btn');
+                        const cancelBtn = modal.querySelector('#cancel-btn');
+                        const confirmBtn = modal.querySelector('#confirm-btn');
 
-            cancelBtn.addEventListener('click', function() {
-                modal.style.animation = 'fadeIn 0.3s ease reverse';
-                setTimeout(() => modal.remove(), 300);
-            });
+                        cancelBtn.addEventListener('click', function() {
+                            modal.style.animation = 'fadeIn 0.3s ease reverse';
+                            setTimeout(() => modal.remove(), 300);
+                        });
 
-            confirmBtn.addEventListener('click', function() {
-                modal.style.animation = 'fadeIn 0.3s ease reverse';
-                setTimeout(() => {
-                    modal.remove();
-                    callback();
-                }, 300);
-            });
-        }
-
-        function refreshAllBlocks() {
-            canvasBlocks.innerHTML = '';
-            blocks.forEach(function(block, i) {
-                renderBlock(block, i);
-            });
-            updateEmptyState();
-        }
-
-        function updateCanvasIndices() {
-            canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el, i) {
-                el.dataset.index = i;
-            });
-        }
-
-        function selectBlock(index) {
-            selectedIndex = index;
-            canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el) {
-                el.classList.toggle('selected', parseInt(el.dataset.index) === index);
-            });
-            showProperties();
-            updateProperties();
-        }
-
-        function showProperties() {
-            document.getElementById('props-empty').style.display = 'none';
-            document.querySelectorAll('.props-tab').forEach(function(el) {
-                el.style.display = '';
-            });
-            document.getElementById('props-delete-section').style.display = '';
-        }
-
-        function hideProperties() {
-            document.getElementById('props-empty').style.display = '';
-            document.querySelectorAll('.props-tab').forEach(function(el) {
-                el.style.display = 'none';
-            });
-            document.getElementById('props-delete-section').style.display = 'none';
-        }
-
-        function updateProperties() {
-            if (selectedIndex < 0) {
-                hideProperties();
-                return;
-            }
-            const block = blocks[selectedIndex];
-            document.getElementById('prop-label').value = block.label || '';
-            document.getElementById('prop-desc').value = block.content || block.description || block.subtitle || block.text || '';
-            document.getElementById('prop-url').value = block.url || block.buttonUrl || block.src || '';
-            document.getElementById('prop-image').value = block.src || block.image || '';
-            document.getElementById('prop-bg-color').value = block.bgColor || '#ffffff';
-            document.getElementById('prop-text-color').value = block.color || block.textColor || '#1f2937';
-            document.getElementById('prop-padding').value = block.padding || 'md';
-            document.getElementById('prop-radius').value = block.radius || 'md';
-            document.getElementById('prop-align').value = block.align || 'left';
-            document.getElementById('prop-hidden').checked = block.hidden || false;
-            document.getElementById('prop-class').value = block.cssClass || '';
-            document.getElementById('prop-css').value = block.customCSS || '';
-        }
-
-        function updateEmptyState() {
-            canvasEmpty.style.display = blocks.length === 0 ? '' : 'none';
-        }
-
-        // Property input sync
-        ['prop-label', 'prop-desc', 'prop-url', 'prop-image', 'prop-padding', 'prop-radius', 'prop-align', 'prop-class', 'prop-css'].forEach(function(id) {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('input', syncProperty);
-        });
-        ['prop-bg-color', 'prop-text-color'].forEach(function(id) {
-            const el = document.getElementById(id);
-            if (el) el.addEventListener('change', syncProperty);
-        });
-        document.getElementById('prop-hidden').addEventListener('change', syncProperty);
-        // JSON TAB HANDLER
-        document.querySelectorAll('.properties-tab').forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                const tabName = this.dataset.tab;
-                document.querySelectorAll('.properties-tab').forEach(el => el.classList.remove('active'));
-                this.classList.add('active');
-                document.querySelectorAll('.props-tab').forEach(el => el.style.display = 'none');
-                const activePanel = document.getElementById('props-' + tabName);
-                if (activePanel) activePanel.style.display = '';
-
-                if (tabName === 'json' && selectedIndex >= 0) {
-                    const jsonArea = document.getElementById('prop-json');
-                    if (jsonArea) jsonArea.value = objectToJavaScript(blocks[selectedIndex]);
-                }
-            });
-        });
-
-        // APPLY JAVASCRIPT/OBJECT BUTTON
-        const applyJsonBtn = document.getElementById('btn-apply-json');
-        if (applyJsonBtn) {
-            applyJsonBtn.addEventListener('click', function() {
-                if (selectedIndex < 0) {
-                    alert('🔴 Please select a block first!');
-                    return;
-                }
-
-                const code = document.getElementById('prop-json').value;
-
-                if (!code.trim()) {
-                    alert('⚠️ Please enter some properties or code!');
-                    return;
-                }
-
-                try {
-                    let parsed;
-
-                    if (editorMode === 'code') {
-                        // CODE MODE: Execute JavaScript code
-                        parsed = executeJavaScriptCode(code, blocks[selectedIndex]);
-                    } else {
-                        // OBJECT MODE: Parse as object
-                        parsed = parseJavaScript(code);
+                        confirmBtn.addEventListener('click', function() {
+                            modal.style.animation = 'fadeIn 0.3s ease reverse';
+                            setTimeout(() => {
+                                modal.remove();
+                                callback();
+                            }, 300);
+                        });
                     }
 
-                    // Merge with existing block properties
-                    blocks[selectedIndex] = Object.assign({}, blocks[selectedIndex], parsed);
-
-                    // If code mode and result has render function or HTML, store it
-                    if (editorMode === 'code') {
-                        blocks[selectedIndex].customCode = code;
+                    function refreshAllBlocks() {
+                        canvasBlocks.innerHTML = '';
+                        blocks.forEach(function(block, i) {
+                            renderBlock(block, i);
+                        });
+                        updateEmptyState();
                     }
 
-                    saveState();
-                    refreshAllBlocks();
-                    selectBlock(selectedIndex);
+                    function updateCanvasIndices() {
+                        canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el, i) {
+                            el.dataset.index = i;
+                        });
+                    }
 
-                    // Show success notification
-                    const modeLabel = editorMode === 'code' ? 'Code' : 'Properties';
-                    showNotification('✓ ' + modeLabel + ' applied successfully!', 'success');
-                } catch (e) {
-                    // Show detailed error
-                    const errorMessage = e.message.replace(/\n/g, '<br>');
-                    showNotification('<strong>❌ Invalid Input</strong><br><br>' + errorMessage, 'error', 6000);
-                }
-            });
-        }
+                    function selectBlock(index) {
+                        selectedIndex = index;
+                        canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el) {
+                            el.classList.toggle('selected', parseInt(el.dataset.index) === index);
+                        });
+                        showProperties();
+                        updateProperties();
+                    }
 
-        // Helper: Execute JavaScript code with sandboxed document
-        function executeJavaScriptCode(code, blockData) {
-            // Create a sandbox container
-            const sandbox = document.createElement('div');
-            sandbox.style.display = 'none';
-            document.body.appendChild(sandbox);
+                    function showProperties() {
+                        document.getElementById('props-empty').style.display = 'none';
+                        document.querySelectorAll('.props-tab').forEach(function(el) {
+                            el.style.display = '';
+                        });
+                        document.getElementById('props-delete-section').style.display = '';
+                    }
 
-            // Track created elements
-            let createdElements = [];
-            let lastReturnedValue = null;
+                    function hideProperties() {
+                        document.getElementById('props-empty').style.display = '';
+                        document.querySelectorAll('.props-tab').forEach(function(el) {
+                            el.style.display = 'none';
+                        });
+                        document.getElementById('props-delete-section').style.display = 'none';
+                    }
 
-            try {
-                // Override document methods to capture DOM creation
-                const originalCreateElement = document.createElement;
-                const originalBodyAppendChild = document.body.appendChild;
-                const originalAppendChild = Element.prototype.appendChild;
-                const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-
-                // Mock createElement to track and redirect to sandbox
-                document.createElement = function(tagName) {
-                    const element = originalCreateElement.call(document, tagName);
-                    createdElements.push(element);
-
-                    // Override appendChild to add to sandbox instead of body
-                    const originalAppendChildMethod = element.appendChild.bind(element);
-                    element.appendChild = function(child) {
-                        // If trying to append to body, redirect to sandbox
-                        if (this === document.body) {
-                            return sandbox.appendChild(child);
+                    function updateProperties() {
+                        if (selectedIndex < 0) {
+                            hideProperties();
+                            return;
                         }
-                        return originalAppendChildMethod(child);
-                    };
+                        const block = blocks[selectedIndex];
+                        document.getElementById('prop-label').value = block.label || '';
+                        document.getElementById('prop-desc').value = block.content || block.description || block.subtitle || block.text || '';
+                        document.getElementById('prop-url').value = block.url || block.buttonUrl || block.src || '';
+                        document.getElementById('prop-image').value = block.src || block.image || '';
+                        document.getElementById('prop-bg-color').value = block.bgColor || '#ffffff';
+                        document.getElementById('prop-text-color').value = block.color || block.textColor || '#1f2937';
+                        document.getElementById('prop-padding').value = block.padding || 'md';
+                        document.getElementById('prop-radius').value = block.radius || 'md';
+                        document.getElementById('prop-align').value = block.align || 'left';
+                        document.getElementById('prop-hidden').checked = block.hidden || false;
+                        document.getElementById('prop-class').value = block.cssClass || '';
+                        document.getElementById('prop-css').value = block.customCSS || '';
+                    }
 
-                    return element;
-                };
+                    function updateEmptyState() {
+                        canvasEmpty.style.display = blocks.length === 0 ? '' : 'none';
+                    }
 
-                // Mock document.body.appendChild to add to sandbox
-                document.body.appendChild = function(child) {
-                    return sandbox.appendChild(child);
-                };
+                    // Property input sync
+                    ['prop-label', 'prop-desc', 'prop-url', 'prop-image', 'prop-padding', 'prop-radius', 'prop-align', 'prop-class', 'prop-css'].forEach(function(id) {
+                        const el = document.getElementById(id);
+                        if (el) el.addEventListener('input', syncProperty);
+                    });
+                    ['prop-bg-color', 'prop-text-color'].forEach(function(id) {
+                        const el = document.getElementById(id);
+                        if (el) el.addEventListener('change', syncProperty);
+                    });
+                    document.getElementById('prop-hidden').addEventListener('change', syncProperty);
+                    // JSON TAB HANDLER
+                    document.querySelectorAll('.properties-tab').forEach(function(tab) {
+                        tab.addEventListener('click', function() {
+                            const tabName = this.dataset.tab;
+                            document.querySelectorAll('.properties-tab').forEach(el => el.classList.remove('active'));
+                            this.classList.add('active');
+                            document.querySelectorAll('.props-tab').forEach(el => el.style.display = 'none');
+                            const activePanel = document.getElementById('props-' + tabName);
+                            if (activePanel) activePanel.style.display = '';
 
-                // Execute the code with blockData as 'this'
-                const fn = new Function(code);
-                const boundFn = fn.bind(blockData);
-                const result = boundFn();
-                lastReturnedValue = result;
+                            if (tabName === 'json' && selectedIndex >= 0) {
+                                const jsonArea = document.getElementById('prop-json');
+                                if (jsonArea) jsonArea.value = objectToJavaScript(blocks[selectedIndex]);
+                            }
+                        });
+                    });
 
-                // Restore original methods
-                document.createElement = originalCreateElement;
-                document.body.appendChild = originalBodyAppendChild;
-                Element.prototype.appendChild = originalAppendChild;
+                    // APPLY JAVASCRIPT/OBJECT BUTTON
+                    const applyJsonBtn = document.getElementById('btn-apply-json');
+                    if (applyJsonBtn) {
+                        applyJsonBtn.addEventListener('click', function() {
+                            if (selectedIndex < 0) {
+                                alert('🔴 Please select a block first!');
+                                return;
+                            }
 
-                // Determine what to return
-                if (typeof result === 'string') {
-                    // Returned HTML string
-                    return {
-                        render: result,
-                        customCode: code
-                    };
-                } else if (result instanceof Element) {
-                    // Returned DOM element
-                    return {
-                        render: result.outerHTML,
-                        customCode: code
-                    };
-                } else if (result && typeof result === 'object') {
-                    // Returned object with properties
-                    return result;
-                } else if (sandbox.innerHTML) {
-                    // Capture sandbox content
-                    return {
-                        render: sandbox.innerHTML,
-                        customCode: code
-                    };
-                } else {
-                    throw new Error('Code did not return a renderable result. Return HTML string, DOM element, or object with render property.');
-                }
-            } finally {
-                // Cleanup sandbox
-                document.body.removeChild(sandbox);
-            }
-        }
+                            const code = document.getElementById('prop-json').value;
 
-        // Helper: Convert object to JavaScript object literal string
-        function objectToJavaScript(obj) {
-            return JSON.stringify(obj, null, 2)
-                .replace(/"([^"]+)":/g, '$1:')
-                .replace(/"([^"]*?)"/g, "'$1'");
-        }
+                            if (!code.trim()) {
+                                alert('⚠️ Please enter some properties or code!');
+                                return;
+                            }
 
-        // Helper: Parse JavaScript object (supports JS syntax, JSON, and even code with functions)
-        function parseJavaScript(code) {
-            // Clean up the code
-            code = code.trim();
+                            try {
+                                let parsed;
 
-            if (!code) {
-                throw new Error('❌ Empty input! Please enter a JavaScript object.');
-            }
+                                if (editorMode === 'code') {
+                                    // CODE MODE: Execute JavaScript code
+                                    parsed = executeJavaScriptCode(code, blocks[selectedIndex]);
+                                } else {
+                                    // OBJECT MODE: Parse as object
+                                    parsed = parseJavaScript(code);
+                                }
 
-            // VALIDATION: Detect and block executable code patterns
-            const disallowedPatterns = [{
-                    pattern: /document\./gi,
-                    name: 'document.*',
-                    hint: 'DOM manipulation is not allowed'
-                },
-                {
-                    pattern: /window\./gi,
-                    name: 'window.*',
-                    hint: 'Browser API is not allowed'
-                },
-                {
-                    pattern: /\.appendChild\(/gi,
-                    name: '.appendChild()',
-                    hint: 'DOM manipulation is not allowed'
-                },
-                {
-                    pattern: /\.innerHTML/gi,
-                    name: '.innerHTML',
-                    hint: 'DOM manipulation is not allowed'
-                },
-                {
-                    pattern: /\.addEventListener\(/gi,
-                    name: '.addEventListener()',
-                    hint: 'Event binding is not allowed'
-                },
-                {
-                    pattern: /alert\(/gi,
-                    name: 'alert()',
-                    hint: 'Alerts are not allowed'
-                },
-                {
-                    pattern: /console\./gi,
-                    name: 'console.*',
-                    hint: 'Console logging is not allowed'
-                },
-                {
-                    pattern: /fetch\(/gi,
-                    name: 'fetch()',
-                    hint: 'Network requests are not allowed'
-                },
-                {
-                    pattern: /\.getElement/gi,
-                    name: '.getElement*',
-                    hint: 'DOM queries are not allowed'
-                },
-                {
-                    pattern: /\.querySelector/gi,
-                    name: '.querySelector*',
-                    hint: 'DOM queries are not allowed'
-                },
-                {
-                    pattern: /function\s+\w+\s*\(/gi,
-                    name: 'function declarations',
-                    hint: 'Function definitions are not allowed'
-                },
-                {
-                    pattern: /=>\s*\{/gi,
-                    name: 'arrow functions',
-                    hint: 'Function bodies are not allowed'
-                },
-            ];
+                                // Merge with existing block properties
+                                blocks[selectedIndex] = Object.assign({}, blocks[selectedIndex], parsed);
 
-            for (const check of disallowedPatterns) {
-                if (check.pattern.test(code)) {
-                    throw new Error(
-                        '❌ Invalid: Found ' + check.name + '\n\n' +
-                        '💡 ' + check.hint + '\n\n' +
-                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
-                        '📝 PURPOSE: This editor is for defining block PROPERTIES only\n' +
-                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-                        '✅ CORRECT USAGE - Just define the object:\n\n' +
-                        '{\n' +
-                        '  type: "columns",\n' +
-                        '  columns: 3,\n' +
-                        '  label: "My Columns",\n' +
-                        '  content: "Your content here"\n' +
-                        '}\n\n' +
-                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-                        '❌ WRONG - Don\'t write executable code:\n\n' +
-                        'const data = { type: "columns" };\n' +
-                        'document.body.appendChild(createColumns(data));\n\n' +
-                        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
-                        '💡 TIP: Think of this as filling a form, not writing a program!'
-                    );
-                }
-            }
+                                // If code mode and result has render function or HTML, store it
+                                if (editorMode === 'code') {
+                                    blocks[selectedIndex].customCode = code;
+                                }
 
-            // DETECT: Is this a code block with statements or an object literal?
-            const hasStatements = code.includes('const ') || code.includes('let ') ||
-                code.includes('var ') || code.includes('function ') ||
-                code.includes('return ') || code.includes(';');
+                                saveState();
+                                refreshAllBlocks();
+                                selectBlock(selectedIndex);
 
-            const isCodeBlock = hasStatements && !code.match(/^\s*\{[^}]*\}\s*$/);
+                                // Show success notification
+                                const modeLabel = editorMode === 'code' ? 'Code' : 'Properties';
+                                showNotification('✓ ' + modeLabel + ' applied successfully!', 'success');
+                            } catch (e) {
+                                // Show detailed error
+                                const errorMessage = e.message.replace(/\n/g, '<br>');
+                                showNotification('<strong>❌ Invalid Input</strong><br><br>' + errorMessage, 'error', 6000);
+                            }
+                        });
+                    }
 
-            if (isCodeBlock) {
-                // This is a CODE BLOCK - execute it and get the result
-                try {
-                    let jsCode = code;
+                    // Helper: Execute JavaScript code with sandboxed document
+                    function executeJavaScriptCode(code, blockData) {
+                        // Create a sandbox container
+                        const sandbox = document.createElement('div');
+                        sandbox.style.display = 'none';
+                        document.body.appendChild(sandbox);
 
-                    // Strategy: Execute as function body and auto-return the last object
-                    if (!jsCode.includes('return ')) {
-                        const lines = jsCode.split('\n');
-                        let lastMeaningfulLine = '';
+                        // Track created elements
+                        let createdElements = [];
+                        let lastReturnedValue = null;
 
-                        // Find the last meaningful line (skip comments and empty lines)
-                        for (let i = lines.length - 1; i >= 0; i--) {
-                            const line = lines[i].trim();
-                            if (line && !line.startsWith('//') && line !== '{' && line !== '}' && line !== '') {
-                                lastMeaningfulLine = line;
-                                break;
+                        try {
+                            // Override document methods to capture DOM creation
+                            const originalCreateElement = document.createElement;
+                            const originalBodyAppendChild = document.body.appendChild;
+                            const originalAppendChild = Element.prototype.appendChild;
+                            const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+
+                            // Mock createElement to track and redirect to sandbox
+                            document.createElement = function(tagName) {
+                                const element = originalCreateElement.call(document, tagName);
+                                createdElements.push(element);
+
+                                // Override appendChild to add to sandbox instead of body
+                                const originalAppendChildMethod = element.appendChild.bind(element);
+                                element.appendChild = function(child) {
+                                    // If trying to append to body, redirect to sandbox
+                                    if (this === document.body) {
+                                        return sandbox.appendChild(child);
+                                    }
+                                    return originalAppendChildMethod(child);
+                                };
+
+                                return element;
+                            };
+
+                            // Mock document.body.appendChild to add to sandbox
+                            document.body.appendChild = function(child) {
+                                return sandbox.appendChild(child);
+                            };
+
+                            // Execute the code with blockData as 'this'
+                            const fn = new Function(code);
+                            const boundFn = fn.bind(blockData);
+                            const result = boundFn();
+                            lastReturnedValue = result;
+
+                            // Restore original methods
+                            document.createElement = originalCreateElement;
+                            document.body.appendChild = originalBodyAppendChild;
+                            Element.prototype.appendChild = originalAppendChild;
+
+                            // Determine what to return
+                            if (typeof result === 'string') {
+                                // Returned HTML string
+                                return {
+                                    render: result,
+                                    customCode: code
+                                };
+                            } else if (result instanceof Element) {
+                                // Returned DOM element
+                                return {
+                                    render: result.outerHTML,
+                                    customCode: code
+                                };
+                            } else if (result && typeof result === 'object') {
+                                // Returned object with properties
+                                return result;
+                            } else if (sandbox.innerHTML) {
+                                // Capture sandbox content
+                                return {
+                                    render: sandbox.innerHTML,
+                                    customCode: code
+                                };
+                            } else {
+                                throw new Error('Code did not return a renderable result. Return HTML string, DOM element, or object with render property.');
+                            }
+                        } finally {
+                            // Cleanup sandbox
+                            document.body.removeChild(sandbox);
+                        }
+                    }
+
+                    // Helper: Convert object to JavaScript object literal string
+                    function objectToJavaScript(obj) {
+                        return JSON.stringify(obj, null, 2)
+                            .replace(/"([^"]+)":/g, '$1:')
+                            .replace(/"([^"]*?)"/g, "'$1'");
+                    }
+
+                    // Helper: Parse JavaScript object (supports JS syntax, JSON, and even code with functions)
+                    function parseJavaScript(code) {
+                        // Clean up the code
+                        code = code.trim();
+
+                        if (!code) {
+                            throw new Error('❌ Empty input! Please enter a JavaScript object.');
+                        }
+
+                        // VALIDATION: Detect and block executable code patterns
+                        const disallowedPatterns = [{
+                                pattern: /document\./gi,
+                                name: 'document.*',
+                                hint: 'DOM manipulation is not allowed'
+                            },
+                            {
+                                pattern: /window\./gi,
+                                name: 'window.*',
+                                hint: 'Browser API is not allowed'
+                            },
+                            {
+                                pattern: /\.appendChild\(/gi,
+                                name: '.appendChild()',
+                                hint: 'DOM manipulation is not allowed'
+                            },
+                            {
+                                pattern: /\.innerHTML/gi,
+                                name: '.innerHTML',
+                                hint: 'DOM manipulation is not allowed'
+                            },
+                            {
+                                pattern: /\.addEventListener\(/gi,
+                                name: '.addEventListener()',
+                                hint: 'Event binding is not allowed'
+                            },
+                            {
+                                pattern: /alert\(/gi,
+                                name: 'alert()',
+                                hint: 'Alerts are not allowed'
+                            },
+                            {
+                                pattern: /console\./gi,
+                                name: 'console.*',
+                                hint: 'Console logging is not allowed'
+                            },
+                            {
+                                pattern: /fetch\(/gi,
+                                name: 'fetch()',
+                                hint: 'Network requests are not allowed'
+                            },
+                            {
+                                pattern: /\.getElement/gi,
+                                name: '.getElement*',
+                                hint: 'DOM queries are not allowed'
+                            },
+                            {
+                                pattern: /\.querySelector/gi,
+                                name: '.querySelector*',
+                                hint: 'DOM queries are not allowed'
+                            },
+                            {
+                                pattern: /function\s+\w+\s*\(/gi,
+                                name: 'function declarations',
+                                hint: 'Function definitions are not allowed'
+                            },
+                            {
+                                pattern: /=>\s*\{/gi,
+                                name: 'arrow functions',
+                                hint: 'Function bodies are not allowed'
+                            },
+                        ];
+
+                        for (const check of disallowedPatterns) {
+                            if (check.pattern.test(code)) {
+                                throw new Error(
+                                    '❌ Invalid: Found ' + check.name + '\n\n' +
+                                    '💡 ' + check.hint + '\n\n' +
+                                    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+                                    '📝 PURPOSE: This editor is for defining block PROPERTIES only\n' +
+                                    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                                    '✅ CORRECT USAGE - Just define the object:\n\n' +
+                                    '{\n' +
+                                    '  type: "columns",\n' +
+                                    '  columns: 3,\n' +
+                                    '  label: "My Columns",\n' +
+                                    '  content: "Your content here"\n' +
+                                    '}\n\n' +
+                                    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                                    '❌ WRONG - Don\'t write executable code:\n\n' +
+                                    'const data = { type: "columns" };\n' +
+                                    'document.body.appendChild(createColumns(data));\n\n' +
+                                    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+                                    '💡 TIP: Think of this as filling a form, not writing a program!'
+                                );
                             }
                         }
 
-                        // Check if it's a variable declaration
-                        const varMatch = lastMeaningfulLine.match(/^(const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/);
-                        if (varMatch) {
-                            const varName = varMatch[2];
-                            jsCode = jsCode + '\nreturn ' + varName + ';';
+                        // DETECT: Is this a code block with statements or an object literal?
+                        const hasStatements = code.includes('const ') || code.includes('let ') ||
+                            code.includes('var ') || code.includes('function ') ||
+                            code.includes('return ') || code.includes(';');
+
+                        const isCodeBlock = hasStatements && !code.match(/^\s*\{[^}]*\}\s*$/);
+
+                        if (isCodeBlock) {
+                            // This is a CODE BLOCK - execute it and get the result
+                            try {
+                                let jsCode = code;
+
+                                // Strategy: Execute as function body and auto-return the last object
+                                if (!jsCode.includes('return ')) {
+                                    const lines = jsCode.split('\n');
+                                    let lastMeaningfulLine = '';
+
+                                    // Find the last meaningful line (skip comments and empty lines)
+                                    for (let i = lines.length - 1; i >= 0; i--) {
+                                        const line = lines[i].trim();
+                                        if (line && !line.startsWith('//') && line !== '{' && line !== '}' && line !== '') {
+                                            lastMeaningfulLine = line;
+                                            break;
+                                        }
+                                    }
+
+                                    // Check if it's a variable declaration
+                                    const varMatch = lastMeaningfulLine.match(/^(const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=/);
+                                    if (varMatch) {
+                                        const varName = varMatch[2];
+                                        jsCode = jsCode + '\nreturn ' + varName + ';';
+                                    }
+                                    // Check if it's a simple variable reference
+                                    else if (/^[a-zA-Z_$][a-zA-Z0-9_$]*;?\s*$/.test(lastMeaningfulLine.replace(/;$/, ''))) {
+                                        const varName = lastMeaningfulLine.replace(/;$/, '').trim();
+                                        jsCode = jsCode + '\nreturn ' + varName + ';';
+                                    }
+                                    // Check if last line is an object literal
+                                    else if (lastMeaningfulLine.startsWith('{') && lastMeaningfulLine.endsWith('}')) {
+                                        jsCode = jsCode + '\nreturn ' + lastMeaningfulLine.replace(/;$/, '') + ';';
+                                    }
+                                }
+
+                                // Execute the code
+                                const fn = new Function(jsCode);
+                                const result = fn();
+
+                                if (typeof result === 'object' && result !== null) {
+                                    return result;
+                                } else {
+                                    throw new Error('Code did not return an object. Add "return data;" at the end.');
+                                }
+                            } catch (e) {
+                                throw new Error(
+                                    '❌ Cannot execute JavaScript code.\n\n' +
+                                    '📝 HOW TO FIX:\n\n' +
+                                    '✅ Option 1 - Use OBJECT LITERAL (simplest):\n' +
+                                    '  {\n' +
+                                    '    type: "columns",\n' +
+                                    '    columns: 3,\n' +
+                                    '    label: "Columns"\n' +
+                                    '  }\n\n' +
+                                    '✅ Option 2 - Declare variable + RETURN it:\n' +
+                                    '  const data = {\n' +
+                                    '    type: "columns",\n' +
+                                    '    columns: 3\n' +
+                                    '  };\n' +
+                                    '  return data;\n\n' +
+                                    '✅ Option 3 - Use JSON format:\n' +
+                                    '  {\n' +
+                                    '    "type": "columns",\n' +
+                                    '    "columns": 3\n' +
+                                    '  }\n\n' +
+                                    '❌ DO NOT include:\n' +
+                                    '  - document.body.appendChild()\n' +
+                                    '  - Function calls that modify DOM\n' +
+                                    '  - console.log()\n\n' +
+                                    '💡 TIP: This editor is for defining BLOCK PROPERTIES only,\n' +
+                                    '     not for executing code.\n\n' +
+                                    'Error: ' + e.message
+                                );
+                            }
                         }
-                        // Check if it's a simple variable reference
-                        else if (/^[a-zA-Z_$][a-zA-Z0-9_$]*;?\s*$/.test(lastMeaningfulLine.replace(/;$/, ''))) {
-                            const varName = lastMeaningfulLine.replace(/;$/, '').trim();
-                            jsCode = jsCode + '\nreturn ' + varName + ';';
+
+                        // This is an OBJECT LITERAL or JSON - parse it
+                        // Try 1: Parse as JSON first (fastest)
+                        try {
+                            const result = JSON.parse(code);
+                            if (typeof result === 'object' && result !== null) {
+                                return result;
+                            }
+                        } catch (e) {
+                            // Not valid JSON, continue to next method
                         }
-                        // Check if last line is an object literal
-                        else if (lastMeaningfulLine.startsWith('{') && lastMeaningfulLine.endsWith('}')) {
-                            jsCode = jsCode + '\nreturn ' + lastMeaningfulLine.replace(/;$/, '') + ';';
+
+                        // Try 2: Convert JS object literal syntax to JSON and parse
+                        try {
+                            let normalized = code;
+
+                            // Remove trailing commas
+                            normalized = normalized.replace(/,\s*([}\]])/g, '$1');
+
+                            // Convert single quotes to double quotes
+                            normalized = normalized.replace(/'/g, '"');
+
+                            // Add quotes to unquoted property names
+                            normalized = normalized.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+
+                            // Remove semicolons at the end
+                            normalized = normalized.replace(/;\s*$/, '');
+
+                            const result = JSON.parse(normalized);
+                            if (typeof result === 'object' && result !== null) {
+                                return result;
+                            }
+                        } catch (e) {
+                            // Failed to convert
+                        }
+
+                        // Try 3: Evaluate as expression
+                        try {
+                            const wrappedCode = `(${code})`;
+                            const fn = new Function('return ' + wrappedCode);
+                            const result = fn();
+
+                            if (typeof result === 'object' && result !== null) {
+                                return result;
+                            } else {
+                                throw new Error('Result is not an object');
+                            }
+                        } catch (e) {
+                            throw new Error(
+                                '❌ Cannot parse JavaScript object.\n\n' +
+                                '📝 Please use one of these formats:\n\n' +
+                                '✅ Object literal:\n' +
+                                '  { type: "columns", columns: 3 }\n\n' +
+                                '✅ JSON:\n' +
+                                '  { "type": "columns", "columns": 3 }\n\n' +
+                                'Error: ' + e.message
+                            );
                         }
                     }
 
-                    // Execute the code
-                    const fn = new Function(jsCode);
-                    const result = fn();
+                    function syncProperty() {
+                        if (selectedIndex < 0) return;
+                        const block = blocks[selectedIndex];
+                        block.label = document.getElementById('prop-label').value;
+                        block.bgColor = document.getElementById('prop-bg-color').value;
+                        block.color = document.getElementById('prop-text-color').value;
+                        block.padding = document.getElementById('prop-padding').value;
+                        block.radius = document.getElementById('prop-radius').value;
+                        block.align = document.getElementById('prop-align').value;
+                        block.hidden = document.getElementById('prop-hidden').checked;
+                        block.cssClass = document.getElementById('prop-class').value;
+                        block.customCSS = document.getElementById('prop-css').value;
 
-                    if (typeof result === 'object' && result !== null) {
-                        return result;
-                    } else {
-                        throw new Error('Code did not return an object. Add "return data;" at the end.');
+                        // Sync content fields
+                        const desc = document.getElementById('prop-desc').value;
+                        if (block.content !== undefined) block.content = desc;
+                        if (block.description !== undefined) block.description = desc;
+                        if (block.subtitle !== undefined) block.subtitle = desc;
+                        if (block.text !== undefined && !block.content) block.text = desc;
+
+                        const url = document.getElementById('prop-url').value;
+                        if (block.url !== undefined) block.url = url;
+                        if (block.buttonUrl !== undefined) block.buttonUrl = url;
+                        if (block.src !== undefined && !block.image) block.src = url;
+
+                        const img = document.getElementById('prop-image').value;
+                        if (block.src !== undefined) block.src = img;
+                        if (block.image !== undefined) block.image = img;
+
+                        refreshAllBlocks();
+                        selectBlock(selectedIndex);
+                        saveState();
                     }
-                } catch (e) {
-                    throw new Error(
-                        '❌ Cannot execute JavaScript code.\n\n' +
-                        '📝 HOW TO FIX:\n\n' +
-                        '✅ Option 1 - Use OBJECT LITERAL (simplest):\n' +
-                        '  {\n' +
-                        '    type: "columns",\n' +
-                        '    columns: 3,\n' +
-                        '    label: "Columns"\n' +
-                        '  }\n\n' +
-                        '✅ Option 2 - Declare variable + RETURN it:\n' +
-                        '  const data = {\n' +
-                        '    type: "columns",\n' +
-                        '    columns: 3\n' +
-                        '  };\n' +
-                        '  return data;\n\n' +
-                        '✅ Option 3 - Use JSON format:\n' +
-                        '  {\n' +
-                        '    "type": "columns",\n' +
-                        '    "columns": 3\n' +
-                        '  }\n\n' +
-                        '❌ DO NOT include:\n' +
-                        '  - document.body.appendChild()\n' +
-                        '  - Function calls that modify DOM\n' +
-                        '  - console.log()\n\n' +
-                        '💡 TIP: This editor is for defining BLOCK PROPERTIES only,\n' +
-                        '     not for executing code.\n\n' +
-                        'Error: ' + e.message
-                    );
-                }
-            }
 
-            // This is an OBJECT LITERAL or JSON - parse it
-            // Try 1: Parse as JSON first (fastest)
-            try {
-                const result = JSON.parse(code);
-                if (typeof result === 'object' && result !== null) {
-                    return result;
-                }
-            } catch (e) {
-                // Not valid JSON, continue to next method
-            }
+                    // Delete block
+                    document.getElementById('btn-delete-block').addEventListener('click', function() {
+                        if (selectedIndex >= 0) {
+                            showDeleteConfirmModal(function() {
+                                saveState();
+                                blocks.splice(selectedIndex, 1);
+                                selectedIndex = -1;
+                                hideProperties();
+                                refreshAllBlocks();
+                                updateEmptyState();
+                            });
+                        }
+                    });
 
-            // Try 2: Convert JS object literal syntax to JSON and parse
-            try {
-                let normalized = code;
+                    // Undo/Redo
+                    function saveState() {
+                        undoStack.push(JSON.stringify(blocks));
+                        if (undoStack.length > 50) undoStack.shift();
+                        redoStack = [];
+                    }
 
-                // Remove trailing commas
-                normalized = normalized.replace(/,\s*([}\]])/g, '$1');
+                    document.getElementById('btn-undo').addEventListener('click', function() {
+                        if (undoStack.length > 0) {
+                            redoStack.push(JSON.stringify(blocks));
+                            blocks = JSON.parse(undoStack.pop());
+                            selectedIndex = -1;
+                            hideProperties();
+                            refreshAllBlocks();
+                            updateEmptyState();
+                        }
+                    });
 
-                // Convert single quotes to double quotes
-                normalized = normalized.replace(/'/g, '"');
-
-                // Add quotes to unquoted property names
-                normalized = normalized.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
-
-                // Remove semicolons at the end
-                normalized = normalized.replace(/;\s*$/, '');
-
-                const result = JSON.parse(normalized);
-                if (typeof result === 'object' && result !== null) {
-                    return result;
-                }
-            } catch (e) {
-                // Failed to convert
-            }
-
-            // Try 3: Evaluate as expression
-            try {
-                const wrappedCode = `(${code})`;
-                const fn = new Function('return ' + wrappedCode);
-                const result = fn();
-
-                if (typeof result === 'object' && result !== null) {
-                    return result;
-                } else {
-                    throw new Error('Result is not an object');
-                }
-            } catch (e) {
-                throw new Error(
-                    '❌ Cannot parse JavaScript object.\n\n' +
-                    '📝 Please use one of these formats:\n\n' +
-                    '✅ Object literal:\n' +
-                    '  { type: "columns", columns: 3 }\n\n' +
-                    '✅ JSON:\n' +
-                    '  { "type": "columns", "columns": 3 }\n\n' +
-                    'Error: ' + e.message
-                );
-            }
-        }
-
-        function syncProperty() {
-            if (selectedIndex < 0) return;
-            const block = blocks[selectedIndex];
-            block.label = document.getElementById('prop-label').value;
-            block.bgColor = document.getElementById('prop-bg-color').value;
-            block.color = document.getElementById('prop-text-color').value;
-            block.padding = document.getElementById('prop-padding').value;
-            block.radius = document.getElementById('prop-radius').value;
-            block.align = document.getElementById('prop-align').value;
-            block.hidden = document.getElementById('prop-hidden').checked;
-            block.cssClass = document.getElementById('prop-class').value;
-            block.customCSS = document.getElementById('prop-css').value;
-
-            // Sync content fields
-            const desc = document.getElementById('prop-desc').value;
-            if (block.content !== undefined) block.content = desc;
-            if (block.description !== undefined) block.description = desc;
-            if (block.subtitle !== undefined) block.subtitle = desc;
-            if (block.text !== undefined && !block.content) block.text = desc;
-
-            const url = document.getElementById('prop-url').value;
-            if (block.url !== undefined) block.url = url;
-            if (block.buttonUrl !== undefined) block.buttonUrl = url;
-            if (block.src !== undefined && !block.image) block.src = url;
-
-            const img = document.getElementById('prop-image').value;
-            if (block.src !== undefined) block.src = img;
-            if (block.image !== undefined) block.image = img;
-
-            refreshAllBlocks();
-            selectBlock(selectedIndex);
-            saveState();
-        }
-
-        // Delete block
-        document.getElementById('btn-delete-block').addEventListener('click', function() {
-            if (selectedIndex >= 0) {
-                showDeleteConfirmModal(function() {
-                    saveState();
-                    blocks.splice(selectedIndex, 1);
-                    selectedIndex = -1;
-                    hideProperties();
-                    refreshAllBlocks();
-                    updateEmptyState();
-                });
-            }
-        });
-
-        // Undo/Redo
-        function saveState() {
-            undoStack.push(JSON.stringify(blocks));
-            if (undoStack.length > 50) undoStack.shift();
-            redoStack = [];
-        }
-
-        document.getElementById('btn-undo').addEventListener('click', function() {
-            if (undoStack.length > 0) {
-                redoStack.push(JSON.stringify(blocks));
-                blocks = JSON.parse(undoStack.pop());
-                selectedIndex = -1;
-                hideProperties();
-                refreshAllBlocks();
-                updateEmptyState();
-            }
-        });
-
-        document.getElementById('btn-redo').addEventListener('click', function() {
-            if (redoStack.length > 0) {
-                undoStack.push(JSON.stringify(blocks));
-                blocks = JSON.parse(redoStack.pop());
-                selectedIndex = -1;
-                hideProperties();
-                refreshAllBlocks();
-                updateEmptyState();
-            }
-        });
+                    document.getElementById('btn-redo').addEventListener('click', function() {
+                        if (redoStack.length > 0) {
+                            undoStack.push(JSON.stringify(blocks));
+                            blocks = JSON.parse(redoStack.pop());
+                            selectedIndex = -1;
+                            hideProperties();
+                            refreshAllBlocks();
+                            updateEmptyState();
+                        }
+                    });
 
         // Save form
         document.getElementById('btn-save').addEventListener('click', function() {
-            const titleInput = document.querySelector('input[name="Form[name]"]');
-            if (titleInput && !titleInput.value.trim()) {
-                titleInput.value = 'Untitled Page ' + new Date().toISOString().slice(0, 19).replace('T', ' ');
-            }
             document.getElementById('schema-js').value = JSON.stringify(blocks);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
-            document.getElementById('publish-now-input').value = <?= $model->isNewRecord ? "'1'" : "'0'" ?>;
             document.getElementById('builder-form').submit();
         });
 
         document.getElementById('builder-form').addEventListener('submit', function() {
-            const titleInput = document.querySelector('input[name="Form[name]"]');
-            if (titleInput && !titleInput.value.trim()) {
-                titleInput.value = 'Untitled Page ' + new Date().toISOString().slice(0, 19).replace('T', ' ');
-            }
             document.getElementById('schema-js').value = JSON.stringify(blocks);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
         });
 
-        // Table selector change - update hidden input
-        document.getElementById('table-selector').addEventListener('change', function() {
-            document.getElementById('table-id').value = this.value;
-        });
-
-        // Auto-generate form fields from table
-        if (btnAutoGenerate) {
-            btnAutoGenerate.addEventListener('click', function() {
-                const tableId = tableSelector ? tableSelector.value : '';
-                const tableName = tableSelector ? tableSelector.options[tableSelector.selectedIndex].text : 'NONE';
-
-                console.log('%c=== AUTO-GENERATE START ===', 'color: #00aa00; font-weight: bold;');
-                console.log('Time:', new Date().toLocaleTimeString());
-                console.log('Table ID:', tableId);
-                console.log('Table Name:', tableName);
-
-                if (!tableId || tableId === '') {
-                    console.warn('❌ No table selected!');
-                    alert('❌ Please select a table from the dropdown first');
-                    if (tableSelector) tableSelector.focus();
-                    console.log('%c=== AUTO-GENERATE CANCELLED ===', 'color: #ff5500;');
-                    return;
-                }
-
-                console.log('✅ Sending fetch request...');
-                console.log('Payload:', JSON.stringify({
-                    table_id: parseInt(tableId)
-                }));
-
-                this.disabled = true;
-                this.textContent = '⏳ Generating...';
-
-                fetch('<?= \yii\helpers\Url::to(['form/get-table-columns']) ?>', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-Token': '<?= Yii::$app->request->getCsrfToken() ?>'
-                        },
-                        body: JSON.stringify({
-                            table_id: parseInt(tableId)
-                        })
-                    })
-                    .then(r => {
-                        console.log('Response Status:', r.status, r.statusText);
-                        return r.json();
-                    })
-                    .then(data => {
-                        console.log('Response Data:', data);
-
-                        if (data.success && data.columns && data.columns.length > 0) {
-                            console.log('%c✅ SUCCESS! Creating ' + data.columns.length + ' fields...', 'color: #00aa00;');
-
-                            // Clear existing blocks
-                            blocks = [];
-                            canvasBlocks.innerHTML = '';
-
-                            // Create form fields for each column
-                            data.columns.forEach(function(col, idx) {
-                                const fieldType = getFieldTypeForColumn(col);
-                                const block = {
-                                    type: fieldType,
-                                    label: col.label || col.name,
-                                    name: col.name,
-                                    placeholder: 'Enter ' + (col.label || col.name).toLowerCase(),
-                                    required: !col.is_nullable,
-                                    content: col.label || col.name
-                                };
-                                blocks.push(block);
-                                renderBlock(block, blocks.length - 1);
-                                console.log(`  [${idx + 1}] ${fieldType} - ${col.name}`);
-                            });
-
-                            updateEmptyState();
-                            alert('✅ Form generated successfully with ' + data.columns.length + ' field(s)!');
-                            console.log('%c=== AUTO-GENERATE SUCCESS ===', 'color: #00aa00; font-weight: bold;');
-                        } else {
-                            console.error('%c❌ Error Response:', 'color: #ff0000;', data);
-                            const errorMsg = data.error || data.message || 'Failed to load table columns';
-                            alert('❌ Error: ' + errorMsg);
-                            console.log('%c=== AUTO-GENERATE FAILED ===', 'color: #ff0000;');
-                        }
-                    })
-                    .catch(err => {
-                        console.error('%c❌ Network/Fetch Error:', 'color: #ff0000;', err);
-                        alert('❌ Network Error: ' + err.message);
-                        console.log('%c=== AUTO-GENERATE ERROR ===', 'color: #ff0000;');
-                    })
-                    .finally(() => {
-                        this.disabled = false;
-                        this.textContent = '⚙️ Auto-Generate';
+                    // Table selector change - update hidden input
+                    document.getElementById('table-selector').addEventListener('change', function() {
+                        document.getElementById('table-id').value = this.value;
                     });
-            });
-        } else {
-            console.warn('❌ Auto-generate button not found');
-        }
 
-        // Map database column types to form field types
-        function getFieldTypeForColumn(col) {
-            const type = col.type.toUpperCase();
-            if (type.includes('INT')) return 'number';
-            if (type.includes('VARCHAR') || type.includes('CHAR')) return 'text-input';
-            if (type.includes('TEXT')) return 'textarea';
-            if (type.includes('DATE')) return 'date';
-            if (type.includes('DECIMAL') || type.includes('FLOAT')) return 'number';
-            if (type.includes('BOOLEAN')) return 'checkbox';
-            return 'text-input';
-        }
+                    // Auto-generate form fields from table
+                    if (btnAutoGenerate) {
+                        btnAutoGenerate.addEventListener('click', function() {
+                            const tableId = tableSelector ? tableSelector.value : '';
+                            const tableName = tableSelector ? tableSelector.options[tableSelector.selectedIndex].text : 'NONE';
 
-        function escapeHtml(str) {
-            const div = document.createElement('div');
-            div.textContent = str || '';
-            return div.innerHTML;
-        }
+                            console.log('%c=== AUTO-GENERATE START ===', 'color: #00aa00; font-weight: bold;');
+                            console.log('Time:', new Date().toLocaleTimeString());
+                            console.log('Table ID:', tableId);
+                            console.log('Table Name:', tableName);
 
-        updateEmptyState();
+                            if (!tableId || tableId === '') {
+                                console.warn('❌ No table selected!');
+                                alert('❌ Please select a table from the dropdown first');
+                                if (tableSelector) tableSelector.focus();
+                                console.log('%c=== AUTO-GENERATE CANCELLED ===', 'color: #ff5500;');
+                                return;
+                            }
 
-        // ============ INTERACTIVE SCROLL ANIMATIONS ============
-        // Initialize AOS for scroll animations
-        if (typeof AOS !== 'undefined') {
-            AOS.init({
-                duration: 600,
-                easing: 'ease-out-cubic',
-                once: false,
-                mirror: true,
-                offset: 80,
-                disable: window.innerWidth < 768 ? 'phone' : false
-            });
-        }
+                            console.log('✅ Sending fetch request...');
+                            console.log('Payload:', JSON.stringify({
+                                table_id: parseInt(tableId)
+                            }));
 
-        // Register GSAP ScrollTrigger
-        if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
-            gsap.registerPlugin(ScrollTrigger);
-        }
+                            this.disabled = true;
+                            this.textContent = '⏳ Generating...';
 
-        // Intersection Observer for scroll animations
-        const observerOptions = {
-            threshold: 0.15,
-            rootMargin: '0px 0px -50px 0px'
-        };
+                            fetch('<?= \yii\helpers\Url::to(['form/get-table-columns']) ?>', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-Token': '<?= Yii::$app->request->getCsrfToken() ?>'
+                                    },
+                                    body: JSON.stringify({
+                                        table_id: parseInt(tableId)
+                                    })
+                                })
+                                .then(r => {
+                                    console.log('Response Status:', r.status, r.statusText);
+                                    return r.json();
+                                })
+                                .then(data => {
+                                    console.log('Response Data:', data);
 
-        const scrollAnimationObserver = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-                if (entry.isIntersecting) {
-                    // Add animation class based on data attribute
-                    const animType = entry.target.dataset.scrollAnimate || 'fade-up';
-                    entry.target.classList.add('in-view');
-                    entry.target.style.animationName = 'fadeInUp';
+                                    if (data.success && data.columns && data.columns.length > 0) {
+                                        console.log('%c✅ SUCCESS! Creating ' + data.columns.length + ' fields...', 'color: #00aa00;');
 
-                    // Parallax effect
-                    if (entry.target.classList.contains('parallax-item')) {
-                        const parallaxValue = entry.target.dataset.parallax || 30;
-                        entry.target.style.transform = `translateY(${parallaxValue * 0.5}px)`;
+                                        // Clear existing blocks
+                                        blocks = [];
+                                        canvasBlocks.innerHTML = '';
+
+                                        // Create form fields for each column
+                                        data.columns.forEach(function(col, idx) {
+                                            const fieldType = getFieldTypeForColumn(col);
+                                            const block = {
+                                                type: fieldType,
+                                                label: col.label || col.name,
+                                                name: col.name,
+                                                placeholder: 'Enter ' + (col.label || col.name).toLowerCase(),
+                                                required: !col.is_nullable,
+                                                content: col.label || col.name
+                                            };
+                                            blocks.push(block);
+                                            renderBlock(block, blocks.length - 1);
+                                            console.log(`  [${idx + 1}] ${fieldType} - ${col.name}`);
+                                        });
+
+                                        updateEmptyState();
+                                        alert('✅ Form generated successfully with ' + data.columns.length + ' field(s)!');
+                                        console.log('%c=== AUTO-GENERATE SUCCESS ===', 'color: #00aa00; font-weight: bold;');
+                                    } else {
+                                        console.error('%c❌ Error Response:', 'color: #ff0000;', data);
+                                        const errorMsg = data.error || data.message || 'Failed to load table columns';
+                                        alert('❌ Error: ' + errorMsg);
+                                        console.log('%c=== AUTO-GENERATE FAILED ===', 'color: #ff0000;');
+                                    }
+                                })
+                                .catch(err => {
+                                    console.error('%c❌ Network/Fetch Error:', 'color: #ff0000;', err);
+                                    alert('❌ Network Error: ' + err.message);
+                                    console.log('%c=== AUTO-GENERATE ERROR ===', 'color: #ff0000;');
+                                })
+                                .finally(() => {
+                                    this.disabled = false;
+                                    this.textContent = '⚙️ Auto-Generate';
+                                });
+                        });
+                    } else {
+                        console.warn('❌ Auto-generate button not found');
                     }
-                } else {
-                    // Remove animation when out of view (for mirror effect)
-                    entry.target.classList.remove('in-view');
-                    entry.target.style.animationName = '';
-                }
-            });
-        }, observerOptions);
 
-        // Apply scroll animations to canvas blocks
-        function applyScrollAnimations() {
-            const canvasBlocks = document.querySelectorAll('.canvas-block');
-            canvasBlocks.forEach(function(block, index) {
-                // Set animation type based on index for variety
-                const animTypes = ['fade-up', 'slide-left', 'slide-right', 'scale'];
-                const animType = animTypes[index % animTypes.length];
-                block.dataset.scrollAnimate = animType;
-                block.classList.add('scroll-animate', 'parallax-item');
-                block.dataset.parallax = 20;
+                    // Map database column types to form field types
+                    function getFieldTypeForColumn(col) {
+                        const type = col.type.toUpperCase();
+                        if (type.includes('INT')) return 'number';
+                        if (type.includes('VARCHAR') || type.includes('CHAR')) return 'text-input';
+                        if (type.includes('TEXT')) return 'textarea';
+                        if (type.includes('DATE')) return 'date';
+                        if (type.includes('DECIMAL') || type.includes('FLOAT')) return 'number';
+                        if (type.includes('BOOLEAN')) return 'checkbox';
+                        return 'text-input';
+                    }
 
-                // Add stagger effect
-                block.style.animationDelay = `${index * 0.1}s`;
+                    function escapeHtml(str) {
+                        const div = document.createElement('div');
+                        div.textContent = str || '';
+                        return div.innerHTML;
+                    }
 
-                scrollAnimationObserver.observe(block);
-            });
-        }
+                    updateEmptyState();
 
-        // Apply animations to existing blocks
-        applyScrollAnimations();
+                    // ============ INTERACTIVE SCROLL ANIMATIONS ============
+                    // Initialize AOS for scroll animations
+                    if (typeof AOS !== 'undefined') {
+                        AOS.init({
+                            duration: 600,
+                            easing: 'ease-out-cubic',
+                            once: false,
+                            mirror: true,
+                            offset: 80,
+                            disable: window.innerWidth < 768 ? 'phone' : false
+                        });
+                    }
 
-        // Parallax scroll effect on canvas blocks
-        const canvasBody = document.getElementById('canvas-body');
-        if (canvasBody) {
-            window.addEventListener('scroll', function() {
-                if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
-                    const canvasBlocks = document.querySelectorAll('.canvas-block.parallax-item');
-                    canvasBlocks.forEach(function(block) {
-                        const scrollPos = window.scrollY;
-                        const blockTop = block.getBoundingClientRect().top + window.scrollY;
-                        const distance = blockTop - scrollPos;
+                    // Register GSAP ScrollTrigger
+                    if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+                        gsap.registerPlugin(ScrollTrigger);
+                    }
 
-                        // Light parallax effect (3-5% of scroll distance)
-                        if (distance > -500 && distance < window.innerHeight + 500) {
-                            const parallaxY = (distance - window.innerHeight / 2) * 0.03;
-                            block.style.transform = `translateY(${parallaxY}px)`;
+                    // Intersection Observer for scroll animations
+                    const observerOptions = {
+                        threshold: 0.15,
+                        rootMargin: '0px 0px -50px 0px'
+                    };
+
+                    const scrollAnimationObserver = new IntersectionObserver(function(entries) {
+                        entries.forEach(function(entry) {
+                            if (entry.isIntersecting) {
+                                // Add animation class based on data attribute
+                                const animType = entry.target.dataset.scrollAnimate || 'fade-up';
+                                entry.target.classList.add('in-view');
+                                entry.target.style.animationName = 'fadeInUp';
+
+                                // Parallax effect
+                                if (entry.target.classList.contains('parallax-item')) {
+                                    const parallaxValue = entry.target.dataset.parallax || 30;
+                                    entry.target.style.transform = `translateY(${parallaxValue * 0.5}px)`;
+                                }
+                            } else {
+                                // Remove animation when out of view (for mirror effect)
+                                entry.target.classList.remove('in-view');
+                                entry.target.style.animationName = '';
+                            }
+                        });
+                    }, observerOptions);
+
+                    // Apply scroll animations to canvas blocks
+                    function applyScrollAnimations() {
+                        const canvasBlocks = document.querySelectorAll('.canvas-block');
+                        canvasBlocks.forEach(function(block, index) {
+                            // Set animation type based on index for variety
+                            const animTypes = ['fade-up', 'slide-left', 'slide-right', 'scale'];
+                            const animType = animTypes[index % animTypes.length];
+                            block.dataset.scrollAnimate = animType;
+                            block.classList.add('scroll-animate', 'parallax-item');
+                            block.dataset.parallax = 20;
+
+                            // Add stagger effect
+                            block.style.animationDelay = `${index * 0.1}s`;
+
+                            scrollAnimationObserver.observe(block);
+                        });
+                    }
+
+                    // Apply animations to existing blocks
+                    applyScrollAnimations();
+
+                    // Parallax scroll effect on canvas blocks
+                    const canvasBody = document.getElementById('canvas-body');
+                    if (canvasBody) {
+                        window.addEventListener('scroll', function() {
+                            if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
+                                const canvasBlocks = document.querySelectorAll('.canvas-block.parallax-item');
+                                canvasBlocks.forEach(function(block) {
+                                    const scrollPos = window.scrollY;
+                                    const blockTop = block.getBoundingClientRect().top + window.scrollY;
+                                    const distance = blockTop - scrollPos;
+
+                                    // Light parallax effect (3-5% of scroll distance)
+                                    if (distance > -500 && distance < window.innerHeight + 500) {
+                                        const parallaxY = (distance - window.innerHeight / 2) * 0.03;
+                                        block.style.transform = `translateY(${parallaxY}px)`;
+                                    }
+                                });
+                            }
+                        }, {
+                            passive: true
+                        });
+                    }
+
+                    // Smooth scroll initialization
+                    document.documentElement.style.scrollBehavior = 'smooth';
+
+                    // Observe canvas blocks when new blocks are added
+                    const originalRenderBlock = window.renderBlock;
+                    window.renderBlock = function(block, index) {
+                        originalRenderBlock.call(this, block, index);
+                        const newBlock = document.querySelector(`[data-block-id="${block.id || index}"]`);
+                        if (newBlock) {
+                            newBlock.classList.add('scroll-animate', 'parallax-item');
+                            newBlock.dataset.scrollAnimate = ['fade-up', 'slide-left', 'slide-right', 'scale'][index % 4];
+                            newBlock.dataset.parallax = 20;
+                            scrollAnimationObserver.observe(newBlock);
+
+                            // Trigger animation on new blocks
+                            setTimeout(function() {
+                                newBlock.classList.add('in-view');
+                            }, 50);
                         }
+                    };
+
+                    // Performance optimization: Throttle scroll event
+                    let scrollTimeout;
+                    let lastScrollPos = 0;
+                    window.addEventListener('scroll', function() {
+                        const currentScrollPos = window.scrollY;
+                        if (Math.abs(currentScrollPos - lastScrollPos) > 50) {
+                            lastScrollPos = currentScrollPos;
+
+                            // Update parallax positions with throttling
+                            clearTimeout(scrollTimeout);
+                            scrollTimeout = setTimeout(function() {
+                                // Parallax update logic here (already in scroll listener above)
+                            }, 1000 / 60); // 60fps throttle
+                        }
+                    }, {
+                        passive: true
                     });
-                }
-            }, {
-                passive: true
-            });
-        }
 
-        // Smooth scroll initialization
-        document.documentElement.style.scrollBehavior = 'smooth';
+                    // Mobile optimization: Disable parallax on mobile for better performance
+                    if (window.innerWidth < 768) {
+                        document.querySelectorAll('.parallax-item').forEach(function(elem) {
+                            elem.classList.remove('parallax-item');
+                        });
+                    }
 
-        // Observe canvas blocks when new blocks are added
-        const originalRenderBlock = window.renderBlock;
-        window.renderBlock = function(block, index) {
-            originalRenderBlock.call(this, block, index);
-            const newBlock = document.querySelector(`[data-block-id="${block.id || index}"]`);
-            if (newBlock) {
-                newBlock.classList.add('scroll-animate', 'parallax-item');
-                newBlock.dataset.scrollAnimate = ['fade-up', 'slide-left', 'slide-right', 'scale'][index % 4];
-                newBlock.dataset.parallax = 20;
-                scrollAnimationObserver.observe(newBlock);
+                    // Resize observer to reapply animations on responsive changes
+                    if (typeof ResizeObserver !== 'undefined') {
+                        new ResizeObserver(function() {
+                            applyScrollAnimations();
+                        }).observe(document.querySelector('.builder-canvas'));
+                    }
 
-                // Trigger animation on new blocks
-                setTimeout(function() {
-                    newBlock.classList.add('in-view');
-                }, 50);
-            }
-        };
-
-        // Performance optimization: Throttle scroll event
-        let scrollTimeout;
-        let lastScrollPos = 0;
-        window.addEventListener('scroll', function() {
-            const currentScrollPos = window.scrollY;
-            if (Math.abs(currentScrollPos - lastScrollPos) > 50) {
-                lastScrollPos = currentScrollPos;
-
-                // Update parallax positions with throttling
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(function() {
-                    // Parallax update logic here (already in scroll listener above)
-                }, 1000 / 60); // 60fps throttle
-            }
-        }, {
-            passive: true
-        });
-
-        // Mobile optimization: Disable parallax on mobile for better performance
-        if (window.innerWidth < 768) {
-            document.querySelectorAll('.parallax-item').forEach(function(elem) {
-                elem.classList.remove('parallax-item');
-            });
-        }
-
-        // Resize observer to reapply animations on responsive changes
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(function() {
-                applyScrollAnimations();
-            }).observe(document.querySelector('.builder-canvas'));
-        }
-
-        // Fade-in animation for canvas wrapper on load
-        const canvasWrapper = document.querySelector('.canvas-wrapper');
-        if (canvasWrapper) {
-            canvasWrapper.style.animation = 'fadeInUp 0.8s ease-out';
-        }
-    });
-</script>
+                    // Fade-in animation for canvas wrapper on load
+                    const canvasWrapper = document.querySelector('.canvas-wrapper');
+                    if (canvasWrapper) {
+                        canvasWrapper.style.animation = 'fadeInUp 0.8s ease-out';
+                    }
+                });
+            </script>
 
         <!-- Publish Modal -->
         <div id="publish-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">

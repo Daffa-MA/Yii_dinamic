@@ -59,6 +59,44 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
                 transform: translateY(0);
             }
         }
+
+        /* Alert Styles */
+        #alert-container .alert {
+            animation: slideDown 0.3s ease-out;
+            border-left: 4px solid;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        #alert-container .alert-success {
+            border-left-color: #198754;
+            background: linear-gradient(135deg, #d1f2eb 0%, #a3e4d7 100%);
+        }
+
+        #alert-container .alert-danger {
+            border-left-color: #dc3545;
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+        }
+
+        #alert-container .alert-warning {
+            border-left-color: #ffc107;
+            background: linear-gradient(135deg, #fff3cd 0%, #ffe69c 100%);
+        }
+
+        #alert-container .alert-info {
+            border-left-color: #0dcaf0;
+            background: linear-gradient(135deg, #cff4fc 0%, #b6effb 100%);
+        }
     </style>
 </head>
 
@@ -66,11 +104,13 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     <?php $this->beginBody() ?>
 
     <main id="main" class="flex-shrink-0" role="main">
-        <div class="container" style="max-width: 1400px;">
+        <div class="container" style="max-width: 1400px; position: relative;">
             <?php if (!empty($this->params['breadcrumbs'])): ?>
                 <?= Breadcrumbs::widget(['links' => $this->params['breadcrumbs']]) ?>
             <?php endif ?>
-            <?= Alert::widget() ?>
+            <div id="alert-container" style="position: sticky; top: 80px; z-index: 1050; margin-bottom: 20px;">
+                <?= Alert::widget() ?>
+            </div>
             <?= $content ?>
         </div>
     </main>

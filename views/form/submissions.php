@@ -107,9 +107,25 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     <?php foreach ($submissions as $submission): ?>
                         <div class="bg-surface-container-lowest rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] overflow-hidden border-t border-outline-variant/10">
                             <div class="p-6 border-b border-surface-container-low flex justify-between items-center">
-                                <div class="flex items-center gap-3">
-                                    <span class="material-symbols-outlined text-primary-container">event</span>
-                                    <span class="text-sm font-semibold"><?= date('M d, Y H:i:s', strtotime($submission->created_at)) ?></span>
+                                <div class="flex items-center gap-5">
+                                    <div class="flex items-center gap-3">
+                                        <span class="material-symbols-outlined text-primary-container">event</span>
+                                        <span class="text-sm font-semibold"><?= date('M d, Y H:i:s', strtotime($submission->created_at)) ?></span>
+                                    </div>
+                                    
+                                    <?php if ($submission->firebase_email || $submission->firebase_name): ?>
+                                    <div class="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-full">
+                                        <span class="material-symbols-outlined text-green-600 text-[18px]">person</span>
+                                        <div>
+                                            <?php if ($submission->firebase_name): ?>
+                                            <span class="text-sm font-semibold text-green-800"><?= Html::encode($submission->firebase_name) ?></span>
+                                            <?php endif; ?>
+                                            <?php if ($submission->firebase_email): ?>
+                                            <span class="text-xs text-green-700 ml-1">(<?= Html::encode($submission->firebase_email) ?>)</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <?php endif; ?>
                                 </div>
                                 <span class="bg-primary-container/10 text-primary-container px-3 py-1 rounded-full text-xs font-bold">Submission #<?= $submission->id ?></span>
                             </div>

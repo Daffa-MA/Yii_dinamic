@@ -6,6 +6,9 @@ use yii\bootstrap5\Html;
 
 $this->title = 'My Yii Application';
 
+// Register CSRF meta tag
+$this->registerCsrfMetaTags();
+
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
@@ -58,7 +61,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text" />
         </div>
         <div class="flex items-center gap-4">
-            <button class="material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
+            <button class="notification-button material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
             <div class="h-8 w-px bg-outline-variant/30"></div>
             <a href="<?= \yii\helpers\Url::to(['form/create']) ?>" class="bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline">
                 <span class="material-symbols-outlined text-[18px]">add</span> Create New Form
@@ -139,4 +142,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
         </div>
     </main>
+
+    <!-- Notification System -->
+    <script src="<?= Yii::$app->request->baseUrl ?>/js/notifications.js"></script>
 </body>

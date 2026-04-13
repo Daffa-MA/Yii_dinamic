@@ -60,7 +60,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text" />
         </div>
         <div class="flex items-center gap-4">
-            <button class="material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
+            <button class="notification-button material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>
             <div class="h-8 w-px bg-outline-variant/30"></div>
             <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create New Form', ['form/create'], [
                 'class' => 'bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
@@ -227,24 +227,6 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
         </div>
     </main>
 
-    <!-- Publish Modal -->
-    <div class="modal fade" id="publish-modal" tabindex="-1" aria-labelledby="publish-modal-label" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content" style="border-radius: 16px; overflow: hidden;">
-                <div class="modal-header" style="background: linear-gradient(135deg, #006c49, #00a773); color: white; border: none;">
-                    <h5 class="modal-title" id="publish-modal-label" style="display: flex; align-items: center; gap: 8px;">
-                        <span class="material-symbols-outlined">public</span>
-                        Publish Form
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" style="padding: 24px;">
-                    <?= $this->render('publish', [
-                        'model' => $model,
-                        'publishedForm' => null,
-                    ]) ?>
-                </div>
-            </div>
-        </div>
-    </div>
+    <!-- Notification System -->
+    <script src="<?= Yii::$app->request->baseUrl ?>/js/notifications.js"></script>
 </body>

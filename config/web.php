@@ -57,17 +57,18 @@ $config = [
                 'api/notification/mark-read' => 'notification/mark-read',
                 'api/notification/mark-all-read' => 'notification/mark-all-read',
                 'api/notification/delete' => 'notification/delete',
-                
+
                 // Form routes
                 'form/<id:\d+>' => 'form/view',
                 'form/create' => 'form/create',
                 'form/update/<id:\d+>' => 'form/update',
                 'form/render/<id:\d+>' => 'form/render',
+                'form/public-render/<id:\d+>' => 'form/public-render',
                 'form/submit/<id:\d+>' => 'form/submit',
                 'form/submissions/<id:\d+>' => 'form/submissions',
                 'form/export/<id:\d+>' => 'form/export',
                 'form/duplicate/<id:\d+>' => 'form/duplicate',
-                
+
                 // Table builder routes
                 'tables' => 'table-builder/index',
                 'tables/create' => 'table-builder/create',
@@ -75,7 +76,7 @@ $config = [
                 'tables/execute/<id:\d+>' => 'table-builder/execute-sql',
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',
                 'tables/delete/<id:\d+>' => 'table-builder/delete',
-                
+
                 // Site routes
                 'dashboard' => 'site/dashboard',
                 'profile' => 'site/profile',

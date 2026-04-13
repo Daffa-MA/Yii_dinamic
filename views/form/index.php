@@ -48,6 +48,14 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     .material-symbols-outlined {
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
+    
+    /* Line clamp utility for text truncation */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
 </style>
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
@@ -130,84 +138,76 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         $blocks = json_decode($form->schema_json ?? '[]', true);
                         $blockCount = count($blocks);
                         $submissionCount = $form->submissions ? count($form->submissions) : 0;
+                        
+                        // Color themes for cards
+                        $colorAccent = ['#4f46e5', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$index % 5];
+                        $colorBg = ['bg-violet-50', 'bg-cyan-50', 'bg-purple-50', 'bg-orange-50', 'bg-emerald-50'][$index % 5];
+                        $colorText = ['text-violet-700', 'text-cyan-700', 'text-purple-700', 'text-orange-700', 'text-emerald-700'][$index % 5];
+                        $footerBg = ['bg-violet-50/50', 'bg-cyan-50/50', 'bg-purple-50/50', 'bg-orange-50/50', 'bg-emerald-50/50'][$index % 5];
                         ?>
-                        <div class="bg-white hover:shadow-lg transition-all duration-300 rounded-2xl overflow-hidden border border-gray-200"
-                            style="border-left: 5px solid <?= ['#4f46e5', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$index % 5] ?>; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-                            <!-- Color accent bar -->
-                            <?php
-                            $colorBg = ['bg-violet-50', 'bg-cyan-50', 'bg-purple-50', 'bg-orange-50', 'bg-emerald-50'][$index % 5];
-                            $colorText = ['text-violet-700', 'text-cyan-700', 'text-purple-700', 'text-orange-700', 'text-emerald-700'][$index % 5];
-                            $colorAccent = ['#4f46e5', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$index % 5];
-                            ?>
-                            <div class="<?= $colorBg ?> px-6 py-4 border-b border-gray-100" style="border-left: 5px solid <?= $colorAccent ?>;">
-                                <div class="p-6">
-                                    <div class="flex justify-between items-start mb-6">
-                                        <div class="w-12 h-12 bg-gradient-to-br from-primary-container/10 to-primary/10 rounded-xl flex items-center justify-center border border-primary-container/20">
-                                            <span class="material-symbols-outlined text-primary-container">contact_page</span>
-                                        </div>
-                                        <div class="flex gap-1">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                                            <span class="text-[10px] font-bold text-secondary uppercase tracking-tight">Active</span>
-                                        </div>
+                        <div class="group bg-white hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden border border-gray-200 hover:border-primary-container/30"
+                            style="border-left: 5px solid <?= $colorAccent ?>;">
+                            <!-- Header with icon and status -->
+                            <div class="<?= $colorBg ?> px-6 py-5 border-b border-gray-100">
+                                <div class="flex justify-between items-start">
+                                    <div class="w-12 h-12 bg-gradient-to-br from-primary-container/10 to-primary/10 rounded-xl flex items-center justify-center border border-primary-container/20 shadow-sm group-hover:scale-110 transition-transform duration-300">
+                                        <span class="material-symbols-outlined text-primary-container text-2xl">contact_page</span>
                                     </div>
-                                    <h3 class="text-lg font-bold mb-1"><?= Html::encode($form->name) ?></h3>
-                                    <p class="text-xs text-on-surface-variant font-medium mb-6">
-                                        <span class="inline-flex items-center gap-1">
-                                            <span class="material-symbols-outlined text-[14px] text-outline">calendar_today</span>
-                                            <?= Yii::$app->formatter->asDate($form->created_at) ?>
-                                        </span>
-                                    </p>
-                                    <div class="flex items-center gap-8 py-4 border-b border-gray-100 mb-4" style="background: linear-gradient(to right, rgba(<?= ['79,70,229', '6,182,212', '139,92,246', '249,115,22', '16,185,129'][$index % 5] ?>, 0.03), transparent);">
-                                        <div>
-                                            <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Fields</p>
-                                            <p class="text-lg font-bold font-headline text-primary-container"><?= $blockCount ?></p>
-                                        </div>
-                                        <div>
-                                            <p class="text-[10px] text-outline font-bold uppercase tracking-widest mb-1">Responses</p>
-                                            <p class="text-lg font-bold font-headline text-secondary"><?= number_format($submissionCount) ?></p>
-                                        </div>
+                                    <div class="flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full shadow-sm">
+                                        <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+                                        <span class="text-[10px] font-bold text-secondary uppercase tracking-tight">Active</span>
                                     </div>
                                 </div>
-                                <?php
-                                $footerBg = ['bg-violet-50/50', 'bg-cyan-50/50', 'bg-purple-50/50', 'bg-orange-50/50', 'bg-emerald-50/50'][$index % 5];
-                                ?>
-                                <div class="<?= $footerBg ?> px-4 py-4 flex items-center justify-between border-t border-gray-100">
-                                    <div class="flex gap-1 flex-wrap">
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">public</span> Publish', ['form/publish', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-secondary text-white border border-secondary rounded-lg hover:bg-secondary/90 transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold',
-                                            'data' => [
-                                                'toggle' => 'modal',
-                                                'target' => '#publish-modal-' . $form->id,
-                                            ]
-                                        ]) ?>
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">visibility</span> View', ['form/view', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                            'title' => 'View Form Details'
-                                        ]) ?>
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">edit</span> Edit', ['form/update', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                            'title' => 'Edit Form'
-                                        ]) ?>
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">input</span> Fill', ['form/render', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-secondary hover:text-secondary transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                            'title' => 'Fill Form'
-                                        ]) ?>
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">content_copy</span> Copy', ['form/duplicate', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-surface-tint hover:text-surface-tint transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                            'title' => 'Duplicate Form',
-                                            'data' => [
-                                                'confirm' => 'Duplicate this form?',
-                                                'method' => 'post',
-                                            ]
-                                        ]) ?>
-                                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Data', ['form/submissions', 'id' => $form->id], [
-                                            'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container transition-all inline-flex items-center gap-1.5 no-underline text-xs font-semibold text-on-surface-variant',
-                                            'title' => 'View Submissions'
-                                        ]) ?>
+                            </div>
+                            
+                            <!-- Card Body -->
+                            <div class="p-6">
+                                <h3 class="text-lg font-bold mb-2 text-on-surface line-clamp-2 group-hover:text-primary-container transition-colors"><?= Html::encode($form->name) ?></h3>
+                                <p class="text-xs text-on-surface-variant font-medium mb-6">
+                                    <span class="inline-flex items-center gap-1.5">
+                                        <span class="material-symbols-outlined text-[14px] text-outline">calendar_today</span>
+                                        <?= Yii::$app->formatter->asDate($form->created_at) ?>
+                                    </span>
+                                </p>
+                                
+                                <!-- Stats -->
+                                <div class="flex items-center gap-6 py-4 border-t border-b border-gray-100 mb-4">
+                                    <div class="flex-1 text-center">
+                                        <p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">Fields</p>
+                                        <p class="text-2xl font-bold font-headline text-primary-container"><?= $blockCount ?></p>
                                     </div>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">delete</span>', ['form/delete', 'id' => $form->id], [
-                                        'class' => 'px-3 py-2 bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all inline-flex no-underline text-on-surface-variant',
-                                        'title' => 'Delete Form',
+                                    <div class="w-px h-10 bg-gray-200"></div>
+                                    <div class="flex-1 text-center">
+                                        <p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">Responses</p>
+                                        <p class="text-2xl font-bold font-headline text-secondary"><?= number_format($submissionCount) ?></p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Action Buttons -->
+                                <div class="flex flex-wrap gap-2">
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">visibility</span>', ['form/view', 'id' => $form->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'View Details'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">edit</span>', ['form/update', 'id' => $form->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'Edit Form'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">content_copy</span>', ['form/duplicate', 'id' => $form->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-surface-tint hover:text-surface-tint hover:bg-surface-tint/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'Duplicate',
+                                        'data' => [
+                                            'confirm' => 'Duplicate this form?',
+                                            'method' => 'post',
+                                        ]
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">list</span>', ['form/submissions', 'id' => $form->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'View Submissions'
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">delete</span>', ['form/delete', 'id' => $form->id], [
+                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all no-underline text-xs text-on-surface-variant',
+                                        'title' => 'Delete',
                                         'data' => [
                                             'confirm' => 'Are you sure you want to delete this form? All submissions will be lost.',
                                             'method' => 'post',
@@ -215,10 +215,10 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                     ]) ?>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
                         </div>
-                    <?php endif; ?>
+                    <?php endforeach; ?>
                 </div>
+            <?php endif; ?>
         </div>
     </main>
 

@@ -59,15 +59,49 @@ class Alert extends \yii\bootstrap5\Widget
             foreach ((array) $flash as $i => $message) {
                 echo \yii\bootstrap5\Alert::widget([
                     'body' => $message,
-                    'closeButton' => $this->closeButton,
+                    'closeButton' => array_merge($this->closeButton, [
+                        'class' => 'btn-close',
+                    ]),
                     'options' => array_merge($this->options, [
                         'id' => $this->getId() . '-' . $type . '-' . $i,
-                        'class' => $this->alertTypes[$type] . $appendClass,
+                        'class' => implode(' ', [
+                            'alert',
+                            'alert-dismissible',
+                            'fade',
+                            'show',
+                            'shadow-sm',
+                            'rounded-3',
+                            'border-0',
+                            $this->getAlertClass($type),
+                        ]) . $appendClass,
+                        'role' => 'alert',
                     ]),
                 ]);
             }
 
             $session->removeFlash($type);
+        }
+    }
+
+    /**
+     * Returns the appropriate Bootstrap alert class for the given type
+     * @param string $type
+     * @return string
+     */
+    protected function getAlertClass($type)
+    {
+        switch ($type) {
+            case 'success':
+                return 'alert-success';
+            case 'error':
+            case 'danger':
+                return 'alert-danger';
+            case 'warning':
+                return 'alert-warning';
+            case 'info':
+                return 'alert-info';
+            default:
+                return 'alert-info';
         }
     }
 }

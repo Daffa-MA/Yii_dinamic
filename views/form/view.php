@@ -88,13 +88,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     <p class="text-on-surface-variant font-medium">View form details and submissions.</p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">public</span> Publish', ['form/publish', 'id' => $model->id], [
-                        'class' => 'bg-secondary text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline',
-                        'data' => [
-                            'toggle' => 'modal',
-                            'target' => '#publish-modal',
-                        ]
-                    ]) ?>
+                    <button onclick="openPublishModal()" class="bg-secondary text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline border-0 cursor-pointer">
+                        <span class="material-symbols-outlined text-[18px]">public</span> Publish
+                    </button>
                     <?= Html::a('<span class="material-symbols-outlined text-[18px]">content_copy</span> Duplicate', ['form/duplicate', 'id' => $model->id], [
                         'class' => 'bg-surface-container text-on-surface px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-surface-container-high transition-all active:scale-95 text-sm no-underline',
                         'data' => [
@@ -104,9 +100,6 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     ]) ?>
                     <?= Html::a('<span class="material-symbols-outlined text-[18px]">edit</span> Edit', ['form/update', 'id' => $model->id], [
                         'class' => 'bg-surface-container text-on-surface px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:bg-surface-container-high transition-all active:scale-95 text-sm no-underline'
-                    ]) ?>
-                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">input</span> Fill Form', ['form/render', 'id' => $model->id], [
-                        'class' => 'bg-primary-container text-white px-4 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
                     ]) ?>
                 </div>
             </div>
@@ -161,9 +154,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                             <div class="space-y-3">
                                 <?php foreach ($model->getSchema() as $index => $field): ?>
                                     <?php
-                                        $fieldLabel = $field['label'] ?? ($field['type'] ?? 'Field ' . ($index + 1));
-                                        $fieldName = $field['name'] ?? '-';
-                                        $fieldType = $field['type'] ?? 'unknown';
+                                    $fieldLabel = $field['label'] ?? ($field['type'] ?? 'Field ' . ($index + 1));
+                                    $fieldName = $field['name'] ?? '-';
+                                    $fieldType = $field['type'] ?? 'unknown';
                                     ?>
                                     <div class="flex items-center justify-between p-4 bg-surface-container rounded-xl">
                                         <div class="flex items-center gap-3">
@@ -226,6 +219,244 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
         </div>
     </main>
+
+    <!-- Publish Modal -->
+    <?php
+    $csrfToken = Yii::$app->request->csrfToken;
+    $csrfParam = Yii::$app->request->csrfParam;
+    ?>
+    <div id="publish-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+        <div style="background:#fff;border-radius:16px;max-width:600px;width:90%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <!-- Modal Header -->
+            <div style="background:linear-gradient(135deg,#006c49,#00a773);color:#fff;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;">
+                <h3 style="margin:0;font-size:18px;display:flex;align-items:center;gap:8px;">
+                    <span class="material-symbols-outlined">public</span>
+                    <span id="modal-title">Publish Form</span>
+                </h3>
+                <button onclick="closePublishModal()" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:24px;padding:4px;">&times;</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div style="padding:24px;">
+                <!-- Before Publish -->
+                <div id="before-publish">
+                    <form id="publish-form-modal" method="post" action="<?= \yii\helpers\Url::to(['form/publish', 'id' => $model->id]) ?>">
+                        <input type="hidden" name="<?= $csrfParam ?>" value="<?= $csrfToken ?>">
+                        <div style="margin-bottom:16px;">
+                            <label style="display:block;font-weight:600;margin-bottom:8px;color:#0b1c30;">Published Name</label>
+                            <input type="text" name="name" value="<?= Html::encode($model->name) ?>" maxlength="255" required
+                                style="width:100%;padding:12px 16px;border:1px solid #c7c4d8;border-radius:12px;font-size:14px;transition:border 0.2s;"
+                                placeholder="Enter published form name..."
+                                onfocus="this.style.borderColor='#4f46e5'" onblur="this.style.borderColor='#c7c4d8'">
+                        </div>
+                        <div style="background:#e5eeff;border-left:4px solid #4f46e5;padding:12px 16px;border-radius:8px;margin-bottom:20px;">
+                            <p style="margin:0;font-size:13px;color:#464555;"><strong>Note:</strong> This will publish your form and make it accessible via a public URL that you can share with others.</p>
+                        </div>
+                        <div style="display:flex;justify-content:flex-end;gap:12px;">
+                            <button type="button" onclick="closePublishModal()"
+                                style="padding:12px 24px;background:#f0f4f9;border:none;border-radius:12px;font-size:14px;font-weight:600;color:#464555;cursor:pointer;">Cancel</button>
+                            <button type="button" id="btn-submit-publish" onclick="handlePublish()"
+                                style="padding:12px 24px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
+                                <span class="material-symbols-outlined" style="font-size:18px;">public</span>
+                                Publish Now
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- After Publish (Success State) -->
+                <div id="after-publish" style="display:none;">
+                    <div style="text-align:center;margin-bottom:24px;">
+                        <div style="width:64px;height:64px;background:#d1f2eb;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                            <span class="material-symbols-outlined" style="font-size:36px;color:#198754;">check_circle</span>
+                        </div>
+                        <h4 style="margin:0 0 8px;font-size:20px;color:#0b1c30;">Form Published Successfully!</h4>
+                        <p style="margin:0;font-size:14px;color:#464555;">Your form is now live and accessible via the link below.</p>
+                    </div>
+
+                    <!-- Public Link Box -->
+                    <div style="background:#f8fafd;border:2px solid #e8eef7;border-radius:12px;padding:16px;margin-bottom:20px;">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#464555;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Public Form Link</label>
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <input type="text" id="public-link-input" readonly
+                                value="<?= Yii::$app->request->hostInfo ?>/form/public-render/<?= $model->id ?>"
+                                style="flex:1;padding:10px 14px;border:1px solid #c7c4d8;border-radius:8px;font-size:13px;background:#fff;color:#0b1c30;font-family:monospace;">
+                            <button onclick="copyPublicLink()"
+                                style="padding:10px 16px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">content_copy</span>
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- QR Code Section -->
+                    <div style="background:#f8fafd;border:2px solid #e8eef7;border-radius:12px;padding:16px;margin-bottom:20px;text-align:center;">
+                        <label style="display:block;font-size:12px;font-weight:600;color:#464555;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.5px;">QR Code</label>
+                        <div id="qrcode" style="display:inline-block;padding:16px;background:#fff;border-radius:12px;border:1px solid #e8eef7;"></div>
+                        <p style="margin:12px 0 0;font-size:12px;color:#464555;">Scan this QR code to access the form</p>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display:flex;gap:12px;">
+                        <a href="<?= Yii::$app->request->hostInfo ?>/form/public-render/<?= $model->id ?>" target="_blank"
+                            style="flex:1;padding:12px 24px;background:linear-gradient(135deg,#006c49,#00a773);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;text-align:center;">
+                            <span class="material-symbols-outlined" style="font-size:18px;">open_in_new</span>
+                            Open Form
+                        </a>
+                        <button onclick="closePublishModal()"
+                            style="flex:1;padding:12px 24px;background:#f0f4f9;border:none;border-radius:12px;font-size:14px;font-weight:600;color:#464555;cursor:pointer;">
+                            Close
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- QRCode.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+    <script>
+        function openPublishModal() {
+            console.log('=== OPEN PUBLISH MODAL ===');
+            document.getElementById('publish-modal').style.display = 'flex';
+            document.getElementById('before-publish').style.display = 'block';
+            document.getElementById('after-publish').style.display = 'none';
+            document.getElementById('modal-title').textContent = 'Publish Form';
+        }
+
+        function closePublishModal() {
+            document.getElementById('publish-modal').style.display = 'none';
+        }
+
+        function copyPublicLink() {
+            const input = document.getElementById('public-link-input');
+            input.select();
+            input.setSelectionRange(0, 99999);
+            navigator.clipboard.writeText(input.value).then(() => {
+                const btn = event.target.closest('button');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">check</span> Copied!';
+                btn.style.background = 'linear-gradient(135deg,#198754,#20c997)';
+                setTimeout(() => {
+                    btn.innerHTML = originalHTML;
+                    btn.style.background = 'linear-gradient(135deg,#4f46e5,#6366f1)';
+                }, 2000);
+            });
+        }
+
+        function handlePublish() {
+            console.log('=== HANDLE PUBLISH CALLED ===');
+
+            const form = document.getElementById('publish-form-modal');
+            const btn = document.getElementById('btn-submit-publish');
+            const nameInput = form.querySelector('input[name="name"]');
+            const name = nameInput.value.trim();
+
+            if (!name) {
+                alert('Please enter a name for the published form.');
+                nameInput.focus();
+                return;
+            }
+
+            const originalBtnHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">sync</span> Publishing...';
+
+            const actionUrl = form.getAttribute('action');
+            const csrfParam = '<?= $csrfParam ?>';
+            const csrfToken = '<?= $csrfToken ?>';
+
+            console.log('Action URL:', actionUrl);
+            console.log('Form name:', name);
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append(csrfParam, csrfToken);
+
+            fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    console.log('Content-Type:', response.headers.get('content-type'));
+                    return response.text();
+                })
+                .then(text => {
+                    console.log('=== RAW RESPONSE ===');
+                    console.log(text);
+
+                    try {
+                        const data = JSON.parse(text);
+                        console.log('=== PARSED RESPONSE ===');
+                        console.log(data);
+
+                        if (data.success) {
+                            console.log('=== SHOWING SUCCESS STATE ===');
+                            // Show success state
+                            document.getElementById('before-publish').style.display = 'none';
+                            document.getElementById('after-publish').style.display = 'block';
+                            document.getElementById('modal-title').textContent = 'Form Published';
+
+                            // Update public link with ngrok URL if provided
+                            if (data.publicUrl) {
+                                console.log('Setting public URL:', data.publicUrl);
+                                document.getElementById('public-link-input').value = data.publicUrl;
+                            }
+
+                            // Generate QR Code
+                            const publicLink = document.getElementById('public-link-input').value;
+                            const qrcodeContainer = document.getElementById('qrcode');
+                            qrcodeContainer.innerHTML = '';
+
+                            if (typeof QRCode !== 'undefined') {
+                                console.log('Generating QR Code for:', publicLink);
+                                new QRCode(qrcodeContainer, {
+                                    text: publicLink,
+                                    width: 180,
+                                    height: 180,
+                                    colorDark: '#0b1c30',
+                                    colorLight: '#ffffff',
+                                    correctLevel: QRCode.CorrectLevel.H
+                                });
+                            } else {
+                                console.error('QRCode library not loaded!');
+                            }
+                        } else {
+                            alert('Error: ' + (data.message || 'Failed to publish form'));
+                            btn.disabled = false;
+                            btn.innerHTML = originalBtnHTML;
+                        }
+                    } catch (parseError) {
+                        console.error('=== JSON PARSE ERROR ===');
+                        console.error(parseError);
+                        console.error('Response text was:', text);
+                        alert('Server error. Check console for details.\n\nResponse: ' + text.substring(0, 150));
+                        btn.disabled = false;
+                        btn.innerHTML = originalBtnHTML;
+                    }
+                })
+                .catch(fetchError => {
+                    console.error('=== FETCH ERROR ===');
+                    console.error(fetchError);
+                    alert('Network error: ' + fetchError.message);
+                    btn.disabled = false;
+                    btn.innerHTML = originalBtnHTML;
+                });
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('publish-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closePublishModal();
+            }
+        });
+    </script>
 
     <!-- Notification System -->
     <script src="<?= Yii::$app->request->baseUrl ?>/js/notifications.js"></script>

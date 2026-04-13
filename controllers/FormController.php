@@ -22,7 +22,7 @@ class FormController extends Controller
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['render', 'submit'],
+                        'actions' => ['render', 'submit', 'public-render', 'success'],
                         'allow' => true,
                         'roles' => ['?', '@'], // Allow both guests and authenticated users
                     ],
@@ -171,6 +171,20 @@ class FormController extends Controller
     }
 
     /**
+     * Render form for public access (no auth required)
+     */
+    public function actionPublicRender($id)
+    {
+        $model = $this->findModel($id, false);
+        $schema = $model->getSchema();
+
+        return $this->render('public-render', [
+            'model' => $model,
+            'schema' => $schema,
+        ]);
+    }
+
+    /**
      * Render form for public/submission
      */
     public function actionRender($id)
@@ -195,24 +209,80 @@ class FormController extends Controller
         if (Yii::$app->request->isPost) {
             $data = [];
             foreach ($schema as $field) {
-                $name = $field['name'];
-                $data[$name] = Yii::$app->request->post($name, '');
+                $name = $field['name'] ?? $field['label'] ?? '';
+                if ($name) {
+                    $data[$name] = Yii::$app->request->post($name, '');
+                }
+            }
+
+            // Auto inject Firebase user data from hidden fields
+            if (Yii::$app->request->post('user_email')) {
+                $data['_firebase_email'] = Yii::$app->request->post('user_email');
+            }
+            if (Yii::$app->request->post('user_name')) {
+                $data['_firebase_name'] = Yii::$app->request->post('user_name');
+            }
+            if (Yii::$app->request->post('firebase_uid')) {
+                $data['_firebase_uid'] = Yii::$app->request->post('firebase_uid');
+            }
+
+            // Auto inject Yii logged in user data if available
+            if (!Yii::$app->user->isGuest) {
+                $data['_user_id'] = Yii::$app->user->id;
+                $data['_user_email'] = Yii::$app->user->identity->email;
+                $data['_user_name'] = Yii::$app->user->identity->username;
             }
 
             $submission = new FormSubmission();
             $submission->form_id = $id;
             $submission->user_id = !Yii::$app->user->isGuest ? Yii::$app->user->id : null;
+            $submission->firebase_uid = Yii::$app->request->post('firebase_uid');
+            $submission->firebase_email = Yii::$app->request->post('user_email');
+            $submission->firebase_name = Yii::$app->request->post('user_name');
             $submission->data_json = json_encode($data, JSON_UNESCAPED_UNICODE);
 
             if ($submission->save()) {
+                // Redirect to success page for guest users
+                if (Yii::$app->user->isGuest) {
+                    return $this->redirect(['success', 'id' => $id]);
+                }
                 Yii::$app->session->setFlash('success', 'Form submitted successfully!');
             } else {
-                Yii::$app->session->setFlash('error', 'Failed to submit form. Please try again.');
+                $errors = $submission->getFirstErrors();
+                $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to submit form. Please try again.';
+                
+                // For guest users, redirect back to public render with error
+                if (Yii::$app->user->isGuest) {
+                    Yii::$app->session->setFlash('error', $errorMessage);
+                    return $this->redirect(['public-render', 'id' => $id]);
+                }
+                Yii::$app->session->setFlash('error', $errorMessage);
+            }
+            
+            // Redirect back to public render for guest users, or regular render for logged-in users
+            if (Yii::$app->user->isGuest) {
+                return $this->redirect(['public-render', 'id' => $id]);
             }
             return $this->redirect(['render', 'id' => $id]);
         }
 
+        // If not POST, redirect appropriately
+        if (Yii::$app->user->isGuest) {
+            return $this->redirect(['public-render', 'id' => $id]);
+        }
         return $this->redirect(['render', 'id' => $id]);
+    }
+
+    /**
+     * Success page after form submission (for public users)
+     */
+    public function actionSuccess($id)
+    {
+        $model = $this->findModel($id, false);
+
+        return $this->render('success', [
+            'model' => $model,
+        ]);
     }
 
     /**
@@ -370,76 +440,107 @@ class FormController extends Controller
      */
     public function actionPublish($id = null)
     {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
         // Support both GET id and POST form_id
         $formId = Yii::$app->request->post('form_id', $id);
-        
-        Yii::info("Publish action called with formId: $formId", 'app');
-        
+
+        Yii::info("Publish action called with formId: $formId, isAjax: " . (Yii::$app->request->isAjax ? 'yes' : 'no'), 'app');
+
         if (!$formId) {
-            Yii::$app->session->setFlash('error', 'Form ID is required.');
-            return $this->redirect(['form/index']);
+            return ['success' => false, 'message' => 'Form ID is required.'];
         }
-        
-        $form = $this->findModel($formId);
 
-        // Check if already published
-        $existingPublished = PublishedForm::find()
-            ->where(['form_id' => $formId, 'user_id' => Yii::$app->user->id])
-            ->one();
+        try {
+            $form = $this->findModel($formId);
 
-        if (Yii::$app->request->isPost) {
-            $name = Yii::$app->request->post('name', $form->name);
-            $publishModel = null;
-            
-            Yii::info("Publishing form with name: $name, formId: $formId", 'app');
-            
-            if ($existingPublished) {
-                // Update existing published form
-                $existingPublished->name = $name;
-                $publishModel = $existingPublished;
-                if ($existingPublished->save()) {
-                    Yii::$app->session->setFlash('success', 'Published form updated successfully!');
-                    return $this->redirect(['published-form/index']);
+            // Check if already published
+            $existingPublished = PublishedForm::find()
+                ->where(['form_id' => $formId, 'user_id' => Yii::$app->user->id])
+                ->one();
+
+            if (Yii::$app->request->isPost) {
+                $name = Yii::$app->request->post('name', $form->name);
+
+                Yii::info("Publishing form with name: $name, formId: $formId", 'app');
+
+                if ($existingPublished) {
+                    // Update existing published form
+                    $existingPublished->name = $name;
+                    if ($existingPublished->save()) {
+                        // Get the public URL (ngrok or localhost)
+                        $publicUrl = $this->getPublicUrl() . '/form/public-render/' . $formId;
+
+                        return [
+                            'success' => true,
+                            'message' => 'Form published successfully!',
+                            'publicUrl' => $publicUrl
+                        ];
+                    } else {
+                        Yii::error('Failed to update published form: ' . print_r($existingPublished->errors, true), 'app');
+                        return ['success' => false, 'message' => 'Failed to update: ' . implode(', ', $existingPublished->getFirstErrors())];
+                    }
                 } else {
-                    Yii::error('Failed to update published form: ' . print_r($existingPublished->errors, true), 'app');
-                }
-            } else {
-                // Create new published form
-                $publishedForm = new PublishedForm();
-                $publishedForm->user_id = Yii::$app->user->id;
-                $publishedForm->form_id = $formId;
-                $publishedForm->name = $name;
-                $publishModel = $publishedForm;
-                
-                if ($publishedForm->save()) {
-                    Yii::$app->session->setFlash('success', 'Form published successfully!');
-                    return $this->redirect(['published-form/index']);
-                } else {
-                    Yii::error('Failed to create published form: ' . print_r($publishedForm->errors, true), 'app');
+                    // Create new published form
+                    $publishedForm = new PublishedForm();
+                    $publishedForm->user_id = Yii::$app->user->id;
+                    $publishedForm->form_id = $formId;
+                    $publishedForm->name = $name;
+
+                    if ($publishedForm->save()) {
+                        // Get the public URL (ngrok or localhost)
+                        $publicUrl = $this->getPublicUrl() . '/form/public-render/' . $formId;
+
+                        return [
+                            'success' => true,
+                            'message' => 'Form published successfully!',
+                            'publicUrl' => $publicUrl
+                        ];
+                    } else {
+                        Yii::error('Failed to create published form: ' . print_r($publishedForm->errors, true), 'app');
+                        return ['success' => false, 'message' => 'Failed to publish: ' . implode(', ', $publishedForm->getFirstErrors())];
+                    }
                 }
             }
-            
-            // If save failed, show errors
-            $errorMessage = 'Failed to publish form. Please try again.';
-            if ($publishModel !== null && $publishModel->hasErrors()) {
-                $firstError = $publishModel->getFirstErrors();
-                if (!empty($firstError)) {
-                    $errorMessage .= ' ' . reset($firstError);
-                }
-            }
-            Yii::$app->session->setFlash('error', $errorMessage);
+
+            // For GET requests, return form info
+            return [
+                'success' => true,
+                'form' => [
+                    'id' => $form->id,
+                    'name' => $form->name,
+                    'published' => $existingPublished !== null,
+                ]
+            ];
+        } catch (\Exception $e) {
+            Yii::error('Publish error: ' . $e->getMessage(), 'app');
+            return ['success' => false, 'message' => 'Error: ' . $e->getMessage()];
+        }
+    }
+
+    /**
+     * Get the public URL (ngrok or localhost)
+     * @return string
+     */
+    protected function getPublicUrl()
+    {
+        // 1. Check environment variable for manual configuration (ngrok URL)
+        $publicBaseUrl = getenv('PUBLIC_BASE_URL');
+        if ($publicBaseUrl) {
+            return rtrim($publicBaseUrl, '/');
         }
 
-        // For AJAX/modal requests, return the view
-        if (Yii::$app->request->isAjax) {
-            return $this->renderAjax('publish', [
-                'model' => $form,
-                'publishedForm' => $existingPublished,
-            ]);
+        // 2. Check if request is coming through ngrok proxy
+        $forwardedHost = Yii::$app->request->headers->get('X-Forwarded-Host');
+        $forwardedProto = Yii::$app->request->headers->get('X-Forwarded-Proto', 'https');
+
+        if ($forwardedHost) {
+            // Request is coming through ngrok
+            return $forwardedProto . '://' . $forwardedHost;
         }
 
-        // For regular requests, redirect back to form page
-        return $this->redirect(['form/update', 'id' => $formId]);
+        // 3. Fallback to localhost for direct access
+        return Yii::$app->request->hostInfo;
     }
 
     /**

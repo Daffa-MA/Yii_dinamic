@@ -135,7 +135,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <?php foreach ($forms as $index => $form): ?>
                         <?php
-                        $blocks = json_decode($form->schema_json ?? '[]', true);
+                        $blocks = json_decode($form->schema_js ?? '[]', true);
                         $blockCount = count($blocks);
                         $submissionCount = $form->submissions ? count($form->submissions) : 0;
                         

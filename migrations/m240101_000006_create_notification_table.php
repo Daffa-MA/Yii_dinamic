@@ -6,6 +6,8 @@ class m240101_000006_create_notification_table extends Migration
 {
     public function safeUp()
     {
+        $isSqlite = $this->db->driverName === 'sqlite';
+
         $this->createTable('notifications', [
             'id' => $this->primaryKey(),
             'user_id' => $this->integer()->notNull(),
@@ -23,20 +25,24 @@ class m240101_000006_create_notification_table extends Migration
         $this->createIndex('idx_notifications_user_id', 'notifications', 'user_id');
 
         // Add foreign key to users table
-        $this->addForeignKey(
-            'fk_notifications_user_id',
-            'notifications',
-            'user_id',
-            'users',
-            'id',
-            'CASCADE',
-            'CASCADE'
-        );
+        if (!$isSqlite) {
+            $this->addForeignKey(
+                'fk_notifications_user_id',
+                'notifications',
+                'user_id',
+                'users',
+                'id',
+                'CASCADE',
+                'CASCADE'
+            );
+        }
     }
 
     public function safeDown()
     {
-        $this->dropForeignKey('fk_notifications_user_id', 'notifications');
+        if ($this->db->driverName !== 'sqlite') {
+            $this->dropForeignKey('fk_notifications_user_id', 'notifications');
+        }
         $this->dropIndex('idx_notifications_user_id', 'notifications');
         $this->dropTable('notifications');
     }

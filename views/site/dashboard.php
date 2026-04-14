@@ -219,7 +219,7 @@ $this->title = 'Dashboard';
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <?php foreach ($forms as $form): ?>
                             <?php
-                            $blocks = json_decode($form->schema_json ?? '[]', true);
+                            $blocks = json_decode($form->schema_js ?? '[]', true);
                             $blockCount = count($blocks);
                             $submissionCount = $form->submissions ? count($form->submissions) : 0;
                             $completionRate = $submissionCount > 0 ? '88%' : '—';

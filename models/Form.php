@@ -13,7 +13,7 @@ use yii\db\ActiveRecord;
  * @property integer $table_id
  * @property string $storage_type
  * @property string $name
- * @property string $schema_json
+ * @property string $schema_js
  * @property string $created_at
  * @property string $updated_at
  *
@@ -31,10 +31,10 @@ class Form extends ActiveRecord
     public function rules()
     {
         return [
-            [['user_id', 'name', 'schema_json'], 'required'],
+            [['user_id', 'name', 'schema_js'], 'required'],
             [['user_id', 'table_id'], 'integer'],
             [['storage_type'], 'string', 'max' => 20],
-            [['schema_json'], 'string'],
+            [['schema_json', 'schema_js'], 'string'],
             [['name'], 'string', 'max' => 255],
             [['storage_type'], 'in', 'range' => ['json', 'database']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
@@ -50,7 +50,7 @@ class Form extends ActiveRecord
             'table_id' => 'Database Table',
             'storage_type' => 'Storage Type',
             'name' => 'Form Name',
-            'schema_json' => 'Form Schema',
+            'schema_js' => 'Form Schema',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
@@ -73,42 +73,55 @@ class Form extends ActiveRecord
 
     public function getSchema()
     {
-        return json_decode((string)$this->schema_json, true) ?: [];
+        return json_decode((string)$this->schema_js, true) ?: [];
     }
 
     public function setSchema($schema)
     {
-        $this->schema_json = json_encode($schema, JSON_UNESCAPED_UNICODE);
+        $this->schema_js = json_encode($schema, JSON_UNESCAPED_UNICODE);
     }
 
     /**
-     * Backward-compatible alias:
-     * - if table has schema_json, use it
-     * - if table has legacy schema_js, map schema_json access to it
+     * Preferred alias:
+     * - if table has schema_js, use it
+     * - if table has legacy schema_json, map schema_js access to it
      */
-    public function getSchema_json()
+    public function getSchema_js()
     {
-        if ($this->hasAttribute('schema_json')) {
-            return $this->getAttribute('schema_json');
-        }
-
         if ($this->hasAttribute('schema_js')) {
             return $this->getAttribute('schema_js');
+        }
+
+        if ($this->hasAttribute('schema_json')) {
+            return $this->getAttribute('schema_json');
         }
 
         return null;
     }
 
-    public function setSchema_json($value)
+    public function setSchema_js($value)
     {
-        if ($this->hasAttribute('schema_json')) {
-            $this->setAttribute('schema_json', $value);
+        if ($this->hasAttribute('schema_js')) {
+            $this->setAttribute('schema_js', $value);
             return;
         }
 
-        if ($this->hasAttribute('schema_js')) {
-            $this->setAttribute('schema_js', $value);
+        if ($this->hasAttribute('schema_json')) {
+            $this->setAttribute('schema_json', $value);
         }
+    }
+
+    /**
+     * Backward-compatible alias for older code paths.
+     */
+    public function getSchema_json()
+    {
+        return $this->schema_js;
+    }
+
+    public function setSchema_json($value)
+    {
+        $this->schema_js = $value;
     }
 
     public function behaviors()

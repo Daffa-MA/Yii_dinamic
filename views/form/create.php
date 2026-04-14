@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 /** @var yii\web\View $this */
 /** @var app\models\Form $model */
@@ -121,50 +121,57 @@ display: flex;
 flex-direction: column;
 height: calc(120vh - 140px);
 overflow: hidden;
-background: linear-gradient(135deg, white 0%, #fafbfe 100%);
+background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 50%, #f5f5f5 100%);
 margin-top: -1px;
-border-radius: 16px;
-border: 1px solid #e8eef7;
-box-shadow: 0 10px 40px rgba(11, 28, 48, 0.08), 0 0 1px rgba(0,0,0,0.05);
+border-radius: 0;
+border: none;
+box-shadow: none;
 transition: all 0.3s ease;
 }
 
 .builder-wrapper:hover {
-box-shadow: 0 20px 50px rgba(11, 28, 48, 0.12), 0 0 1px rgba(0,0,0,0.05);
+box-shadow: none;
 }
 
 /* ============ TOP TOOLBAR ============ */
 .builder-toolbar {
 height: var(--toolbar-height);
-background: linear-gradient(to right, #ffffff, #fafbfe);
+background: white;
 border-bottom: 1px solid #e8eef7;
 display: flex;
 align-items: center;
-justify-content: space-between;
+justify-content: center;
 padding: 0 24px;
 flex-shrink: 0;
 z-index: 10;
-box-shadow: 0 2px 8px rgba(11, 28, 48, 0.04);
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 gap: 20px;
 flex-wrap: nowrap;
+max-width: 100%;
+margin: 0 auto;
 }
 
 .toolbar-left {
 display: flex;
 align-items: center;
 gap: 16px;
+order: 1;
 }
 
 .toolbar-center {
 display: flex;
 align-items: center;
 gap: 12px;
+order: 2;
+flex: 0 0 auto;
 }
 
 .toolbar-right {
 display: flex;
 align-items: center;
 gap: 12px;
+order: 3;
+margin-left: auto;
 }
 
 .toolbar-logo {
@@ -276,13 +283,16 @@ min-height: 0;
 
 /* ============ LEFT SIDEBAR - BLOCKS ============ */
 .builder-sidebar-left {
-width: var(--sidebar-width);
+width: 240px;
 background: white;
 border-right: 1px solid var(--gray-100);
 display: flex;
 flex-direction: column;
 overflow: hidden;
 flex-shrink: 0;
+order: 1;
+border-left: 1px solid var(--gray-100);
+border-right: 1px solid var(--gray-100);
 }
 
     /* Modern scrollbar styling */
@@ -487,8 +497,14 @@ overflow-y: auto;
 overflow-x: hidden;
 display: flex;
 flex-direction: column;
-background: linear-gradient(to bottom, var(--gray-50), var(--gray-100));
+background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 50%, #f8f9fa 100%);
 transition: all 0.2s ease;
+order: 2;
+align-items: center;
+padding-top: 24px;
+padding-bottom: 24px;
+border-left: 1px solid #e8eef7;
+border-right: 1px solid #e8eef7;
 }
 
 .builder-canvas.drag-over {
@@ -499,6 +515,11 @@ background: linear-gradient(to bottom, var(--puck-accent), rgba(2, 118, 255, 0.0
 flex: 1;
 overflow-y: auto;
 overflow-x: hidden;
+display: flex;
+justify-content: center;
+align-items: flex-start;
+width: 100%;
+}
 padding: 24px 20px;
 display: block;
 min-height: 0;
@@ -523,10 +544,10 @@ min-height: 0;
 
 .canvas-wrapper {
 width: 100%;
-max-width: 1280px;
+max-width: 800px;
 background: white;
-border-radius: 16px;
-box-shadow: 0 2px 16px rgba(0, 0, 0, 0.06);
+border-radius: 12px;
+box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.12);
 min-height: 500px;
 transition: all 0.3s ease;
 overflow: visible;
@@ -535,7 +556,7 @@ margin: 0 auto;
 }
 
     .canvas-wrapper.tablet {
-        max-width: 850px;
+        max-width: 750px;
     }
 
     .canvas-wrapper.mobile {
@@ -543,30 +564,33 @@ margin: 0 auto;
     }
 
 .canvas-header {
-padding: 16px 24px;
-border-bottom: 1px solid var(--gray-100);
+padding: 32px 24px 16px 24px;
+border-bottom: none;
 background: white;
 }
 
 .canvas-form-name {
-font-size: 24px;
-font-weight: 700;
+font-size: 32px;
+font-weight: 500;
+color: #202124;
+letter-spacing: 0.3px;
 border: none;
-outline: none;
-width: 100%;
 background: transparent;
-color: var(--gray-900);
-padding: 6px 0;
+padding: 0;
+margin: 0;
+width: 100%;
+font-family: 'Manrope', sans-serif;
+outline: none;
 transition: color 0.2s;
-letter-spacing: -0.5px;
 }
 
 .canvas-form-name:focus {
-color: var(--primary);
+outline: none;
+color: #202124;
 }
 
 .canvas-form-name::placeholder {
-color: var(--gray-300);
+color: #9e9e9e;
 }
 
 .canvas-body {
@@ -584,11 +608,11 @@ flex-direction: column;
 align-items: center;
 justify-content: center;
 min-height: 450px;
-border: 2px dashed var(--gray-200);
-border-radius: 12px;
-color: var(--gray-400);
+border: 2px dashed #e0e0e0;
+border-radius: 8px;
+color: #9e9e9e;
 text-align: center;
-background: var(--gray-50);
+background: #fafafa;
 transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 }
 
@@ -600,7 +624,7 @@ background: var(--gray-100);
 .canvas-empty-icon {
 font-size: 64px;
 margin-bottom: 20px;
-opacity: 0.5;
+opacity: 0.6;
 }
 
 .canvas-empty-icon i {
@@ -1023,7 +1047,7 @@ background: white;
     .preview-pricing {
         padding: 24px;
         border: 2px solid var(--gray-200);
-        border-radius: 16px;
+        border-radius: 0;
         text-align: center;
     }
 
@@ -1370,13 +1394,15 @@ border-radius: 50%;
 
 /* ============ RIGHT SIDEBAR - PROPERTIES ============ */
 .builder-sidebar-right {
-width: 360px;
+width: 320px;
 background: white;
 border-left: 1px solid var(--gray-100);
 display: flex;
 flex-direction: column;
 overflow: hidden;
 flex-shrink: 0;
+order: 3;
+border-right: 1px solid var(--gray-100);
 }
 
 .properties-header {
@@ -1849,583 +1875,218 @@ display: none;
             <button class="btn-toolbar" id="btn-redo" title="Redo"><span class="material-symbols-outlined" style="font-size:18px;">redo</span></button>
             <div class="toolbar-divider"></div>
             <?= Html::a('<span class="material-symbols-outlined" style="font-size:18px;">visibility</span> Preview', ['form/render', 'id' => $model->id], ['class' => 'btn-toolbar', 'id' => 'btn-preview', 'style' => $model->isNewRecord ? 'display:none' : '']) ?>
-            <button class="btn-toolbar btn-toolbar-primary" id="btn-save">
-                💾 <?= $model->isNewRecord ? 'Publish' : 'Update' ?>
-            </button>
         </div>
     </div>
 
                 <!-- MAIN -->
                 <div class="builder-main">
-                    <!-- LEFT SIDEBAR - BLOCKS -->
+                    <!-- RIGHT SIDEBAR - BLOCKS -->
                     <div class="builder-sidebar-left">
                         <div class="sidebar-search">
                             <input type="text" id="block-search" placeholder="🔍 Search blocks...">
                         </div>
                         <div class="sidebar-categories" id="blocks-container">
 
-                            <!-- LAYOUT BLOCKS -->
-                            <div class="block-category open" data-category="layout">
+                            <!-- FORM FIELDS -->
+                            <div class="block-category open" data-category="form">
                                 <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">layers</span> Layout</span>
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">note_add</span> Form Fields</span>
                                     <span class="block-category-arrow">▶</span>
                                 </div>
                                 <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="container">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Container</div>
-                                            <div class="block-item-desc">Wrapper container</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="columns">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">view_column</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Columns</div>
-                                            <div class="block-item-desc">Multi-column layout</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="grid">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">grid_view</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Grid</div>
-                                            <div class="block-item-desc">Grid layout</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="section">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">crop_landscape</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Section</div>
-                                            <div class="block-item-desc">Full-width section</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="divider">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">horizontal_rule</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Divider</div>
-                                            <div class="block-item-desc">Horizontal line</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="spacer">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">height</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Spacer</div>
-                                            <div class="block-item-desc">Empty space</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- TYPOGRAPHY -->
-                            <div class="block-category open" data-category="typography">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">title</span> Typography</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="heading">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">title</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Heading</div>
-                                            <div class="block-item-desc">H1-H6 heading</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
                                     <div class="block-item" draggable="true" data-type="text">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">text_fields</span></div>
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">short_text</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Text</div>
-                                            <div class="block-item-desc">Paragraph text</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="richtext">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">description</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Rich Text</div>
-                                            <div class="block-item-desc">Formatted text</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="list">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_list_bulleted</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">List</div>
-                                            <div class="block-item-desc">Bullet/numbered list</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="quote">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_quote</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Quote</div>
-                                            <div class="block-item-desc">Blockquote</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="code">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Code</div>
-                                            <div class="block-item-desc">Code block</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- MEDIA -->
-                            <div class="block-category open" data-category="media">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">image</span> Media</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="image">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Image</div>
-                                            <div class="block-item-desc">Single image</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="gallery">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Gallery</div>
-                                            <div class="block-item-desc">Image gallery</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="video">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">videocam</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Video</div>
-                                            <div class="block-item-desc">Video embed</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="icon">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Icon</div>
-                                            <div class="block-item-desc">Icon element</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="avatar">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Avatar</div>
-                                            <div class="block-item-desc">User avatar</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- FORM ELEMENTS -->
-                            <div class="block-category open" data-category="forms">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">list</span> Form Elements</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="text-input">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">keyboard</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Text Input</div>
+                                            <div class="block-item-name">Short Answer</div>
                                             <div class="block-item-desc">Single line text</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                        </div>
                                     </div>
                                     <div class="block-item" draggable="true" data-type="textarea">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">format_align_left</span></div>
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">notes</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Textarea</div>
+                                            <div class="block-item-name">Paragraph</div>
                                             <div class="block-item-desc">Multi-line text</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="email">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">mail</span></div>
+                                    <div class="block-item" draggable="true" data-type="radio">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_checked</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Email</div>
-                                            <div class="block-item-desc">Email input</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="number">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">tag</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Number</div>
-                                            <div class="block-item-desc">Number input</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="password">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">lock</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Password</div>
-                                            <div class="block-item-desc">Password field</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="select">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">list</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Dropdown</div>
-                                            <div class="block-item-desc">Select dropdown</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Multiple Choice</div>
+                                            <div class="block-item-desc">Select one option</div>
+                                        </div>
                                     </div>
                                     <div class="block-item" draggable="true" data-type="checkbox">
                                         <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Checkbox</div>
-                                            <div class="block-item-desc">Checkbox input</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Checkboxes</div>
+                                            <div class="block-item-desc">Select multiple</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="radio">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span></div>
+                                    <div class="block-item" draggable="true" data-type="select">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">arrow_drop_down_circle</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Radio</div>
-                                            <div class="block-item-desc">Radio buttons</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Dropdown</div>
+                                            <div class="block-item-desc">Select from list</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="number">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">pin</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Number</div>
+                                            <div class="block-item-desc">Numeric input</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="email">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">email</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Email</div>
+                                            <div class="block-item-desc">Email address</div>
+                                        </div>
                                     </div>
                                     <div class="block-item" draggable="true" data-type="date">
                                         <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span></div>
                                         <div class="block-item-info">
                                             <div class="block-item-name">Date</div>
                                             <div class="block-item-desc">Date picker</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="file">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">attach_file</span></div>
+                                    <div class="block-item" draggable="true" data-type="time">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">schedule</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">File Upload</div>
-                                            <div class="block-item-desc">File upload field</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Time</div>
+                                            <div class="block-item-desc">Time picker</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="hidden">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">visibility_off</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Hidden</div>
-                                            <div class="block-item-desc">Hidden field</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="submit">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Submit Button</div>
-                                            <div class="block-item-desc">Form submit button</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- E-COMMERCE -->
-                            <div class="block-category open" data-category="ecommerce">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span> E-Commerce</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="product-card">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">shopping_bag</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Product Card</div>
-                                            <div class="block-item-desc">Single product</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="product-grid">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">grid_on</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Product Grid</div>
-                                            <div class="block-item-desc">Product grid</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="price">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">payments</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Price</div>
-                                            <div class="block-item-desc">Price display</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="add-to-cart">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">shopping_cart</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Add to Cart</div>
-                                            <div class="block-item-desc">Cart button</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="product-badge">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">local_offer</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Badge</div>
-                                            <div class="block-item-desc">Sale/New/Hot badge</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="stars">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Star Rating</div>
-                                            <div class="block-item-desc">Star rating</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="stock-status">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box_outline_blank</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Stock Status</div>
-                                            <div class="block-item-desc">In/Out of stock</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="buy-now">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Buy Now</div>
-                                            <div class="block-item-desc">Buy now button</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- BUSINESS -->
-                            <div class="block-category open" data-category="business">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">business_center</span> Business</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="hero">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">target</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Hero Section</div>
-                                            <div class="block-item-desc">Hero banner</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="team">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">group</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Team Member</div>
-                                            <div class="block-item-desc">Team card</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="testimonial">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">forum</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Testimonial</div>
-                                            <div class="block-item-desc">Customer review</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="pricing">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">diamond</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Pricing Card</div>
-                                            <div class="block-item-desc">Pricing plan</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="faq">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">help</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">FAQ</div>
-                                            <div class="block-item-desc">FAQ item</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="stats">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Stats Counter</div>
-                                            <div class="block-item-desc">Number counter</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="features">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Features</div>
-                                            <div class="block-item-desc">Feature list</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="contact-card">
+                                    <div class="block-item" draggable="true" data-type="phone">
                                         <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">phone</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Contact Card</div>
-                                            <div class="block-item-desc">Contact info</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Phone Number</div>
+                                            <div class="block-item-desc">Phone input</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="url">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">language</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">URL</div>
+                                            <div class="block-item-desc">Website link</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="file">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">upload_file</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">File Upload</div>
+                                            <div class="block-item-desc">Attach files</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="rating">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">star_rate</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Rating</div>
+                                            <div class="block-item-desc">Star rating</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="scale">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">linear_scale</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Linear Scale</div>
+                                            <div class="block-item-desc">1 to 5 scale</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- INTERACTIVE -->
-                            <div class="block-category open" data-category="interactive">
+                            <!-- CONTENT & LAYOUT -->
+                            <div class="block-category open" data-category="content">
                                 <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Interactive</span>
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">layers</span> Content</span>
                                     <span class="block-category-arrow">▶</span>
                                 </div>
                                 <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="button">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span></div>
+                                    <div class="block-item" draggable="true" data-type="heading">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">dns</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Button</div>
-                                            <div class="block-item-desc">CTA button</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Section Header</div>
+                                            <div class="block-item-desc">Title & description</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="link">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">link</span></div>
+                                    <div class="block-item" draggable="true" data-type="text_block">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">text_fields</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Link</div>
-                                            <div class="block-item-desc">Text link</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Text</div>
+                                            <div class="block-item-desc">Add heading or text</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="tabs">
-                                        <div class="block-item-icon"><i class="fas fa-folder"></i></div>
+                                    <div class="block-item" draggable="true" data-type="image">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">image</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Tabs</div>
-                                            <div class="block-item-desc">Tab container</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Image</div>
+                                            <div class="block-item-desc">Add images</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="accordion">
-                                        <div class="block-item-icon"><i class="fas fa-folder-open"></i></div>
+                                    <div class="block-item" draggable="true" data-type="video">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">play_circle</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Accordion</div>
-                                            <div class="block-item-desc">Collapsible content</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Video</div>
+                                            <div class="block-item-desc">Embed YouTube/Vimeo</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="progress">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span></div>
+                                    <div class="block-item" draggable="true" data-type="divider">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">remove</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Progress Bar</div>
-                                            <div class="block-item-desc">Progress indicator</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Divider</div>
+                                            <div class="block-item-desc">Separator line</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="timeline">
-                                        <div class="block-item-icon"><i class="fas fa-stream"></i></div>
+                                    <div class="block-item" draggable="true" data-type="page_break">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">last_page</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Timeline</div>
-                                            <div class="block-item-desc">Timeline item</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- MARKETING -->
-                            <div class="block-category open" data-category="marketing">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><i class="fas fa-bullhorn"></i> Marketing</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="newsletter">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">mail</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Newsletter</div>
-                                            <div class="block-item-desc">Email signup</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="countdown">
-                                        <div class="block-item-icon"><i class="fas fa-hourglass-end"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Countdown</div>
-                                            <div class="block-item-desc">Countdown timer</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="alert">
-                                        <div class="block-item-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Alert</div>
-                                            <div class="block-item-desc">Notification banner</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="cta">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">target</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Call to Action</div>
-                                            <div class="block-item-desc">CTA section</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- SOCIAL -->
-                            <div class="block-category open" data-category="social">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><i class="fas fa-share-alt"></i> Social</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="social-links">
-                                        <div class="block-item-icon"><i class="fas fa-share-alt"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Social Links</div>
-                                            <div class="block-item-desc">Social media icons</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="share-buttons">
-                                        <div class="block-item-icon"><i class="fas fa-share-nodes"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Share Buttons</div>
-                                            <div class="block-item-desc">Social share</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="embed">
-                                        <div class="block-item-icon"><i class="fas fa-tv"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Embed</div>
-                                            <div class="block-item-desc">YouTube/Instagram</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- DATA -->
-                            <div class="block-category open" data-category="data">
-                                <div class="block-category-header">
-                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:18px;">bar_chart</span> Data</span>
-                                    <span class="block-category-arrow">▶</span>
-                                </div>
-                                <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="table">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">table_chart</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Table</div>
-                                            <div class="block-item-desc">Data table</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="badge">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">local_offer</span></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Badge/Tag</div>
-                                            <div class="block-item-desc">Label badge</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="chart">
-                                        <div class="block-item-icon"><i class="fas fa-chart-line"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Chart</div>
-                                            <div class="block-item-desc">Bar chart placeholder</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
-                                    </div>
-                                    <div class="block-item" draggable="true" data-type="map">
-                                        <div class="block-item-icon"><i class="fas fa-map"></i></div>
-                                        <div class="block-item-info">
-                                            <div class="block-item-name">Map</div>
-                                            <div class="block-item-desc">Google Map embed</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Page Break</div>
+                                            <div class="block-item-desc">Multi-page form</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- ADVANCED -->
-                            <div class="block-category open" data-category="advanced">
+                            <div class="block-category" data-category="advanced">
                                 <div class="block-category-header">
-                                    <span class="block-category-title"><i class="fas fa-tools"></i> Advanced</span>
+                                    <span class="block-category-title"><span class="material-symbols-outlined" style="font-size:16px;">settings</span> Advanced</span>
                                     <span class="block-category-arrow">▶</span>
                                 </div>
                                 <div class="block-category-items">
-                                    <div class="block-item" draggable="true" data-type="html">
-                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">code</span></div>
+                                    <div class="block-item" draggable="true" data-type="signature">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">edit</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Custom HTML</div>
-                                            <div class="block-item-desc">Raw HTML code</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Signature</div>
+                                            <div class="block-item-desc">Digital signature</div>
+                                        </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="template">
-                                        <div class="block-item-icon"><i class="fas fa-file-contract"></i></div>
+                                    <div class="block-item" draggable="true" data-type="matrix">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">table_chart</span></div>
                                         <div class="block-item-info">
-                                            <div class="block-item-name">Template</div>
-                                            <div class="block-item-desc">Reusable template</div>
-                                        </div><span class="block-item-drag"><span class="material-symbols-outlined" style="font-size:18px;">more_vert</span></span>
+                                            <div class="block-item-name">Matrix</div>
+                                            <div class="block-item-desc">Grid of options</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="ranking">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">trending_up</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Ranking</div>
+                                            <div class="block-item-desc">Rank items</div>
+                                        </div>
+                                    </div>
+                                    <div class="block-item" draggable="true" data-type="toggle">
+                                        <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">toggle_on</span></div>
+                                        <div class="block-item-info">
+                                            <div class="block-item-name">Toggle Switch</div>
+                                            <div class="block-item-desc">Yes/No switch</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
                         </div>
                     </div>
-
-                    <!-- CENTER CANVAS -->
+                    <!-- CENTER CANVAS AREA -->
                     <div class="builder-canvas">
                         <div class="canvas-scroll-area">
                             <div class="canvas-wrapper" id="canvas-wrapper">
@@ -2435,14 +2096,14 @@ display: none;
                                     <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
                                 </div>
 
-                    <?= Html::hiddenInput('Form[schema_json]', $model->isNewRecord ? '[]' : Html::encode($model->schema_json), ['id' => 'schema-js']) ?>
+                    <?= Html::hiddenInput('Form[schema_js]', $model->isNewRecord ? '[]' : Html::encode($model->schema_js), ['id' => 'schema-js']) ?>
                     <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
 
                                 <div class="canvas-body" id="canvas-body">
                                     <div class="canvas-empty" id="canvas-empty">
                                         <div class="canvas-empty-icon">🧩</div>
                                         <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
-                                        <div class="canvas-empty-hint">or click blocks from the left panel to add them</div>
+                                        <div class="canvas-empty-hint">or click blocks from the right panel to add them</div>
                                     </div>
                                     <div id="canvas-blocks" style="min-height:50px;"></div>
                                     <!-- Padding spacer to prevent blocks from being cut off -->
@@ -2457,7 +2118,7 @@ display: none;
             <div class="canvas-action-bar">
                 <div style="display:flex;justify-content:flex-end;gap:12px;max-width:1280px;margin:0 auto;padding:0 40px;">
                     <?= Html::a('Cancel', ['form/index'], ['class' => 'btn-toolbar']) ?>
-                    <button type="submit" formid="builder-form" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
+                    <button type="submit" formid="builder-form" id="btn-save" class="btn-toolbar btn-toolbar-primary"><i class="fas fa-save"></i> <?= $model->isNewRecord ? 'Publish Page' : 'Update Page' ?></button>
                 </div>
             </div>
         </div>
@@ -2479,15 +2140,89 @@ display: none;
 
                             <div id="props-content" class="props-tab" style="display:none;">
                                 <div class="property-section">
-                                    <div class="property-section-title">Content</div>
+                                    <div class="property-section-title">Basic</div>
                                     <div class="property-field">
                                         <label class="property-label">Label/Title</label>
-                                        <input type="text" class="property-input" id="prop-label" placeholder="Enter text...">
+                                        <input type="text" class="property-input" id="prop-label" placeholder="Enter label...">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Helper Text</label>
+                                        <textarea class="property-textarea" id="prop-helper" placeholder="Additional guidance text..."></textarea>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Placeholder</label>
+                                        <input type="text" class="property-input" id="prop-placeholder" placeholder="e.g. Your name...">
                                     </div>
                                     <div class="property-field">
                                         <label class="property-label">Description</label>
-                                        <textarea class="property-textarea" id="prop-desc" placeholder="Enter description..."></textarea>
+                                        <textarea class="property-textarea" id="prop-desc" placeholder="Detailed description..."></textarea>
                                     </div>
+                                </div>
+
+                                <div class="property-section">
+                                    <div class="property-section-title">Settings</div>
+                                    <div class="property-field">
+                                        <label class="property-checkbox"><input type="checkbox" id="prop-required"><span>Required field</span></label>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-checkbox"><input type="checkbox" id="prop-readonly"><span>Read-only</span></label>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Default Value</label>
+                                        <input type="text" class="property-input" id="prop-default" placeholder="Initial value...">
+                                    </div>
+                                </div>
+
+                                <div class="property-section">
+                                    <div class="property-section-title">Validation</div>
+                                    <div class="property-field">
+                                        <label class="property-label">Min. Length</label>
+                                        <input type="number" class="property-input" id="prop-min-length" placeholder="0" min="0">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Max. Length</label>
+                                        <input type="number" class="property-input" id="prop-max-length" placeholder="No limit" min="0">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Pattern/Regex</label>
+                                        <input type="text" class="property-input" id="prop-pattern" placeholder="^[a-zA-Z0-9]+$">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Error Message</label>
+                                        <input type="text" class="property-input" id="prop-error-msg" placeholder="This field is invalid">
+                                    </div>
+                                </div>
+
+                                <div class="property-section">
+                                    <div class="property-section-title">Numeric</div>
+                                    <div class="property-field">
+                                        <label class="property-label">Minimum Value</label>
+                                        <input type="number" class="property-input" id="prop-min-value" placeholder="No minimum">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Maximum Value</label>
+                                        <input type="number" class="property-input" id="prop-max-value" placeholder="No maximum">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Decimal Places</label>
+                                        <input type="number" class="property-input" id="prop-decimals" placeholder="0" min="0">
+                                    </div>
+                                </div>
+
+                                <div class="property-section">
+                                    <div class="property-section-title">Options</div>
+                                    <div class="property-field">
+                                        <label class="property-label">Multiple Select</label>
+                                        <label class="property-checkbox"><input type="checkbox" id="prop-multiple"><span>Allow multiple selections</span></label>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Option List</label>
+                                        <textarea class="property-textarea" id="prop-options" placeholder="One option per line&#10;Option 1&#10;Option 2&#10;Option 3"></textarea>
+                                    </div>
+                                </div>
+
+                                <div class="property-section">
+                                    <div class="property-section-title">File & Media</div>
                                     <div class="property-field">
                                         <label class="property-label">URL/Link</label>
                                         <input type="text" class="property-input" id="prop-url" placeholder="https://...">
@@ -2495,6 +2230,38 @@ display: none;
                                     <div class="property-field">
                                         <label class="property-label">Image URL</label>
                                         <input type="text" class="property-input" id="prop-image" placeholder="https://...">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Video URL</label>
+                                        <input type="text" class="property-input" id="prop-video" placeholder="https://youtube.com/...">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Accepted File Types</label>
+                                        <input type="text" class="property-input" id="prop-accept" placeholder=".pdf, .docx, .jpg">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Max File Size (MB)</label>
+                                        <input type="number" class="property-input" id="prop-max-filesize" placeholder="10" min="0">
+                                    </div>
+                                </div>
+
+                                <div class="property-section">
+                                    <div class="property-section-title">Scale & Rating</div>
+                                    <div class="property-field">
+                                        <label class="property-label">Scale From</label>
+                                        <input type="number" class="property-input" id="prop-scale-from" placeholder="1" min="1">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Scale To</label>
+                                        <input type="number" class="property-input" id="prop-scale-to" placeholder="5" min="1">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">Low Label</label>
+                                        <input type="text" class="property-input" id="prop-scale-low" placeholder="Not satisfied">
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-label">High Label</label>
+                                        <input type="text" class="property-input" id="prop-scale-high" placeholder="Very satisfied">
                                     </div>
                                 </div>
                             </div>

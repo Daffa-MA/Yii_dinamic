@@ -65,7 +65,7 @@ class FormController extends Controller
     {
         $model = new Form();
         $model->user_id = Yii::$app->user->id;
-        $model->schema_json = '[]';
+        $model->schema_js = '[]';
 
         if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
             $model->name = trim((string) $model->name);
@@ -323,7 +323,7 @@ class FormController extends Controller
         $newForm = new Form();
         $newForm->user_id = Yii::$app->user->id;
         $newForm->name = $model->name . ' (Copy)';
-        $newForm->schema_json = $model->schema_json;
+        $newForm->schema_js = $model->schema_js;
 
         if ($newForm->save()) {
             Yii::$app->session->setFlash('success', 'Form duplicated successfully!');

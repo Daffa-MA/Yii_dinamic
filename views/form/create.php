@@ -8,11 +8,15 @@ use yii\bootstrap5\Html;
 $this->title = 'Visual Website Builder';
 
 // Register dependencies - MUST be before other scripts
-$this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://unpkg.com/grapesjs@0.21.7/dist/css/grapes.min.css', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://unpkg.com/grapesjs@0.21.7/dist/grapes.min.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://unpkg.com/grapesjs-preset-webpage@1.0.3/dist/grapesjs-preset-webpage.min.css', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://unpkg.com/grapesjs-preset-webpage@1.0.3/dist/grapesjs-preset-webpage.min.js', ['position' => \yii\web\View::POS_HEAD]);
 
 // Register Fonts and Icons - MUST be before closing PHP tag
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&display=swap', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Manrope:wght=400;500;600;700;800&display=swap', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css', ['position' => \yii\web\View::POS_HEAD]);
 
 // Register dependencies
 $this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css', ['position' => \yii\web\View::POS_HEAD]);
@@ -106,8 +110,15 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/Scroll
 
     * {
         box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+    }
+    
+    /* Exclude icon fonts from global reset */
+    .material-symbols-outlined,
+    [class^="fas"],
+    [class^="fab"] {
+        margin: initial;
+        padding: initial;
+        box-sizing: content-box;
     }
 
     html,
@@ -428,6 +439,14 @@ transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 user-select: none;
 }
 
+.block-item[draggable="true"] {
+    cursor: move;
+}
+
+.block-item:active[draggable="true"] {
+    cursor: grabbing;
+}
+
 .block-item:hover {
 border-color: var(--primary);
 background: var(--puck-accent);
@@ -519,7 +538,6 @@ display: flex;
 justify-content: center;
 align-items: flex-start;
 width: 100%;
-}
 padding: 24px 20px;
 display: block;
 min-height: 0;
@@ -569,6 +587,256 @@ border-bottom: none;
 background: white;
 }
 
+/* Multi-page Form Navigation */
+.form-pages-nav {
+    margin-top: 16px;
+    padding: 12px 0;
+}
+
+.pages-tabs {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.page-tab {
+    padding: 8px 16px;
+    background: #f3f4f6;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+}
+
+.page-tab:hover {
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.page-tab.active {
+    background: #4f46e5;
+    color: white;
+    border-color: #4f46e5;
+}
+
+.page-tab .page-name {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.page-tab .delete-page-btn {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.3);
+    color: inherit;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.page-tab .delete-page-btn:hover {
+    background: rgba(239, 68, 68, 0.8);
+    color: white;
+}
+
+.page-tab.active .delete-page-btn {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.page-tab.active .delete-page-btn:hover {
+    background: rgba(239, 68, 68, 1);
+}
+
+.add-page-btn {
+    padding: 8px 16px;
+    background: white;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #6b7280;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.add-page-btn:hover {
+    background: #f9fafb;
+    border-color: #4f46e5;
+    color: #4f46e5;
+}
+
+/* Custom Code Editor Styles */
+.custom-code-editor {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border: 2px solid #2d2d2d;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    transition: all 0.2s ease;
+}
+
+.custom-code-editor:focus {
+    border-color: #4f46e5;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.custom-code-editor::placeholder {
+    color: #6a6a6a;
+}
+
+.apply-custom-design-btn,
+.save-design-btn {
+    width: 100%;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.apply-custom-design-btn:hover,
+.save-design-btn:hover {
+    background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.apply-custom-design-btn:active,
+.save-design-btn:active {
+    transform: translateY(0);
+}
+
+/* Preview Modal */
+.preview-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 99999;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.preview-modal.active {
+    display: flex;
+}
+
+.preview-modal-content {
+    width: 90%;
+    max-width: 1200px;
+    height: 90vh;
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease;
+}
+
+.preview-modal-header {
+    padding: 20px 24px;
+    background: white;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.preview-modal-header h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.preview-modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: #f3f4f6;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: all 0.2s ease;
+}
+
+.preview-modal-close:hover {
+    background: #e5e7eb;
+    color: #111827;
+}
+
+.preview-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0;
+    background: #f9fafb;
+}
+
+.preview-modal-body iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideUp {
+    from { 
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to { 
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .canvas-form-name {
 font-size: 32px;
 font-weight: 500;
@@ -600,6 +868,14 @@ max-height: none;
 transition: all 0.2s cubic-bezier(0.2, 0, 0.38, 0.9);
 overflow-y: visible;
 height: auto;
+border: 2px dashed transparent;
+border-radius: 12px;
+}
+
+.canvas-body.drag-over {
+border-color: #4f46e5 !important;
+background: rgba(79, 70, 229, 0.05) !important;
+box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
 }
 
 .canvas-empty {
@@ -1751,9 +2027,111 @@ padding: 16px 18px 32px 18px;
     }
 
 .sortable-ghost {
-opacity: 0.4;
-border: 2px dashed var(--primary) !important;
+    opacity: 0;
+    pointer-events: none;
 }
+
+.sortable-drag {
+    opacity: 0.92;
+    transform: rotate(1.5deg) scale(1.03) translateY(-2px);
+    box-shadow:
+        0 22px 65px rgba(0, 0, 0, 0.22),
+        0 8px 24px rgba(79, 70, 229, 0.18),
+        0 0 0 1px rgba(79, 70, 229, 0.08);
+    z-index: 10000 !important;
+    cursor: grabbing !important;
+    backdrop-filter: blur(8px);
+    transition: transform 120ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 180ms ease;
+}
+
+.sortable-drag * {
+    cursor: grabbing !important;
+}
+
+.sortable-insert-indicator {
+    height: 5px;
+    background: linear-gradient(90deg, transparent 0%, #4f46e5 20%, #4f46e5 80%, transparent 100%);
+    border-radius: 3px;
+    margin: 12px 20px;
+    position: relative;
+    box-shadow: 0 0 24px rgba(79, 70, 229, 0.7);
+    animation: indicator-pulse 0.9s ease-in-out infinite alternate;
+    transform-origin: center;
+}
+
+.sortable-insert-indicator::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: -5px;
+    width: 15px;
+    height: 15px;
+    background: #4f46e5;
+    border-radius: 50%;
+    box-shadow: 0 0 16px rgba(79, 70, 229, 0.8);
+    animation: indicator-dot 0.7s ease-in-out infinite alternate;
+}
+
+.sortable-insert-indicator::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: -5px;
+    width: 15px;
+    height: 15px;
+    background: #4f46e5;
+    border-radius: 50%;
+    box-shadow: 0 0 16px rgba(79, 70, 229, 0.8);
+    animation: indicator-dot 0.7s ease-in-out infinite alternate;
+    animation-delay: 0.15s;
+}
+
+.canvas-block {
+    transition: transform 140ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                box-shadow 160ms ease,
+                margin 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    will-change: transform, margin;
+}
+
+.canvas-block:hover {
+    transform: translateY(-1px);
+}
+
+@keyframes indicator-pulse {
+    0% {
+        opacity: 0.65;
+        transform: scaleX(0.85);
+    }
+    100% {
+        opacity: 1;
+        transform: scaleX(1.08);
+    }
+}
+@keyframes indicator-dot {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1.15);
+        opacity: 1;
+    }
+}
+/* Disable text selection only during drag operation */
+body.sortable-dragging-active {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+/* ✅ Exception: Allow pointer events on dummy drop target */
+.sortable-empty-dropzone {
+    pointer-events: auto !important;
+    display: block !important;
+}
+
+
 
     /* Mobile smooth scrolling */
     @supports (scroll-behavior: smooth) {
@@ -2094,10 +2472,21 @@ display: none;
 
                                 <div class="canvas-header">
                                     <input type="text" class="canvas-form-name" name="Form[name]" placeholder="Page title..." value="<?= Html::encode($model->name) ?>">
+                                    
+                                    <!-- Multi-page Form Navigation -->
+                                    <div class="form-pages-nav" id="form-pages-nav">
+                                        <div class="pages-tabs" id="pages-tabs">
+                                            <!-- Pages will be rendered here -->
+                                        </div>
+                                        <button type="button" class="add-page-btn" id="add-page-btn" title="Add new page">
+                                            <i class="fas fa-plus"></i> Add Page
+                                        </button>
+                                    </div>
                                 </div>
 
                     <?= Html::hiddenInput('Form[schema_js]', $model->isNewRecord ? '[]' : Html::encode($model->schema_js), ['id' => 'schema-js']) ?>
                     <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
+                    <?= Html::hiddenInput('form_pages', '', ['id' => 'form-pages-data']) ?>
 
                                 <div class="canvas-body" id="canvas-body">
                                     <div class="canvas-empty" id="canvas-empty">
@@ -2105,7 +2494,6 @@ display: none;
                                         <div class="canvas-empty-text">Drag & Drop Blocks Here</div>
                                         <div class="canvas-empty-hint">or click blocks from the right panel to add them</div>
                                     </div>
-                                    <div id="canvas-blocks" style="min-height:50px;"></div>
                                     <!-- Padding spacer to prevent blocks from being cut off -->
                                     <div style="height: 80px; flex-shrink: 0;"></div>
                                 </div>
@@ -2125,17 +2513,94 @@ display: none;
 
                     <!-- RIGHT SIDEBAR - PROPERTIES -->
                     <div class="builder-sidebar-right">
-                        <div class="properties-header"><span class="material-symbols-outlined" style="font-size:18px;">tune</span> Properties</div>
+                        <div class="properties-header">
+                            <span class="material-symbols-outlined" style="font-size:18px;">tune</span> Properties
+                        </div>
                         <div class="properties-tabs">
                             <div class="properties-tab active" data-tab="content">Content</div>
                             <div class="properties-tab" data-tab="style">Style</div>
                             <div class="properties-tab" data-tab="advanced">Advanced</div>
+                            <div class="properties-tab" data-tab="custom-code">Custom UI/UX</div>
                             <div class="properties-tab" data-tab="json">Script JS</div>
                         </div>
                         <div class="properties-content">
                             <div id="props-empty" class="text-center text-muted py-5">
                                 <div style="font-size:48px;margin-bottom:12px;"><i class="fas fa-crosshairs"></i></div>
                                 <p>Select a block to edit</p>
+                            </div>
+
+                            <!-- Custom Code Editor Panel -->
+                            <div id="props-custom-code" class="props-tab" style="display:none;">
+                                <div class="property-section">
+                                    <div class="property-section-title">
+                                        <i class="fas fa-palette"></i> Custom Form Design
+                                    </div>
+                                    <p style="font-size:12px;color:#666;margin:8px 0;">
+                                        Add custom HTML, CSS, and JavaScript to customize your form's UI/UX.
+                                    </p>
+                                    
+                                    <div class="property-field">
+                                        <label class="property-label">Custom CSS</label>
+                                        <textarea class="property-textarea custom-code-editor" id="custom-css" 
+                                            placeholder="/* Add your custom CSS here */
+.form-container {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px;
+}
+.form-field {
+    border-radius: 8px;
+}"
+                                            style="min-height:200px;font-family:'Courier New',monospace;font-size:12px;"></textarea>
+                                    </div>
+                                    
+                                    <div class="property-field">
+                                        <label class="property-label">Custom HTML (Before Form)</label>
+                                        <textarea class="property-textarea custom-code-editor" id="custom-html-before" 
+                                            placeholder="<!-- Add custom HTML before form -->
+<div class='form-header'>
+    <h1>Welcome to Our Form</h1>
+    <p>Please fill out all required fields</p>
+</div>"
+                                            style="min-height:150px;font-family:'Courier New',monospace;font-size:12px;"></textarea>
+                                    </div>
+                                    
+                                    <div class="property-field">
+                                        <label class="property-label">Custom HTML (After Form)</label>
+                                        <textarea class="property-textarea custom-code-editor" id="custom-html-after" 
+                                            placeholder="<!-- Add custom HTML after form -->
+<div class='form-footer'>
+    <p>Thank you for your submission!</p>
+</div>"
+                                            style="min-height:150px;font-family:'Courier New',monospace;font-size:12px;"></textarea>
+                                    </div>
+                                    
+                                    <div class="property-field">
+                                        <label class="property-label">Custom JavaScript</label>
+                                        <textarea class="property-textarea custom-code-editor" id="custom-js" 
+                                            placeholder="// Add custom JavaScript
+document.addEventListener('DOMContentLoaded', function() {
+    // Your custom interactions
+    console.log('Form loaded!');
+});"
+                                            style="min-height:200px;font-family:'Courier New',monospace;font-size:12px;"></textarea>
+                                    </div>
+                                    
+                                    <button type="button" class="apply-custom-design-btn" id="apply-custom-design-btn">
+                                        <i class="fas fa-magic"></i> Apply & Preview Design
+                                    </button>
+                                </div>
+                                
+                                <div class="property-section" style="margin-top:20px;">
+                                    <div class="property-section-title">
+                                        <i class="fas fa-save"></i> Save Design
+                                    </div>
+                                    <p style="font-size:12px;color:#666;margin:8px 0;">
+                                        Save your custom design to apply it when publishing.
+                                    </p>
+                                    <button type="button" class="save-design-btn" id="save-design-btn">
+                                        <i class="fas fa-save"></i> Save Custom Design
+                                    </button>
+                                </div>
                             </div>
 
                             <div id="props-content" class="props-tab" style="display:none;">
@@ -2388,38 +2853,165 @@ return html;</pre>
             </div>
 
             <script>
-                document.addEventListener('DOMContentLoaded', function() {
-                    // ===== NOTIFICATION SYSTEM =====
-                    function showNotification(message, type = 'info', duration = 3000) {
-                        const notification = document.createElement('div');
-                        const bgColor = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6';
-
-                        notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 16px 24px;
-                background: ${bgColor};
-                color: white;
-                border-radius: 8px;
-                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-                z-index: 10000;
-                font-size: 14px;
-                line-height: 1.5;
-                max-width: 400px;
-                animation: slideInRight 0.3s ease-out;
-            `;
-                        notification.innerHTML = message;
-
-                        document.body.appendChild(notification);
-
-                        setTimeout(() => {
-                            notification.style.animation = 'slideOutRight 0.3s ease-out';
-                            setTimeout(() => notification.remove(), 300);
-                        }, duration);
+                // ===== GLOBAL HELPER FUNCTIONS =====
+                // Define escapeHtml globally so it can be used by all functions
+                function escapeHtml(str) {
+                    const div = document.createElement('div');
+                    div.textContent = str || '';
+                    return div.innerHTML;
+                }
+                
+                // ===== GLOBAL CORE VARIABLES =====
+                // These must be global so initFormPages and other functions can access them
+                let blocks = [];
+                let selectedIndex = -1;
+                let undoStack = [];
+                let redoStack = [];
+                let canvasBlocks = null;
+                let schemaJson = null;
+                let tableSelector = null;
+                let tableIdInput = null;
+                let btnAutoGenerate = null;
+                
+                // ===== GLOBAL UTILITY FUNCTIONS =====
+                // Must be global to be accessible from all scopes
+                
+                // Notification system
+                function showNotification(message, type = 'info', duration = 3000) {
+                    const notification = document.createElement('div');
+                    notification.className = `notification notification-${type}`;
+                    notification.innerHTML = message;
+                    
+                    const colors = {
+                        success: 'linear-gradient(135deg, #10b981, #059669)',
+                        error: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                        warning: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        info: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                    };
+                    
+                    notification.style.cssText = `
+                        position: fixed;
+                        top: 20px;
+                        right: 20px;
+                        padding: 16px 24px;
+                        background: ${colors[type] || colors.info};
+                        color: white;
+                        border-radius: 12px;
+                        font-weight: 600;
+                        font-size: 14px;
+                        z-index: 100000;
+                        box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                        animation: slideInRight 0.3s ease;
+                        max-width: 400px;
+                    `;
+                    
+                    document.body.appendChild(notification);
+                    
+                    setTimeout(() => {
+                        notification.style.animation = 'slideOutRight 0.3s ease';
+                        setTimeout(() => notification.remove(), 300);
+                    }, duration);
+                }
+                
+                // Update empty state
+                function updateEmptyState() {
+                    const emptyState = document.getElementById('canvas-empty');
+                    if (emptyState) {
+                        emptyState.style.display = blocks.length === 0 ? 'flex' : 'none';
                     }
+                }
+                
+                // Hide properties panel
+                function hideProperties() {
+                    const emptyState = document.getElementById('props-empty');
+                    if (emptyState) emptyState.style.display = '';
+                    document.querySelectorAll('.props-tab').forEach(function(el) {
+                        el.style.display = 'none';
+                    });
+                    const deleteSection = document.getElementById('props-delete-section');
+                    if (deleteSection) deleteSection.style.display = 'none';
+                }
+                
+                // Render block to canvas (simplified version - full version in DOMContentLoaded)
+                function renderBlock(block, index) {
+                    const div = document.createElement('div');
+                    div.className = 'canvas-block';
+                    div.dataset.index = index;
+                    div.draggable = true;
+                    
+                    // Simple preview without helper functions
+                    let previewHTML = '';
+                    switch(block.type) {
+                        case 'text-input':
+                        case 'email':
+                        case 'number':
+                            previewHTML = `<input type="text" placeholder="${escapeHtml(block.placeholder || '')}" disabled style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;">`;
+                            break;
+                        case 'textarea':
+                            previewHTML = `<textarea rows="3" placeholder="${escapeHtml(block.placeholder || '')}" disabled style="width:100%;padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;"></textarea>`;
+                            break;
+                        case 'checkbox':
+                        case 'radio':
+                            previewHTML = `<div style="display:flex;flex-direction:column;gap:8px;"><label style="display:flex;align-items:center;gap:8px;"><input type="${block.type}" disabled> Option 1</label></div>`;
+                            break;
+                        default:
+                            previewHTML = `<div style="color:#6b7280;font-size:12px;">${escapeHtml(block.type)}</div>`;
+                    }
+                    
+                    div.innerHTML = `
+                        <div class="canvas-block-header">
+                            <span class="canvas-block-title">${escapeHtml(block.label || block.type)}</span>
+                            <div class="canvas-block-actions">
+                                <button type="button" class="btn-delete" onclick="deleteBlock(${index})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="canvas-block-content">
+                            ${previewHTML}
+                        </div>
+                    `;
+                    
+                    // Don't add event listeners if handlers don't exist
+                    if (typeof handleDragStart === 'function') {
+                        div.addEventListener('dragstart', handleDragStart);
+                    }
+                    if (typeof handleDragEnd === 'function') {
+                        div.addEventListener('dragend', handleDragEnd);
+                    }
+                    
+                    if (canvasBlocks) {
+                        canvasBlocks.appendChild(div);
+                    }
+                }
+                
+                document.addEventListener('DOMContentLoaded', function() {
+                    // ===== SAFE DEBUG LOGGER (Prevents console errors) =====
+                    const DEBUG = false; // Set to false in production
+                    const safeLog = {
+                        log: function() {
+                            if (DEBUG && typeof console !== 'undefined' && console.log) {
+                                console.log.apply(console, arguments);
+                            }
+                        },
+                        warn: function() {
+                            if (DEBUG && typeof console !== 'undefined' && console.warn) {
+                                console.warn.apply(console, arguments);
+                            }
+                        },
+                        error: function() {
+                            if (DEBUG && typeof console !== 'undefined' && console.error) {
+                                console.error.apply(console, arguments);
+                            }
+                        },
+                        info: function() {
+                            if (DEBUG && typeof console !== 'undefined' && console.info) {
+                                console.info.apply(console, arguments);
+                            }
+                        }
+                    };
 
-                    // Add animation styles if not present
+                    // Add animation styles if not present (notification styles already in global scope)
                     if (!document.getElementById('notification-styles')) {
                         const style = document.createElement('style');
                         style.id = 'notification-styles';
@@ -2477,38 +3069,22 @@ return html;</pre>
                         btnModeCode.addEventListener('click', () => setEditorMode('code'));
                     }
 
-                    // ===== SAFE ELEMENT CHECK =====
-                    const elementsToCheck = {
-                        'canvas-blocks': document.getElementById('canvas-blocks'),
-                        'canvas-empty': document.getElementById('canvas-empty'),
-                        'schema-js': document.getElementById('schema-js'),
-                        'table-selector': document.getElementById('table-selector'),
-                        'table-id': document.getElementById('table-id'),
-                        'btn-auto-generate': document.getElementById('btn-auto-generate'),
-                        'block-search': document.getElementById('block-search'),
-                        'builder-form': document.getElementById('builder-form'),
-                        'btn-save': document.getElementById('btn-save'),
-                        'canvas-wrapper': document.getElementById('canvas-wrapper')
-                    };
-
-                    console.log('Elements check:', Object.entries(elementsToCheck).map(([k, v]) => k + ': ' + (v ? 'Found' : 'MISSING')).join(', '));
-
                     // ===== CORE SCRIPT =====
-                    let blocks = [];
-                    let selectedIndex = -1;
-                    let sortableInstance = null;
-                    let undoStack = [];
-                    let redoStack = [];
+                    // Assign values to global variables (already declared globally)
+                    blocks = [];
+                    selectedIndex = -1;
+                    undoStack = [];
+                    redoStack = [];
+                    let isInitialized = false; // Prevent double initialization
 
-                    const canvasBlocks = elementsToCheck['canvas-blocks'];
-                    const canvasEmpty = elementsToCheck['canvas-empty'];
-                    const schemaJson = elementsToCheck['schema-js'];
-                    const tableSelector = elementsToCheck['table-selector'];
-                    const tableIdInput = elementsToCheck['table-id'];
-                    const btnAutoGenerate = elementsToCheck['btn-auto-generate'];
+                    schemaJson = document.getElementById('schema-js');
+                    tableSelector = document.getElementById('table-selector');
+                    tableIdInput = document.getElementById('table-id');
+                    btnAutoGenerate = document.getElementById('btn-auto-generate');
+                    canvasBlocks = document.getElementById('canvas-body');
 
-                    if (!canvasBlocks || !schemaJson) {
-                        console.error('FATAL: Required elements missing!');
+                    if (!schemaJson || !canvasBlocks) {
+                        safeLog.error('FATAL: Required elements missing!');
                         return;
                     }
 
@@ -2538,110 +3114,16 @@ return html;</pre>
 
                             if (selectedIdx > 0) {
                                 tableSelector.selectedIndex = selectedIdx;
-                                console.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
+                                safeLog.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
                             }
                         }
                     }
 
-                    // Initialize Sortable for canvas blocks ONLY
-                    if (canvasBlocks) {
-                        sortableInstance = new Sortable(canvasBlocks, {
-                            animation: 200,
-                            ghostClass: 'sortable-ghost',
-                            handle: '.drag-handle',
-                            group: 'blocks',
-                            onEnd: function(evt) {
-                                const newOrder = [];
-                                canvasBlocks.querySelectorAll('.canvas-block').forEach(function(el, i) {
-                                    const idx = parseInt(el.dataset.index);
-                                    if (idx >= 0 && idx < blocks.length) {
-                                        newOrder.push(blocks[idx]);
-                                    }
-                                });
-                                blocks = newOrder;
-                                updateCanvasIndices();
-                                saveState();
-                            }
-                        });
-                    }
-
-                    // Drag from sidebar blocks to canvas (using event delegation on parent)
-                    const sidebarCategories = document.querySelector('.sidebar-categories');
-
-                    if (sidebarCategories) {
-                        sidebarCategories.addEventListener('dragstart', function(e) {
-                            if (e.target.classList.contains('block-item')) {
-                                e.dataTransfer.effectAllowed = 'copy';
-                                e.dataTransfer.setData('blockType', e.target.dataset.type);
-                                e.target.style.opacity = '0.5';
-                            }
-                        });
-
-                        sidebarCategories.addEventListener('dragend', function(e) {
-                            if (e.target.classList.contains('block-item')) {
-                                e.target.style.opacity = '1';
-                            }
-                        });
-                    }
-
-                    // dragover - uses document since it bubbles
-                    document.addEventListener('dragover', function(e) {
-                        if (e.dataTransfer.types.includes('blockType')) {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'copy';
-                            const canvasBody = document.getElementById('canvas-body');
-                            const builderCanvas = document.querySelector('.builder-canvas');
-                            if (canvasBody && canvasBody.contains(e.target)) {
-                                builderCanvas.classList.add('drag-over');
-                                canvasBlocks.style.borderColor = 'var(--primary)';
-                                canvasBlocks.style.backgroundColor = 'rgba(99, 102, 241, 0.08)';
-                                canvasBlocks.style.boxShadow = '0 0 0 2px rgba(99, 102, 241, 0.1)';
-                                if (canvasEmpty) {
-                                    canvasEmpty.style.borderColor = 'var(--primary)';
-                                    canvasEmpty.style.backgroundColor = '#f5f3ff';
-                                    canvasEmpty.style.transform = 'scale(1.01)';
-                                }
-                            }
-                        }
-                    });
-
-                    // dragleave
-                    document.addEventListener('dragleave', function(e) {
-                        const canvasBody = document.getElementById('canvas-body');
-                        const builderCanvas = document.querySelector('.builder-canvas');
-                        if (canvasBody && !canvasBody.contains(e.relatedTarget)) {
-                            builderCanvas.classList.remove('drag-over');
-                            canvasBlocks.style.borderColor = '';
-                            canvasBlocks.style.backgroundColor = '';
-                            canvasBlocks.style.boxShadow = '';
-                            if (canvasEmpty) {
-                                canvasEmpty.style.borderColor = '';
-                                canvasEmpty.style.backgroundColor = '';
-                                canvasEmpty.style.transform = '';
-                            }
-                        }
-                    });
-
-                    // drop
-                    document.addEventListener('drop', function(e) {
-                        e.preventDefault();
-                        const blockType = e.dataTransfer.getData('blockType');
-                        const canvasBody = document.getElementById('canvas-body');
-                        const builderCanvas = document.querySelector('.builder-canvas');
-                        if (blockType && canvasBody && canvasBody.contains(e.target)) {
-                            builderCanvas.classList.remove('drag-over');
-                            canvasBlocks.style.borderColor = '';
-                            canvasBlocks.style.backgroundColor = '';
-                            canvasBlocks.style.boxShadow = '';
-                            if (canvasEmpty) {
-                                canvasEmpty.style.borderColor = '';
-                                canvasEmpty.style.backgroundColor = '';
-                                canvasEmpty.style.transform = '';
-                            }
-                            addBlock(blockType);
-                        }
-                    });
-
+                    // Initialize Sortable for canvas blocks with reordering support
+                    // ==============================
+                    // ✅ CUSTOM FORM BUILDER ENGINE (No GrapesJS conflicts)
+                    // ==============================
+                    
                     // Block search
                     document.getElementById('block-search').addEventListener('input', function() {
                         const query = this.value.toLowerCase();
@@ -2665,6 +3147,189 @@ return html;</pre>
                             addBlock(this.dataset.type);
                         });
                     });
+
+                    // ===== DRAG AND DROP FUNCTIONALITY =====
+                    let draggedType = null;
+                    let dragOverCanvas = false;
+
+                    // Add dragstart event to all block items
+                    document.querySelectorAll('.block-item').forEach(function(item) {
+                        item.addEventListener('dragstart', function(e) {
+                            draggedType = this.dataset.type;
+                            e.dataTransfer.effectAllowed = 'copy';
+                            e.dataTransfer.setData('text/plain', draggedType);
+
+                            // Add visual feedback
+                            this.style.opacity = '0.5';
+
+                            safeLog.log('Drag started for block type:', draggedType);
+                        });
+
+                        item.addEventListener('dragend', function(e) {
+                            this.style.opacity = '1';
+                            draggedType = null;
+
+                            // Remove drag over state from canvas
+                            if (canvasBody) {
+                                canvasBody.classList.remove('drag-over');
+                            }
+                            safeLog.log('Drag ended');
+                        });
+                    });
+
+                    // Add drop zone events to canvas body
+                    const canvasBody = document.getElementById('canvas-body');
+                    if (canvasBody) {
+                        canvasBody.addEventListener('dragover', function(e) {
+                            e.preventDefault(); // Necessary to allow drop
+                            e.dataTransfer.dropEffect = 'copy';
+                            dragOverCanvas = true;
+
+                            // Add visual feedback
+                            this.classList.add('drag-over');
+                            this.style.borderColor = '#4f46e5';
+                            this.style.background = 'rgba(79, 70, 229, 0.05)';
+
+                            // Highlight the nearest block position
+                            highlightNearestBlockPosition(e.clientY);
+
+                            safeLog.log('Drag over canvas');
+                        });
+
+                        canvasBody.addEventListener('dragleave', function(e) {
+                            // Only remove if actually leaving the canvas body
+                            const rect = this.getBoundingClientRect();
+                            const x = e.clientX;
+                            const y = e.clientY;
+
+                            if (x < rect.left || x >= rect.right || y < rect.top || y >= rect.bottom) {
+                                dragOverCanvas = false;
+                                this.classList.remove('drag-over');
+                                this.style.borderColor = '';
+                                this.style.background = '';
+                                
+                                // Remove position indicator
+                                removePositionIndicator();
+
+                                safeLog.log('Drag left canvas');
+                            }
+                        });
+
+                        canvasBody.addEventListener('drop', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+
+                            // Remove drag over styling
+                            this.classList.remove('drag-over');
+                            this.style.borderColor = '';
+                            this.style.background = '';
+                            dragOverCanvas = false;
+
+                            // Get the dragged type
+                            const blockType = e.dataTransfer.getData('text/plain') || draggedType;
+
+                            if (blockType) {
+                                safeLog.log('Dropped block type:', blockType);
+
+                                // Calculate insert position
+                                const insertIndex = getInsertIndex(e.clientY);
+
+                                // Add the block at the calculated position
+                                addBlockAtPosition(blockType, insertIndex);
+
+                                // Remove position indicator
+                                removePositionIndicator();
+
+                                // Note: Notification already shown by autoFillCodeEditors in selectBlock
+                            } else {
+                                safeLog.warn('No block type found in drop event');
+                            }
+                        });
+                    }
+
+                    // Helper: Calculate which index to insert at based on mouse Y position
+                    function getInsertIndex(mouseY) {
+                        const canvasBlocks = document.querySelectorAll('#canvas-body .canvas-block');
+                        
+                        if (canvasBlocks.length === 0) {
+                            return 0;
+                        }
+
+                        for (let i = 0; i < canvasBlocks.length; i++) {
+                            const block = canvasBlocks[i];
+                            const rect = block.getBoundingClientRect();
+                            const blockMiddle = rect.top + rect.height / 2;
+                            
+                            // If mouse is above the middle of this block, insert before it
+                            if (mouseY < blockMiddle) {
+                                return i;
+                            }
+                        }
+                        
+                        // If mouse is below all blocks, add at the end
+                        return blocks.length;
+                    }
+
+                    // Helper: Highlight the nearest block position
+                    function highlightNearestBlockPosition(mouseY) {
+                        removePositionIndicator();
+                        
+                        const canvasBlocks = document.querySelectorAll('#canvas-body .canvas-block');
+                        const insertIndex = getInsertIndex(mouseY);
+                        
+                        // Create position indicator
+                        const indicator = document.createElement('div');
+                        indicator.id = 'drop-position-indicator';
+                        indicator.style.cssText = `
+                            height: 4px;
+                            background: linear-gradient(90deg, #4f46e5, #7c3aed);
+                            border-radius: 2px;
+                            margin: 8px 16px;
+                            box-shadow: 0 0 12px rgba(79, 70, 229, 0.5);
+                            transition: all 0.2s ease;
+                        `;
+                        
+                        const canvasBody = document.getElementById('canvas-body');
+                        if (insertIndex === 0) {
+                            // Insert at the beginning
+                            if (canvasBlocks.length > 0) {
+                                canvasBlocks[0].parentNode.insertBefore(indicator, canvasBlocks[0]);
+                            } else {
+                                canvasBody.appendChild(indicator);
+                            }
+                        } else if (insertIndex >= blocks.length) {
+                            // Insert at the end
+                            canvasBody.appendChild(indicator);
+                        } else {
+                            // Insert before specific block
+                            if (canvasBlocks[insertIndex]) {
+                                canvasBlocks[insertIndex].parentNode.insertBefore(indicator, canvasBlocks[insertIndex]);
+                            }
+                        }
+                    }
+
+                    // Helper: Remove position indicator
+                    function removePositionIndicator() {
+                        const indicator = document.getElementById('drop-position-indicator');
+                        if (indicator) {
+                            indicator.remove();
+                        }
+                    }
+
+                    // Helper: Add block at specific position
+                    function addBlockAtPosition(type, index) {
+                        saveState();
+                        const block = getDefaultBlock(type);
+                        
+                        // Insert at specific position
+                        blocks.splice(index, 0, block);
+                        
+                        // Re-render all blocks
+                        refreshAllBlocks();
+                        
+                        // Select the new block
+                        selectBlock(index);
+                    }
 
                     // Device buttons
                     document.querySelectorAll('.device-btn').forEach(function(btn) {
@@ -2700,6 +3365,30 @@ return html;</pre>
                         renderBlock(block, blocks.length - 1);
                         updateEmptyState();
                         selectBlock(blocks.length - 1);
+                        
+                        // Auto-generate code template for new block
+                        generateBlockCodeTemplate(block);
+                    }
+
+                    // Make addBlockAtPosition globally accessible if needed
+                    window.addBlockAtPosition = addBlockAtPosition;
+
+                    // Helper: Add block at specific position
+                    function addBlockAtPosition(type, index) {
+                        saveState();
+                        const block = getDefaultBlock(type);
+                        
+                        // Insert at specific position
+                        blocks.splice(index, 0, block);
+                        
+                        // Re-render all blocks
+                        refreshAllBlocks();
+                        
+                        // Select the new block
+                        selectBlock(index);
+                        
+                        // Auto-generate code template for new block
+                        generateBlockCodeTemplate(block);
                     }
 
         function getDefaultBlock(type) {
@@ -3556,6 +4245,872 @@ return html;</pre>
                         });
                         showProperties();
                         updateProperties();
+                        
+                        // Auto-generate code template for selected block
+                        generateBlockCodeTemplate(blocks[index]);
+                    }
+
+                    // ===== AUTO-GENERATE BLOCK CODE TEMPLATES =====
+                    function generateBlockCodeTemplate(block) {
+                        if (!block) return;
+                        
+                        const blockType = block.type;
+                        const blockLabel = block.label || 'Block';
+                        const fieldName = block.name || blockLabel.toLowerCase().replace(/\s+/g, '_');
+                        
+                        // Code templates for each block type
+                        const templates = {
+                            // INPUT FIELDS
+                            'text-input': {
+                                html: `<!-- Text Input: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <input 
+        type="text" 
+        id="${fieldName}" 
+        name="${fieldName}" 
+        class="form-control" 
+        placeholder="${block.placeholder || 'Enter text...'}"
+        ${block.required ? 'required' : ''}
+    >
+    ${block.helper ? `<small class="form-text text-muted">${block.helper}</small>` : ''}
+</div>`,
+                                css: `/* Text Input: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.form-field-${fieldName}:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.form-field-${fieldName} .form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+    font-size: 14px;
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .form-control:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-field-${fieldName} .form-text {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6b7280;
+}`,
+                                js: `// Text Input: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const input = document.getElementById('${fieldName}');
+    
+    if (input) {
+        // Real-time validation
+        input.addEventListener('input', function() {
+            const value = this.value;
+            
+            // Example: Character count
+            const charCount = value.length;
+            console.log('${blockLabel}: ' + charCount + ' characters');
+            
+            // Add your custom validation here
+            if (value.length > 0) {
+                this.style.borderColor = '#10b981'; // Green when has value
+            } else {
+                this.style.borderColor = '#e5e7eb'; // Default when empty
+            }
+        });
+        
+        // Focus effect
+        input.addEventListener('focus', function() {
+            this.parentElement.style.transform = 'scale(1.02)';
+        });
+        
+        input.addEventListener('blur', function() {
+            this.parentElement.style.transform = 'scale(1)';
+        });
+    }
+});`,
+                            },
+                            
+                            'textarea': {
+                                html: `<!-- Textarea: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <textarea 
+        id="${fieldName}" 
+        name="${fieldName}" 
+        class="form-control" 
+        rows="${block.rows || 4}"
+        placeholder="${block.placeholder || 'Enter your message...'}"
+        ${block.required ? 'required' : ''}
+    ></textarea>
+    ${block.helper ? `<small class="form-text text-muted">${block.helper}</small>` : ''}
+</div>`,
+                                css: `/* Textarea: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-field-${fieldName} .form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #374151;
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .form-control:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}`,
+                                js: `// Textarea: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('${fieldName}');
+    
+    if (textarea) {
+        // Auto-resize based on content
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            
+            // Character count
+            const charCount = this.value.length;
+            console.log('${blockLabel}: ' + charCount + ' characters');
+        });
+    }
+});`,
+                            },
+                            
+                            'email': {
+                                html: `<!-- Email Input: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <input 
+        type="email" 
+        id="${fieldName}" 
+        name="${fieldName}" 
+        class="form-control" 
+        placeholder="${block.placeholder || 'example@email.com'}"
+        ${block.required ? 'required' : ''}
+    >
+</div>`,
+                                css: `/* Email Input: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .form-control:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-field-${fieldName} .form-control:invalid:not(:placeholder-shown) {
+    border-color: #ef4444;
+}`,
+                                js: `// Email Input: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const emailInput = document.getElementById('${fieldName}');
+    
+    if (emailInput) {
+        emailInput.addEventListener('input', function() {
+            const email = this.value;
+            
+            // Email validation
+            const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+            
+            if (email && !emailRegex.test(email)) {
+                this.setCustomValidity('Please enter a valid email address');
+                this.style.borderColor = '#ef4444';
+            } else {
+                this.setCustomValidity('');
+                if (email) {
+                    this.style.borderColor = '#10b981';
+                }
+            }
+        });
+    }
+});`,
+                            },
+                            
+                            'number': {
+                                html: `<!-- Number Input: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <input 
+        type="number" 
+        id="${fieldName}" 
+        name="${fieldName}" 
+        class="form-control" 
+        placeholder="${block.placeholder || '0'}"
+        min="${block.min || '0'}"
+        max="${block.max || '100'}"
+        ${block.required ? 'required' : ''}
+    >
+</div>`,
+                                css: `/* Number Input: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .form-control:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}`,
+                                js: `// Number Input: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const numberInput = document.getElementById('${fieldName}');
+    
+    if (numberInput) {
+        numberInput.addEventListener('input', function() {
+            const value = parseInt(this.value);
+            const min = parseInt(this.min);
+            const max = parseInt(this.max);
+            
+            if (value < min) {
+                this.setCustomValidity('Value is too small');
+                this.style.borderColor = '#ef4444';
+            } else if (value > max) {
+                this.setCustomValidity('Value is too large');
+                this.style.borderColor = '#ef4444';
+            } else {
+                this.setCustomValidity('');
+                this.style.borderColor = '#10b981';
+            }
+        });
+    }
+});`,
+                            },
+                            
+                            // SELECTION FIELDS
+                            'checkbox': {
+                                html: `<!-- Checkbox: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label class="form-label">${blockLabel}</label>
+    <div class="checkbox-group">
+        ${(block.options || 'Option 1\\nOption 2').split('\\n').map((opt, i) => `
+        <label class="checkbox-item">
+            <input type="checkbox" name="${fieldName}[]" value="${opt.trim()}">
+            <span class="checkbox-label">${opt.trim()}</span>
+        </label>`).join('\\n')}
+    </div>
+</div>`,
+                                css: `/* Checkbox: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.form-field-${fieldName} .form-label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: #374151;
+}
+
+.form-field-${fieldName} .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-field-${fieldName} .checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .checkbox-item:hover {
+    background: #f3f4f6;
+}
+
+.form-field-${fieldName} .checkbox-item input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #4f46e5;
+}
+
+.form-field-${fieldName} .checkbox-label {
+    font-size: 14px;
+    color: #374151;
+}`,
+                                js: `// Checkbox: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const checkboxes = document.querySelectorAll('input[name="${fieldName}[]"]');
+    
+    checkboxes.forEach(function(checkbox) {
+        checkbox.addEventListener('change', function() {
+            const checked = Array.from(checkboxes)
+                .filter(cb => cb.checked)
+                .map(cb => cb.value);
+            
+            console.log('${blockLabel} selected:', checked);
+            
+            // Add animation when checked
+            if (this.checked) {
+                this.parentElement.style.transform = 'scale(1.05)';
+                setTimeout(() => {
+                    this.parentElement.style.transform = 'scale(1)';
+                }, 200);
+            }
+        });
+    });
+});`,
+                            },
+                            
+                            'radio': {
+                                html: `<!-- Radio: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label class="form-label">${blockLabel}</label>
+    <div class="radio-group">
+        ${(block.options || 'Option 1\\nOption 2').split('\\n').map((opt, i) => `
+        <label class="radio-item">
+            <input type="radio" name="${fieldName}" value="${opt.trim()}" ${i === 0 ? 'checked' : ''}>
+            <span class="radio-label">${opt.trim()}</span>
+        </label>`).join('\\n')}
+    </div>
+</div>`,
+                                css: `/* Radio: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.form-field-${fieldName} .radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-field-${fieldName} .radio-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .radio-item:hover {
+    background: #f3f4f6;
+}
+
+.form-field-${fieldName} .radio-item input[type="radio"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    accent-color: #4f46e5;
+}
+
+.form-field-${fieldName} .radio-label {
+    font-size: 14px;
+    color: #374151;
+}`,
+                                js: `// Radio: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const radios = document.querySelectorAll('input[name="${fieldName}"]');
+    
+    radios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            console.log('${blockLabel} selected:', this.value);
+            
+            // Add highlight animation
+            this.parentElement.style.background = '#e0e7ff';
+            setTimeout(() => {
+                this.parentElement.style.background = 'transparent';
+            }, 500);
+        });
+    });
+});`,
+                            },
+                            
+                            'select': {
+                                html: `<!-- Select: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <select id="${fieldName}" name="${fieldName}" class="form-control" ${block.multiple ? 'multiple' : ''}>
+        <option value="">-- Select an option --</option>
+        ${(block.options || 'Option 1\\nOption 2').split('\\n').map(opt => `
+        <option value="${opt.trim()}">${opt.trim()}</option>`).join('\\n')}
+    </select>
+</div>`,
+                                css: `/* Select: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .form-control:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+
+.form-field-${fieldName} .form-control option {
+    padding: 8px;
+}`,
+                                js: `// Select: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const select = document.getElementById('${fieldName}');
+    
+    if (select) {
+        select.addEventListener('change', function() {
+            const selectedValue = this.value;
+            console.log('${blockLabel} selected:', selectedValue);
+            
+            // Add animation
+            this.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+                this.style.transform = 'scale(1)';
+            }, 200);
+        });
+    }
+});`,
+                            },
+                            
+                            // SPECIAL FIELDS
+                            'file': {
+                                html: `<!-- File Upload: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <div class="file-upload-wrapper">
+        <input 
+            type="file" 
+            id="${fieldName}" 
+            name="${fieldName}" 
+            class="form-control"
+            ${block.required ? 'required' : ''}
+        >
+        <div class="file-upload-preview"></div>
+    </div>
+</div>`,
+                                css: `/* File Upload: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.form-field-${fieldName} .file-upload-wrapper {
+    position: relative;
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 24px;
+    border: 2px dashed #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.form-field-${fieldName} .form-control:hover {
+    border-color: #4f46e5;
+    background: #e0e7ff;
+}
+
+.form-field-${fieldName} .file-upload-preview {
+    margin-top: 12px;
+}`,
+                                js: `// File Upload: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('${fieldName}');
+    const preview = fileInput?.parentElement.querySelector('.file-upload-preview');
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            
+            if (file) {
+                // Show file info
+                const fileInfo = \`
+                    <div style="padding: 12px; background: #f0fdf4; border-radius: 8px; margin-top: 12px;">
+                        <p style="margin: 0; font-weight: 600;">\${file.name}</p>
+                        <p style="margin: 4px 0 0; font-size: 12px; color: #6b7280;">
+                            Size: \${(file.size / 1024).toFixed(2)} KB
+                        </p>
+                    </div>
+                \`;
+                
+                if (preview) {
+                    preview.innerHTML = fileInfo;
+                }
+                
+                console.log('${blockLabel}:', file.name);
+            }
+        });
+    }
+});`,
+                            },
+                            
+                            'date': {
+                                html: `<!-- Date Picker: ${blockLabel} -->
+<div class="form-group form-field-${fieldName}">
+    <label for="${fieldName}" class="form-label">${blockLabel}</label>
+    <input 
+        type="date" 
+        id="${fieldName}" 
+        name="${fieldName}" 
+        class="form-control"
+        ${block.required ? 'required' : ''}
+    >
+</div>`,
+                                css: `/* Date Picker: ${blockLabel} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+}
+
+.form-field-${fieldName} .form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.form-field-${fieldName} .form-control:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}`,
+                                js: `// Date Picker: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('${fieldName}');
+    
+    if (dateInput) {
+        // Set min date to today
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.setAttribute('min', today);
+        
+        dateInput.addEventListener('change', function() {
+            const selectedDate = new Date(this.value);
+            console.log('${blockLabel} selected:', selectedDate.toLocaleDateString());
+            
+            // Add animation
+            this.parentElement.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+                this.parentElement.style.transform = 'scale(1)';
+            }, 200);
+        });
+    }
+});`,
+                            },
+                            
+                            // CONTENT BLOCKS
+                            'heading': {
+                                html: `<!-- Heading: ${blockLabel} -->
+<div class="form-heading form-field-${fieldName}">
+    <${block.level || 'h2'} class="heading-text">
+        ${block.content || blockLabel}
+    </${block.level || 'h2'}>
+</div>`,
+                                css: `/* Heading: ${blockLabel} */
+.form-field-${fieldName} {
+    margin: 32px 0;
+    padding: 24px;
+    text-align: ${block.align || 'left'};
+}
+
+.form-field-${fieldName} .heading-text {
+    font-size: ${block.level === 'h1' ? '32px' : block.level === 'h3' ? '24px' : '28px'};
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    line-height: 1.3;
+}`,
+                                js: `// Heading: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const heading = document.querySelector('.form-field-${fieldName}');
+    
+    if (heading) {
+        // Add fade-in animation
+        heading.style.opacity = '0';
+        heading.style.transform = 'translateY(-20px)';
+        
+        setTimeout(() => {
+            heading.style.transition = 'all 0.6s ease';
+            heading.style.opacity = '1';
+            heading.style.transform = 'translateY(0)';
+        }, 300);
+    }
+});`,
+                            },
+                            
+                            'image': {
+                                html: `<!-- Image: ${blockLabel} -->
+<div class="form-image form-field-${fieldName}">
+    <img 
+        src="${block.src || 'https://via.placeholder.com/600x400'}" 
+        alt="${block.alt || blockLabel}"
+        class="image-wrapper"
+    >
+    ${block.caption ? `<p class="image-caption">${block.caption}</p>` : ''}
+</div>`,
+                                css: `/* Image: ${blockLabel} */
+.form-field-${fieldName} {
+    margin: 24px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.form-field-${fieldName} .image-wrapper {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.form-field-${fieldName}:hover .image-wrapper {
+    transform: scale(1.05);
+}
+
+.form-field-${fieldName} .image-caption {
+    margin: 12px 0 0;
+    padding: 12px;
+    text-align: center;
+    font-size: 14px;
+    color: #6b7280;
+    background: #f9fafb;
+}`,
+                                js: `// Image: ${blockLabel}
+document.addEventListener('DOMContentLoaded', function() {
+    const imageContainer = document.querySelector('.form-field-${fieldName}');
+    const img = imageContainer?.querySelector('img');
+    
+    if (img) {
+        // Lazy loading effect
+        img.addEventListener('load', function() {
+            this.style.opacity = '0';
+            this.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                this.style.opacity = '1';
+            }, 100);
+        });
+        
+        // Click to zoom
+        imageContainer?.addEventListener('click', function() {
+            this.style.cursor = 'zoom-in';
+            console.log('${blockLabel} clicked');
+        });
+    }
+});`,
+                            }
+                        };
+                        
+                        // Get template for block type, fallback to generic template
+                        const template = templates[blockType] || generateGenericTemplate(block);
+                        
+                        // Auto-fill the custom code editors if Custom UI/UX tab is active
+                        autoFillCodeEditors(template, blockType, blockLabel);
+                    }
+
+                    // Generic template for block types without specific templates
+                    function generateGenericTemplate(block) {
+                        const fieldName = block.name || block.label.toLowerCase().replace(/\s+/g, '_');
+                        
+                        return {
+                            html: `<!-- ${block.label || block.type} -->
+<div class="form-group form-field-${fieldName}">
+    <label class="form-label">${block.label || block.type}</label>
+    <div class="form-content">
+        <!-- Add your custom content here -->
+    </div>
+</div>`,
+                            css: `/* ${block.label || block.type} */
+.form-field-${fieldName} {
+    margin-bottom: 24px;
+    padding: 16px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.form-field-${fieldName}:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}`,
+                            js: `// ${block.label || block.type}
+document.addEventListener('DOMContentLoaded', function() {
+    const element = document.querySelector('.form-field-${fieldName}');
+    
+    if (element) {
+        console.log('${block.label || block.type} loaded');
+        
+        // Add your custom interactions here
+        element.addEventListener('click', function() {
+            console.log('${block.label || block.type} clicked');
+        });
+    }
+});`
+                        };
+                    }
+
+                    // Auto-fill code editors with template
+                    function autoFillCodeEditors(template, blockType, blockLabel) {
+                        const cssEditor = document.getElementById('custom-css');
+                        const htmlBeforeEditor = document.getElementById('custom-html-before');
+                        const htmlAfterEditor = document.getElementById('custom-html-after');
+                        const jsEditor = document.getElementById('custom-js');
+
+                        if (!cssEditor || !htmlBeforeEditor || !htmlAfterEditor || !jsEditor) return;
+
+                        // Get current values
+                        const currentCSS = cssEditor.value;
+                        const currentHTMLBefore = htmlBeforeEditor.value;
+                        const currentHTMLAfter = htmlAfterEditor.value;
+                        const currentJS = jsEditor.value;
+
+                        // Check if editors are empty
+                        const isEmpty = !currentCSS && !currentHTMLBefore && !currentHTMLAfter && !currentJS;
+
+                        // AUTOMATICALLY append code (no confirmation needed)
+                        if (isEmpty) {
+                            // Fill empty editors with first block code
+                            cssEditor.value = template.css;
+                            htmlBeforeEditor.value = template.html;
+                            htmlAfterEditor.value = template.htmlAfter || '';
+                            jsEditor.value = template.js;
+                        } else {
+                            // AUTOMATICALLY append to existing code
+                            cssEditor.value = currentCSS + '\n\n' + template.css;
+                            htmlBeforeEditor.value = currentHTMLBefore + '\n\n' + template.html;
+                            jsEditor.value = currentJS + '\n\n' + template.js;
+                        }
+
+                        // Show notification
+                        showNotification(
+                            `✓ Code for "${blockLabel}" auto-generated & added!`,
+                            'success',
+                            2000
+                        );
+
+                        // Highlight the custom code tab to show it has content
+                        const tab = document.querySelector('[data-tab="custom-code"]');
+                        if (tab) {
+                            tab.style.background = 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)';
+                            tab.style.color = 'white';
+                            tab.style.position = 'relative';
+                            
+                            // Add a small badge indicator
+                            if (!tab.querySelector('.code-badge')) {
+                                const badge = document.createElement('span');
+                                badge.className = 'code-badge';
+                                badge.textContent = '✓';
+                                badge.style.cssText = `
+                                    position: absolute;
+                                    top: -5px;
+                                    right: -5px;
+                                    background: #10b981;
+                                    color: white;
+                                    width: 18px;
+                                    height: 18px;
+                                    border-radius: 50%;
+                                    font-size: 10px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-weight: bold;
+                                `;
+                                tab.style.position = 'relative';
+                                tab.appendChild(badge);
+                            }
+                            
+                            setTimeout(() => {
+                                tab.style.background = '';
+                                tab.style.color = '';
+                            }, 2000);
+                        }
                     }
 
                     function showProperties() {
@@ -3595,7 +5150,10 @@ return html;</pre>
                     }
 
                     function updateEmptyState() {
-                        canvasEmpty.style.display = blocks.length === 0 ? '' : 'none';
+                        const canvasEmpty = document.getElementById('canvas-empty');
+                        if (canvasEmpty) {
+                            canvasEmpty.style.display = blocks.length === 0 ? '' : 'none';
+                        }
                     }
 
                     // Property input sync
@@ -4082,17 +5640,33 @@ return html;</pre>
                         }
                     });
 
-        // Save form
-        document.getElementById('btn-save').addEventListener('click', function() {
-            document.getElementById('schema-js').value = JSON.stringify(blocks);
-            document.getElementById('table-id').value = document.getElementById('table-selector').value;
-            document.getElementById('builder-form').submit();
-        });
+                    // Save form handler - single authoritative save handler
+                    const btnSave = document.getElementById('btn-save');
+                    if (btnSave && !btnSave._hasSaveHandler) {
+                        btnSave._hasSaveHandler = true; // Prevent duplicate handlers
+                        btnSave.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            // Update schema before saving
+                            document.getElementById('schema-js').value = JSON.stringify(blocks);
+                            document.getElementById('table-id').value = tableSelector ? tableSelector.value : '';
+                            
+                            // Submit the form
+                            const form = document.getElementById('builder-form');
+                            if (form) {
+                                form.submit();
+                            }
+                        });
+                    }
 
-        document.getElementById('builder-form').addEventListener('submit', function() {
-            document.getElementById('schema-js').value = JSON.stringify(blocks);
-            document.getElementById('table-id').value = document.getElementById('table-selector').value;
-        });
+                    // Form submit handler - ensures schema is always updated
+                    const form = document.getElementById('builder-form');
+                    if (form && !form._hasSubmitHandler) {
+                        form._hasSubmitHandler = true; // Prevent duplicate handlers
+                        form.addEventListener('submit', function() {
+                            document.getElementById('schema-js').value = JSON.stringify(blocks);
+                            document.getElementById('table-id').value = tableSelector ? tableSelector.value : '';
+                        });
+                    }
 
                     // Table selector change - update hidden input
                     document.getElementById('table-selector').addEventListener('change', function() {
@@ -4105,21 +5679,21 @@ return html;</pre>
                             const tableId = tableSelector ? tableSelector.value : '';
                             const tableName = tableSelector ? tableSelector.options[tableSelector.selectedIndex].text : 'NONE';
 
-                            console.log('%c=== AUTO-GENERATE START ===', 'color: #00aa00; font-weight: bold;');
-                            console.log('Time:', new Date().toLocaleTimeString());
-                            console.log('Table ID:', tableId);
-                            console.log('Table Name:', tableName);
+                            safeLog.log('%c=== AUTO-GENERATE START ===', 'color: #00aa00; font-weight: bold;');
+                            safeLog.log('Time:', new Date().toLocaleTimeString());
+                            safeLog.log('Table ID:', tableId);
+                            safeLog.log('Table Name:', tableName);
 
                             if (!tableId || tableId === '') {
-                                console.warn('❌ No table selected!');
+                                safeLog.warn('❌ No table selected!');
                                 alert('❌ Please select a table from the dropdown first');
                                 if (tableSelector) tableSelector.focus();
-                                console.log('%c=== AUTO-GENERATE CANCELLED ===', 'color: #ff5500;');
+                                safeLog.log('%c=== AUTO-GENERATE CANCELLED ===', 'color: #ff5500;');
                                 return;
                             }
 
-                            console.log('✅ Sending fetch request...');
-                            console.log('Payload:', JSON.stringify({
+                            safeLog.log('✅ Sending fetch request...');
+                            safeLog.log('Payload:', JSON.stringify({
                                 table_id: parseInt(tableId)
                             }));
 
@@ -4137,14 +5711,14 @@ return html;</pre>
                                     })
                                 })
                                 .then(r => {
-                                    console.log('Response Status:', r.status, r.statusText);
+                                    safeLog.log('Response Status:', r.status, r.statusText);
                                     return r.json();
                                 })
                                 .then(data => {
-                                    console.log('Response Data:', data);
+                                    safeLog.log('Response Data:', data);
 
                                     if (data.success && data.columns && data.columns.length > 0) {
-                                        console.log('%c✅ SUCCESS! Creating ' + data.columns.length + ' fields...', 'color: #00aa00;');
+                                        safeLog.log('%c✅ SUCCESS! Creating ' + data.columns.length + ' fields...', 'color: #00aa00;');
 
                                         // Clear existing blocks
                                         blocks = [];
@@ -4163,23 +5737,23 @@ return html;</pre>
                                             };
                                             blocks.push(block);
                                             renderBlock(block, blocks.length - 1);
-                                            console.log(`  [${idx + 1}] ${fieldType} - ${col.name}`);
+                                            safeLog.log(`  [${idx + 1}] ${fieldType} - ${col.name}`);
                                         });
 
                                         updateEmptyState();
                                         alert('✅ Form generated successfully with ' + data.columns.length + ' field(s)!');
-                                        console.log('%c=== AUTO-GENERATE SUCCESS ===', 'color: #00aa00; font-weight: bold;');
+                                        safeLog.log('%c=== AUTO-GENERATE SUCCESS ===', 'color: #00aa00; font-weight: bold;');
                                     } else {
-                                        console.error('%c❌ Error Response:', 'color: #ff0000;', data);
+                                        safeLog.error('%c❌ Error Response:', 'color: #ff0000;', data);
                                         const errorMsg = data.error || data.message || 'Failed to load table columns';
                                         alert('❌ Error: ' + errorMsg);
-                                        console.log('%c=== AUTO-GENERATE FAILED ===', 'color: #ff0000;');
+                                        safeLog.log('%c=== AUTO-GENERATE FAILED ===', 'color: #ff0000;');
                                     }
                                 })
                                 .catch(err => {
-                                    console.error('%c❌ Network/Fetch Error:', 'color: #ff0000;', err);
+                                    safeLog.error('%c❌ Network/Fetch Error:', 'color: #ff0000;', err);
                                     alert('❌ Network Error: ' + err.message);
-                                    console.log('%c=== AUTO-GENERATE ERROR ===', 'color: #ff0000;');
+                                    safeLog.log('%c=== AUTO-GENERATE ERROR ===', 'color: #ff0000;');
                                 })
                                 .finally(() => {
                                     this.disabled = false;
@@ -4187,7 +5761,7 @@ return html;</pre>
                                 });
                         });
                     } else {
-                        console.warn('❌ Auto-generate button not found');
+                        safeLog.warn('❌ Auto-generate button not found');
                     }
 
                     // Map database column types to form field types
@@ -4202,13 +5776,11 @@ return html;</pre>
                         return 'text-input';
                     }
 
-                    function escapeHtml(str) {
-                        const div = document.createElement('div');
-                        div.textContent = str || '';
-                        return div.innerHTML;
-                    }
-
                     updateEmptyState();
+
+                    // Initialize Multi-Page Form & Custom Code Editor
+                    initFormPages();
+                    initCustomCodeEditor();
 
                     // ============ INTERACTIVE SCROLL ANIMATIONS ============
                     // Initialize AOS for scroll animations
@@ -4277,7 +5849,6 @@ return html;</pre>
                     applyScrollAnimations();
 
                     // Parallax scroll effect on canvas blocks
-                    const canvasBody = document.getElementById('canvas-body');
                     if (canvasBody) {
                         window.addEventListener('scroll', function() {
                             if (typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined') {
@@ -4387,6 +5958,7 @@ return html;</pre>
                     </div>
                     <?php else: ?>
                     <?= Html::beginForm(['form/publish', 'id' => $model->id], 'post', ['id' => 'publish-form-modal']) ?>
+                    <?= Html::hiddenInput('form_pages', '', ['id' => 'publish-form-pages-data']) ?>
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-weight:600;margin-bottom:8px;color:#0b1c30;">Published Name</label>
                         <input type="text" name="name" value="<?= Html::encode($model->name) ?>" maxlength="255" required
@@ -4415,6 +5987,34 @@ return html;</pre>
                             alert('Please enter a name for the published form.');
                             return false;
                         }
+
+                        // CRITICAL: Capture current customDesign and formPages before submit
+                        const cssEditor = document.getElementById('custom-css');
+                        const htmlBeforeEditor = document.getElementById('custom-html-before');
+                        const htmlAfterEditor = document.getElementById('custom-html-after');
+                        const jsEditor = document.getElementById('custom-js');
+
+                        // Update customDesign with current editor values
+                        customDesign.css = cssEditor ? cssEditor.value : customDesign.css || '';
+                        customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : customDesign.htmlBefore || '';
+                        customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : customDesign.htmlAfter || '';
+                        customDesign.js = jsEditor ? jsEditor.value : customDesign.js || '';
+
+                        // Update current page blocks
+                        updateCurrentPageBlocks();
+
+                        // Prepare pages data with custom design
+                        const pagesData = {
+                            pages: formPages,
+                            customDesign: customDesign
+                        };
+
+                        console.log('=== PUBLISH MODAL SUBMIT ===');
+                        console.log('Custom Design being sent:', JSON.parse(JSON.stringify(customDesign)));
+                        console.log('Pages data:', JSON.parse(JSON.stringify(pagesData)));
+
+                        // Set the hidden input value
+                        document.getElementById('publish-form-pages-data').value = JSON.stringify(pagesData);
                     });
                     </script>
                     <?php endif; ?>
@@ -4422,4 +6022,693 @@ return html;</pre>
             </div>
         </div>
     </main>
+
+    <!-- Live Preview Modal -->
+    <div class="preview-modal" id="preview-modal">
+        <div class="preview-modal-content">
+            <div class="preview-modal-header">
+                <h3><i class="fas fa-eye"></i> Live Form Preview</h3>
+                <button class="preview-modal-close" id="preview-modal-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="preview-modal-body" id="preview-modal-body">
+                <!-- Preview content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ===== MULTI-PAGE FORM MANAGEMENT=====
+    let formPages = [
+        { id: 'page_1', name: 'Page 1', blocks: [] }
+    ];
+    let currentPageIndex = 0;
+    let customDesign = {
+        css: '',
+        htmlBefore: '',
+        htmlAfter: '',
+        js: ''
+    };
+
+    // Initialize form pages
+    function initFormPages() {
+        renderPagesTabs();
+        updateCurrentPageBlocks();
+        
+        // Add page button
+        document.getElementById('add-page-btn').addEventListener('click', function() {
+            addNewPage();
+        });
+    }
+
+    // Render page tabs
+    function renderPagesTabs() {
+        const tabsContainer = document.getElementById('pages-tabs');
+        if (!tabsContainer) return;
+        
+        tabsContainer.innerHTML = '';
+        
+        formPages.forEach(function(page, index) {
+            const tab = document.createElement('div');
+            tab.className = 'page-tab' + (index === currentPageIndex ? ' active' : '');
+            tab.dataset.pageIndex = index;
+            tab.innerHTML = `
+                <span class="page-name">${escapeHtml(page.name)}</span>
+                ${formPages.length > 1 ? `<button type="button" class="delete-page-btn" data-page-index="${index}" title="Delete page">
+                    <i class="fas fa-times"></i>
+                </button>` : ''}
+            `;
+            
+            tab.addEventListener('click', function(e) {
+                if (!e.target.closest('.delete-page-btn')) {
+                    switchToPage(index);
+                }
+            });
+            
+            tabsContainer.appendChild(tab);
+        });
+        
+        // Attach delete handlers
+        tabsContainer.querySelectorAll('.delete-page-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const pageIndex = parseInt(this.dataset.pageIndex);
+                deletePage(pageIndex);
+            });
+        });
+    }
+
+    // Switch to a different page
+    function switchToPage(index) {
+        // Save current page blocks first
+        updateCurrentPageBlocks();
+        
+        // Switch page
+        currentPageIndex = index;
+        
+        // Load page blocks
+        loadPageBlocks(index);
+        
+        // Update UI
+        renderPagesTabs();
+    }
+
+    // Update current page blocks from canvas
+    function updateCurrentPageBlocks() {
+        if (formPages[currentPageIndex]) {
+            formPages[currentPageIndex].blocks = JSON.parse(JSON.stringify(blocks));
+        }
+    }
+
+    // Load page blocks to canvas
+    function loadPageBlocks(index) {
+        const page = formPages[index];
+        if (!page) return;
+        
+        // Clear canvas
+        canvasBlocks.innerHTML = '';
+        blocks = [];
+        selectedIndex = -1;
+        
+        // Load blocks from page
+        if (page.blocks && page.blocks.length > 0) {
+            blocks = JSON.parse(JSON.stringify(page.blocks));
+            blocks.forEach(function(block, i) {
+                renderBlock(block, i);
+            });
+        }
+        
+        updateEmptyState();
+        hideProperties();
+    }
+
+    // Add new page
+    function addNewPage() {
+        updateCurrentPageBlocks();
+        
+        const newPageIndex = formPages.length;
+        const newPage = {
+            id: 'page_' + (newPageIndex + 1),
+            name: 'Page ' + (newPageIndex + 1),
+            blocks: []
+        };
+        
+        formPages.push(newPage);
+        
+        // Switch to new page
+        currentPageIndex = newPageIndex;
+        loadPageBlocks(newPageIndex);
+        renderPagesTabs();
+        
+        showNotification('✓ New page added successfully!', 'success', 2000);
+    }
+
+    // Delete page
+    function deletePage(index) {
+        if (formPages.length <= 1) {
+            showNotification('⚠️ Cannot delete the last page!', 'warning', 2000);
+            return;
+        }
+        
+        if (confirm('Are you sure you want to delete this page? All blocks on this page will be removed.')) {
+            formPages.splice(index, 1);
+            
+            // Adjust current page index if needed
+            if (currentPageIndex >= formPages.length) {
+                currentPageIndex = formPages.length - 1;
+            }
+            
+            loadPageBlocks(currentPageIndex);
+            renderPagesTabs();
+            
+            showNotification('✓ Page deleted successfully!', 'success', 2000);
+        }
+    }
+
+    // ===== CUSTOM CODE EDITOR =====
+    function initCustomCodeEditor() {
+        console.log('=== initCustomCodeEditor() CALLED ===');
+        
+        const cssEditor = document.getElementById('custom-css');
+        const htmlBeforeEditor = document.getElementById('custom-html-before');
+        const htmlAfterEditor = document.getElementById('custom-html-after');
+        const jsEditor = document.getElementById('custom-js');
+        const applyBtn = document.getElementById('apply-custom-design-btn');
+        const saveBtn = document.getElementById('save-design-btn');
+
+        console.log('CSS Editor found:', !!cssEditor);
+        console.log('HTML Before Editor found:', !!htmlBeforeEditor);
+        console.log('HTML After Editor found:', !!htmlAfterEditor);
+        console.log('JS Editor found:', !!jsEditor);
+        console.log('Apply Button found:', !!applyBtn);
+        console.log('Save Button found:', !!saveBtn);
+
+        // Load saved design
+        loadSavedDesign();
+
+        // Apply design button
+        if (applyBtn) {
+            console.log('✅ Apply design button listener attached');
+            applyBtn.addEventListener('click', function() {
+                customDesign.css = cssEditor ? cssEditor.value : '';
+                customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : '';
+                customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : '';
+                customDesign.js = jsEditor ? jsEditor.value : '';
+                
+                openPreviewModal();
+            });
+        }
+        
+        // Save design button
+        if (saveBtn) {
+            console.log('✅ Save Custom Design button found!');
+            saveBtn.addEventListener('click', function() {
+                console.log('=== SAVE CUSTOM DESIGN CLICKED ===');
+                
+                customDesign.css = cssEditor ? cssEditor.value : '';
+                customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : '';
+                customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : '';
+                customDesign.js = jsEditor ? jsEditor.value : '';
+
+                console.log('Custom Design values:');
+                console.log('  CSS:', customDesign.css ? customDesign.css.substring(0, 100) + '...' : '(empty)');
+                console.log('  HTML Before:', customDesign.htmlBefore ? customDesign.htmlBefore.substring(0, 50) + '...' : '(empty)');
+                console.log('  HTML After:', customDesign.htmlAfter ? customDesign.htmlAfter.substring(0, 50) + '...' : '(empty)');
+                console.log('  JS:', customDesign.js ? customDesign.js.substring(0, 50) + '...' : '(empty)');
+
+                const localStorageKey = 'formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>';
+                console.log('localStorage key:', localStorageKey);
+                console.log('localStorage value to save:', JSON.stringify(customDesign));
+
+                // Always save to localStorage first
+                localStorage.setItem(localStorageKey, JSON.stringify(customDesign));
+                
+                // Verify it was saved
+                const verifySaved = localStorage.getItem(localStorageKey);
+                console.log('✅ Saved to localStorage. Verify:', verifySaved ? verifySaved.substring(0, 100) + '...' : 'FAILED!');
+
+                // Try to save to database via AJAX if form exists
+                const formId = <?= $model->isNewRecord ? '0' : $model->id ?>;
+                console.log('Form ID:', formId);
+
+                if (formId > 0) {
+                    console.log('Saving to database via AJAX...');
+                    // Save to database via AJAX
+                    updateCurrentPageBlocks();
+
+                    fetch('<?= \yii\helpers\Url::to(["form/save-design", "id" => $model->isNewRecord ? 0 : $model->id]) ?>', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': '<?= Yii::$app->request->csrfToken ?>'
+                        },
+                        body: JSON.stringify({
+                            pages: formPages,
+                            customDesign: customDesign
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            showNotification('✓ Design saved to database successfully!', 'success', 2000);
+                        } else {
+                            showNotification('⚠ Design saved locally. Will be saved to database when you publish the form.', 'info', 3000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Failed to save design to database:', error);
+                        showNotification('⚠ Design saved locally. Will be saved to database when you publish the form.', 'info', 3000);
+                    });
+                } else {
+                    // New form - just save to localStorage
+                    showNotification('✓ Design saved locally! It will be saved to database when you publish the form.', 'success', 3000);
+                }
+            });
+        }
+    }
+
+    // Load saved design
+    function loadSavedDesign() {
+        const saved = localStorage.getItem('formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>');
+        if (saved) {
+            try {
+                customDesign = JSON.parse(saved);
+                
+                const cssEditor = document.getElementById('custom-css');
+                const htmlBeforeEditor = document.getElementById('custom-html-before');
+                const htmlAfterEditor = document.getElementById('custom-html-after');
+                const jsEditor = document.getElementById('custom-js');
+                
+                if (cssEditor) cssEditor.value = customDesign.css || '';
+                if (htmlBeforeEditor) htmlBeforeEditor.value = customDesign.htmlBefore || '';
+                if (htmlAfterEditor) htmlAfterEditor.value = customDesign.htmlAfter || '';
+                if (jsEditor) jsEditor.value = customDesign.js || '';
+            } catch (e) {
+                console.error('Failed to load saved design:', e);
+            }
+        }
+    }
+
+    // ===== LIVE PREVIEW MODAL =====
+    function openPreviewModal() {
+        const modal = document.getElementById('preview-modal');
+        if (!modal) return;
+        
+        // Generate preview HTML
+        const previewHTML = generatePreviewHTML();
+        
+        // Set preview content
+        const body = document.getElementById('preview-modal-body');
+        if (body) {
+            // Create iframe for isolated preview
+            const iframe = document.createElement('iframe');
+            iframe.style.width = '100%';
+            iframe.style.height = '100%';
+            iframe.style.border = 'none';
+            
+            body.innerHTML = '';
+            body.appendChild(iframe);
+            
+            // Write content to iframe
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            iframeDoc.open();
+            iframeDoc.write(previewHTML);
+            iframeDoc.close();
+        }
+        
+        // Show modal
+        modal.classList.add('active');
+        
+        // Close handlers
+        document.getElementById('preview-modal-close').addEventListener('click', closePreviewModal);
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closePreviewModal();
+            }
+        });
+    }
+
+    function closePreviewModal() {
+        const modal = document.getElementById('preview-modal');
+        if (modal) {
+            modal.classList.remove('active');
+        }
+    }
+
+    // Generate preview HTML
+    function generatePreviewHTML() {
+        updateCurrentPageBlocks();
+
+        // Check if custom design has any content
+        const hasCustomDesign = customDesign.css || customDesign.htmlBefore || customDesign.htmlAfter || customDesign.js;
+
+        let html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Preview - <?= Html::encode($model->name) ?></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">`;
+
+        // Only add default styles if NO custom CSS is provided
+        if (!customDesign.css) {
+            html += `
+    <style>
+        body {
+            background: #f9fafb;
+            padding: 40px 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .form-preview-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        .form-preview-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            color: #111827;
+        }
+        .form-block {
+            margin-bottom: 24px;
+            padding: 20px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #f9fafb;
+        }
+        .form-block-label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #374151;
+        }
+        .form-block-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .form-block-input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .form-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .btn-nav {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-prev {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        .btn-prev:hover {
+            background: #e5e7eb;
+        }
+        .btn-next {
+            background: #4f46e5;
+            color: white;
+        }
+        .btn-next:hover {
+            background: #4338ca;
+        }
+    </style>`;
+        }
+
+        // Add custom CSS if provided
+        if (customDesign.css) {
+            html += `<style>${customDesign.css}</style>`;
+        }
+
+        html += `</head>
+<body>`;
+
+        // Only add default HTML structure if NO custom HTML is provided
+        if (!customDesign.htmlBefore && !customDesign.htmlAfter) {
+            html += `
+    <div class="form-preview-container">
+        <h1 class="form-preview-title"><?= Html::encode($model->name) ?></h1>`;
+
+            // Render current page blocks
+            if (formPages[currentPageIndex]) {
+                html += `<div id="form-page-content">`;
+                formPages[currentPageIndex].blocks.forEach(function(block) {
+                    html += renderBlockToHTML(block);
+                });
+                html += `</div>`;
+            }
+
+            // Add navigation for multi-page
+            if (formPages.length > 1) {
+                html += `<div class="form-navigation">`;
+                if (currentPageIndex > 0) {
+                    html += `<button class="btn-nav btn-prev" onclick="navigateToPage(${currentPageIndex - 1})"><i class="fas fa-arrow-left"></i> Previous</button>`;
+                } else {
+                    html += `<div></div>`;
+                }
+                if (currentPageIndex < formPages.length - 1) {
+                    html += `<button class="btn-nav btn-next" onclick="navigateToPage(${currentPageIndex + 1})">Next <i class="fas fa-arrow-right"></i></button>`;
+                } else {
+                    html += `<button class="btn-nav btn-next" onclick="submitForm()" style="background:linear-gradient(135deg,#10b981,#059669);">Submit Form <i class="fas fa-check"></i></button>`;
+                }
+                html += `</div>`;
+
+                // Add page indicators
+                html += `<div style="display:flex;justify-content:center;gap:8px;margin-top:16px;">`;
+                formPages.forEach(function(page, idx) {
+                    const activeStyle = idx === currentPageIndex ? 'background:#4f46e5;' : 'background:#d1d5db;';
+                    html += `<div style="width:10px;height:10px;border-radius:50%;${activeStyle}cursor:pointer;transition:all 0.3s;" onclick="navigateToPage(${idx})"></div>`;
+                });
+                html += `</div>`;
+            }
+
+            html += `</div>`;
+        } else {
+            // Use custom HTML
+            if (customDesign.htmlBefore) {
+                html += customDesign.htmlBefore;
+            }
+            if (customDesign.htmlAfter) {
+                html += customDesign.htmlAfter;
+            }
+        }
+
+        // Only add default JS if NO custom JS is provided
+        if (!customDesign.js) {
+            html += `
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"><\/script>
+    <script>
+        // Page navigation data
+        const totalPages = ${formPages.length};
+        let currentPage = ${currentPageIndex};
+        const pagesData = ${JSON.stringify(formPages)};
+
+        // Navigation function
+        function navigateToPage(pageIndex) {
+            if (pageIndex < 0 || pageIndex >= totalPages) return;
+
+            // In preview mode, we'll just show an alert with page info
+            const page = pagesData[pageIndex];
+            const blockCount = page.blocks ? page.blocks.length : 0;
+
+            if (confirm('Navigate to ' + page.name + '? (This page has ' + blockCount + ' blocks)')) {
+                // In actual implementation, this would switch pages
+                alert('Navigated to ' + page.name + '!');
+            }
+        }
+
+        // Submit form function
+        function submitForm() {
+            if (confirm('Are you ready to submit this form?')) {
+                alert('Form submitted successfully! (This is a preview - in the actual published form, this would submit the data)');
+            }
+        }
+    <\/script>`;
+        }
+        
+        // Add custom JS
+        if (customDesign.js) {
+            html += `<script>${customDesign.js}<\/script>`;
+        }
+
+        html += `
+</body>
+</html>`;
+        
+        return html;
+    }
+
+    // Render single block to HTML for preview
+    function renderBlockToHTML(block) {
+        const label = escapeHtml(block.label || block.type);
+        const placeholder = escapeHtml(block.placeholder || '');
+        const required = block.required ? '<span style="color:red;">*</span>' : '';
+        
+        // Render different HTML based on block type
+        switch (block.type) {
+            case 'text-input':
+            case 'email':
+            case 'number':
+            case 'password':
+            case 'url':
+            case 'phone':
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <input type="${block.type === 'text-input' ? 'text' : block.type}" class="form-block-input" placeholder="${placeholder || 'Enter ' + label.toLowerCase() + '...'}">
+                    ${block.helper ? `<small style="color:#6b7280;font-size:12px;">${escapeHtml(block.helper)}</small>` : ''}
+                </div>`;
+            
+            case 'textarea':
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <textarea class="form-block-input" rows="4" placeholder="${placeholder || 'Enter ' + label.toLowerCase() + '...'}"></textarea>
+                    ${block.helper ? `<small style="color:#6b7280;font-size:12px;">${escapeHtml(block.helper)}</small>` : ''}
+                </div>`;
+            
+            case 'select':
+                const options = (block.options || 'Option 1\nOption 2').split('\n');
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <select class="form-block-input">
+                        <option value="">-- Select an option --</option>
+                        ${options.map(opt => `<option value="${escapeHtml(opt.trim())}">${escapeHtml(opt.trim())}</option>`).join('')}
+                    </select>
+                </div>`;
+            
+            case 'checkbox':
+                const checkboxOptions = (block.options || 'Option 1\nOption 2').split('\n');
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${checkboxOptions.map(opt => `
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input type="checkbox" style="width:18px;height:18px;">
+                                <span>${escapeHtml(opt.trim())}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>`;
+            
+            case 'radio':
+                const radioOptions = (block.options || 'Option 1\nOption 2').split('\n');
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <div style="display:flex;flex-direction:column;gap:8px;">
+                        ${radioOptions.map((opt, i) => `
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input type="radio" name="${block.label}" style="width:18px;height:18px;" ${i === 0 ? 'checked' : ''}>
+                                <span>${escapeHtml(opt.trim())}</span>
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>`;
+            
+            case 'file':
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <input type="file" class="form-block-input" style="padding:10px;">
+                </div>`;
+            
+            case 'date':
+            case 'time':
+            case 'datetime':
+                return `<div class="form-block">
+                    <label class="form-block-label">${label} ${required}</label>
+                    <input type="${block.type}" class="form-block-input">
+                </div>`;
+            
+            case 'heading':
+                const level = block.level || 'h2';
+                return `<div style="margin:32px 0 16px;">
+                    <${level} style="font-size:${level === 'h1' ? '32px' : level === 'h3' ? '24px' : '28px'};font-weight:700;color:#111827;margin:0;">${label}</${level}>
+                    ${block.content ? `<p style="color:#6b7280;margin-top:8px;">${escapeHtml(block.content)}</p>` : ''}
+                </div>`;
+            
+            case 'text_block':
+            case 'text':
+                return `<div style="margin:16px 0;">
+                    <p style="color:#374151;line-height:1.6;">${escapeHtml(block.content || '')}</p>
+                </div>`;
+            
+            case 'image':
+                return `<div style="margin:24px 0;text-align:center;">
+                    ${block.src ? `<img src="${escapeHtml(block.src)}" style="max-width:100%;height:auto;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);">` : '<div style="background:#f3f4f6;padding:40px;border-radius:12px;color:#9ca3af;">📷 Image Placeholder</div>'}
+                    ${block.caption ? `<p style="color:#6b7280;font-size:14px;margin-top:12px;">${escapeHtml(block.caption)}</p>` : ''}
+                </div>`;
+            
+            case 'divider':
+                return `<hr style="border:none;border-top:2px solid #e5e7eb;margin:24px 0;">`;
+            
+            case 'spacer':
+                return `<div style="height:${block.height || 32}px;"></div>`;
+            
+            default:
+                return `<div class="form-block">
+                    <label class="form-block-label">${label}</label>
+                    <input type="text" class="form-block-input" placeholder="Enter ${label.toLowerCase()}...">
+                </div>`;
+        }
+    }
+
+    // Initialize everything - called from main DOMContentLoaded
+    // initFormPages() dan initCustomCodeEditor() akan dipanggil dari main script
+
+    // Save form pages data before submit - MUST run after DOM is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('builder-form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                // CRITICAL: Always read current values from editors RIGHT NOW
+                const cssEditor = document.getElementById('custom-css');
+                const htmlBeforeEditor = document.getElementById('custom-html-before');
+                const htmlAfterEditor = document.getElementById('custom-html-after');
+                const jsEditor = document.getElementById('custom-js');
+
+                // Update customDesign object with current editor values
+                customDesign.css = cssEditor ? cssEditor.value : customDesign.css || '';
+                customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : customDesign.htmlBefore || '';
+                customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : customDesign.htmlAfter || '';
+                customDesign.js = jsEditor ? jsEditor.value : customDesign.js || '';
+
+                console.log('=== FORM SUBMIT DEBUG ===');
+                console.log('Custom Design before save:', JSON.parse(JSON.stringify(customDesign)));
+                console.log('Form Pages:', JSON.parse(JSON.stringify(formPages)));
+
+                // Save to localStorage for future sessions
+                localStorage.setItem('formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>', JSON.stringify(customDesign));
+
+                // Update current page blocks
+                updateCurrentPageBlocks();
+
+                // Prepare pages data with custom design - ENSURE customDesign is included
+                const pagesData = {
+                    pages: formPages,
+                    customDesign: customDesign
+                };
+
+                console.log('Final pagesData to be saved:', JSON.parse(JSON.stringify(pagesData)));
+
+                document.getElementById('form-pages-data').value = JSON.stringify(pagesData);
+                console.log('form-pages-data value set:', document.getElementById('form-pages-data').value.substring(0, 200) + '...');
+            });
+        } else {
+            console.error('builder-form element not found!');
+        }
+    });
+    </script>
 </body>

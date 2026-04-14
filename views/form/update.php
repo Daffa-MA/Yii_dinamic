@@ -2231,7 +2231,31 @@ return html;</pre>
                     console.log('Elements check:', Object.entries(elementsToCheck).map(([k, v]) => k + ': ' + (v ? 'Found' : 'MISSING')).join(', '));
 
                     // ===== CORE SCRIPT =====
-                    let blocks = <?= $model->isNewRecord ? '[]' : $model->schema_js ?>;
+                    <?php
+                    // Parse schema_js to extract blocks and pages
+                    $schemaData = $model->isNewRecord ? [] : json_decode($model->schema_js, true);
+                    $pages = $schemaData['pages'] ?? null;
+                    $customDesign = $schemaData['customDesign'] ?? [];
+                    
+                    // If no pages structure, use old schema format
+                    if (!$pages) {
+                        $blocksData = is_array($schemaData) ? $schemaData : [];
+                        $pages = [
+                            [
+                                'id' => 'page_1',
+                                'name' => 'Page 1',
+                                'blocks' => $blocksData
+                            ]
+                        ];
+                    }
+                    
+                    // Extract blocks from first page for backward compatibility
+                    $initialBlocks = $pages[0]['blocks'] ?? [];
+                    ?>
+                    let formPages = <?= json_encode($pages) ?>;
+                    let currentPageIndex = 0;
+                    let customDesign = <?= json_encode($customDesign) ?>;
+                    let blocks = <?= json_encode($initialBlocks) ?>;
                     let selectedIndex = -1;
                     let sortableInstance = null;
                     let undoStack = [];
@@ -3821,14 +3845,40 @@ return html;</pre>
 
         // Save form
         document.getElementById('btn-save').addEventListener('click', function() {
-            document.getElementById('schema-js').value = JSON.stringify(blocks);
+            // Wrap blocks in pages structure with custom design
+            const pagesData = {
+                pages: [{
+                    id: 'page_1',
+                    name: 'Page 1',
+                    blocks: blocks
+                }],
+                customDesign: customDesign || {},
+                blocks: blocks
+            };
+            document.getElementById('schema-js').value = JSON.stringify(pagesData);
             document.getElementById('table-id').value = document.getElementById('table-selector').value;
             document.getElementById('builder-form').submit();
         });
 
-        document.getElementById('builder-form').addEventListener('submit', function() {
-            document.getElementById('schema-js').value = JSON.stringify(blocks);
-            document.getElementById('table-id').value = document.getElementById('table-selector').value;
+        // Wrap form submit handler in DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function() {
+            const formElement = document.getElementById('builder-form');
+            if (formElement) {
+                formElement.addEventListener('submit', function() {
+                    // Wrap blocks in pages structure with custom design
+                    const pagesData = {
+                        pages: [{
+                            id: 'page_1',
+                            name: 'Page 1',
+                            blocks: blocks
+                        }],
+                        customDesign: customDesign || {},
+                        blocks: blocks
+                    };
+                    document.getElementById('schema-js').value = JSON.stringify(pagesData);
+                    document.getElementById('table-id').value = document.getElementById('table-selector').value;
+                });
+            }
         });
 
                     // Table selector change - update hidden input
@@ -3946,6 +3996,15 @@ return html;</pre>
                     }
 
                     updateEmptyState();
+
+                    // Load initial blocks from pages
+                    if (blocks && blocks.length > 0) {
+                        console.log('Loading ' + blocks.length + ' initial blocks from schema...');
+                        blocks.forEach(function(block, i) {
+                            renderBlock(block, i);
+                        });
+                        updateEmptyState();
+                    }
 
                     // ============ INTERACTIVE SCROLL ANIMATIONS ============
                     // Initialize AOS for scroll animations
@@ -4124,6 +4183,7 @@ return html;</pre>
                     </div>
                     <?php else: ?>
                     <?= Html::beginForm(['form/publish', 'id' => $model->id], 'post', ['id' => 'publish-form-modal']) ?>
+                    <?= Html::hiddenInput('form_pages', '', ['id' => 'publish-form-pages-data']) ?>
                     <div style="margin-bottom:16px;">
                         <label style="display:block;font-weight:600;margin-bottom:8px;color:#0b1c30;">Published Name</label>
                         <input type="text" name="name" value="<?= Html::encode($model->name) ?>" maxlength="255" required
@@ -4152,6 +4212,34 @@ return html;</pre>
                             alert('Please enter a name for the published form.');
                             return false;
                         }
+
+                        // CRITICAL: Capture current customDesign and formPages before submit
+                        const cssEditor = document.getElementById('custom-css');
+                        const htmlBeforeEditor = document.getElementById('custom-html-before');
+                        const htmlAfterEditor = document.getElementById('custom-html-after');
+                        const jsEditor = document.getElementById('custom-js');
+
+                        // Update customDesign with current editor values
+                        customDesign.css = cssEditor ? cssEditor.value : customDesign.css || '';
+                        customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : customDesign.htmlBefore || '';
+                        customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : customDesign.htmlAfter || '';
+                        customDesign.js = jsEditor ? jsEditor.value : customDesign.js || '';
+
+                        // Update current page blocks
+                        updateCurrentPageBlocks();
+
+                        // Prepare pages data with custom design
+                        const pagesData = {
+                            pages: formPages,
+                            customDesign: customDesign
+                        };
+
+                        console.log('=== PUBLISH MODAL SUBMIT ===');
+                        console.log('Custom Design being sent:', JSON.parse(JSON.stringify(customDesign)));
+                        console.log('Pages data:', JSON.parse(JSON.stringify(pagesData)));
+
+                        // Set the hidden input value
+                        document.getElementById('publish-form-pages-data').value = JSON.stringify(pagesData);
                     });
                     </script>
                     <?php endif; ?>

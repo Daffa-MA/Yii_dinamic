@@ -152,15 +152,15 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                             <p class="text-on-surface-variant text-center py-8">No fields defined.</p>
                         <?php else: ?>
                             <div class="space-y-3">
-                                <?php foreach ($model->getSchema() as $index => $field): ?>
+                                <?php $counter = 1; foreach ($model->getSchema() as $field): ?>
                                     <?php
-                                    $fieldLabel = $field['label'] ?? ($field['type'] ?? 'Field ' . ($index + 1));
+                                    $fieldLabel = $field['label'] ?? ($field['type'] ?? 'Field ' . $counter);
                                     $fieldName = $field['name'] ?? '-';
                                     $fieldType = $field['type'] ?? 'unknown';
                                     ?>
                                     <div class="flex items-center justify-between p-4 bg-surface-container rounded-xl">
                                         <div class="flex items-center gap-3">
-                                            <span class="w-8 h-8 bg-primary-container/10 rounded-lg flex items-center justify-center text-primary-container text-sm font-bold"><?= $index + 1 ?></span>
+                                            <span class="w-8 h-8 bg-primary-container/10 rounded-lg flex items-center justify-center text-primary-container text-sm font-bold"><?= $counter ?></span>
                                             <div>
                                                 <p class="text-sm font-semibold"><?= Html::encode($fieldLabel) ?></p>
                                                 <p class="text-xs text-on-surface-variant"><code><?= Html::encode($fieldName) ?></code></p>
@@ -168,6 +168,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                         </div>
                                         <span class="bg-surface-container-high text-on-surface-variant px-3 py-1 rounded-full text-xs font-medium"><?= Html::encode($fieldType) ?></span>
                                     </div>
+                                    <?php $counter++; ?>
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
@@ -281,7 +282,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                             <input type="text" id="public-link-input" readonly
                                 value="<?= Yii::$app->request->hostInfo ?>/form/public-render/<?= $model->id ?>"
                                 style="flex:1;padding:10px 14px;border:1px solid #c7c4d8;border-radius:8px;font-size:13px;background:#fff;color:#0b1c30;font-family:monospace;">
-                            <button onclick="copyPublicLink()"
+                            <button onclick="copyPublicLink(event)"
                                 style="padding:10px 16px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
                                 <span class="material-symbols-outlined" style="font-size:16px;">content_copy</span>
                                 Copy
@@ -329,7 +330,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             document.getElementById('publish-modal').style.display = 'none';
         }
 
-        function copyPublicLink() {
+        function copyPublicLink(event) {
             const input = document.getElementById('public-link-input');
             input.select();
             input.setSelectionRange(0, 99999);
@@ -342,6 +343,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     btn.innerHTML = originalHTML;
                     btn.style.background = 'linear-gradient(135deg,#4f46e5,#6366f1)';
                 }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy link. Please copy manually.');
             });
         }
 
@@ -370,9 +374,92 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             console.log('Action URL:', actionUrl);
             console.log('Form name:', name);
 
+            // Get current form schema from PHP
+            const currentSchema = <?= json_encode($model->schema_js) ?>;
+            const schemaData = JSON.parse(currentSchema || '{}');
+            const pages = schemaData.pages || [];
+            const blocks = schemaData.blocks || [];
+
+            console.log('Schema from database:', schemaData);
+            console.log('CustomDesign from DB:', schemaData.customDesign);
+
+            // Try to get customDesign from localStorage first (most recent)
+            // Initialize with empty object
+            let customDesign = {};
+            
+            // Check if database has customDesign (handle both array and object)
+            if (schemaData.customDesign) {
+                if (Array.isArray(schemaData.customDesign)) {
+                    // Database has empty array, ignore it
+                    console.log('Database has empty array for customDesign, ignoring');
+                } else if (schemaData.customDesign.css || schemaData.customDesign.htmlBefore || 
+                           schemaData.customDesign.htmlAfter || schemaData.customDesign.js) {
+                    // Database has actual custom design content
+                    customDesign = schemaData.customDesign;
+                    console.log('Using customDesign from database');
+                }
+            }
+            
+            const localStorageKey = 'formCustomDesign_<?= $model->id ?>';
+            const newFormKey = 'formCustomDesign_new'; // Fallback for newly created forms
+            let savedDesign = localStorage.getItem(localStorageKey);
+
+            console.log('localStorage key:', localStorageKey);
+            console.log('Value from localStorage:', savedDesign);
+
+            // If not found, check for new form key
+            if (!savedDesign) {
+                console.log('⚠ Not found in localStorage, checking for new form key...');
+                savedDesign = localStorage.getItem(newFormKey);
+                console.log('New form key value:', savedDesign);
+                
+                if (savedDesign) {
+                    console.log('✅ Found design from new form creation! Will migrate to form ID key.');
+                    // Migrate to form ID key
+                    localStorage.setItem(localStorageKey, savedDesign);
+                    localStorage.removeItem(newFormKey);
+                    console.log('✅ Migrated localStorage key from new to form ID');
+                }
+            }
+
+            if (savedDesign) {
+                try {
+                    const parsedDesign = JSON.parse(savedDesign);
+                    console.log('Parsed localStorage design:', parsedDesign);
+                    // Use localStorage design if it has any content
+                    if (parsedDesign.css || parsedDesign.htmlBefore || parsedDesign.htmlAfter || parsedDesign.js) {
+                        customDesign = parsedDesign;
+                        console.log('✅ Using customDesign from localStorage (overriding database)');
+                    } else {
+                        console.log('⚠ localStorage has design but no content');
+                    }
+                } catch (e) {
+                    console.error('Failed to parse localStorage design:', e);
+                }
+            } else {
+                console.log('⚠ No customDesign in localStorage');
+            }
+
+            console.log('Final customDesign to be published:', JSON.parse(JSON.stringify(customDesign)));
+
+            // Prepare form_pages data with custom design
+            const formPagesData = {
+                pages: pages.length > 0 ? pages : [{
+                    id: 'page_1',
+                    name: 'Page 1',
+                    blocks: blocks
+                }],
+                customDesign: customDesign
+            };
+
+            console.log('=== PUBLISH DATA ===');
+            console.log('Custom Design being sent:', JSON.parse(JSON.stringify(customDesign)));
+            console.log('Pages data:', JSON.parse(JSON.stringify(formPagesData)));
+
             const formData = new FormData();
             formData.append('name', name);
             formData.append(csrfParam, csrfToken);
+            formData.append('form_pages', JSON.stringify(formPagesData));
 
             fetch(actionUrl, {
                     method: 'POST',

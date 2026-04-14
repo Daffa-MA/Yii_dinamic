@@ -119,25 +119,25 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         <div class="space-y-6">
                             <?php foreach ($schema as $field): ?>
                                 <div>
-                                    <label class="block text-sm font-medium text-on-surface mb-2"><?= Html::encode($field['label']) ?></label>
+                                    <label class="block text-sm font-medium text-on-surface mb-2"><?= Html::encode($field['label'] ?? $field['name'] ?? 'Field') ?></label>
 
                                     <?php if ($field['type'] === 'text'): ?>
-                                        <input type="text" name="<?= Html::encode($field['name']) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($field['label']) ?>" required>
+                                        <input type="text" name="<?= Html::encode($field['name'] ?? '') ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($field['label'] ?? '') ?>" required>
 
                                     <?php elseif ($field['type'] === 'number'): ?>
-                                        <input type="number" name="<?= Html::encode($field['name']) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($field['label']) ?>" required>
+                                        <input type="number" name="<?= Html::encode($field['name'] ?? '') ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($field['label'] ?? '') ?>" required>
 
                                     <?php elseif ($field['type'] === 'email'): ?>
-                                        <input type="email" name="<?= Html::encode($field['name']) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="email@example.com" required>
+                                        <input type="email" name="<?= Html::encode($field['name'] ?? '') ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="email@example.com" required>
 
                                     <?php elseif ($field['type'] === 'textarea'): ?>
-                                        <textarea name="<?= Html::encode($field['name']) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($field['label']) ?>" rows="4" required></textarea>
+                                        <textarea name="<?= Html::encode($field['name'] ?? '') ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($field['label'] ?? '') ?>" rows="4" required></textarea>
 
                                     <?php elseif ($field['type'] === 'date'): ?>
-                                        <input type="date" name="<?= Html::encode($field['name']) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" required>
+                                        <input type="date" name="<?= Html::encode($field['name'] ?? '') ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" required>
 
                                     <?php elseif ($field['type'] === 'select'): ?>
-                                        <select name="<?= Html::encode($field['name']) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" required>
+                                        <select name="<?= Html::encode($field['name'] ?? '') ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" required>
                                             <option value="">-- Select --</option>
                                             <option value="Option 1">Option 1</option>
                                             <option value="Option 2">Option 2</option>
@@ -146,8 +146,8 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
                                     <?php elseif ($field['type'] === 'checkbox'): ?>
                                         <label class="flex items-center gap-3 cursor-pointer">
-                                            <input type="checkbox" name="<?= Html::encode($field['name']) ?>" class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container/20">
-                                            <span class="text-sm font-medium"><?= Html::encode($field['label']) ?></span>
+                                            <input type="checkbox" name="<?= Html::encode($field['name'] ?? '') ?>" class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container/20">
+                                            <span class="text-sm font-medium"><?= Html::encode($field['label'] ?? '') ?></span>
                                         </label>
                                     <?php endif; ?>
                                 </div>

@@ -73,7 +73,26 @@ class Form extends ActiveRecord
 
     public function getSchema()
     {
-        return json_decode((string)$this->schema_js, true) ?: [];
+        $schemaData = json_decode((string)$this->schema_js, true) ?: [];
+        
+        // If schema has 'pages' structure, extract blocks from all pages
+        if (isset($schemaData['pages']) && is_array($schemaData['pages'])) {
+            $allBlocks = [];
+            foreach ($schemaData['pages'] as $page) {
+                if (isset($page['blocks']) && is_array($page['blocks'])) {
+                    $allBlocks = array_merge($allBlocks, $page['blocks']);
+                }
+            }
+            return $allBlocks;
+        }
+        
+        // If schema has 'blocks' key directly
+        if (isset($schemaData['blocks']) && is_array($schemaData['blocks'])) {
+            return $schemaData['blocks'];
+        }
+        
+        // Old format: just an array of blocks
+        return is_array($schemaData) ? $schemaData : [];
     }
 
     public function setSchema($schema)

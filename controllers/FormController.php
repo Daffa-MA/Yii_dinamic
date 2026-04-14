@@ -72,6 +72,54 @@ class FormController extends Controller
             if ($model->name === '') {
                 $model->name = 'Untitled Page ' . date('Y-m-d H:i:s');
             }
+
+            // Handle multi-page form and custom design data
+            $pagesData = Yii::$app->request->post('form_pages');
+            
+            // DEBUG: Log what we received
+            if (YII_DEBUG && $pagesData) {
+                Yii::info('=== FORM SUBMIT DEBUG ===', 'app');
+                Yii::info('Raw form_pages: ' . $pagesData, 'app');
+                $decoded = json_decode($pagesData, true);
+                if ($decoded) {
+                    Yii::info('Custom Design received: ' . json_encode($decoded['customDesign'] ?? 'NOT SET'), 'app');
+                }
+            }
+            
+            if ($pagesData) {
+                $decoded = json_decode($pagesData, true);
+                if ($decoded && isset($decoded['pages'])) {
+                    // Merge all pages blocks into schema_js for backward compatibility
+                    $allBlocks = [];
+                    foreach ($decoded['pages'] as $page) {
+                        if (isset($page['blocks'])) {
+                            $allBlocks = array_merge($allBlocks, $page['blocks']);
+                        }
+                    }
+                    $model->schema_js = json_encode([
+                        'pages' => $decoded['pages'],
+                        'customDesign' => $decoded['customDesign'] ?? [],
+                        'blocks' => $allBlocks
+                    ], JSON_UNESCAPED_UNICODE);
+                }
+            } else {
+                // Fallback: If form_pages is empty, try to create structure from blocks if they exist
+                // This handles cases where custom design was set but form_pages wasn't populated
+                $existingSchema = json_decode($model->schema_js, true) ?: [];
+                if (!isset($existingSchema['pages'])) {
+                    // Convert old format to new format with empty customDesign
+                    $model->schema_js = json_encode([
+                        'pages' => [[
+                            'id' => 'page_1',
+                            'name' => 'Page 1',
+                            'blocks' => is_array($existingSchema) ? $existingSchema : []
+                        ]],
+                        'customDesign' => [],
+                        'blocks' => is_array($existingSchema) ? $existingSchema : []
+                    ], JSON_UNESCAPED_UNICODE);
+                }
+            }
+            
             if ($model->save()) {
                 $shouldPublish = (bool) Yii::$app->request->post('publish_now', false);
 
@@ -123,6 +171,26 @@ class FormController extends Controller
             $model->name = trim((string) $model->name);
             if ($model->name === '') {
                 $model->name = 'Untitled Page ' . $model->id;
+            }
+            
+            // Handle multi-page form and custom design data
+            $pagesData = Yii::$app->request->post('form_pages');
+            if ($pagesData) {
+                $decoded = json_decode($pagesData, true);
+                if ($decoded && isset($decoded['pages'])) {
+                    // Merge all pages blocks into schema_js for backward compatibility
+                    $allBlocks = [];
+                    foreach ($decoded['pages'] as $page) {
+                        if (isset($page['blocks'])) {
+                            $allBlocks = array_merge($allBlocks, $page['blocks']);
+                        }
+                    }
+                    $model->schema_js = json_encode([
+                        'pages' => $decoded['pages'],
+                        'customDesign' => $decoded['customDesign'] ?? [],
+                        'blocks' => $allBlocks
+                    ], JSON_UNESCAPED_UNICODE);
+                }
             }
 
             if ($model->save()) {
@@ -182,6 +250,56 @@ class FormController extends Controller
             'model' => $model,
             'schema' => $schema,
         ]);
+    }
+
+    /**
+     * Save custom design via AJAX
+     */
+    public function actionSaveDesign($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        try {
+            $rawBody = Yii::$app->request->getRawBody();
+            $data = json_decode($rawBody, true);
+
+            if (!$data) {
+                return ['success' => false, 'error' => 'Invalid JSON data'];
+            }
+
+            if ($id > 0) {
+                // Update existing form
+                $model = $this->findModel($id);
+            } else {
+                // For new forms, we can't save yet - user needs to create the form first
+                return ['success' => false, 'error' => 'Please save the form first before saving design'];
+            }
+
+            // Get all blocks from pages
+            $allBlocks = [];
+            if (isset($data['pages'])) {
+                foreach ($data['pages'] as $page) {
+                    if (isset($page['blocks'])) {
+                        $allBlocks = array_merge($allBlocks, $page['blocks']);
+                    }
+                }
+            }
+
+            // Save to schema_js with custom design
+            $model->schema_js = json_encode([
+                'pages' => $data['pages'] ?? [],
+                'customDesign' => $data['customDesign'] ?? [],
+                'blocks' => $allBlocks
+            ], JSON_UNESCAPED_UNICODE);
+
+            if ($model->save()) {
+                return ['success' => true, 'message' => 'Design saved successfully'];
+            } else {
+                return ['success' => false, 'error' => 'Failed to save design', 'errors' => $model->errors];
+            }
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
     /**
@@ -453,6 +571,56 @@ class FormController extends Controller
 
         try {
             $form = $this->findModel($formId);
+
+            // Check if form_pages is sent (from publish modal with custom design)
+            $pagesData = Yii::$app->request->post('form_pages');
+            if ($pagesData) {
+                Yii::info('Publish modal sent form_pages data', 'app');
+                Yii::info('Raw form_pages: ' . $pagesData, 'app');
+                $decoded = json_decode($pagesData, true);
+                if ($decoded) {
+                    Yii::info('Decoded form_pages: ' . json_encode($decoded), 'app');
+                    
+                    // Handle pages - use decoded pages or create default
+                    $pages = $decoded['pages'] ?? [];
+                    
+                    // Handle customDesign - ensure it's an object, not array
+                    $customDesign = $decoded['customDesign'] ?? [];
+                    if (empty($customDesign) || !is_array($customDesign) || !isset($customDesign['css'])) {
+                        // Ensure customDesign is an object with proper keys
+                        $customDesign = [
+                            'css' => $customDesign['css'] ?? '',
+                            'htmlBefore' => $customDesign['htmlBefore'] ?? '',
+                            'htmlAfter' => $customDesign['htmlAfter'] ?? '',
+                            'js' => $customDesign['js'] ?? ''
+                        ];
+                    }
+                    
+                    Yii::info('CustomDesign after processing: ' . json_encode($customDesign), 'app');
+                    
+                    // Merge all pages blocks into schema_js for backward compatibility
+                    $allBlocks = [];
+                    foreach ($pages as $page) {
+                        if (isset($page['blocks'])) {
+                            $allBlocks = array_merge($allBlocks, $page['blocks']);
+                        }
+                    }
+                    
+                    // Save custom design to form's schema_js
+                    $form->schema_js = json_encode([
+                        'pages' => $pages,
+                        'customDesign' => $customDesign,
+                        'blocks' => $allBlocks
+                    ], JSON_UNESCAPED_UNICODE);
+                    
+                    if (!$form->save()) {
+                        Yii::error('Failed to save form with custom design: ' . print_r($form->errors, true), 'app');
+                        return ['success' => false, 'message' => 'Failed to save form design: ' . implode(', ', $form->getFirstErrors())];
+                    }
+                    
+                    Yii::info('✅ Form saved successfully with custom design', 'app');
+                }
+            }
 
             // Check if already published
             $existingPublished = PublishedForm::find()

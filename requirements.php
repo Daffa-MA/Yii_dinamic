@@ -81,13 +81,6 @@ $requirements = array(
         'by' => 'All DB-related classes',
     ),
     array(
-        'name' => 'PDO SQLite extension',
-        'mandatory' => false,
-        'condition' => extension_loaded('pdo_sqlite'),
-        'by' => 'All DB-related classes',
-        'memo' => 'Required for SQLite database.',
-    ),
-    array(
         'name' => 'PDO MySQL extension',
         'mandatory' => false,
         'condition' => extension_loaded('pdo_mysql'),

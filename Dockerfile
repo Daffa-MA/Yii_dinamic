@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 	libonig-dev \
 	unzip git \
 	&& docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
-	&& docker-php-ext-install gd pdo pdo_mysql pdo_sqlite exif fileinfo
+	&& docker-php-ext-install gd pdo pdo_mysql exif fileinfo
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

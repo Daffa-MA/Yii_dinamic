@@ -140,7 +140,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 <?php endif; ?>
 
         <!-- Default Firebase Login Panel (always available for guest users) -->
-        <div id="firebaseLoginPanel" class="hidden" style="max-width: 420px; margin: 48px auto; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); padding: 24px;">
+        <div id="firebaseLoginPanel" style="display: block; max-width: 420px; margin: 48px auto; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); padding: 24px;">
             <div style="text-align: center; margin-bottom: 20px;">
                 <h2 style="font-size: 24px; font-weight: 700; color: #111827; margin: 0 0 8px;">Login untuk melanjutkan</h2>
                 <p style="margin: 0; color: #6b7280;">Silakan login sebelum mengisi form ini</p>
@@ -158,7 +158,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
             </div>
         </div>
 
-        <div id="formContent" class="hidden">
+        <div id="formContent" style="display: none;">
         <!-- Custom HTML Before Form -->
         <?php if ($customHTMLBefore): ?>
             <?= $customHTMLBefore ?>
@@ -591,16 +591,22 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
             input.value = value || '';
         }
 
+        function setAuthView(isLoggedIn) {
+            if (loginPanel) {
+                loginPanel.style.display = isLoggedIn ? 'none' : 'block';
+            }
+            if (formContent) {
+                formContent.style.display = isLoggedIn ? 'block' : 'none';
+            }
+        }
+
         // Auth State Observer
         auth.onAuthStateChanged(function(user) {
             currentUser = user;
             if (user) {
                 // User is signed in
                 console.log('✅ User logged in:', user.email);
-                if (loginPanel && formContent) {
-                    loginPanel.classList.add('hidden');
-                    formContent.classList.remove('hidden');
-                }
+                setAuthView(true);
 
                 // Inject user data into form
                 upsertHiddenInput('user_email', user.email);
@@ -610,10 +616,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
             } else {
                 // No user is signed in
                 console.log('🔒 No user logged in, showing login panel');
-                if (loginPanel && formContent) {
-                    loginPanel.classList.remove('hidden');
-                    formContent.classList.add('hidden');
-                }
+                setAuthView(false);
             }
         });
 

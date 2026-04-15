@@ -237,6 +237,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                             </button>
                         </div>
                         
+                        <?php
                         // Render all pages (first page visible, others hidden)
                         foreach ($pages as $pageIndex => $page):
                             $pageBlocks = $page['blocks'] ?? [];

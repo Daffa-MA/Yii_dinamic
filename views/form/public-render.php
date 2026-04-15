@@ -593,6 +593,19 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         const emailLoginBtn = document.getElementById('emailLoginBtn');
         const loginEmail = document.getElementById('loginEmail');
         const loginPassword = document.getElementById('loginPassword');
+        const form = document.querySelector('form');
+
+        function upsertHiddenInput(name, value) {
+            if (!form) return;
+            let input = form.querySelector('input[name="' + name + '"]');
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = name;
+                form.appendChild(input);
+            }
+            input.value = value || '';
+        }
 
         // Auth State Observer
         auth.onAuthStateChanged(function(user) {
@@ -600,76 +613,64 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
             if (user) {
                 // User is signed in
                 console.log('✅ User logged in:', user.email);
-                loginPanel.classList.add('hidden');
-                formContent.classList.remove('hidden');
+                if (loginPanel && formContent) {
+                    loginPanel.classList.add('hidden');
+                    formContent.classList.remove('hidden');
+                }
 
                 // Inject user data into form
-                const hiddenEmail = document.createElement('input');
-                hiddenEmail.type = 'hidden';
-                hiddenEmail.name = 'user_email';
-                hiddenEmail.value = user.email;
-
-                const hiddenName = document.createElement('input');
-                hiddenName.type = 'hidden';
-                hiddenName.name = 'user_name';
-                hiddenName.value = user.displayName || user.email;
-
-                const hiddenUid = document.createElement('input');
-                hiddenUid.type = 'hidden';
-                hiddenUid.name = 'firebase_uid';
-                hiddenUid.value = user.uid;
-
-                const form = document.querySelector('form');
-                form.appendChild(hiddenEmail);
-                form.appendChild(hiddenName);
-                form.appendChild(hiddenUid);
+                upsertHiddenInput('user_email', user.email);
+                upsertHiddenInput('user_name', user.displayName || user.email);
+                upsertHiddenInput('firebase_uid', user.uid);
 
             } else {
                 // No user is signed in
                 console.log('🔒 No user logged in, showing login panel');
-                loginPanel.classList.remove('hidden');
-                formContent.classList.add('hidden');
+                if (loginPanel && formContent) {
+                    loginPanel.classList.remove('hidden');
+                    formContent.classList.add('hidden');
+                }
             }
         });
 
         // Google Login
-        googleLoginBtn.addEventListener('click', function() {
-            const provider = new firebase.auth.GoogleAuthProvider();
-            auth.signInWithPopup(provider)
-                .catch(function(error) {
-                    console.error('Google login error:', error);
-                    alert('Login gagal: ' + error.message);
-                });
-        });
+        if (googleLoginBtn) {
+            googleLoginBtn.addEventListener('click', function() {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider)
+                    .catch(function(error) {
+                        console.error('Google login error:', error);
+                        alert('Login gagal: ' + error.message);
+                    });
+            });
+        }
 
         // Email/Password Login
-        emailLoginBtn.addEventListener('click', function() {
-            const email = loginEmail.value;
-            const password = loginPassword.value;
+        if (emailLoginBtn && loginEmail && loginPassword) {
+            emailLoginBtn.addEventListener('click', function() {
+                const email = loginEmail.value;
+                const password = loginPassword.value;
 
-            if (!email || !password) {
-                alert('Mohon isi email dan password');
-                return;
-            }
+                if (!email || !password) {
+                    alert('Mohon isi email dan password');
+                    return;
+                }
 
-            auth.signInWithEmailAndPassword(email, password)
-                .catch(function(error) {
-                    console.error('Email login error:', error);
-                    alert('Login gagal: ' + error.message);
-                });
-        });
+                auth.signInWithEmailAndPassword(email, password)
+                    .catch(function(error) {
+                        console.error('Email login error:', error);
+                        alert('Login gagal: ' + error.message);
+                    });
+            });
+        }
 
         // Form submission handler
         document.addEventListener('DOMContentLoaded', function() {
-            const form = document.querySelector('form');
-            const submitBtn = document.getElementById('submitBtn');
+            const submitBtn = document.getElementById('submitBtn') || document.querySelector('button[type="submit"]');
 
             if (!form || !submitBtn) {
-                console.error('Form or submit button not found!');
                 return;
             }
-
-            console.log('✅ Form submission handler attached');
 
             form.addEventListener('submit', function(e) {
                 console.log('🚀 Form submit triggered!');

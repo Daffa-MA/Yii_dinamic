@@ -139,6 +139,26 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 <body>
 <?php endif; ?>
 
+        <!-- Default Firebase Login Panel (always available for guest users) -->
+        <div id="firebaseLoginPanel" class="hidden" style="max-width: 420px; margin: 48px auto; background: #fff; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.15); padding: 24px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <h2 style="font-size: 24px; font-weight: 700; color: #111827; margin: 0 0 8px;">Login untuk melanjutkan</h2>
+                <p style="margin: 0; color: #6b7280;">Silakan login sebelum mengisi form ini</p>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button id="googleLoginBtn" type="button" style="width: 100%; border: 1px solid #d1d5db; background: #fff; color: #111827; border-radius: 12px; padding: 12px; cursor: pointer; font-weight: 600;">
+                    Login dengan Google
+                </button>
+                <input id="loginEmail" type="email" placeholder="Email" style="width: 100%; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px;">
+                <input id="loginPassword" type="password" placeholder="Password" style="width: 100%; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px;">
+                <button id="emailLoginBtn" type="button" style="width: 100%; border: none; background: #4f46e5; color: #fff; border-radius: 12px; padding: 12px; cursor: pointer; font-weight: 700;">
+                    Login dengan Email
+                </button>
+            </div>
+        </div>
+
+        <div id="formContent" class="hidden">
         <!-- Custom HTML Before Form -->
         <?php if ($customHTMLBefore): ?>
             <?= $customHTMLBefore ?>
@@ -172,45 +192,6 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                 </div>
             <?php endif; ?>
 
-            <!-- Firebase Login Panel -->
-            <div id="firebaseLoginPanel" class="p-8 hidden">
-                <div class="text-center mb-6">
-                    <h2 class="text-2xl font-bold text-gray-800 mb-2">Login untuk melanjutkan</h2>
-                    <p class="text-gray-600">Silakan login sebelum mengisi form ini</p>
-                </div>
-
-                <div class="max-w-sm mx-auto space-y-4">
-                    <button id="googleLoginBtn" class="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-xl py-3 px-6 hover:bg-gray-50 transition-all font-medium">
-                        <svg class="w-5 h-5" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                        </svg>
-                        Login dengan Google
-                    </button>
-
-                    <div class="relative my-6">
-                        <div class="absolute inset-0 flex items-center">
-                            <div class="w-full border-t border-gray-300"></div>
-                        </div>
-                        <div class="relative flex justify-center text-sm">
-                            <span class="px-2 bg-white text-gray-500">atau</span>
-                        </div>
-                    </div>
-
-                    <div class="space-y-3">
-                        <input id="loginEmail" type="email" placeholder="Email" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary">
-                        <input id="loginPassword" type="password" placeholder="Password" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary">
-                        <button id="emailLoginBtn" class="w-full bg-primary text-white rounded-xl py-3 px-6 hover:bg-primary-dark transition-all font-semibold">
-                            Login dengan Email
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Form Fields -->
-            <div id="formContent" class="p-8 hidden">
         <?php endif; ?>
 
                 <?php if (empty($pages)): ?>
@@ -230,246 +211,248 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                             <!-- Pages will be rendered here -->
                         </div>
 
-                        <!-- Submit Button - Always at bottom of form -->
-                        <div class="mt-8 pt-6 border-t <?= $hasCustomDesign ? 'border-gray-300' : 'border-gray-200' ?>">
-                            <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-lg rounded-xl hover:shadow-xl transition-all transform hover:-translate-y-1">
-                                <i class="fas fa-paper-plane mr-2"></i> Submit Form
-                            </button>
-                        </div>
-                        
-                        <?php
-                        // Render all pages (first page visible, others hidden)
-                        foreach ($pages as $pageIndex => $page):
-                            $pageBlocks = $page['blocks'] ?? [];
-                        ?>
-                        <div class="form-page <?= $pageIndex === 0 ? '' : 'hidden' ?>" data-page-index="<?= $pageIndex ?>" id="page-<?= $page['id'] ?>">
-                            <?php foreach ($pageBlocks as $field): ?>
-                                <?php
-                                $fieldType = $field['type'] ?? 'text';
-                                $fieldName = $field['name'] ?? $field['label'] ?? '';
-                                $fieldLabel = $field['label'] ?? $fieldName;
-                                $required = !empty($field['required']);
-                                $placeholder = $field['placeholder'] ?? '';
-                                $content = $field['content'] ?? '';
-                                $options = $required ? 'required' : '';
-                                $width = $field['width'] ?? 'full';
-                                $animation = $field['animation'] ?? '';
-
-                                // Width classes
-                                $widthClass = 'w-full';
-                                if ($width === 'half') $widthClass = 'w-1/2';
-                                elseif ($width === 'third') $widthClass = 'w-1/3';
-                                elseif ($width === 'quarter') $widthClass = 'w-1/4';
-
-                                // Animation classes
-                                $animationClass = '';
-                                if ($animation === 'fade-in') $animationClass = 'animate-fade-in';
-                                elseif ($animation === 'slide-up') $animationClass = 'animate-slide-up';
-                                elseif ($animation === 'slide-left') $animationClass = 'animate-slide-left';
-                                elseif ($animation === 'slide-right') $animationClass = 'animate-slide-right';
-                                elseif ($animation === 'scale-in') $animationClass = 'animate-scale-in';
-
-                                // Skip layout/container types
-                                $skipTypes = ['container', 'columns', 'grid', 'section'];
-
-                                if (in_array($fieldType, $skipTypes)) {
-                                    continue;
-                                }
-
-                                // Render display/content blocks
-                                if ($fieldType === 'heading'):
-                                    $level = $field['level'] ?? 'h2';
-                                    $align = $field['align'] ?? 'left';
-                                    $alignClass = $align === 'center' ? 'text-center' : ($align === 'right' ? 'text-right' : 'text-left');
-                                    $tag = in_array($level, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) ? $level : 'h2';
-                                ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <<?= $tag ?> class="text-2xl font-bold text-gray-900 <?= $alignClass ?>">
-                                            <?= Html::encode($content ?: $fieldLabel) ?>
-                                        </<?= $tag ?>>
-                                    </div>
-
-                                <?php elseif ($fieldType === 'text' || $fieldType === 'richtext'): ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <?php if ($fieldType === 'richtext'): ?>
-                                            <div class="prose max-w-none text-gray-700"><?= $content ?></div>
-                                        <?php else: ?>
-                                            <p class="text-gray-700 leading-relaxed"><?= nl2br(Html::encode($content)) ?></p>
-                                        <?php endif; ?>
-                                    </div>
-
-                                <?php elseif ($fieldType === 'divider'): ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> my-6">
-                                        <hr class="border-gray-300">
-                                    </div>
-
-                                <?php elseif ($fieldType === 'spacer'): ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?>" style="height: <?= intval($field['height'] ?? 32) ?>px;"></div>
-
-                                <?php elseif ($fieldType === 'image'): ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <?php if (!empty($field['src'])): ?>
-                                            <img src="<?= Html::encode($field['src']) ?>"
-                                                alt="<?= Html::encode($field['alt'] ?? '') ?>"
-                                                class="w-full h-auto rounded-xl shadow-md">
-                                            <?php if (!empty($field['caption'])): ?>
-                                                <p class="text-sm text-gray-500 text-center mt-2"><?= Html::encode($field['caption']) ?></p>
-                                            <?php endif; ?>
-                                        <?php endif; ?>
-                                    </div>
-
-                                <?php elseif ($fieldType === 'video'): ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <?php if (!empty($field['url'])): ?>
-                                            <div class="relative w-full" style="padding-bottom: 56.25%;">
-                                                <iframe src="<?= Html::encode($field['url']) ?>"
-                                                    class="absolute top-0 left-0 w-full h-full rounded-xl"
-                                                    frameborder="0"
-                                                    allow="autoplay; encrypted-media"
-                                                    allowfullscreen></iframe>
-                                            </div>
-                                        <?php endif; ?>
-                                    </div>
-
-                                <?php elseif ($fieldType === 'alert'): ?>
+                        <?php if (!$hasCustomDesign): ?>
+                            <!-- Submit Button - Always at bottom of form -->
+                            <div class="mt-8 pt-6 border-t <?= $hasCustomDesign ? 'border-gray-300' : 'border-gray-200' ?>">
+                                <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-lg rounded-xl hover:shadow-xl transition-all transform hover:-translate-y-1">
+                                    <i class="fas fa-paper-plane mr-2"></i> Submit Form
+                                </button>
+                            </div>
+                            
+                            <?php
+                            // Render all pages (first page visible, others hidden)
+                            foreach ($pages as $pageIndex => $page):
+                                $pageBlocks = $page['blocks'] ?? [];
+                            ?>
+                            <div class="form-page <?= $pageIndex === 0 ? '' : 'hidden' ?>" data-page-index="<?= $pageIndex ?>" id="page-<?= $page['id'] ?>">
+                                <?php foreach ($pageBlocks as $field): ?>
                                     <?php
-                                    $variant = $field['variant'] ?? 'info';
-                                    $alertClasses = [
-                                        'info' => 'bg-blue-50 border-blue-200 text-blue-700',
-                                        'success' => 'bg-green-50 border-green-200 text-green-700',
-                                        'warning' => 'bg-yellow-50 border-yellow-200 text-yellow-700',
-                                        'error' => 'bg-red-50 border-red-200 text-red-700',
-                                    ];
-                                    $alertClass = $alertClasses[$variant] ?? $alertClasses['info'];
+                                    $fieldType = $field['type'] ?? 'text';
+                                    $fieldName = $field['name'] ?? $field['label'] ?? '';
+                                    $fieldLabel = $field['label'] ?? $fieldName;
+                                    $required = !empty($field['required']);
+                                    $placeholder = $field['placeholder'] ?? '';
+                                    $content = $field['content'] ?? '';
+                                    $options = $required ? 'required' : '';
+                                    $width = $field['width'] ?? 'full';
+                                    $animation = $field['animation'] ?? '';
+
+                                    // Width classes
+                                    $widthClass = 'w-full';
+                                    if ($width === 'half') $widthClass = 'w-1/2';
+                                    elseif ($width === 'third') $widthClass = 'w-1/3';
+                                    elseif ($width === 'quarter') $widthClass = 'w-1/4';
+
+                                    // Animation classes
+                                    $animationClass = '';
+                                    if ($animation === 'fade-in') $animationClass = 'animate-fade-in';
+                                    elseif ($animation === 'slide-up') $animationClass = 'animate-slide-up';
+                                    elseif ($animation === 'slide-left') $animationClass = 'animate-slide-left';
+                                    elseif ($animation === 'slide-right') $animationClass = 'animate-slide-right';
+                                    elseif ($animation === 'scale-in') $animationClass = 'animate-scale-in';
+
+                                    // Skip layout/container types
+                                    $skipTypes = ['container', 'columns', 'grid', 'section'];
+
+                                    if (in_array($fieldType, $skipTypes)) {
+                                        continue;
+                                    }
+
+                                    // Render display/content blocks
+                                    if ($fieldType === 'heading'):
+                                        $level = $field['level'] ?? 'h2';
+                                        $align = $field['align'] ?? 'left';
+                                        $alignClass = $align === 'center' ? 'text-center' : ($align === 'right' ? 'text-right' : 'text-left');
+                                        $tag = in_array($level, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']) ? $level : 'h2';
                                     ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <div class="border rounded-xl px-6 py-4 <?= $alertClass ?>">
-                                            <p class="font-medium"><?= Html::encode($field['message'] ?? '') ?></p>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <<?= $tag ?> class="text-2xl font-bold text-gray-900 <?= $alignClass ?>">
+                                                <?= Html::encode($content ?: $fieldLabel) ?>
+                                            </<?= $tag ?>>
                                         </div>
-                                    </div>
 
-                                <?php elseif ($fieldType === 'button'): ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <a href="<?= Html::encode($field['url'] ?? '#') ?>"
-                                            class="inline-block bg-gradient-to-r from-primary to-primary-dark text-white font-semibold py-3 px-6 rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 no-underline">
-                                            <?= Html::encode($field['text'] ?? 'Click Me') ?>
-                                        </a>
-                                    </div>
+                                    <?php elseif ($fieldType === 'text' || $fieldType === 'richtext'): ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <?php if ($fieldType === 'richtext'): ?>
+                                                <div class="prose max-w-none text-gray-700"><?= $content ?></div>
+                                            <?php else: ?>
+                                                <p class="text-gray-700 leading-relaxed"><?= nl2br(Html::encode($content)) ?></p>
+                                            <?php endif; ?>
+                                        </div>
 
-                                <?php elseif ($fieldType === 'hidden'): ?>
-                                    <input type="hidden" name="<?= Html::encode($field['name'] ?? '') ?>" value="<?= Html::encode($field['value'] ?? '') ?>">
+                                    <?php elseif ($fieldType === 'divider'): ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> my-6">
+                                            <hr class="border-gray-300">
+                                        </div>
 
-                                <?php elseif ($fieldType === 'submit'): ?>
-                                    <!-- Submit button handled by navigation -->
+                                    <?php elseif ($fieldType === 'spacer'): ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?>" style="height: <?= intval($field['height'] ?? 32) ?>px;"></div>
 
-                                <?php else: ?>
-                                    <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
-                                        <label class="block text-sm font-semibold text-gray-700 mb-2">
-                                            <?= Html::encode($fieldLabel) ?><?= $required ? ' <span class="text-red-500">*</span>' : '' ?>
-                                        </label>
+                                    <?php elseif ($fieldType === 'image'): ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <?php if (!empty($field['src'])): ?>
+                                                <img src="<?= Html::encode($field['src']) ?>"
+                                                    alt="<?= Html::encode($field['alt'] ?? '') ?>"
+                                                    class="w-full h-auto rounded-xl shadow-md">
+                                                <?php if (!empty($field['caption'])): ?>
+                                                    <p class="text-sm text-gray-500 text-center mt-2"><?= Html::encode($field['caption']) ?></p>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
 
-                                        <?php if ($fieldType === 'text-input'): ?>
-                                            <input type="text" name="<?= Html::encode($fieldName) ?>"
-                                                <?= $options ?>
+                                    <?php elseif ($fieldType === 'video'): ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <?php if (!empty($field['url'])): ?>
+                                                <div class="relative w-full" style="padding-bottom: 56.25%;">
+                                                    <iframe src="<?= Html::encode($field['url']) ?>"
+                                                        class="absolute top-0 left-0 w-full h-full rounded-xl"
+                                                        frameborder="0"
+                                                        allow="autoplay; encrypted-media"
+                                                        allowfullscreen></iframe>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+
+                                    <?php elseif ($fieldType === 'alert'): ?>
+                                        <?php
+                                        $variant = $field['variant'] ?? 'info';
+                                        $alertClasses = [
+                                            'info' => 'bg-blue-50 border-blue-200 text-blue-700',
+                                            'success' => 'bg-green-50 border-green-200 text-green-700',
+                                            'warning' => 'bg-yellow-50 border-yellow-200 text-yellow-700',
+                                            'error' => 'bg-red-50 border-red-200 text-red-700',
+                                        ];
+                                        $alertClass = $alertClasses[$variant] ?? $alertClasses['info'];
+                                        ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <div class="border rounded-xl px-6 py-4 <?= $alertClass ?>">
+                                                <p class="font-medium"><?= Html::encode($field['message'] ?? '') ?></p>
+                                            </div>
+                                        </div>
+
+                                    <?php elseif ($fieldType === 'button'): ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <a href="<?= Html::encode($field['url'] ?? '#') ?>"
+                                                class="inline-block bg-gradient-to-r from-primary to-primary-dark text-white font-semibold py-3 px-6 rounded-xl hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 no-underline">
+                                                <?= Html::encode($field['text'] ?? 'Click Me') ?>
+                                            </a>
+                                        </div>
+
+                                    <?php elseif ($fieldType === 'hidden'): ?>
+                                        <input type="hidden" name="<?= Html::encode($field['name'] ?? '') ?>" value="<?= Html::encode($field['value'] ?? '') ?>">
+
+                                    <?php elseif ($fieldType === 'submit'): ?>
+                                        <!-- Submit button handled by navigation -->
+
+                                    <?php else: ?>
+                                        <div class="<?= $widthClass ?> <?= $animationClass ?> mb-6">
+                                            <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                                <?= Html::encode($fieldLabel) ?><?= $required ? ' <span class="text-red-500">*</span>' : '' ?>
+                                            </label>
+
+                                            <?php if ($fieldType === 'text-input'): ?>
+                                                <input type="text" name="<?= Html::encode($fieldName) ?>"
+                                                    <?= $options ?>
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                                    placeholder="<?= Html::encode($placeholder) ?>">
+
+                                            <?php elseif ($fieldType === 'textarea'): ?>
+                                                <textarea name="<?= Html::encode($fieldName) ?>" rows="4" <?= $options ?>
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"></textarea>
+
+                                        <?php elseif ($fieldType === 'email'): ?>
+                                            <input type="email" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
                                                 class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                 placeholder="<?= Html::encode($placeholder) ?>">
 
-                                        <?php elseif ($fieldType === 'textarea'): ?>
-                                            <textarea name="<?= Html::encode($fieldName) ?>" rows="4" <?= $options ?>
-                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
-                                                placeholder="<?= Html::encode($placeholder) ?>"></textarea>
+                                        <?php elseif ($fieldType === 'number'): ?>
+                                            <input type="number" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                                placeholder="<?= Html::encode($placeholder) ?>">
 
-                                    <?php elseif ($fieldType === 'email'): ?>
-                                        <input type="email" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            placeholder="<?= Html::encode($placeholder) ?>">
+                                        <?php elseif ($fieldType === 'password'): ?>
+                                            <input type="password" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                                placeholder="<?= Html::encode($placeholder) ?>">
 
-                                    <?php elseif ($fieldType === 'number'): ?>
-                                        <input type="number" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            placeholder="<?= Html::encode($placeholder) ?>">
+                                        <?php elseif ($fieldType === 'date'): ?>
+                                            <input type="date" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
 
-                                    <?php elseif ($fieldType === 'password'): ?>
-                                        <input type="password" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            placeholder="<?= Html::encode($placeholder) ?>">
-
-                                    <?php elseif ($fieldType === 'date'): ?>
-                                        <input type="date" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-
-                                    <?php elseif ($fieldType === 'select'): ?>
-                                        <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                            <option value=""><?= Html::encode($placeholder ?: 'Pilih salah satu...') ?></option>
-                                            <?php
-                                            // Handle options - can be string with newlines or array
-                                            $optionsList = [];
-                                            if (isset($field['options'])) {
-                                                if (is_string($field['options'])) {
-                                                    $optionsList = array_filter(array_map('trim', explode("\n", $field['options'])));
-                                                } elseif (is_array($field['options'])) {
-                                                    $optionsList = $field['options'];
+                                        <?php elseif ($fieldType === 'select'): ?>
+                                            <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                                <option value=""><?= Html::encode($placeholder ?: 'Pilih salah satu...') ?></option>
+                                                <?php
+                                                // Handle options - can be string with newlines or array
+                                                $optionsList = [];
+                                                if (isset($field['options'])) {
+                                                    if (is_string($field['options'])) {
+                                                        $optionsList = array_filter(array_map('trim', explode("\n", $field['options'])));
+                                                    } elseif (is_array($field['options'])) {
+                                                        $optionsList = $field['options'];
+                                                    }
                                                 }
-                                            }
-                                            foreach ($optionsList as $option):
-                                            ?>
-                                                <option value="<?= Html::encode(trim($option)) ?>"><?= Html::encode(trim($option)) ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
+                                                foreach ($optionsList as $option):
+                                                ?>
+                                                    <option value="<?= Html::encode(trim($option)) ?>"><?= Html::encode(trim($option)) ?></option>
+                                                <?php endforeach; ?>
+                                            </select>
 
-                                    <?php elseif ($fieldType === 'checkbox'): ?>
-                                        <label class="flex items-center gap-3 cursor-pointer group">
-                                            <input type="checkbox" name="<?= Html::encode($fieldName) ?>" value="1" <?= $options ?>
-                                                class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
-                                            <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                                                <?= Html::encode($field['text'] ?? $fieldLabel) ?>
-                                            </span>
-                                        </label>
+                                        <?php elseif ($fieldType === 'checkbox'): ?>
+                                            <label class="flex items-center gap-3 cursor-pointer group">
+                                                <input type="checkbox" name="<?= Html::encode($fieldName) ?>" value="1" <?= $options ?>
+                                                    class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
+                                                <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                                                    <?= Html::encode($field['text'] ?? $fieldLabel) ?>
+                                                </span>
+                                            </label>
 
-                                    <?php elseif ($fieldType === 'radio'): ?>
-                                        <div class="space-y-2">
-                                            <?php
-                                            // Handle options - can be string with newlines or array
-                                            $radioOptions = [];
-                                            if (isset($field['options'])) {
-                                                if (is_string($field['options'])) {
-                                                    $radioOptions = array_filter(array_map('trim', explode("\n", $field['options'])));
-                                                } elseif (is_array($field['options'])) {
-                                                    $radioOptions = $field['options'];
+                                        <?php elseif ($fieldType === 'radio'): ?>
+                                            <div class="space-y-2">
+                                                <?php
+                                                // Handle options - can be string with newlines or array
+                                                $radioOptions = [];
+                                                if (isset($field['options'])) {
+                                                    if (is_string($field['options'])) {
+                                                        $radioOptions = array_filter(array_map('trim', explode("\n", $field['options'])));
+                                                    } elseif (is_array($field['options'])) {
+                                                        $radioOptions = $field['options'];
+                                                    }
                                                 }
-                                            }
-                                            foreach ($radioOptions as $option):
-                                            ?>
-                                                <label class="flex items-center gap-3 cursor-pointer group">
-                                                    <input type="radio" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode(trim($option)) ?>" <?= $options ?>
-                                                        class="w-5 h-5 border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
-                                                    <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
-                                                        <?= Html::encode(trim($option)) ?>
-                                                    </span>
-                                                </label>
-                                            <?php endforeach; ?>
-                                        </div>
+                                                foreach ($radioOptions as $option):
+                                                ?>
+                                                    <label class="flex items-center gap-3 cursor-pointer group">
+                                                        <input type="radio" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode(trim($option)) ?>" <?= $options ?>
+                                                            class="w-5 h-5 border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
+                                                        <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                                                            <?= Html::encode(trim($option)) ?>
+                                                        </span>
+                                                    </label>
+                                                <?php endforeach; ?>
+                                            </div>
 
-                                    <?php elseif ($fieldType === 'file'): ?>
-                                        <input type="file" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            accept="<?= Html::encode($field['accept'] ?? '*') ?>"
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:hover:bg-primary-dark file:cursor-pointer">
+                                        <?php elseif ($fieldType === 'file'): ?>
+                                            <input type="file" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                accept="<?= Html::encode($field['accept'] ?? '*') ?>"
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:hover:bg-primary-dark file:cursor-pointer">
 
-                                    <?php else: ?>
-                                        <input type="text" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                            class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                            placeholder="<?= Html::encode($placeholder) ?>">
-                                    <?php endif; ?>
+                                        <?php else: ?>
+                                            <input type="text" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                                                placeholder="<?= Html::encode($placeholder) ?>">
+                                        <?php endif; ?>
 
-                                    <?php if (!empty($field['help'])): ?>
-                                        <p class="mt-1 text-xs text-gray-500"><?= Html::encode($field['help']) ?></p>
-                                    <?php endif; ?>
-                                </div>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                        </div>
-                        <?php endforeach; ?>
+                                        <?php if (!empty($field['help'])): ?>
+                                            <p class="mt-1 text-xs text-gray-500"><?= Html::encode($field['help']) ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                         
                         <!-- Custom HTML After Form -->
                         <?php if ($customHTMLAfter): ?>
@@ -490,6 +473,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         </div>
     </div>
         <?php endif; ?>
+        </div>
 
     <!-- Page Navigation JavaScript -->
     <?php if (count($pages) > 1): ?>

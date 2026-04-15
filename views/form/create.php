@@ -5036,6 +5036,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         };
                     }
 
+                    function appendUniqueSnippet(currentValue, snippet) {
+                        const base = (currentValue || '').trim();
+                        const next = (snippet || '').trim();
+
+                        if (!next) return base;
+                        if (!base) return next;
+
+                        // Prevent duplicate template blocks from being appended repeatedly.
+                        if (base.includes(next)) return base;
+
+                        return base + '\n\n' + next;
+                    }
+
                     // Auto-fill code editors with template
                     function autoFillCodeEditors(template, blockType, blockLabel) {
                         const cssEditor = document.getElementById('custom-css');
@@ -5054,18 +5067,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Check if editors are empty
                         const isEmpty = !currentCSS && !currentHTMLBefore && !currentHTMLAfter && !currentJS;
 
-                        // AUTOMATICALLY append code (no confirmation needed)
+                        // Automatically fill or append unique snippets.
                         if (isEmpty) {
-                            // Fill empty editors with first block code
-                            cssEditor.value = template.css;
-                            htmlBeforeEditor.value = template.html;
-                            htmlAfterEditor.value = template.htmlAfter || '';
-                            jsEditor.value = template.js;
+                            cssEditor.value = (template.css || '').trim();
+                            // Keep custom HTML editors empty by default to avoid duplicate form markup.
+                            htmlBeforeEditor.value = '';
+                            htmlAfterEditor.value = '';
+                            jsEditor.value = (template.js || '').trim();
                         } else {
-                            // AUTOMATICALLY append to existing code
-                            cssEditor.value = currentCSS + '\n\n' + template.css;
-                            htmlBeforeEditor.value = currentHTMLBefore + '\n\n' + template.html;
-                            jsEditor.value = currentJS + '\n\n' + template.js;
+                            cssEditor.value = appendUniqueSnippet(currentCSS, template.css);
+                            // Do not auto-append generated HTML to prevent duplicated form output.
+                            htmlBeforeEditor.value = currentHTMLBefore;
+                            htmlAfterEditor.value = currentHTMLAfter;
+                            jsEditor.value = appendUniqueSnippet(currentJS, template.js);
                         }
 
                         // Show notification
@@ -6009,10 +6023,6 @@ document.addEventListener('DOMContentLoaded', function() {
                             customDesign: customDesign
                         };
 
-                        console.log('=== PUBLISH MODAL SUBMIT ===');
-                        console.log('Custom Design being sent:', JSON.parse(JSON.stringify(customDesign)));
-                        console.log('Pages data:', JSON.parse(JSON.stringify(pagesData)));
-
                         // Set the hidden input value
                         document.getElementById('publish-form-pages-data').value = JSON.stringify(pagesData);
                     });
@@ -6050,6 +6060,7 @@ document.addEventListener('DOMContentLoaded', function() {
         htmlAfter: '',
         js: ''
     };
+    let customCodeEditorInitialized = false;
 
     // Initialize form pages
     function initFormPages() {
@@ -6189,6 +6200,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // ===== CUSTOM CODE EDITOR =====
     function initCustomCodeEditor() {
         console.log('=== initCustomCodeEditor() CALLED ===');
+
+        if (customCodeEditorInitialized) {
+            console.log('Custom code editor already initialized, skip.');
+            return;
+        }
+        customCodeEditorInitialized = true;
         
         const cssEditor = document.getElementById('custom-css');
         const htmlBeforeEditor = document.getElementById('custom-html-before');
@@ -6209,7 +6226,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Apply design button
         if (applyBtn) {
-            console.log('✅ Apply design button listener attached');
             applyBtn.addEventListener('click', function() {
                 customDesign.css = cssEditor ? cssEditor.value : '';
                 customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : '';
@@ -6218,42 +6234,57 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 openPreviewModal();
             });
+
+            console.log('✅ Apply design button listener attached');
+        } else {
+            console.log('❌ Apply design button not found');
         }
         
         // Save design button
         if (saveBtn) {
             console.log('✅ Save Custom Design button found!');
+
             saveBtn.addEventListener('click', function() {
-                console.log('=== SAVE CUSTOM DESIGN CLICKED ===');
-                
                 customDesign.css = cssEditor ? cssEditor.value : '';
                 customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : '';
                 customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : '';
                 customDesign.js = jsEditor ? jsEditor.value : '';
 
+                console.log('=== SAVE CUSTOM DESIGN CLICKED ===');
                 console.log('Custom Design values:');
-                console.log('  CSS:', customDesign.css ? customDesign.css.substring(0, 100) + '...' : '(empty)');
-                console.log('  HTML Before:', customDesign.htmlBefore ? customDesign.htmlBefore.substring(0, 50) + '...' : '(empty)');
-                console.log('  HTML After:', customDesign.htmlAfter ? customDesign.htmlAfter.substring(0, 50) + '...' : '(empty)');
-                console.log('  JS:', customDesign.js ? customDesign.js.substring(0, 50) + '...' : '(empty)');
+
+                const formatForLog = function(value) {
+                    if (!value) {
+                        return '(empty)';
+                    }
+
+                    const maxLen = 500;
+                    return value.length > maxLen ? value.substring(0, maxLen) + '...' : value;
+                };
+
+                console.log('  CSS:', formatForLog(customDesign.css));
+                console.log('  HTML Before:', formatForLog(customDesign.htmlBefore));
+                console.log('  HTML After:', formatForLog(customDesign.htmlAfter));
+                console.log('  JS:', formatForLog(customDesign.js));
 
                 const localStorageKey = 'formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>';
+                const localStoragePayload = JSON.stringify(customDesign);
+
                 console.log('localStorage key:', localStorageKey);
-                console.log('localStorage value to save:', JSON.stringify(customDesign));
+                console.log('localStorage value to save:', localStoragePayload);
 
                 // Always save to localStorage first
-                localStorage.setItem(localStorageKey, JSON.stringify(customDesign));
-                
-                // Verify it was saved
-                const verifySaved = localStorage.getItem(localStorageKey);
-                console.log('✅ Saved to localStorage. Verify:', verifySaved ? verifySaved.substring(0, 100) + '...' : 'FAILED!');
+                localStorage.setItem(localStorageKey, localStoragePayload);
+
+                const savedValue = localStorage.getItem(localStorageKey) || '';
+                const savedPreview = savedValue.length > 120 ? savedValue.substring(0, 120) + '...' : savedValue;
+                console.log('✅ Saved to localStorage. Verify:', savedPreview);
 
                 // Try to save to database via AJAX if form exists
                 const formId = <?= $model->isNewRecord ? '0' : $model->id ?>;
                 console.log('Form ID:', formId);
 
                 if (formId > 0) {
-                    console.log('Saving to database via AJAX...');
                     // Save to database via AJAX
                     updateCurrentPageBlocks();
 
@@ -6270,6 +6301,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     })
                     .then(response => response.json())
                     .then(data => {
+                        console.log('Save design API response:', data);
+
                         if (data.success) {
                             showNotification('✓ Design saved to database successfully!', 'success', 2000);
                         } else {
@@ -6285,6 +6318,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     showNotification('✓ Design saved locally! It will be saved to database when you publish the form.', 'success', 3000);
                 }
             });
+        } else {
+            console.log('❌ Save Custom Design button not found');
         }
     }
 
@@ -6685,10 +6720,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : customDesign.htmlAfter || '';
                 customDesign.js = jsEditor ? jsEditor.value : customDesign.js || '';
 
-                console.log('=== FORM SUBMIT DEBUG ===');
-                console.log('Custom Design before save:', JSON.parse(JSON.stringify(customDesign)));
-                console.log('Form Pages:', JSON.parse(JSON.stringify(formPages)));
-
                 // Save to localStorage for future sessions
                 localStorage.setItem('formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>', JSON.stringify(customDesign));
 
@@ -6701,13 +6732,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     customDesign: customDesign
                 };
 
-                console.log('Final pagesData to be saved:', JSON.parse(JSON.stringify(pagesData)));
-
                 document.getElementById('form-pages-data').value = JSON.stringify(pagesData);
-                console.log('form-pages-data value set:', document.getElementById('form-pages-data').value.substring(0, 200) + '...');
             });
         } else {
-            console.error('builder-form element not found!');
+            console.error('builder-form element not found.');
         }
     });
     </script>

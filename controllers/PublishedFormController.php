@@ -152,39 +152,38 @@ class PublishedFormController extends Controller
         
         $model = $this->findModel($id);
         
-        // Get the public URL (ngrok or localhost)
-        $publicUrl = $this->getPublicUrl() . '/form/public-render/' . $model->form_id;
+        $baseUrl = $this->getPublicUrl();
+        $formUrl = $baseUrl . '/form/public-render/' . $model->form_id;
         
         return [
             'success' => true,
-            'url' => $publicUrl,
+            'url' => $formUrl,
             'formName' => $model->name,
             'slug' => $model->slug,
         ];
     }
 
     /**
-     * Get the public URL (ngrok or localhost)
+     * Get the application base URL for public links.
+     * APP_URL is used first (Railway), then current request host.
      * @return string
      */
     protected function getPublicUrl()
     {
-        // 1. Check environment variable for manual configuration (ngrok URL)
-        $publicBaseUrl = getenv('PUBLIC_BASE_URL');
-        if ($publicBaseUrl) {
-            return rtrim($publicBaseUrl, '/');
+        $baseUrl = getenv('APP_URL');
+        if (!$baseUrl) {
+            $railwayDomain = getenv('RAILWAY_PUBLIC_DOMAIN') ?: getenv('RAILWAY_STATIC_URL');
+            if ($railwayDomain) {
+                $baseUrl = preg_match('/^https?:\/\//i', $railwayDomain)
+                    ? $railwayDomain
+                    : 'https://' . $railwayDomain;
+            }
         }
 
-        // 2. Check if request is coming through ngrok proxy
-        $forwardedHost = Yii::$app->request->headers->get('X-Forwarded-Host');
-        $forwardedProto = Yii::$app->request->headers->get('X-Forwarded-Proto', 'https');
-
-        if ($forwardedHost) {
-            // Request is coming through ngrok
-            return $forwardedProto . '://' . $forwardedHost;
+        if (!$baseUrl) {
+            $baseUrl = Yii::$app->request->hostInfo;
         }
 
-        // 3. Fallback to localhost for direct access
-        return Yii::$app->request->hostInfo;
+        return rtrim($baseUrl, '/');
     }
 }

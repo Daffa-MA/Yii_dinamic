@@ -11,4 +11,4 @@ COPY . .
 
 RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
 
-CMD php -S 0.0.0.0:$PORT -t web
+CMD php -S 0.0.0.0:${PORT:-8080} -t web web/index.php

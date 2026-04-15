@@ -1,8 +1,23 @@
 <?php
 
-// comment out the following two lines when deployed to production
-defined('YII_DEBUG') or define('YII_DEBUG', true);
-defined('YII_ENV') or define('YII_ENV', 'dev');
+$appEnv = strtolower((string) (getenv('YII_ENV') ?: getenv('APP_ENV') ?: 'prod'));
+if (in_array($appEnv, ['dev', 'development', 'local'], true)) {
+    $yiiEnv = 'dev';
+} elseif (in_array($appEnv, ['test', 'testing'], true)) {
+    $yiiEnv = 'test';
+} else {
+    $yiiEnv = 'prod';
+}
+
+$debugEnv = getenv('YII_DEBUG');
+if ($debugEnv === false || $debugEnv === '') {
+    $yiiDebug = ($yiiEnv === 'dev');
+} else {
+    $yiiDebug = filter_var($debugEnv, FILTER_VALIDATE_BOOLEAN);
+}
+
+defined('YII_DEBUG') or define('YII_DEBUG', $yiiDebug);
+defined('YII_ENV') or define('YII_ENV', $yiiEnv);
 
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../vendor/yiisoft/yii2/Yii.php';

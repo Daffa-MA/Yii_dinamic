@@ -212,13 +212,6 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                         </div>
 
                         <?php if (!$hasCustomDesign): ?>
-                            <!-- Submit Button - Always at bottom of form -->
-                            <div class="mt-8 pt-6 border-t <?= $hasCustomDesign ? 'border-gray-300' : 'border-gray-200' ?>">
-                                <button type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-lg rounded-xl hover:shadow-xl transition-all transform hover:-translate-y-1">
-                                    <i class="fas fa-paper-plane mr-2"></i> Submit Form
-                                </button>
-                            </div>
-                            
                             <?php
                             // Render all pages (first page visible, others hidden)
                             foreach ($pages as $pageIndex => $page):
@@ -457,6 +450,21 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                         <!-- Custom HTML After Form -->
                         <?php if ($customHTMLAfter): ?>
                             <?= $customHTMLAfter ?>
+                        <?php endif; ?>
+
+                        <!-- Default Submit Button (always at very bottom of visible form content) -->
+                        <?php if (!$hasCustomDesign): ?>
+                            <div class="mt-8 pt-6 border-t border-gray-200">
+                                <button id="submit-btn" type="submit" class="w-full px-6 py-4 bg-gradient-to-r from-green-500 to-green-600 text-white font-bold text-lg rounded-xl hover:shadow-xl transition-all transform hover:-translate-y-1">
+                                    <i class="fas fa-paper-plane mr-2"></i> Submit Form
+                                </button>
+                            </div>
+                        <?php else: ?>
+                            <div style="margin-top:24px;">
+                                <button id="submit-btn" type="submit" style="width:100%;padding:14px 20px;border:none;border-radius:12px;background:linear-gradient(135deg,#16a34a,#22c55e);color:#ffffff;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 12px 24px rgba(34,197,94,0.28);transition:all .2s ease;">
+                                    Submit Form
+                                </button>
+                            </div>
                         <?php endif; ?>
                     </form>
                 <?php endif; ?>

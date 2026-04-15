@@ -31,12 +31,8 @@ $configuredDriver = getenv('YII_DB_DRIVER');
 
 if ($configuredDriver) {
     $driver = strtolower($configuredDriver);
-} elseif (extension_loaded('pdo_sqlite')) {
-    $driver = 'sqlite';
-} elseif (extension_loaded('pdo_mysql')) {
-    $driver = 'mysql';
 } else {
-    throw new RuntimeException('No supported PDO driver found. Enable pdo_mysql or pdo_sqlite.');
+    $driver = 'mysql';
 }
 
 if ($driver === 'mysql') {
@@ -56,15 +52,6 @@ if ($driver === 'mysql') {
         //'enableSchemaCache' => true,
         //'schemaCacheDuration' => 60,
         //'schemaCache' => 'cache',
-    ];
-} elseif ($driver === 'sqlite') {
-    $sqlitePath = getenv('YII_DB_SQLITE_PATH') ?: '@app/runtime/app.db';
-    $sqliteDsn = str_starts_with($sqlitePath, 'sqlite:') ? $sqlitePath : 'sqlite:' . $sqlitePath;
-
-    return [
-        'class' => 'yii\db\Connection',
-        'dsn' => $sqliteDsn,
-        'charset' => 'utf8',
     ];
 }
 

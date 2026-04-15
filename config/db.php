@@ -25,6 +25,14 @@ if (!function_exists('dbEnvValue')) {
             if ($value !== false && $value !== '') {
                 return [$key, $value];
             }
+
+            if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+                return [$key, $_ENV[$key]];
+            }
+
+            if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
+                return [$key, $_SERVER[$key]];
+            }
         }
 
         return [null, null];

@@ -225,6 +225,18 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     <?php
     $csrfToken = Yii::$app->request->csrfToken;
     $csrfParam = Yii::$app->request->csrfParam;
+    $baseUrl = getenv('APP_URL');
+    if (!$baseUrl) {
+        $railwayDomain = getenv('RAILWAY_PUBLIC_DOMAIN') ?: getenv('RAILWAY_STATIC_URL');
+        if ($railwayDomain) {
+            $baseUrl = preg_match('/^https?:\/\//i', $railwayDomain) ? $railwayDomain : 'https://' . $railwayDomain;
+        }
+    }
+    if (!$baseUrl) {
+        $baseUrl = Yii::$app->request->hostInfo;
+    }
+    $baseUrl = rtrim($baseUrl, '/');
+    $defaultPublicUrl = $baseUrl . '/form/public-render/' . $model->id;
     ?>
     <div id="publish-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
         <div style="background:#fff;border-radius:16px;max-width:600px;width:90%;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -280,7 +292,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         <label style="display:block;font-size:12px;font-weight:600;color:#464555;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Public Form Link</label>
                         <div style="display:flex;gap:8px;align-items:center;">
                             <input type="text" id="public-link-input" readonly
-                                value="<?= Yii::$app->request->hostInfo ?>/form/public-render/<?= $model->id ?>"
+                                value="<?= Html::encode($defaultPublicUrl) ?>"
                                 style="flex:1;padding:10px 14px;border:1px solid #c7c4d8;border-radius:8px;font-size:13px;background:#fff;color:#0b1c30;font-family:monospace;">
                             <button onclick="copyPublicLink(event)"
                                 style="padding:10px 16px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;">
@@ -299,7 +311,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
                     <!-- Action Buttons -->
                     <div style="display:flex;gap:12px;">
-                        <a href="<?= Yii::$app->request->hostInfo ?>/form/public-render/<?= $model->id ?>" target="_blank"
+                        <a href="<?= Html::encode($defaultPublicUrl) ?>" id="open-form-link" target="_blank"
                             style="flex:1;padding:12px 24px;background:linear-gradient(135deg,#006c49,#00a773);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;text-align:center;">
                             <span class="material-symbols-outlined" style="font-size:18px;">open_in_new</span>
                             Open Form
@@ -494,6 +506,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                             if (data.publicUrl) {
                                 console.log('Setting public URL:', data.publicUrl);
                                 document.getElementById('public-link-input').value = data.publicUrl;
+                                document.getElementById('open-form-link').href = data.publicUrl;
                             }
 
                             // Generate QR Code

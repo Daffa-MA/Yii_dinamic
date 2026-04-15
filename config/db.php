@@ -48,9 +48,9 @@ if (!function_exists('dbParseUrl')) {
         return [
             'host' => $parsed['host'] ?? null,
             'port' => $parsed['port'] ?? null,
-            'dbname' => $database ?: null,
-            'username' => $parsed['user'] ?? null,
-            'password' => $parsed['pass'] ?? null,
+            'dbname' => $database ? rawurldecode($database) : null,
+            'username' => isset($parsed['user']) ? rawurldecode($parsed['user']) : null,
+            'password' => isset($parsed['pass']) ? rawurldecode($parsed['pass']) : null,
         ];
     }
 }
@@ -92,7 +92,17 @@ if ($driver !== 'mysql') {
     throw new RuntimeException(sprintf('Unsupported YII_DB_DRIVER value: %s', $driver));
 }
 
-[$sourceKey, $databaseUrl] = dbEnvValue(['DATABASE_URL', 'MYSQL_URL', 'RAILWAY_DATABASE_URL', 'RAILWAY_MYSQL_URL']);
+[$sourceKey, $databaseUrl] = dbEnvValue([
+    // For apps hosted outside Railway (e.g. Render), always prefer public DB URL first.
+    'DATABASE_PUBLIC_URL',
+    'MYSQL_PUBLIC_URL',
+    'RAILWAY_DATABASE_PUBLIC_URL',
+    'RAILWAY_MYSQL_PUBLIC_URL',
+    'DATABASE_URL',
+    'MYSQL_URL',
+    'RAILWAY_DATABASE_URL',
+    'RAILWAY_MYSQL_URL',
+]);
 $parsedDatabaseUrl = dbParseUrl($databaseUrl);
 
 [$hostKey, $hostValue] = dbEnvValue(['YII_DB_HOST', 'MYSQLHOST', 'RAILWAY_MYSQL_HOST']);

@@ -2486,6 +2486,7 @@ display: none;
 
                     <?= Html::hiddenInput('Form[schema_js]', $model->isNewRecord ? '[]' : Html::encode($model->schema_js), ['id' => 'schema-js']) ?>
                     <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
+                    <?= Html::hiddenInput('Form[storage_type]', $model->storage_type ?: ($model->table_id ? 'database' : 'json'), ['id' => 'storage-type']) ?>
                     <?= Html::hiddenInput('form_pages', '', ['id' => 'form-pages-data']) ?>
 
                                 <div class="canvas-body" id="canvas-body">
@@ -2852,7 +2853,38 @@ return html;</pre>
                 </div>
             </div>
 
+            <?php
+            // Initialize builder state from existing form schema when editing.
+            $schemaData = $model->isNewRecord ? [] : json_decode((string) $model->schema_js, true);
+            $pages = $schemaData['pages'] ?? null;
+            $customDesign = $schemaData['customDesign'] ?? [];
+
+            if (!$pages) {
+                // Backward compatibility:
+                // 1) Newer shape without pages: {blocks: [...], customDesign: {...}}
+                // 2) Legacy shape: [...]
+                if (isset($schemaData['blocks']) && is_array($schemaData['blocks'])) {
+                    $blocksData = $schemaData['blocks'];
+                } elseif (is_array($schemaData) && array_values($schemaData) === $schemaData) {
+                    $blocksData = $schemaData;
+                } else {
+                    $blocksData = [];
+                }
+                $pages = [[
+                    'id' => 'page_1',
+                    'name' => 'Page 1',
+                    'blocks' => $blocksData,
+                ]];
+            }
+
+            $initialBlocks = $pages[0]['blocks'] ?? [];
+            ?>
             <script>
+                const initialFormPages = <?= json_encode($pages) ?>;
+                const initialCustomDesign = <?= json_encode($customDesign) ?>;
+                const initialBlocks = <?= json_encode($initialBlocks) ?>;
+                const isEditMode = <?= $model->isNewRecord ? 'false' : 'true' ?>;
+
                 // ===== GLOBAL HELPER FUNCTIONS =====
                 // Define escapeHtml globally so it can be used by all functions
                 function escapeHtml(str) {
@@ -2863,7 +2895,7 @@ return html;</pre>
                 
                 // ===== GLOBAL CORE VARIABLES =====
                 // These must be global so initFormPages and other functions can access them
-                let blocks = [];
+                let blocks = JSON.parse(JSON.stringify(initialBlocks || []));
                 let selectedIndex = -1;
                 let undoStack = [];
                 let redoStack = [];
@@ -2932,8 +2964,8 @@ return html;</pre>
                     if (deleteSection) deleteSection.style.display = 'none';
                 }
                 
-                // Render block to canvas (simplified version - full version in DOMContentLoaded)
-                function renderBlock(block, index) {
+                // Fallback renderer before full interactive renderer is initialized.
+                function renderBlockFallback(block, index) {
                     const div = document.createElement('div');
                     div.className = 'canvas-block';
                     div.dataset.index = index;
@@ -2983,6 +3015,10 @@ return html;</pre>
                     if (canvasBlocks) {
                         canvasBlocks.appendChild(div);
                     }
+                }
+
+                function renderBlock(block, index) {
+                    return renderBlockFallback(block, index);
                 }
                 
                 document.addEventListener('DOMContentLoaded', function() {
@@ -3071,7 +3107,7 @@ return html;</pre>
 
                     // ===== CORE SCRIPT =====
                     // Assign values to global variables (already declared globally)
-                    blocks = [];
+                    blocks = JSON.parse(JSON.stringify(initialBlocks || []));
                     selectedIndex = -1;
                     undoStack = [];
                     redoStack = [];
@@ -3080,6 +3116,7 @@ return html;</pre>
                     schemaJson = document.getElementById('schema-js');
                     tableSelector = document.getElementById('table-selector');
                     tableIdInput = document.getElementById('table-id');
+                    const storageTypeInput = document.getElementById('storage-type');
                     btnAutoGenerate = document.getElementById('btn-auto-generate');
                     canvasBlocks = document.getElementById('canvas-body');
 
@@ -4172,6 +4209,10 @@ return html;</pre>
                             });
                         });
                     }
+
+                    // Expose full interactive renderer globally so edit-mode initializer
+                    // (outside this closure) always uses the same renderer as create-mode.
+                    window.renderBlock = renderBlock;
 
                     // Custom Delete Confirmation Modal
                     function showDeleteConfirmModal(callback) {
@@ -5755,6 +5796,9 @@ document.addEventListener('DOMContentLoaded', function() {
                                         });
 
                                         updateEmptyState();
+                                        if (storageTypeInput) {
+                                            storageTypeInput.value = 'database';
+                                        }
                                         alert('✅ Form generated successfully with ' + data.columns.length + ' field(s)!');
                                         safeLog.log('%c=== AUTO-GENERATE SUCCESS ===', 'color: #00aa00; font-weight: bold;');
                                     } else {
@@ -5793,8 +5837,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     updateEmptyState();
 
                     // Initialize Multi-Page Form & Custom Code Editor
-                    initFormPages();
-                    initCustomCodeEditor();
+                    // (actual call happens in the final DOMContentLoaded block below)
 
                     // ============ INTERACTIVE SCROLL ANIMATIONS ============
                     // Initialize AOS for scroll animations
@@ -5986,7 +6029,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div style="display:flex;justify-content:flex-end;gap:12px;">
                         <button type="button" onclick="document.getElementById('publish-modal').style.display='none'"
                             style="padding:12px 24px;background:#f0f4f9;border:none;border-radius:12px;font-size:14px;font-weight:600;color:#464555;cursor:pointer;">Cancel</button>
-                        <button type="submit"
+                        <button type="submit" id="publish-form-submit-btn"
                             style="padding:12px 24px;background:linear-gradient(135deg,#4f46e5,#6366f1);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;">
                             <span class="material-symbols-outlined" style="font-size:18px;">public</span>
                             Publish
@@ -5994,8 +6037,22 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <?= Html::endForm() ?>
                     <script>
-                    document.getElementById('publish-form-modal').addEventListener('submit', function(e) {
-                        const formName = this.querySelector('input[name="name"]').value.trim();
+                    const publishModalForm = document.getElementById('publish-form-modal');
+                    const publishNameInput = publishModalForm.querySelector('input[name="name"]');
+                    const publishSubmitButton = document.getElementById('publish-form-submit-btn');
+
+                    // Keep Enter behavior identical to clicking Publish button.
+                    if (publishNameInput && publishSubmitButton) {
+                        publishNameInput.addEventListener('keydown', function(event) {
+                            if (event.key === 'Enter') {
+                                event.preventDefault();
+                                publishSubmitButton.click();
+                            }
+                        });
+                    }
+
+                    publishModalForm.addEventListener('submit', function(e) {
+                        const formName = publishNameInput ? publishNameInput.value.trim() : '';
                         if (!formName) {
                             e.preventDefault();
                             alert('Please enter a name for the published form.');
@@ -6050,10 +6107,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     <script>
     // ===== MULTI-PAGE FORM MANAGEMENT=====
-    let formPages = [
+    let formPages = JSON.parse(JSON.stringify(initialFormPages || [
         { id: 'page_1', name: 'Page 1', blocks: [] }
-    ];
+    ]));
     let currentPageIndex = 0;
+    const persistedCustomDesign = JSON.parse(JSON.stringify(initialCustomDesign || {
+        css: '',
+        htmlBefore: '',
+        htmlAfter: '',
+        js: ''
+    }));
     let customDesign = {
         css: '',
         htmlBefore: '',
@@ -6062,10 +6125,36 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     let customCodeEditorInitialized = false;
 
+    function readCustomDesignFromEditors() {
+        const cssEditor = document.getElementById('custom-css');
+        const htmlBeforeEditor = document.getElementById('custom-html-before');
+        const htmlAfterEditor = document.getElementById('custom-html-after');
+        const jsEditor = document.getElementById('custom-js');
+
+        return {
+            css: cssEditor ? cssEditor.value : '',
+            htmlBefore: htmlBeforeEditor ? htmlBeforeEditor.value : '',
+            htmlAfter: htmlAfterEditor ? htmlAfterEditor.value : '',
+            js: jsEditor ? jsEditor.value : ''
+        };
+    }
+
+    function isCustomDesignEmpty(design) {
+        return !((design.css || '').trim() || (design.htmlBefore || '').trim() || (design.htmlAfter || '').trim() || (design.js || '').trim());
+    }
+
+    function resolveCustomDesign(preserveExistingOnEmpty = false) {
+        const editorDesign = readCustomDesignFromEditors();
+        if (isEditMode && preserveExistingOnEmpty && isCustomDesignEmpty(editorDesign)) {
+            return JSON.parse(JSON.stringify(persistedCustomDesign));
+        }
+        return editorDesign;
+    }
+
     // Initialize form pages
     function initFormPages() {
         renderPagesTabs();
-        updateCurrentPageBlocks();
+        loadPageBlocks(currentPageIndex);
         
         // Add page button
         document.getElementById('add-page-btn').addEventListener('click', function() {
@@ -6227,10 +6316,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Apply design button
         if (applyBtn) {
             applyBtn.addEventListener('click', function() {
-                customDesign.css = cssEditor ? cssEditor.value : '';
-                customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : '';
-                customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : '';
-                customDesign.js = jsEditor ? jsEditor.value : '';
+                customDesign = resolveCustomDesign(true);
                 
                 openPreviewModal();
             });
@@ -6245,10 +6331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('✅ Save Custom Design button found!');
 
             saveBtn.addEventListener('click', function() {
-                customDesign.css = cssEditor ? cssEditor.value : '';
-                customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : '';
-                customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : '';
-                customDesign.js = jsEditor ? jsEditor.value : '';
+                customDesign = resolveCustomDesign(true);
 
                 console.log('=== SAVE CUSTOM DESIGN CLICKED ===');
                 console.log('Custom Design values:');
@@ -6325,6 +6408,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Load saved design
     function loadSavedDesign() {
+        if (isEditMode) {
+            // In edit mode, don't auto-populate custom design editors.
+            // Existing design is only used when user clicks Apply/Preview or submits without changes.
+            return;
+        }
+
         const saved = localStorage.getItem('formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>');
         if (saved) {
             try {
@@ -6705,20 +6794,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Save form pages data before submit - MUST run after DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
+        if (!window.__builderEditInitialized) {
+            initFormPages();
+            initCustomCodeEditor();
+            window.__builderEditInitialized = true;
+        }
+
         const form = document.getElementById('builder-form');
         if (form) {
             form.addEventListener('submit', function(e) {
-                // CRITICAL: Always read current values from editors RIGHT NOW
-                const cssEditor = document.getElementById('custom-css');
-                const htmlBeforeEditor = document.getElementById('custom-html-before');
-                const htmlAfterEditor = document.getElementById('custom-html-after');
-                const jsEditor = document.getElementById('custom-js');
-
-                // Update customDesign object with current editor values
-                customDesign.css = cssEditor ? cssEditor.value : customDesign.css || '';
-                customDesign.htmlBefore = htmlBeforeEditor ? htmlBeforeEditor.value : customDesign.htmlBefore || '';
-                customDesign.htmlAfter = htmlAfterEditor ? htmlAfterEditor.value : customDesign.htmlAfter || '';
-                customDesign.js = jsEditor ? jsEditor.value : customDesign.js || '';
+                customDesign = resolveCustomDesign(true);
 
                 // Save to localStorage for future sessions
                 localStorage.setItem('formCustomDesign_' + '<?= $model->isNewRecord ? 'new' : $model->id ?>', JSON.stringify(customDesign));

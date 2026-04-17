@@ -3,6 +3,7 @@
 /** @var yii\web\View $this */
 /** @var app\models\Form[] $forms */
 /** @var app\models\FormSubmission[] $recentSubmissions */
+/** @var array $formSubmissionCounts */
 
 use yii\bootstrap5\Html;
 
@@ -221,7 +222,7 @@ $this->title = 'Dashboard';
                             <?php
                             $blocks = json_decode($form->schema_js ?? '[]', true);
                             $blockCount = count($blocks);
-                            $submissionCount = $form->submissions ? count($form->submissions) : 0;
+                            $submissionCount = (int) ($form->submission_count ?? 0);
                             $completionRate = $submissionCount > 0 ? '88%' : '—';
                             ?>
                             <!-- Form Card -->
@@ -320,7 +321,7 @@ $this->title = 'Dashboard';
                                         <td class="px-8 py-5 text-sm text-on-surface-variant font-medium"><?= Yii::$app->formatter->asRelativeTime($submission->created_at) ?></td>
                                         <td class="px-8 py-5 text-center">
                                             <span class="inline-flex items-center justify-center bg-secondary/10 text-secondary px-3 py-1 rounded-full text-xs font-bold ring-1 ring-secondary/20">
-                                                <?= $submission->form->submissions ? count($submission->form->submissions) : 0 ?> Total
+                                                <?= isset($formSubmissionCounts[$submission->form_id]) ? $formSubmissionCounts[$submission->form_id] : 0 ?> Total
                                             </span>
                                         </td>
                                         <td class="px-8 py-5 text-right">

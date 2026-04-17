@@ -11,7 +11,7 @@ A production-ready **dynamic form builder** built with **Yii2 + MySQL**, with:
 
 ## Tech Stack
 
-- PHP 8.2+
+- PHP 7.2+
 - Yii2 (`yiisoft/yii2`)
 - MySQL
 - Bootstrap 5 + custom JS

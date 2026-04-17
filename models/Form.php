@@ -23,9 +23,34 @@ use yii\db\ActiveRecord;
  */
 class Form extends ActiveRecord
 {
+    /** @var string|null */
+    private static $schemaStorageColumn;
+
     public static function tableName()
     {
         return 'forms';
+    }
+
+    /**
+     * Resolve physical schema column name on current database.
+     * Supports both legacy (schema_json) and newer (schema_js) schemas.
+     *
+     * @return string
+     */
+    public static function getSchemaStorageColumn()
+    {
+        if (self::$schemaStorageColumn !== null) {
+            return self::$schemaStorageColumn;
+        }
+
+        $tableSchema = static::getTableSchema();
+        if ($tableSchema && isset($tableSchema->columns['schema_js'])) {
+            self::$schemaStorageColumn = 'schema_js';
+            return self::$schemaStorageColumn;
+        }
+
+        self::$schemaStorageColumn = 'schema_json';
+        return self::$schemaStorageColumn;
     }
 
     public function rules()
@@ -69,6 +94,11 @@ class Form extends ActiveRecord
     public function getSubmissions()
     {
         return $this->hasMany(FormSubmission::class, ['form_id' => 'id']);
+    }
+
+    public function getPublishedForms()
+    {
+        return $this->hasMany(PublishedForm::class, ['form_id' => 'id']);
     }
 
     public function getSchema()

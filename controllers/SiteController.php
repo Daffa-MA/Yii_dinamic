@@ -62,40 +62,93 @@ class SiteController extends Controller
     public function actionDashboard()
     {
         $userId = Yii::$app->user->id;
+        $schemaColumn = Form::getSchemaStorageColumn();
 
-        // Statistics
-        $totalForms = Form::find()->where(['user_id' => $userId])->count();
-        $totalSubmissions = FormSubmission::find()
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $userId])
-            ->count();
+        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId, function () use ($userId) {
+            $totalForms = Form::find()->where(['user_id' => $userId])->count();
+            $totalSubmissions = FormSubmission::find()
+                ->innerJoin('forms', 'forms.id = form_submissions.form_id')
+                ->where(['forms.user_id' => $userId])
+                ->count();
+            $todaySubmissions = FormSubmission::find()
+                ->innerJoin('forms', 'forms.id = form_submissions.form_id')
+                ->where(['forms.user_id' => $userId])
+                ->andWhere(['>=', 'form_submissions.created_at', date('Y-m-d 00:00:00')])
+                ->count();
+
+            return [
+                'totalForms' => $totalForms,
+                'totalSubmissions' => $totalSubmissions,
+                'todaySubmissions' => $todaySubmissions,
+            ];
+        }, 30);
+
+        $totalForms = $dashboardStats['totalForms'];
+        $totalSubmissions = $dashboardStats['totalSubmissions'];
+        $todaySubmissions = $dashboardStats['todaySubmissions'];
+
         $recentForms = Form::find()
+            ->select(['id'])
             ->where(['user_id' => $userId])
-            ->orderBy(['created_at' => SORT_DESC])
+            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
             ->limit(5)
             ->all();
-        $todaySubmissions = FormSubmission::find()
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $userId])
-            ->andWhere(['>=', 'form_submissions.created_at', date('Y-m-d 00:00:00')])
-            ->count();
+
+        $submissionCountSubQuery = FormSubmission::find()
+            ->select(['form_id', 'submission_count' => 'COUNT(*)'])
+            ->groupBy('form_id');
 
         $forms = Form::find()
-            ->where(['user_id' => $userId])
-            ->orderBy(['created_at' => SORT_DESC])
+            ->alias('f')
+            ->select([
+                'f.id',
+                'f.user_id',
+                'f.name',
+                'schema_js' => new \yii\db\Expression('f.' . $schemaColumn),
+                'f.created_at',
+                'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
+            ])
+            ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
+            ->where(['f.user_id' => $userId])
+            ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC])
+            ->limit(6)
             ->all();
 
         $recentSubmissions = FormSubmission::find()
+            ->select(['form_submissions.id', 'form_submissions.form_id', 'form_submissions.created_at'])
             ->innerJoin('forms', 'forms.id = form_submissions.form_id')
             ->where(['forms.user_id' => $userId])
-            ->with('form')
+            ->with([
+                'form' => function ($q) {
+                    $q->select(['id', 'name']);
+                }
+            ])
             ->orderBy(['created_at' => SORT_DESC])
             ->limit(10)
             ->all();
 
+        $recentFormIds = array_unique(array_map(function ($submission) {
+            return (int) $submission->form_id;
+        }, $recentSubmissions));
+
+        $formSubmissionCounts = [];
+        if (!empty($recentFormIds)) {
+            $countRows = FormSubmission::find()
+                ->select(['form_id', 'total' => 'COUNT(*)'])
+                ->where(['form_id' => $recentFormIds])
+                ->groupBy('form_id')
+                ->asArray()
+                ->all();
+
+            foreach ($countRows as $row) {
+                $formSubmissionCounts[(int) $row['form_id']] = (int) $row['total'];
+            }
+        }
+
         return $this->render('dashboard', [
             'forms' => $forms,
             'recentSubmissions' => $recentSubmissions,
+            'formSubmissionCounts' => $formSubmissionCounts,
             'totalForms' => $totalForms,
             'totalSubmissions' => $totalSubmissions,
             'todaySubmissions' => $todaySubmissions,

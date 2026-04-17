@@ -41,21 +41,42 @@ class PublishedFormController extends Controller
      */
     public function actionIndex()
     {
-        $query = PublishedForm::find()
-            ->with('form')
-            ->where(['user_id' => Yii::$app->user->id])
-            ->orderBy(['created_at' => SORT_DESC]);
+        $userId = Yii::$app->user->id;
+        $query = Form::find()
+            ->alias('f')
+            ->select(['f.id', 'f.user_id', 'f.name', 'f.created_at'])
+            ->where(['f.user_id' => $userId])
+            ->with([
+                'publishedForms' => function ($q) use ($userId) {
+                    $q->select(['id', 'user_id', 'form_id', 'name', 'slug', 'created_at'])
+                        ->andWhere(['user_id' => $userId])
+                        ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC]);
+                }
+            ])
+            ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
 
         // Search functionality
         $search = Yii::$app->request->get('q');
         if ($search) {
-            $query->andWhere(['like', 'name', $search]);
+            $query->andWhere([
+                'or',
+                ['like', 'f.name', $search],
+                [
+                    'exists',
+                    PublishedForm::find()
+                        ->alias('pf_search')
+                        ->select('1')
+                        ->where('pf_search.form_id = f.id')
+                        ->andWhere(['pf_search.user_id' => $userId])
+                        ->andWhere(['like', 'pf_search.name', $search]),
+                ],
+            ]);
         }
 
-        $publishedForms = $query->all();
+        $forms = $query->all();
 
         return $this->render('index', [
-            'publishedForms' => $publishedForms,
+            'forms' => $forms,
             'search' => $search,
         ]);
     }
@@ -67,23 +88,86 @@ class PublishedFormController extends Controller
     {
         $model = new PublishedForm();
         $model->user_id = Yii::$app->user->id;
+        $request = Yii::$app->request;
+        $isAjax = $request->isAjax;
+
+        $availableFormsQuery = Form::find()
+            ->alias('f')
+            ->select(['f.id', 'f.name', 'f.created_at'])
+            ->leftJoin(
+                ['pf' => PublishedForm::tableName()],
+                'pf.form_id = f.id AND pf.user_id = :userId',
+                [':userId' => Yii::$app->user->id]
+            )
+            ->where(['f.user_id' => Yii::$app->user->id])
+            ->andWhere(['pf.id' => null])
+            ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
 
         // Get form_id from query parameter (from publish button)
-        $formId = Yii::$app->request->get('form_id');
+        $formId = $request->get('form_id');
         if ($formId) {
-            $model->form_id = $formId;
+            $requestedFormId = (int) $formId;
+            $isAvailable = (clone $availableFormsQuery)->andWhere(['f.id' => $requestedFormId])->exists();
+            if ($isAvailable) {
+                $model->form_id = $requestedFormId;
+            } else {
+                Yii::$app->session->setFlash('warning', 'Selected form is already published or unavailable.');
+            }
         }
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            Yii::$app->session->setFlash('success', 'Form published successfully!');
-            return $this->redirect(['index']);
+        if ($request->isPost) {
+            $posted = $request->post($model->formName(), []);
+            if (empty($posted)) {
+                // Fallback for non-ActiveForm shaped payload.
+                $posted = [
+                    'name' => $request->post('name'),
+                    'form_id' => $request->post('form_id'),
+                ];
+            }
+
+            $model->setAttributes($posted);
+            $selectedFormId = (int) $model->form_id;
+            $isAvailable = $selectedFormId > 0
+                ? (clone $availableFormsQuery)->andWhere(['f.id' => $selectedFormId])->exists()
+                : false;
+
+            if (!$isAvailable) {
+                $model->addError('form_id', 'Selected form is already published or unavailable.');
+            } elseif ($model->save()) {
+                $baseUrl = $this->getPublicUrl();
+                $formUrl = $baseUrl . '/form/public-render/' . $model->form_id;
+
+                if ($isAjax) {
+                    Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                    return [
+                        'success' => true,
+                        'publishedFormId' => $model->id,
+                        'url' => $formUrl,
+                        'formName' => $model->name,
+                    ];
+                }
+
+                Yii::$app->session->setFlash('publishResult', [
+                    'url' => $formUrl,
+                    'formName' => $model->name,
+                ]);
+                return $this->redirect(['create']);
+            }
+
+            if ($isAjax) {
+                Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+                return [
+                    'success' => false,
+                    'message' => implode(', ', $model->getFirstErrors()) ?: 'Failed to publish form.',
+                    'errors' => $model->getErrors(),
+                ];
+            }
+
+            Yii::$app->session->setFlash('error', implode(', ', $model->getFirstErrors()) ?: 'Failed to publish form.');
         }
 
         // Get available forms for dropdown
-        $forms = Form::find()
-            ->where(['user_id' => Yii::$app->user->id])
-            ->orderBy(['name' => SORT_ASC])
-            ->all();
+        $forms = $availableFormsQuery->all();
 
         return $this->render('create', [
             'model' => $model,

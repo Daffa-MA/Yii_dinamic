@@ -2,7 +2,9 @@
 
 /** @var yii\web\View $this */
 /** @var app\models\Form $model */
-/** @var app\models\FormSubmission[] $submissions */
+/** @var array $schema */
+/** @var int $totalSubmissions */
+/** @var app\models\FormSubmission[] $recentSubmissions */
 
 use yii\bootstrap5\Html;
 
@@ -129,11 +131,11 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                             </tr>
                             <tr class="border-b border-surface-container-low">
                                 <td class="py-4 text-sm font-medium text-on-surface-variant">Total Fields</td>
-                                <td class="py-4"><span class="bg-primary-container/10 text-primary-container px-3 py-1 rounded-full text-xs font-bold"><?= count($model->getSchema()) ?></span></td>
+                                <td class="py-4"><span class="bg-primary-container/10 text-primary-container px-3 py-1 rounded-full text-xs font-bold"><?= count($schema) ?></span></td>
                             </tr>
                             <tr>
                                 <td class="py-4 text-sm font-medium text-on-surface-variant">Total Submissions</td>
-                                <td class="py-4"><span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-xs font-bold"><?= count($submissions) ?></span></td>
+                                <td class="py-4"><span class="bg-secondary/10 text-secondary px-3 py-1 rounded-full text-xs font-bold"><?= $totalSubmissions ?></span></td>
                             </tr>
                         </table>
                     </div>
@@ -148,11 +150,11 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         </div>
                     </div>
                     <div class="p-8">
-                        <?php if (empty($model->getSchema())): ?>
+                        <?php if (empty($schema)): ?>
                             <p class="text-on-surface-variant text-center py-8">No fields defined.</p>
                         <?php else: ?>
                             <div class="space-y-3">
-                                <?php $counter = 1; foreach ($model->getSchema() as $field): ?>
+                                <?php $counter = 1; foreach ($schema as $field): ?>
                                     <?php
                                     $fieldLabel = $field['label'] ?? ($field['type'] ?? 'Field ' . $counter);
                                     $fieldName = $field['name'] ?? '-';
@@ -188,7 +190,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     ]) ?>
                 </div>
                 <div class="p-8">
-                    <?php if (empty($submissions)): ?>
+                    <?php if (empty($recentSubmissions)): ?>
                         <p class="text-on-surface-variant text-center py-8">No submissions yet.</p>
                     <?php else: ?>
                         <div class="overflow-x-auto">
@@ -201,7 +203,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-surface-container-low">
-                                    <?php foreach (array_slice($submissions, 0, 5) as $submission): ?>
+                                    <?php foreach ($recentSubmissions as $submission): ?>
                                         <tr class="hover:bg-surface-container-low/20 transition-colors">
                                             <td class="py-4 text-sm font-medium"><?= $submission->id ?></td>
                                             <td class="py-4 text-sm text-on-surface-variant"><?= date('M d, Y H:i:s', strtotime($submission->created_at)) ?></td>

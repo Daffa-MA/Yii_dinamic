@@ -1,7 +1,7 @@
 <?php
 
 /** @var yii\web\View $this */
-/** @var app\models\PublishedForm[] $publishedForms */
+/** @var app\models\Form[] $forms */
 
 use yii\bootstrap5\Html;
 
@@ -94,7 +94,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
                         </div>
                         <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">Data Form</h1>
                     </div>
-                    <p class="text-on-surface-variant font-medium">Manage your published forms.</p>
+                    <p class="text-on-surface-variant font-medium">Manage all forms and their publish status.</p>
                 </div>
                 <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Publish New Form', ['published-form/create'], [
                     'class' => 'bg-gradient-to-r from-primary-container to-primary text-white px-6 py-2.5 rounded-xl font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
@@ -108,7 +108,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
                     <span class="material-symbols-outlined text-outline">search</span>
                     <?= Html::input('text', 'q', $search ?? null, [
                         'class' => 'bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline',
-                        'placeholder' => 'Search published forms by name...',
+                        'placeholder' => 'Search forms by form name or published name...',
                     ]) ?>
                 </div>
                 <?= Html::submitButton('<span class="material-symbols-outlined text-[18px]">search</span> Search', [
@@ -122,18 +122,24 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
                 <?= Html::endForm() ?>
             </div>
 
-            <?php if (empty($publishedForms)): ?>
+            <?php if (empty($forms)): ?>
                 <div class="bg-white rounded-2xl p-12 text-center border-2 border-dashed border-violet-300 shadow-sm">
                     <div class="w-20 h-20 bg-gradient-to-br from-violet-100 to-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md">
                         <span class="material-symbols-outlined text-5xl text-violet-600">public</span>
                     </div>
-                    <h3 class="text-2xl font-extrabold mb-2 text-gray-900">No published forms yet</h3>
-                    <p class="text-gray-600 mb-6 font-medium">Publish a form to get started</p>
+                    <h3 class="text-2xl font-extrabold mb-2 text-gray-900">No forms yet</h3>
+                    <p class="text-gray-600 mb-6 font-medium">Create a form to get started</p>
                 </div>
             <?php else: ?>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <?php foreach ($publishedForms as $index => $publishedForm): ?>
+                    <?php foreach ($forms as $index => $form): ?>
                         <?php
+                        $publishedForm = null;
+                        if (!empty($form->publishedForms)) {
+                            $publishedForm = $form->publishedForms[0];
+                        }
+                        $isPublished = $publishedForm !== null;
+
                         // Color themes for cards
                         $colorAccent = ['#4f46e5', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$index % 5];
                         $colorBg = ['bg-violet-50', 'bg-cyan-50', 'bg-purple-50', 'bg-orange-50', 'bg-emerald-50'][$index % 5];
@@ -147,64 +153,75 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
                                         <span class="material-symbols-outlined text-primary-container text-2xl">public</span>
                                     </div>
                                     <div class="flex items-center gap-1.5 bg-white/80 px-2.5 py-1 rounded-full shadow-sm">
-                                        <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-                                        <span class="text-[10px] font-bold text-secondary uppercase tracking-tight">Published</span>
+                                        <span class="w-2 h-2 rounded-full <?= $isPublished ? 'bg-secondary animate-pulse' : 'bg-outline' ?>"></span>
+                                        <span class="text-[10px] font-bold uppercase tracking-tight <?= $isPublished ? 'text-secondary' : 'text-outline' ?>">
+                                            <?= $isPublished ? 'Published' : 'Draft' ?>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
                             <!-- Card Body -->
                             <div class="p-6">
-                                <h3 class="text-lg font-bold mb-2 text-on-surface line-clamp-2 group-hover:text-primary-container transition-colors"><?= Html::encode($publishedForm->name) ?></h3>
+                                <h3 class="text-lg font-bold mb-2 text-on-surface line-clamp-2 group-hover:text-primary-container transition-colors">
+                                    <?= Html::encode($isPublished ? $publishedForm->name : $form->name) ?>
+                                </h3>
                                 <p class="text-xs text-on-surface-variant font-medium mb-4">
                                     <span class="inline-flex items-center gap-1.5">
                                         <span class="material-symbols-outlined text-[14px] text-outline">description</span>
-                                        <?= Html::encode($publishedForm->form->name ?? 'Unknown Form') ?>
+                                        <?= Html::encode($form->name) ?>
                                     </span>
                                 </p>
 
                                 <!-- URL Slug -->
                                 <div class="bg-surface-container rounded-lg px-4 py-3 mb-4">
                                     <p class="text-[10px] text-outline font-bold uppercase tracking-wider mb-1">URL Slug</p>
-                                    <code class="text-xs font-mono text-primary-container"><?= Html::encode($publishedForm->slug) ?></code>
+                                    <code class="text-xs font-mono text-primary-container"><?= Html::encode($isPublished ? $publishedForm->slug : '-') ?></code>
                                 </div>
 
                                 <!-- Created Date -->
                                 <p class="text-xs text-on-surface-variant mb-6">
                                     <span class="inline-flex items-center gap-1.5">
                                         <span class="material-symbols-outlined text-[14px] text-outline">calendar_today</span>
-                                        <?= Yii::$app->formatter->asDate($publishedForm->created_at) ?>
+                                        <?= Yii::$app->formatter->asDate($isPublished ? $publishedForm->created_at : $form->created_at) ?>
                                     </span>
                                 </p>
 
                                 <!-- Action Buttons -->
                                 <div class="flex flex-wrap gap-2">
-                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">list_alt</span>', ['form/submissions', 'id' => $publishedForm->form_id], [
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">list_alt</span>', ['form/submissions', 'id' => $form->id], [
                                         'class' => 'w-9 h-9 flex items-center justify-center bg-primary-container text-white rounded-lg hover:bg-primary-container/90 transition-all no-underline text-xs',
                                         'title' => 'View Submissions / Jawaban User',
                                     ]) ?>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">open_in_new</span>', ['form/public-render', 'id' => $publishedForm->form_id], [
+                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">open_in_new</span>', ['form/public-render', 'id' => $form->id], [
                                         'class' => 'w-9 h-9 flex items-center justify-center bg-secondary text-white rounded-lg hover:bg-secondary/90 transition-all no-underline text-xs',
                                         'title' => 'View Public Form',
                                         'target' => '_blank'
                                     ]) ?>
-                                    <button onclick="showPublicUrlModal(<?= $publishedForm->id ?>)"
-                                        class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all text-xs text-on-surface-variant"
-                                        title="Copy Public URL">
-                                        <span class="material-symbols-outlined text-[16px]">link</span>
-                                    </button>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">edit</span>', ['published-form/update', 'id' => $publishedForm->id], [
-                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all no-underline text-xs text-on-surface-variant',
-                                        'title' => 'Edit Settings'
-                                    ]) ?>
-                                    <?= Html::a('<span class="material-symbols-outlined text-[16px]">delete</span>', ['published-form/delete', 'id' => $publishedForm->id], [
-                                        'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all no-underline text-xs text-on-surface-variant',
-                                        'title' => 'Unpublish',
-                                        'data' => [
-                                            'confirm' => 'Are you sure you want to unpublish this form? The public link will no longer work.',
-                                            'method' => 'post',
-                                        ]
-                                    ]) ?>
+                                    <?php if ($isPublished): ?>
+                                        <button onclick="showPublicUrlModal(<?= $publishedForm->id ?>)"
+                                            class="w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all text-xs text-on-surface-variant"
+                                            title="Copy Public URL">
+                                            <span class="material-symbols-outlined text-[16px]">link</span>
+                                        </button>
+                                        <?= Html::a('<span class="material-symbols-outlined text-[16px]">edit</span>', ['published-form/update', 'id' => $publishedForm->id], [
+                                            'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-primary-container hover:text-primary-container hover:bg-primary-container/5 transition-all no-underline text-xs text-on-surface-variant',
+                                            'title' => 'Edit Settings'
+                                        ]) ?>
+                                        <?= Html::a('<span class="material-symbols-outlined text-[16px]">delete</span>', ['published-form/delete', 'id' => $publishedForm->id], [
+                                            'class' => 'w-9 h-9 flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-error hover:text-error hover:bg-error/5 transition-all no-underline text-xs text-on-surface-variant',
+                                            'title' => 'Unpublish',
+                                            'data' => [
+                                                'confirm' => 'Are you sure you want to unpublish this form? The public link will no longer work.',
+                                                'method' => 'post',
+                                            ]
+                                        ]) ?>
+                                    <?php else: ?>
+                                        <?= Html::a('<span class="material-symbols-outlined text-[16px]">publish</span>', ['published-form/create', 'form_id' => $form->id], [
+                                            'class' => 'h-9 px-3 inline-flex items-center justify-center bg-white border border-outline-variant rounded-lg hover:border-secondary hover:text-secondary hover:bg-secondary/5 transition-all no-underline text-xs text-on-surface-variant font-semibold',
+                                            'title' => 'Publish Form'
+                                        ]) ?>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>

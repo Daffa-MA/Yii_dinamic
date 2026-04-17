@@ -695,6 +695,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                     <label class="check-card"><input type="checkbox" id="prop-nullable"><span>Allow NULL values</span></label>
                                     <label class="check-card"><input type="checkbox" id="prop-unique"><span>Unique values only</span></label>
                                     <label class="check-card"><input type="checkbox" id="prop-primary"><span>Primary key</span></label>
+                                    <label class="check-card"><input type="checkbox" id="prop-auto-increment"><span>Auto increment</span></label>
                                 </div>
                             </div>
                         </div>
@@ -773,7 +774,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const tableLabelInput = document.getElementById('dbtable-label');
     const tableEngineInput = document.getElementById('table-engine');
 
-    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-default', 'prop-comment'];
+    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment'];
 
     const savedColumns = <?= !empty($savedColumns) ? \yii\helpers\Json::encode($savedColumns) : '[]' ?>;
     if (savedColumns.length > 0) {
@@ -863,6 +864,7 @@ document.addEventListener('DOMContentLoaded', function () {
             is_nullable: toBoolean(column.is_nullable, true),
             is_primary: toBoolean(column.is_primary, false),
             is_unique: toBoolean(column.is_unique, false),
+            is_auto_increment: toBoolean(column.is_auto_increment, false),
             default_value: column.default_value || '',
             comment: column.comment || ''
         };
@@ -914,6 +916,9 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (column.is_unique) {
             flags.push('<span class="flag-badge">UQ</span>');
+        }
+        if (column.is_auto_increment) {
+            flags.push('<span class="flag-badge">AI</span>');
         }
 
         const summary = [];
@@ -996,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     is_nullable: source.is_nullable,
                     is_primary: false,
                     is_unique: false,
+                    is_auto_increment: false,
                     default_value: source.default_value,
                     comment: source.comment
                 });
@@ -1090,6 +1096,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('prop-nullable').checked = column.is_nullable;
         document.getElementById('prop-unique').checked = column.is_unique;
         document.getElementById('prop-primary').checked = column.is_primary;
+        document.getElementById('prop-auto-increment').checked = toBoolean(column.is_auto_increment, false);
         document.getElementById('prop-default').value = column.default_value || '';
         document.getElementById('prop-comment').value = column.comment || '';
         isSyncingProperties = false;
@@ -1110,8 +1117,21 @@ document.addEventListener('DOMContentLoaded', function () {
         column.is_nullable = document.getElementById('prop-nullable').checked;
         column.is_unique = document.getElementById('prop-unique').checked;
         column.is_primary = document.getElementById('prop-primary').checked;
+        column.is_auto_increment = document.getElementById('prop-auto-increment').checked;
         column.default_value = document.getElementById('prop-default').value;
         column.comment = document.getElementById('prop-comment').value;
+
+        const integerTypes = ['INT', 'BIGINT', 'TINYINT'];
+        if (column.is_auto_increment && integerTypes.indexOf(column.type) === -1) {
+            column.is_auto_increment = false;
+            document.getElementById('prop-auto-increment').checked = false;
+        }
+        if (column.is_auto_increment) {
+            column.is_primary = true;
+            column.is_nullable = false;
+            document.getElementById('prop-primary').checked = true;
+            document.getElementById('prop-nullable').checked = false;
+        }
 
         if (column.is_primary) {
             column.is_nullable = false;

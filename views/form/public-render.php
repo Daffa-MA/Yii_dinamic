@@ -24,6 +24,19 @@ if (!$pages) {
             'blocks' => is_array($schema) ? $schema : []
         ]
     ];
+} else {
+    // Backward-safe fallback:
+    // if pages exist but all are empty while flattened blocks still exist, use those blocks.
+    $hasPageBlocks = false;
+    foreach ($pages as $page) {
+        if (!empty($page['blocks']) && is_array($page['blocks'])) {
+            $hasPageBlocks = true;
+            break;
+        }
+    }
+    if (!$hasPageBlocks && !empty($blocks) && is_array($blocks)) {
+        $pages[0]['blocks'] = $blocks;
+    }
 }
 
 // Extract custom design

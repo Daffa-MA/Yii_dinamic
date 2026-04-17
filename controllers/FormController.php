@@ -9,9 +9,320 @@ use yii\web\ForbiddenHttpException;
 use app\models\Form;
 use app\models\FormSubmission;
 use app\models\PublishedForm;
+use app\models\DbTable;
 
 class FormController extends Controller
 {
+    /**
+     * Increment columns are system-generated and should not be mapped to form inputs.
+     */
+    private function isIncrementColumn(array $column): bool
+    {
+        if (!empty($column['is_auto_increment'])) {
+            return true;
+        }
+
+        $type = strtoupper((string)($column['type'] ?? ''));
+        $isIntegerType = in_array($type, ['INT', 'BIGINT', 'TINYINT'], true);
+        return $isIntegerType && !empty($column['is_primary']);
+    }
+
+    /**
+     * Capture user-input fields that are posted outside generated schema mapping.
+     */
+    private function mergeAdditionalPostedInputs(array $data): array
+    {
+        $post = Yii::$app->request->post();
+        $reservedKeys = [
+            Yii::$app->request->csrfParam,
+            'user_email',
+            'user_name',
+            'firebase_uid',
+            'form_pages',
+            'publish_now',
+            'form_id',
+        ];
+
+        foreach ($post as $key => $value) {
+            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data)) {
+                continue;
+            }
+
+            if (is_array($value)) {
+                $data[$key] = json_encode($value, JSON_UNESCAPED_UNICODE);
+            } else {
+                $data[$key] = (string) $value;
+            }
+        }
+
+        // Capture uploaded file names so custom drag-drop file inputs are still recorded.
+        foreach ($_FILES as $key => $fileMeta) {
+            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data)) {
+                continue;
+            }
+
+            $fileName = $this->extractUploadedFileNames($fileMeta['name'] ?? null, $fileMeta['error'] ?? null);
+            if ($fileName !== null) {
+                $data[$key] = $fileName;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Convert PHP $_FILES name/error structure into storable value.
+     */
+    private function extractUploadedFileNames($name, $error): ?string
+    {
+        if (is_array($name)) {
+            $collected = [];
+            foreach ($name as $idx => $childName) {
+                $childError = is_array($error) && array_key_exists($idx, $error) ? $error[$idx] : UPLOAD_ERR_NO_FILE;
+                $resolved = $this->extractUploadedFileNames($childName, $childError);
+                if ($resolved !== null && $resolved !== '') {
+                    $collected[] = $resolved;
+                }
+            }
+
+            return !empty($collected) ? json_encode($collected, JSON_UNESCAPED_UNICODE) : null;
+        }
+
+        if ($error === UPLOAD_ERR_NO_FILE || $name === null || $name === '') {
+            return null;
+        }
+
+        return (string) $name;
+    }
+
+    private function normalizeInputKey(string $key): string
+    {
+        return strtolower(trim(preg_replace('/[^a-z0-9_]+/i', '_', $key), '_'));
+    }
+
+    private function castValueForTableColumn($value, array $column)
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $type = strtoupper((string)($column['type'] ?? ''));
+        $isNullable = !empty($column['is_nullable']);
+
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '' && $isNullable) {
+                return null;
+            }
+        }
+
+        if ($type === 'JSON') {
+            if (is_array($value)) {
+                return json_encode($value, JSON_UNESCAPED_UNICODE);
+            }
+            if (is_string($value)) {
+                json_decode($value);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return $value;
+                }
+                return json_encode($value, JSON_UNESCAPED_UNICODE);
+            }
+            return json_encode($value, JSON_UNESCAPED_UNICODE);
+        }
+
+        if (in_array($type, ['INT', 'BIGINT', 'TINYINT', 'BOOLEAN'], true)) {
+            if ($value === 'on') {
+                return 1;
+            }
+            if (is_numeric($value)) {
+                return (int)$value;
+            }
+            return $value;
+        }
+
+        if (in_array($type, ['DECIMAL', 'FLOAT'], true) && is_numeric($value)) {
+            return (float)$value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Save submission into the selected custom table when mapping exists.
+     */
+    private function persistSubmissionToCustomTable(Form $form, array $data): bool
+    {
+        $tableId = (int)$form->table_id;
+        if ($tableId <= 0) {
+            return false;
+        }
+
+        $table = DbTable::findOne(['id' => $tableId, 'user_id' => $form->user_id]);
+        if ($table === null) {
+            throw new \RuntimeException('Target table metadata was not found.');
+        }
+        if (!(bool)$table->is_created) {
+            throw new \RuntimeException("Target table '{$table->name}' has not been created in database.");
+        }
+
+        $tableSchema = Yii::$app->db->schema->getTableSchema($table->name, true);
+        if ($tableSchema === null) {
+            throw new \RuntimeException("Physical table '{$table->name}' was not found in database.");
+        }
+
+        $columns = $table->getColumns()
+            ->orderBy(['sort_order' => SORT_ASC])
+            ->asArray()
+            ->all();
+
+        $dataLookup = [];
+        foreach ($data as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+            $dataLookup[$key] = $value;
+            $dataLookup[$this->normalizeInputKey($key)] = $value;
+        }
+
+        $insertData = [];
+        foreach ($columns as $column) {
+            if ($this->isIncrementColumn($column)) {
+                continue;
+            }
+
+            $columnName = (string)($column['name'] ?? '');
+            if ($columnName === '' || !isset($tableSchema->columns[$columnName])) {
+                continue;
+            }
+
+            if (array_key_exists($columnName, $dataLookup)) {
+                $insertData[$columnName] = $this->castValueForTableColumn($dataLookup[$columnName], $column);
+                continue;
+            }
+
+            $normalizedColumnName = $this->normalizeInputKey($columnName);
+            if (array_key_exists($normalizedColumnName, $dataLookup)) {
+                $insertData[$columnName] = $this->castValueForTableColumn($dataLookup[$normalizedColumnName], $column);
+            }
+        }
+
+        if (empty($insertData)) {
+            return false;
+        }
+
+        Yii::$app->db->createCommand()->insert($table->name, $insertData)->execute();
+        return true;
+    }
+
+    /**
+     * Extract blocks from mixed schema shapes (pages, blocks, or legacy array).
+     */
+    private function extractBlocksFromSchema($schemaData): array
+    {
+        if (!is_array($schemaData)) {
+            return [];
+        }
+
+        if (isset($schemaData['pages']) && is_array($schemaData['pages'])) {
+            $allBlocks = [];
+            foreach ($schemaData['pages'] as $page) {
+                if (is_array($page) && isset($page['blocks']) && is_array($page['blocks'])) {
+                    $allBlocks = array_merge($allBlocks, $page['blocks']);
+                }
+            }
+            return $allBlocks;
+        }
+
+        if (isset($schemaData['blocks']) && is_array($schemaData['blocks'])) {
+            return $schemaData['blocks'];
+        }
+
+        return array_values($schemaData) === $schemaData ? $schemaData : [];
+    }
+
+    /**
+     * Normalize builder payload into canonical schema_js shape.
+     */
+    private function normalizeBuilderSchema(?string $pagesData, ?string $rawSchema): string
+    {
+        $decodedPagesData = null;
+        if (is_string($pagesData) && trim($pagesData) !== '') {
+            $decoded = json_decode($pagesData, true);
+            if (is_array($decoded)) {
+                $decodedPagesData = $decoded;
+            }
+        }
+
+        $decodedRawSchema = [];
+        if (is_string($rawSchema) && trim($rawSchema) !== '') {
+            $decoded = json_decode($rawSchema, true);
+            if (is_array($decoded)) {
+                $decodedRawSchema = $decoded;
+            }
+        }
+
+        $pages = [];
+        if (is_array($decodedPagesData) && isset($decodedPagesData['pages']) && is_array($decodedPagesData['pages'])) {
+            $pages = $decodedPagesData['pages'];
+        }
+
+        $customDesign = [];
+        if (is_array($decodedPagesData) && isset($decodedPagesData['customDesign']) && is_array($decodedPagesData['customDesign'])) {
+            $customDesign = $decodedPagesData['customDesign'];
+        } elseif (isset($decodedRawSchema['customDesign']) && is_array($decodedRawSchema['customDesign'])) {
+            $customDesign = $decodedRawSchema['customDesign'];
+        }
+
+        $rawBlocks = $this->extractBlocksFromSchema($decodedRawSchema);
+
+        if (empty($pages)) {
+            $pages = [[
+                'id' => 'page_1',
+                'name' => 'Page 1',
+                'blocks' => $rawBlocks,
+            ]];
+        } else {
+            $hasAnyPageBlocks = false;
+            foreach ($pages as $index => $page) {
+                if (!is_array($page)) {
+                    $page = [];
+                }
+
+                $pageBlocks = isset($page['blocks']) && is_array($page['blocks']) ? array_values($page['blocks']) : [];
+                if (!empty($pageBlocks)) {
+                    $hasAnyPageBlocks = true;
+                }
+
+                $pages[$index] = [
+                    'id' => !empty($page['id']) ? (string)$page['id'] : 'page_' . ($index + 1),
+                    'name' => !empty($page['name']) ? (string)$page['name'] : 'Page ' . ($index + 1),
+                    'blocks' => $pageBlocks,
+                ];
+            }
+
+            if (!$hasAnyPageBlocks && !empty($rawBlocks)) {
+                $pages[0]['blocks'] = $rawBlocks;
+            }
+        }
+
+        $allBlocks = [];
+        foreach ($pages as $page) {
+            if (isset($page['blocks']) && is_array($page['blocks'])) {
+                $allBlocks = array_merge($allBlocks, $page['blocks']);
+            }
+        }
+
+        if (empty($allBlocks) && !empty($rawBlocks)) {
+            $allBlocks = $rawBlocks;
+        }
+
+        return json_encode([
+            'pages' => $pages,
+            'customDesign' => $customDesign,
+            'blocks' => $allBlocks,
+        ], JSON_UNESCAPED_UNICODE);
+    }
+
     /**
      * @inheritdoc
      */
@@ -40,14 +351,30 @@ class FormController extends Controller
      */
     public function actionIndex()
     {
+        $schemaColumn = Form::getSchemaStorageColumn();
+
+        $submissionCountSubQuery = FormSubmission::find()
+            ->select(['form_id', 'submission_count' => 'COUNT(*)'])
+            ->groupBy('form_id');
+
         $query = Form::find()
-            ->where(['user_id' => Yii::$app->user->id])
-            ->orderBy(['created_at' => SORT_DESC]);
+            ->alias('f')
+            ->select([
+                'f.id',
+                'f.user_id',
+                'f.name',
+                'schema_js' => new \yii\db\Expression('f.' . $schemaColumn),
+                'f.created_at',
+                'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
+            ])
+            ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
+            ->where(['f.user_id' => Yii::$app->user->id])
+            ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
 
         // Search functionality
         $search = Yii::$app->request->get('q');
         if ($search) {
-            $query->andWhere(['like', 'name', $search]);
+            $query->andWhere(['like', 'f.name', $search]);
         }
 
         $forms = $query->all();
@@ -75,6 +402,8 @@ class FormController extends Controller
 
             // Handle multi-page form and custom design data
             $pagesData = Yii::$app->request->post('form_pages');
+            $postedFormData = Yii::$app->request->post($model->formName(), []);
+            $rawSchema = isset($postedFormData['schema_js']) ? (string)$postedFormData['schema_js'] : (string)$model->schema_js;
             
             // DEBUG: Log what we received
             if (YII_DEBUG && $pagesData) {
@@ -86,39 +415,7 @@ class FormController extends Controller
                 }
             }
             
-            if ($pagesData) {
-                $decoded = json_decode($pagesData, true);
-                if ($decoded && isset($decoded['pages'])) {
-                    // Merge all pages blocks into schema_js for backward compatibility
-                    $allBlocks = [];
-                    foreach ($decoded['pages'] as $page) {
-                        if (isset($page['blocks'])) {
-                            $allBlocks = array_merge($allBlocks, $page['blocks']);
-                        }
-                    }
-                    $model->schema_js = json_encode([
-                        'pages' => $decoded['pages'],
-                        'customDesign' => $decoded['customDesign'] ?? [],
-                        'blocks' => $allBlocks
-                    ], JSON_UNESCAPED_UNICODE);
-                }
-            } else {
-                // Fallback: If form_pages is empty, try to create structure from blocks if they exist
-                // This handles cases where custom design was set but form_pages wasn't populated
-                $existingSchema = json_decode($model->schema_js, true) ?: [];
-                if (!isset($existingSchema['pages'])) {
-                    // Convert old format to new format with empty customDesign
-                    $model->schema_js = json_encode([
-                        'pages' => [[
-                            'id' => 'page_1',
-                            'name' => 'Page 1',
-                            'blocks' => is_array($existingSchema) ? $existingSchema : []
-                        ]],
-                        'customDesign' => [],
-                        'blocks' => is_array($existingSchema) ? $existingSchema : []
-                    ], JSON_UNESCAPED_UNICODE);
-                }
-            }
+            $model->schema_js = $this->normalizeBuilderSchema($pagesData, $rawSchema);
             
             if ($model->save()) {
                 $shouldPublish = (bool) Yii::$app->request->post('publish_now', false);
@@ -175,22 +472,10 @@ class FormController extends Controller
             
             // Handle multi-page form and custom design data
             $pagesData = Yii::$app->request->post('form_pages');
+            $postedFormData = Yii::$app->request->post($model->formName(), []);
+            $rawSchema = isset($postedFormData['schema_js']) ? (string)$postedFormData['schema_js'] : (string)$model->schema_js;
             if ($pagesData) {
-                $decoded = json_decode($pagesData, true);
-                if ($decoded && isset($decoded['pages'])) {
-                    // Merge all pages blocks into schema_js for backward compatibility
-                    $allBlocks = [];
-                    foreach ($decoded['pages'] as $page) {
-                        if (isset($page['blocks'])) {
-                            $allBlocks = array_merge($allBlocks, $page['blocks']);
-                        }
-                    }
-                    $model->schema_js = json_encode([
-                        'pages' => $decoded['pages'],
-                        'customDesign' => $decoded['customDesign'] ?? [],
-                        'blocks' => $allBlocks
-                    ], JSON_UNESCAPED_UNICODE);
-                }
+                $model->schema_js = $this->normalizeBuilderSchema($pagesData, $rawSchema);
             }
 
             if ($model->save()) {
@@ -203,7 +488,8 @@ class FormController extends Controller
             Yii::$app->session->setFlash('error', $errorMessage);
         }
 
-        return $this->render('update', [
+        // Use the same builder UI as create page so edit experience stays identical.
+        return $this->render('create', [
             'model' => $model,
         ]);
     }
@@ -214,15 +500,23 @@ class FormController extends Controller
     public function actionView($id)
     {
         $model = $this->findModel($id);
+        $schema = $model->getSchema();
+        $totalSubmissions = (int) FormSubmission::find()
+            ->where(['form_id' => $id])
+            ->count();
 
-        $submissions = FormSubmission::find()
+        $recentSubmissions = FormSubmission::find()
+            ->select(['id', 'form_id', 'created_at'])
             ->where(['form_id' => $id])
             ->orderBy(['created_at' => SORT_DESC])
+            ->limit(5)
             ->all();
 
         return $this->render('view', [
             'model' => $model,
-            'submissions' => $submissions,
+            'schema' => $schema,
+            'totalSubmissions' => $totalSubmissions,
+            'recentSubmissions' => $recentSubmissions,
         ]);
     }
 
@@ -333,6 +627,8 @@ class FormController extends Controller
                 }
             }
 
+            $data = $this->mergeAdditionalPostedInputs($data);
+
             // Auto inject Firebase user data from hidden fields
             if (Yii::$app->request->post('user_email')) {
                 $data['_firebase_email'] = Yii::$app->request->post('user_email');
@@ -359,29 +655,46 @@ class FormController extends Controller
             $submission->firebase_name = Yii::$app->request->post('user_name');
             $submission->data_json = json_encode($data, JSON_UNESCAPED_UNICODE);
 
-            if ($submission->save()) {
-                // Redirect to success page for guest users
+            $transaction = Yii::$app->db->beginTransaction();
+            try {
+                $storedToTable = false;
+                if ((int)$model->table_id > 0) {
+                    if ($model->storage_type === 'database') {
+                        $storedToTable = $this->persistSubmissionToCustomTable($model, $data);
+                        if (!$storedToTable) {
+                            throw new \RuntimeException('No matching submission fields were found for the selected database table columns.');
+                        }
+                    } else {
+                        try {
+                            $storedToTable = $this->persistSubmissionToCustomTable($model, $data);
+                        } catch (\Throwable $e) {
+                            Yii::warning('Optional custom-table submit skipped: ' . $e->getMessage(), 'app');
+                        }
+                    }
+                }
+
+                if (!$submission->save()) {
+                    $errors = $submission->getFirstErrors();
+                    $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to submit form. Please try again.';
+                    throw new \RuntimeException($errorMessage);
+                }
+
+                $transaction->commit();
+
                 if (Yii::$app->user->isGuest) {
                     return $this->redirect(['success', 'id' => $id]);
                 }
                 Yii::$app->session->setFlash('success', 'Form submitted successfully!');
-            } else {
-                $errors = $submission->getFirstErrors();
-                $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to submit form. Please try again.';
-                
-                // For guest users, redirect back to public render with error
+                return $this->redirect(['render', 'id' => $id]);
+            } catch (\Throwable $e) {
+                $transaction->rollBack();
+                Yii::$app->session->setFlash('error', $e->getMessage());
+
                 if (Yii::$app->user->isGuest) {
-                    Yii::$app->session->setFlash('error', $errorMessage);
                     return $this->redirect(['public-render', 'id' => $id]);
                 }
-                Yii::$app->session->setFlash('error', $errorMessage);
+                return $this->redirect(['render', 'id' => $id]);
             }
-            
-            // Redirect back to public render for guest users, or regular render for logged-in users
-            if (Yii::$app->user->isGuest) {
-                return $this->redirect(['public-render', 'id' => $id]);
-            }
-            return $this->redirect(['render', 'id' => $id]);
         }
 
         // If not POST, redirect appropriately
@@ -534,11 +847,15 @@ class FormController extends Controller
             ->asArray()
             ->all();
 
+        $columns = array_values(array_filter($columns, function ($column) {
+            return !$this->isIncrementColumn($column);
+        }));
+
         if (empty($columns)) {
             return [
                 'success' => false,
-                'error' => 'No columns found',
-                'message' => 'The selected table has no columns defined. Please add columns first.',
+                'error' => 'No input columns found',
+                'message' => 'All columns are system-generated (e.g., auto increment) or no columns are defined.',
                 'table_name' => $table->name,
                 'table_id' => $table->id
             ];
@@ -580,38 +897,8 @@ class FormController extends Controller
                 $decoded = json_decode($pagesData, true);
                 if ($decoded) {
                     Yii::info('Decoded form_pages: ' . json_encode($decoded), 'app');
-                    
-                    // Handle pages - use decoded pages or create default
-                    $pages = $decoded['pages'] ?? [];
-                    
-                    // Handle customDesign - ensure it's an object, not array
-                    $customDesign = $decoded['customDesign'] ?? [];
-                    if (empty($customDesign) || !is_array($customDesign) || !isset($customDesign['css'])) {
-                        // Ensure customDesign is an object with proper keys
-                        $customDesign = [
-                            'css' => $customDesign['css'] ?? '',
-                            'htmlBefore' => $customDesign['htmlBefore'] ?? '',
-                            'htmlAfter' => $customDesign['htmlAfter'] ?? '',
-                            'js' => $customDesign['js'] ?? ''
-                        ];
-                    }
-                    
-                    Yii::info('CustomDesign after processing: ' . json_encode($customDesign), 'app');
-                    
-                    // Merge all pages blocks into schema_js for backward compatibility
-                    $allBlocks = [];
-                    foreach ($pages as $page) {
-                        if (isset($page['blocks'])) {
-                            $allBlocks = array_merge($allBlocks, $page['blocks']);
-                        }
-                    }
-                    
-                    // Save custom design to form's schema_js
-                    $form->schema_js = json_encode([
-                        'pages' => $pages,
-                        'customDesign' => $customDesign,
-                        'blocks' => $allBlocks
-                    ], JSON_UNESCAPED_UNICODE);
+
+                    $form->schema_js = $this->normalizeBuilderSchema($pagesData, (string)$form->schema_js);
                     
                     if (!$form->save()) {
                         Yii::error('Failed to save form with custom design: ' . print_r($form->errors, true), 'app');

@@ -17,11 +17,11 @@ return [
     'components' => [
         'db' => $db,
         'mailer' => [
-            'class' => \yii\symfonymailer\Mailer::class,
+            'class' => \yii\swiftmailer\Mailer::class,
             'viewPath' => '@app/mail',
             // send all mails to a file by default.
             'useFileTransport' => true,
-            'messageClass' => 'yii\symfonymailer\Message'
+            'messageClass' => 'yii\swiftmailer\Message'
         ],
         'assetManager' => [
             'basePath' => __DIR__ . '/../web/assets',

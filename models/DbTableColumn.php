@@ -39,7 +39,7 @@ class DbTableColumn extends ActiveRecord
         return [
             [['table_id', 'name', 'label', 'type'], 'required'],
             [['table_id', 'length', 'sort_order'], 'integer'],
-            [['is_nullable', 'is_primary', 'is_unique'], 'boolean'],
+            [['is_nullable', 'is_primary', 'is_unique', 'is_auto_increment'], 'boolean'],
             [['default_value'], 'string', 'max' => 255],
             [['comment'], 'string'],
             [['name'], 'string', 'max' => 100],
@@ -100,6 +100,7 @@ class DbTableColumn extends ActiveRecord
             'is_nullable' => 'Allow NULL',
             'is_primary' => 'Primary Key',
             'is_unique' => 'Unique',
+            'is_auto_increment' => 'Auto Increment',
             'default_value' => 'Default Value',
             'comment' => 'Comment',
             'sort_order' => 'Sort Order',

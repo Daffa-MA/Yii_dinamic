@@ -11,24 +11,78 @@ use app\models\DbTableColumn;
 
 class TableBuilderController extends Controller
 {
+    private function hasPhysicalTableByName(string $tableName): bool
+    {
+        return Yii::$app->db->schema->getTableSchema($tableName, true) !== null;
+    }
+
+    private function hasPhysicalTable(DbTable $model): bool
+    {
+        return $this->hasPhysicalTableByName($model->name);
+    }
+
+    /**
+     * Keep metadata status in sync with actual physical table existence.
+     */
+    private function syncTableCreationState(DbTable $model, bool $save = true): bool
+    {
+        $exists = $this->hasPhysicalTable($model);
+        $current = (bool)$model->is_created;
+        if ($current !== $exists) {
+            $model->is_created = $exists;
+            if ($save) {
+                $model->save(false, ['is_created']);
+            }
+        }
+
+        return $exists;
+    }
+
+    /**
+     * Determine whether a metadata column should behave as AUTO_INCREMENT.
+     */
+    private function isAutoIncrementColumn(DbTableColumn $column): bool
+    {
+        $integerTypes = ['INT', 'BIGINT', 'TINYINT'];
+        if ($column->hasAttribute('is_auto_increment')) {
+            return (bool)$column->getAttribute('is_auto_increment');
+        }
+
+        // Backward compatibility for environments where metadata column doesn't exist yet.
+        return (bool)$column->is_primary && in_array(strtoupper((string)$column->type), $integerTypes, true);
+    }
+
     private function buildCreateTableSql(DbTable $model, array $columns): string
     {
         $db = Yii::$app->db;
         $columnDefs = [];
         $primaryKeys = [];
+        $autoIncrementCandidates = [];
 
         foreach ($columns as $col) {
             $type = $col->getMySQLType();
-            $nullable = $col->is_primary ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
-            $default = $col->default_value !== null ? 'DEFAULT ' . $db->quoteValue($col->default_value) : '';
+            $isAutoIncrement = $this->isAutoIncrementColumn($col);
+            $nullable = ($col->is_primary || $isAutoIncrement) ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
+            $default = ($isAutoIncrement || $col->default_value === null) ? '' : 'DEFAULT ' . $db->quoteValue($col->default_value);
             $comment = $col->comment ? 'COMMENT ' . $db->quoteValue($col->comment) : '';
+            $autoIncrementSql = $isAutoIncrement ? 'AUTO_INCREMENT' : '';
 
-            $def = "`{$col->name}` {$type} {$nullable} {$default} {$comment}";
+            $def = "`{$col->name}` {$type} {$nullable} {$default} {$autoIncrementSql} {$comment}";
             $columnDefs[] = trim($def);
 
             if ($col->is_primary) {
                 $primaryKeys[] = "`{$col->name}`";
             }
+            if ($isAutoIncrement) {
+                $autoIncrementCandidates[] = $col->name;
+            }
+        }
+
+        if (count($autoIncrementCandidates) > 1) {
+            throw new \RuntimeException('Only one AUTO_INCREMENT column is allowed per table.');
+        }
+        if (!empty($autoIncrementCandidates) && count($primaryKeys) !== 1) {
+            throw new \RuntimeException('AUTO_INCREMENT requires exactly one primary key column.');
         }
 
         if (!empty($primaryKeys)) {
@@ -63,9 +117,21 @@ class TableBuilderController extends Controller
             $column->is_nullable = (bool)($colData['is_nullable'] ?? false);
             $column->is_primary = (bool)($colData['is_primary'] ?? false);
             $column->is_unique = (bool)($colData['is_unique'] ?? false);
+            if ($column->hasAttribute('is_auto_increment')) {
+                $column->setAttribute('is_auto_increment', (bool)($colData['is_auto_increment'] ?? false));
+            }
             $column->default_value = $colData['default_value'] !== '' ? (string)$colData['default_value'] : null;
             $column->comment = $colData['comment'] !== '' ? (string)$colData['comment'] : null;
             $column->sort_order = $index;
+
+            if ($this->isAutoIncrementColumn($column)) {
+                $type = strtoupper((string)$column->type);
+                if (!in_array($type, ['INT', 'BIGINT', 'TINYINT'], true)) {
+                    $column->addError('is_auto_increment', 'Auto increment is only supported for INT, BIGINT, or TINYINT.');
+                }
+                $column->is_primary = true;
+                $column->is_nullable = false;
+            }
 
             if ($column->label === '' && $column->name !== '') {
                 $column->label = ucwords(str_replace('_', ' ', $column->name));
@@ -102,6 +168,75 @@ class TableBuilderController extends Controller
         return $errors;
     }
 
+    /**
+     * Rebuild physical SQL table after metadata update and migrate overlapping data.
+     */
+    private function syncUpdatedPhysicalTable(DbTable $model, string $oldTableName, array $columnModels): void
+    {
+        $db = Yii::$app->db;
+        $newTableName = (string)$model->name;
+
+        if (!$this->hasPhysicalTableByName($oldTableName)) {
+            $model->is_created = false;
+            $model->save(false, ['is_created']);
+            return;
+        }
+
+        if ($newTableName !== $oldTableName && $this->hasPhysicalTableByName($newTableName)) {
+            throw new \RuntimeException("Cannot rename table to '{$newTableName}' because it already exists in database.");
+        }
+
+        $backupTableName = $oldTableName . '__bak_' . time();
+        if ($this->hasPhysicalTableByName($backupTableName)) {
+            $backupTableName .= '_' . mt_rand(1000, 9999);
+        }
+
+        $renamedToBackup = false;
+        $newTableCreated = false;
+
+        try {
+            $db->createCommand("RENAME TABLE `{$oldTableName}` TO `{$backupTableName}`")->execute();
+            $renamedToBackup = true;
+
+            $sql = $this->buildCreateTableSql($model, $columnModels);
+            $db->createCommand($sql)->execute();
+            $newTableCreated = true;
+
+            $backupSchema = $db->schema->getTableSchema($backupTableName, true);
+            $newSchema = $db->schema->getTableSchema($newTableName, true);
+
+            if ($backupSchema && $newSchema) {
+                $oldColumns = array_keys($backupSchema->columns);
+                $newColumns = array_keys($newSchema->columns);
+                $commonColumns = array_values(array_intersect($oldColumns, $newColumns));
+
+                if (!empty($commonColumns)) {
+                    $quotedCols = implode(', ', array_map(static function ($col) {
+                        return "`{$col}`";
+                    }, $commonColumns));
+                    $db->createCommand("INSERT INTO `{$newTableName}` ({$quotedCols}) SELECT {$quotedCols} FROM `{$backupTableName}`")->execute();
+                }
+            }
+
+            $db->createCommand("DROP TABLE `{$backupTableName}`")->execute();
+            $model->is_created = true;
+            $model->save(false, ['is_created']);
+        } catch (\Throwable $e) {
+            try {
+                if ($newTableCreated && $this->hasPhysicalTableByName($newTableName)) {
+                    $db->createCommand("DROP TABLE `{$newTableName}`")->execute();
+                }
+                if ($renamedToBackup && $this->hasPhysicalTableByName($backupTableName)) {
+                    $db->createCommand("RENAME TABLE `{$backupTableName}` TO `{$oldTableName}`")->execute();
+                }
+            } catch (\Throwable $rollbackError) {
+                Yii::error('Rollback after table sync failure also failed: ' . $rollbackError->getMessage(), 'app');
+            }
+
+            throw $e;
+        }
+    }
+
     public function behaviors()
     {
         return [
@@ -127,6 +262,7 @@ class TableBuilderController extends Controller
         // Build array with tables and their columns
         $tablesWithColumns = [];
         foreach ($tables as $table) {
+            $this->syncTableCreationState($table);
             $columns = $table->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
             $item = new \stdClass();
             $item->table = $table;
@@ -183,7 +319,7 @@ class TableBuilderController extends Controller
                         }
 
                         $transaction->commit();
-                        Yii::$app->session->setFlash('success', "Table '{$model->name}' created successfully.");
+                        Yii::$app->session->setFlash('success', "Table '{$model->name}' definition saved successfully. Status: pending database creation.");
 
                         return $this->redirect(['index']);
                     } catch (\Throwable $e) {
@@ -218,10 +354,11 @@ class TableBuilderController extends Controller
     {
         $model = $this->findModel($id);
         $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+        $isCreated = $this->syncTableCreationState($model);
 
         // Fetch actual data from the database table if created
         $tableData = [];
-        if ($model->is_created) {
+        if ($isCreated) {
             try {
                 $tableData = Yii::$app->db->createCommand("SELECT * FROM `{$model->name}` ORDER BY id DESC LIMIT 100")->queryAll();
             } catch (\Exception $e) {
@@ -239,6 +376,8 @@ class TableBuilderController extends Controller
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+        $oldTableName = (string)$model->name;
+        $wasPhysicallyCreated = $this->syncTableCreationState($model);
         $savedColumns = array_map(static function (DbTableColumn $column) {
             return [
                 'name' => $column->name,
@@ -248,6 +387,7 @@ class TableBuilderController extends Controller
                 'is_nullable' => (bool)$column->is_nullable,
                 'is_primary' => (bool)$column->is_primary,
                 'is_unique' => (bool)$column->is_unique,
+                'is_auto_increment' => $column->hasAttribute('is_auto_increment') ? (bool)$column->getAttribute('is_auto_increment') : false,
                 'default_value' => $column->default_value,
                 'comment' => $column->comment,
             ];
@@ -264,6 +404,7 @@ class TableBuilderController extends Controller
             try {
                 if ($model->save()) {
                     $transaction = Yii::$app->db->beginTransaction();
+                    $columnModels = [];
 
                     try {
                         $columnModels = $this->buildColumnModels($columns, (int)$model->id);
@@ -286,7 +427,18 @@ class TableBuilderController extends Controller
                         }
 
                         $transaction->commit();
-                        Yii::$app->session->setFlash('success', 'Table updated successfully.');
+
+                        if ($wasPhysicallyCreated) {
+                            try {
+                                $this->syncUpdatedPhysicalTable($model, $oldTableName, $columnModels);
+                                Yii::$app->session->setFlash('success', "Table updated successfully and synced to database table '{$model->name}'.");
+                            } catch (\Throwable $syncError) {
+                                Yii::error('Failed to sync updated table to database: ' . $syncError->getMessage(), 'app');
+                                Yii::$app->session->setFlash('warning', 'Table definition was updated, but failed to sync physical database table: ' . $syncError->getMessage());
+                            }
+                        } else {
+                            Yii::$app->session->setFlash('success', 'Table updated successfully.');
+                        }
 
                         return $this->redirect(['view', 'id' => $model->id]);
                     } catch (\Throwable $e) {
@@ -316,8 +468,8 @@ class TableBuilderController extends Controller
     public function actionExecuteSql($id)
     {
         $model = $this->findModel($id);
-        
-        if ($model->is_created) {
+
+        if ($this->syncTableCreationState($model)) {
             Yii::$app->session->setFlash('warning', 'Table already exists in database!');
             return $this->redirect(['view', 'id' => $id]);
         }
@@ -337,11 +489,16 @@ class TableBuilderController extends Controller
 
             $sql = $this->buildCreateTableSql($model, $columns);
             $db->createCommand($sql)->execute();
-            
+
+            if (!$this->hasPhysicalTable($model)) {
+                throw new \RuntimeException("Table '{$model->name}' was not found after SQL execution.");
+            }
+
             $model->is_created = true;
-            $model->save(false);
-            
-            Yii::$app->session->setFlash('success', "Table '{$model->name}' created successfully in database!");
+            $model->save(false, ['is_created']);
+
+            $dbName = Yii::$app->db->createCommand('SELECT DATABASE()')->queryScalar();
+            Yii::$app->session->setFlash('success', "Table '{$model->name}' created successfully in database '{$dbName}'.");
             
         } catch (\Exception $e) {
             Yii::$app->session->setFlash('error', 'Failed to create table: ' . $e->getMessage());

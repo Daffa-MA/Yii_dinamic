@@ -3,6 +3,10 @@
 if (!function_exists('dbBootstrapLog')) {
     function dbBootstrapLog(string $message): void
     {
+        if (getenv('DB_BOOTSTRAP_DEBUG') !== '1') {
+            return;
+        }
+
         $logFile = dirname(__DIR__) . '/runtime/logs/db-bootstrap.log';
 
         if (!is_dir(dirname($logFile))) {
@@ -14,6 +18,28 @@ if (!function_exists('dbBootstrapLog')) {
             sprintf("[%s] %s%s", date('Y-m-d H:i:s'), $message, PHP_EOL),
             FILE_APPEND
         );
+    }
+}
+
+if (!function_exists('dbStartsWith')) {
+    function dbStartsWith(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        return strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+
+if (!function_exists('dbEndsWith')) {
+    function dbEndsWith(string $haystack, string $needle): bool
+    {
+        if ($needle === '') {
+            return true;
+        }
+
+        return substr($haystack, -strlen($needle)) === $needle;
     }
 }
 
@@ -69,7 +95,7 @@ if (is_readable($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
         $line = trim($line);
-        if ($line === '' || str_starts_with($line, '#') || strpos($line, '=') === false) {
+        if ($line === '' || dbStartsWith($line, '#') || strpos($line, '=') === false) {
             continue;
         }
 
@@ -81,7 +107,7 @@ if (is_readable($envFile)) {
             continue;
         }
 
-        if ((str_starts_with($value, '"') && str_ends_with($value, '"')) || (str_starts_with($value, "'") && str_ends_with($value, "'"))) {
+        if ((dbStartsWith($value, '"') && dbEndsWith($value, '"')) || (dbStartsWith($value, "'") && dbEndsWith($value, "'"))) {
             $value = substr($value, 1, -1);
         }
 
@@ -119,17 +145,32 @@ $parsedDatabaseUrl = dbParseUrl($databaseUrl);
 [$userKey, $userValue] = dbEnvValue(['YII_DB_USER', 'MYSQLUSER', 'RAILWAY_MYSQL_USER']);
 [$passwordKey, $passwordValue] = dbEnvValue(['YII_DB_PASSWORD', 'MYSQLPASSWORD', 'RAILWAY_MYSQL_PASSWORD']);
 
-$dbHost = $parsedDatabaseUrl['host'] ?? $hostValue ?? '127.0.0.1';
-$dbPort = $parsedDatabaseUrl['port'] ?? $portValue ?? '3306';
-$dbName = $parsedDatabaseUrl['dbname'] ?? $nameValue ?? 'yii2basic';
-$dbUser = $parsedDatabaseUrl['username'] ?? $userValue ?? 'root';
-$dbPassword = $parsedDatabaseUrl['password'] ?? $passwordValue ?? '';
+$isLocalDev = defined('YII_ENV_DEV') && YII_ENV_DEV;
+$useUrlInLocalDev = getenv('YII_DB_USE_URL_IN_DEV') === '1';
+
+if ($isLocalDev && !$useUrlInLocalDev) {
+    // Local development should default to local MySQL unless explicitly overridden.
+    $dbHost = $hostValue ?? '127.0.0.1';
+    $dbPort = $portValue ?? '3306';
+    $dbName = $nameValue ?? 'yii2basic';
+    $dbUser = $userValue ?? 'root';
+    $dbPassword = $passwordValue ?? '';
+    $dbSource = $hostKey ?: 'local-default';
+} else {
+    // Non-dev environments should prefer database URL-based configuration.
+    $dbHost = $parsedDatabaseUrl['host'] ?? $hostValue ?? '127.0.0.1';
+    $dbPort = $parsedDatabaseUrl['port'] ?? $portValue ?? '3306';
+    $dbName = $parsedDatabaseUrl['dbname'] ?? $nameValue ?? 'yii2basic';
+    $dbUser = $parsedDatabaseUrl['username'] ?? $userValue ?? 'root';
+    $dbPassword = $parsedDatabaseUrl['password'] ?? $passwordValue ?? '';
+    $dbSource = $sourceKey ?: ($hostKey ?: 'fallback');
+}
 
 dbBootstrapLog(sprintf(
     'DB config loaded. dotenv=%s driver=%s source=%s host=%s port=%s db=%s user=%s',
     $loadedDotenv ? 'yes' : 'no',
     $driver,
-    $sourceKey ?: ($hostKey ?: 'fallback'),
+    $dbSource,
     $dbHost,
     $dbPort,
     $dbName,
@@ -142,9 +183,9 @@ return [
     'username' => $dbUser,
     'password' => $dbPassword,
     'charset' => 'utf8mb4',
-
-    // Schema cache options (for production environment)
-    //'enableSchemaCache' => true,
-    //'schemaCacheDuration' => 60,
-    //'schemaCache' => 'cache',
+    'enableSchemaCache' => true,
+    'schemaCacheDuration' => 3600,
+    'schemaCache' => 'cache',
+    'enableQueryCache' => true,
+    'queryCacheDuration' => 60,
 ];

@@ -137,7 +137,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         <?php
                         $blocks = json_decode($form->schema_js ?? '[]', true);
                         $blockCount = count($blocks);
-                        $submissionCount = $form->submissions ? count($form->submissions) : 0;
+                        $submissionCount = (int) ($form->submission_count ?? 0);
                         
                         // Color themes for cards
                         $colorAccent = ['#4f46e5', '#06b6d4', '#8b5cf6', '#f97316', '#10b981'][$index % 5];

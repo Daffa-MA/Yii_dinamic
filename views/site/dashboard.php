@@ -4,10 +4,13 @@
 /** @var app\models\Form[] $forms */
 /** @var app\models\FormSubmission[] $recentSubmissions */
 /** @var array $formSubmissionCounts */
+/** @var array $databaseContext */
 
 use yii\bootstrap5\Html;
 
 $this->title = 'Dashboard';
+$activeDatabase = $databaseContext['activeDatabase'] ?? 'default';
+$isDatabaseSwitched = (bool)($databaseContext['isSwitched'] ?? false);
 ?>
 
 <!-- Fonts -->
@@ -129,9 +132,23 @@ $this->title = 'Dashboard';
                             <span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">dashboard</span>
                         </div>
                         <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">Workspace Overview</h1>
+                        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold <?= $isDatabaseSwitched ? 'bg-secondary/10 text-secondary border border-secondary/20' : 'bg-surface-container-high text-on-surface-variant border border-outline-variant/30' ?>">
+                            <span class="material-symbols-outlined text-[15px]">database</span>
+                            <?= Html::encode($activeDatabase) ?>
+                        </span>
                     </div>
-                    <p class="text-on-surface-variant font-medium">Welcome back, your forms are performing at <span class="text-secondary font-bold">+12.4%</span> this week.</p>
+                    <p class="text-on-surface-variant font-medium">
+                        Dashboard sedang membaca data dari database aktif:
+                        <span class="font-bold text-on-surface"><?= Html::encode($activeDatabase) ?></span>.
+                    </p>
                 </div>
+                <form method="get" action="<?= \yii\helpers\Url::to(['site/dashboard']) ?>" class="flex items-center gap-2">
+                    <input type="text" name="database" value="<?= Html::encode($activeDatabase) ?>" placeholder="nama_database"
+                        class="px-3 py-2 bg-surface-container-high border border-outline-variant rounded-xl text-sm focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all w-[180px]" />
+                    <button type="submit" class="px-4 py-2 bg-primary-container text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all">
+                        Apply
+                    </button>
+                </form>
             </div>
 
             <!-- Bento Stats Grid -->

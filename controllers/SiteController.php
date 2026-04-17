@@ -7,6 +7,7 @@ use yii\web\Controller;
 use app\models\LoginForm;
 use app\models\Form;
 use app\models\FormSubmission;
+use app\components\ActiveDatabaseContext;
 
 class SiteController extends Controller
 {
@@ -61,10 +62,16 @@ class SiteController extends Controller
      */
     public function actionDashboard()
     {
+        $databaseContext = (new ActiveDatabaseContext())->resolveAndApply();
+        if (!empty($databaseContext['switchError'])) {
+            Yii::$app->session->setFlash('warning', $databaseContext['switchError']);
+        }
+
         $userId = Yii::$app->user->id;
         $schemaColumn = Form::getSchemaStorageColumn();
+        $cacheSuffix = '-' . ($databaseContext['activeDatabase'] ?? 'default');
 
-        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId, function () use ($userId) {
+        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId) {
             $totalForms = Form::find()->where(['user_id' => $userId])->count();
             $totalSubmissions = FormSubmission::find()
                 ->innerJoin('forms', 'forms.id = form_submissions.form_id')
@@ -153,6 +160,7 @@ class SiteController extends Controller
             'totalSubmissions' => $totalSubmissions,
             'todaySubmissions' => $todaySubmissions,
             'recentForms' => $recentForms,
+            'databaseContext' => $databaseContext,
         ]);
     }
 

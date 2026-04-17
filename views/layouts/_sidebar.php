@@ -4,6 +4,7 @@
  * @var string $activeMenu - Which menu item is active: 'home', 'dashboard', 'forms', 'tables', 'profile'
  */
 $activeMenu = $activeMenu ?? '';
+$activeDatabase = Yii::$app->session->get('active_dashboard_database');
 ?>
 
 <style>
@@ -170,6 +171,14 @@ $activeMenu = $activeMenu ?? '';
         </div>
         </div>
     </div>
+    <?php if (!empty($activeDatabase)): ?>
+        <div class="px-4 mb-4">
+            <div class="app-sidebar-link-text inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-secondary/10 text-secondary border border-secondary/20">
+                <span class="material-symbols-outlined text-[14px]">database</span>
+                <?= yii\bootstrap5\Html::encode($activeDatabase) ?>
+            </div>
+        </div>
+    <?php endif; ?>
     <nav class="flex-1 space-y-1">
         <a class="app-sidebar-link flex items-center gap-3 <?= $activeMenu === 'dashboard' ? 'bg-gradient-to-r from-primary-container/10 to-primary/10 text-primary-container' : 'text-slate-600 hover:bg-slate-100' ?> rounded-xl px-4 py-3 font-medium transition-all group" href="<?= \yii\helpers\Url::to(['site/dashboard']) ?>">
             <span class="material-symbols-outlined <?= $activeMenu === 'dashboard' ? 'text-primary-container' : '' ?>" <?= $activeMenu === 'dashboard' ? 'style="font-variation-settings: \'FILL\' 1;"' : '' ?>>dashboard</span>

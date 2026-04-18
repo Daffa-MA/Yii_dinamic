@@ -1772,13 +1772,18 @@ display: none;
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
 
     <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/95 via-[#fafbfd]/95 to-[#f3f5fb]/95 backdrop-blur-2xl shadow-[0_8px_32px_rgba(11,28,48,0.08), 0_1px_0px_rgba(0,0,0,0.05)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-6">
             <div class="flex items-center bg-gradient-to-r from-[#f0f4f9]/40 to-[#e8eef7]/40 px-4 py-2 rounded-xl gap-3 backdrop-blur-sm border border-[#c7c4d8]/20">
                 <span class="material-symbols-outlined text-[#3525cd] text-[20px]">edit_square</span>
                 <span class="text-sm text-[#464555] font-semibold"><?= $model->isNewRecord ? 'Create Form' : 'Update Form' ?></span>
             </div>
             <div class="w-px h-8 bg-gradient-to-b from-transparent via-[#c7c4d8]/30 to-transparent"></div>
             <span class="text-xs text-[#777587] font-medium tracking-wide">Form Builder</span>
+            <div class="w-px h-8 bg-gradient-to-b from-transparent via-[#c7c4d8]/30 to-transparent"></div>
+            <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                'class' => 'text-[#464555] hover:text-[#3525cd] px-3 py-2 rounded-lg hover:bg-[#f8fafd] transition-all flex items-center gap-2 text-sm font-medium no-underline',
+                'encode' => false
+            ]) ?>
         </div>
         <div class="flex items-center gap-3">
             <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Forms', ['form/index'], [

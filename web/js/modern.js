@@ -451,11 +451,10 @@ class FormInteractions {
       btn.addEventListener("click", () => {
         const originalText = btn.textContent;
         btn.innerHTML = '<span class="loading-spinner" style="width: 16px; height: 16px; border-width: 2px;"></span> Saving...';
-        btn.disabled = true;
-
         setTimeout(() => {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
+          if (document.body.contains(btn) && btn.innerHTML.includes("Saving...")) {
+            btn.innerHTML = originalText;
+          }
         }, 1000);
       });
     });

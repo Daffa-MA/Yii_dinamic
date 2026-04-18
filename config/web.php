@@ -18,6 +18,9 @@ $config = [
             'cookieValidationKey' => 'blwvTdeGu2Ngh7Y3AaB_BbXDgKv5f1im',
             'trustedHosts' => ['*'],
         ],
+        'assetManager' => [
+            'appendTimestamp' => true,
+        ],
         'cache' => [
             'class' => 'yii\caching\FileCache',
         ],
@@ -77,6 +80,10 @@ $config = [
                 'tables/execute/<id:\d+>' => 'table-builder/execute-sql',
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',
                 'tables/delete/<id:\d+>' => 'table-builder/delete',
+
+                // Project routes
+                'projects' => 'project/index',
+                'projects/select/<id:\d+>' => 'project/select',
 
                 // Site routes
                 'dashboard' => 'site/dashboard',

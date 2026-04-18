@@ -7,6 +7,9 @@ use yii\bootstrap5\Html;
 
 $this->title = 'My Forms';
 
+// Add light sidebar theme to this page
+$this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
+
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
@@ -62,9 +65,15 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
     <!-- Top Navigation Bar -->
     <nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
-        <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
-            <span class="material-symbols-outlined text-outline text-[20px]">search</span>
-            <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text" />
+        <div class="flex items-center gap-6">
+            <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
+                <span class="material-symbols-outlined text-outline text-[20px]">search</span>
+                <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text" />
+            </div>
+            <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                'class' => 'text-on-surface-variant hover:text-on-surface px-4 py-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center gap-2 text-sm font-medium no-underline',
+                'encode' => false
+            ]) ?>
         </div>
         <div class="flex items-center gap-4">
             <button class="notification-button material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>

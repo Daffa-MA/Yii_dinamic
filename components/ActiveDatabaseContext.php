@@ -74,6 +74,43 @@ class ActiveDatabaseContext
         ];
     }
 
+    /**
+     * Create a new MySQL database on the current server.
+     */
+    public function createDatabase(string $databaseName): void
+    {
+        $databaseName = trim($databaseName);
+        if (!$this->isValidDatabaseName($databaseName)) {
+            throw new \RuntimeException("Nama database '{$databaseName}' tidak valid.");
+        }
+
+        $connection = Yii::$app->db;
+        if (!$this->isMysqlDsn($connection->dsn)) {
+            throw new \RuntimeException('Pembuatan database baru hanya didukung untuk MySQL.');
+        }
+
+        if ($this->databaseExists($connection, $databaseName)) {
+            return;
+        }
+
+        $quotedDatabaseName = '`' . str_replace('`', '``', $databaseName) . '`';
+        $sql = "CREATE DATABASE {$quotedDatabaseName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
+        $connection->createCommand($sql)->execute();
+    }
+
+    /**
+     * Check if a database exists on the current server.
+     */
+    public function databaseExistsOnCurrentServer(string $databaseName): bool
+    {
+        $databaseName = trim($databaseName);
+        if (!$this->isValidDatabaseName($databaseName)) {
+            return false;
+        }
+
+        return $this->databaseExists(Yii::$app->db, $databaseName);
+    }
+
     private function switchConnectionDatabase(Connection $connection, string $databaseName): void
     {
         if (!$this->databaseExists($connection, $databaseName)) {

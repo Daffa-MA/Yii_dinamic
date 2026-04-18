@@ -8,9 +8,30 @@ use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
 use app\models\DbTable;
 use app\models\DbTableColumn;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 
 class TableBuilderController extends Controller
 {
+    private function getActiveProjectId(): ?int
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        return (new ActiveProjectContext())->getActiveProjectId();
+    }
+
+    private function assignActiveProject(DbTable $model): void
+    {
+        if (!$model->hasAttribute('project_id')) {
+            return;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        $model->project_id = $activeProjectId !== null ? (int)$activeProjectId : null;
+    }
+
     private function hasPhysicalTableByName(string $tableName): bool
     {
         return Yii::$app->db->schema->getTableSchema($tableName, true) !== null;
@@ -252,12 +273,37 @@ class TableBuilderController extends Controller
         ];
     }
 
+    public function beforeAction($action)
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            return true;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        if ($activeProjectId === null) {
+            Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
+            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table.');
+            $this->redirect(['project/index']);
+            return false;
+        }
+
+        return true;
+    }
+
     public function actionIndex()
     {
-        $tables = DbTable::find()
+        $activeProjectId = $this->getActiveProjectId();
+        $tablesQuery = DbTable::find()
             ->where(['user_id' => Yii::$app->user->id])
-            ->orderBy(['created_at' => SORT_DESC])
-            ->all();
+            ->orderBy(['created_at' => SORT_DESC]);
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+        }
+        $tables = $tablesQuery->all();
 
         // Build array with tables and their columns
         $tablesWithColumns = [];
@@ -279,6 +325,7 @@ class TableBuilderController extends Controller
     {
         $model = new DbTable();
         $model->user_id = Yii::$app->user->id;
+        $this->assignActiveProject($model);
         $model->engine = 'InnoDB';
         $model->charset = 'utf8mb4';
         $model->collation = 'utf8mb4_unicode_ci';
@@ -287,6 +334,8 @@ class TableBuilderController extends Controller
         $savedColumns = [];
 
         if ($model->load(Yii::$app->request->post())) {
+            $model->user_id = Yii::$app->user->id;
+            $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
             if (is_string($columns)) {
@@ -394,6 +443,8 @@ class TableBuilderController extends Controller
         }, $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all());
 
         if ($model->load(Yii::$app->request->post())) {
+            $model->user_id = Yii::$app->user->id;
+            $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
             if (is_string($columns)) {
@@ -541,12 +592,25 @@ class TableBuilderController extends Controller
 
     protected function findModel($id)
     {
-        if (($model = DbTable::findOne($id)) !== null) {
-            if ($model->user_id != Yii::$app->user->id) {
-                throw new ForbiddenHttpException('You are not allowed to access this table.');
-            }
+        $activeProjectId = $this->getActiveProjectId();
+        $criteria = [
+            'id' => (int)$id,
+            'user_id' => Yii::$app->user->id,
+        ];
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $criteria['project_id'] = $activeProjectId;
+        }
+
+        $model = DbTable::findOne($criteria);
+
+        if ($model !== null) {
             return $model;
         }
+
+        if (DbTable::find()->where(['id' => (int)$id])->exists()) {
+            throw new ForbiddenHttpException('You are not allowed to access this table.');
+        }
+
         throw new NotFoundHttpException('The requested table does not exist.');
     }
 }

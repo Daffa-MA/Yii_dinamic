@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use app\components\ProjectSchema;
 use Yii;
 use yii\db\ActiveRecord;
 
@@ -10,6 +11,7 @@ use yii\db\ActiveRecord;
  *
  * @property integer $id
  * @property integer $user_id
+ * @property integer $project_id
  * @property integer $table_id
  * @property string $storage_type
  * @property string $name
@@ -55,16 +57,54 @@ class Form extends ActiveRecord
 
     public function rules()
     {
-        return [
-            [['user_id', 'name', 'schema_js'], 'required'],
-            [['user_id', 'table_id'], 'integer'],
+        $requiresProject = $this->hasAttribute('project_id') && ProjectSchema::supportsProjectContext();
+        $requiredAttributes = ['user_id', 'name', 'schema_js'];
+        $integerAttributes = ['user_id', 'table_id'];
+        if ($requiresProject) {
+            $requiredAttributes[] = 'project_id';
+            $integerAttributes[] = 'project_id';
+        }
+
+        $rules = [
+            [$requiredAttributes, 'required'],
+            [$integerAttributes, 'integer'],
             [['storage_type'], 'string', 'max' => 20],
             [['schema_json', 'schema_js'], 'string'],
             [['name'], 'string', 'max' => 255],
             [['storage_type'], 'in', 'range' => ['json', 'database']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
             [['table_id'], 'exist', 'skipOnError' => true, 'targetClass' => DbTable::class, 'targetAttribute' => ['table_id' => 'id']],
+            [['table_id'], 'validateTableBelongsToProject'],
         ];
+
+        if ($requiresProject) {
+            $rules[] = [['project_id'], 'exist', 'skipOnError' => true, 'targetClass' => Project::class, 'targetAttribute' => ['project_id' => 'id']];
+        }
+
+        return $rules;
+    }
+
+    public function validateTableBelongsToProject($attribute): void
+    {
+        if (empty($this->$attribute)) {
+            return;
+        }
+
+        $table = DbTable::findOne([
+            'id' => (int)$this->$attribute,
+            'user_id' => (int)$this->user_id,
+        ]);
+        if (ProjectSchema::supportsProjectContext() && $this->hasAttribute('project_id') && DbTable::getTableSchema() && isset(DbTable::getTableSchema()->columns['project_id'])) {
+            $table = DbTable::findOne([
+                'id' => (int)$this->$attribute,
+                'user_id' => (int)$this->user_id,
+                'project_id' => (int)$this->project_id,
+            ]);
+        }
+
+        if ($table === null) {
+            $this->addError($attribute, 'Selected table is not available in the active project.');
+        }
     }
 
     public function attributeLabels()
@@ -72,6 +112,7 @@ class Form extends ActiveRecord
         return [
             'id' => 'ID',
             'user_id' => 'User ID',
+            'project_id' => 'Project',
             'table_id' => 'Database Table',
             'storage_type' => 'Storage Type',
             'name' => 'Form Name',
@@ -84,6 +125,11 @@ class Form extends ActiveRecord
     public function getUser()
     {
         return $this->hasOne(User::class, ['id' => 'user_id']);
+    }
+
+    public function getProject()
+    {
+        return $this->hasOne(Project::class, ['id' => 'project_id']);
     }
 
     public function getTable()

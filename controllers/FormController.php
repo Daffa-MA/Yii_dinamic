@@ -10,9 +10,35 @@ use app\models\Form;
 use app\models\FormSubmission;
 use app\models\PublishedForm;
 use app\models\DbTable;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 
 class FormController extends Controller
 {
+    private function getActiveProjectId(): ?int
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        return (new ActiveProjectContext())->getActiveProjectId();
+    }
+
+    private function assignActiveProject(Form $model): void
+    {
+        if (!$model->hasAttribute('project_id')) {
+            return;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        $model->project_id = $activeProjectId !== null ? (int)$activeProjectId : null;
+    }
+
+    private function shouldBypassProjectContext(string $actionId): bool
+    {
+        return in_array($actionId, ['render', 'submit', 'public-render', 'success'], true);
+    }
+
     /**
      * Increment columns are system-generated and should not be mapped to form inputs.
      */
@@ -157,7 +183,12 @@ class FormController extends Controller
             return false;
         }
 
-        $table = DbTable::findOne(['id' => $tableId, 'user_id' => $form->user_id]);
+        $tableCriteria = ['id' => $tableId, 'user_id' => $form->user_id];
+        if (ProjectSchema::supportsProjectContext() && $form->hasAttribute('project_id')) {
+            $tableCriteria['project_id'] = $form->project_id;
+        }
+
+        $table = DbTable::findOne($tableCriteria);
         if ($table === null) {
             throw new \RuntimeException('Target table metadata was not found.');
         }
@@ -346,11 +377,37 @@ class FormController extends Controller
         ];
     }
 
+    public function beforeAction($action)
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        if (Yii::$app->user->isGuest || $this->shouldBypassProjectContext($action->id)) {
+            return true;
+        }
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            return true;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        if ($activeProjectId === null) {
+            Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
+            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola form.');
+            $this->redirect(['project/index']);
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * List all forms
      */
     public function actionIndex()
     {
+        $activeProjectId = $this->getActiveProjectId();
         $schemaColumn = Form::getSchemaStorageColumn();
 
         $submissionCountSubQuery = FormSubmission::find()
@@ -370,6 +427,9 @@ class FormController extends Controller
             ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
             ->where(['f.user_id' => Yii::$app->user->id])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $query->andWhere(['f.project_id' => $activeProjectId]);
+        }
 
         // Search functionality
         $search = Yii::$app->request->get('q');
@@ -392,9 +452,12 @@ class FormController extends Controller
     {
         $model = new Form();
         $model->user_id = Yii::$app->user->id;
+        $this->assignActiveProject($model);
         $model->schema_js = '[]';
 
         if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
+            $model->user_id = Yii::$app->user->id;
+            $this->assignActiveProject($model);
             $model->name = trim((string) $model->name);
             if ($model->name === '') {
                 $model->name = 'Untitled Page ' . date('Y-m-d H:i:s');
@@ -465,6 +528,8 @@ class FormController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post())) {
+            $model->user_id = Yii::$app->user->id;
+            $this->assignActiveProject($model);
             $model->name = trim((string) $model->name);
             if ($model->name === '') {
                 $model->name = 'Untitled Page ' . $model->id;
@@ -753,8 +818,11 @@ class FormController extends Controller
 
         $newForm = new Form();
         $newForm->user_id = Yii::$app->user->id;
+        $this->assignActiveProject($newForm);
         $newForm->name = $model->name . ' (Copy)';
         $newForm->schema_js = $model->schema_js;
+        $newForm->table_id = $model->table_id;
+        $newForm->storage_type = $model->storage_type;
 
         if ($newForm->save()) {
             Yii::$app->session->setFlash('success', 'Form duplicated successfully!');
@@ -832,7 +900,14 @@ class FormController extends Controller
         }
 
         // Verify table belongs to current user
-        $table = \app\models\DbTable::findOne(['id' => (int)$tableId, 'user_id' => Yii::$app->user->id]);
+        $tableCriteria = [
+            'id' => (int)$tableId,
+            'user_id' => Yii::$app->user->id,
+        ];
+        if (ProjectSchema::supportsProjectContext()) {
+            $tableCriteria['project_id'] = $this->getActiveProjectId();
+        }
+        $table = \app\models\DbTable::findOne($tableCriteria);
         if (!$table) {
             return [
                 'success' => false,
@@ -1007,11 +1082,32 @@ class FormController extends Controller
      */
     protected function findModel($id, $checkOwnership = true)
     {
-        if (($model = Form::findOne($id)) !== null) {
-            if ($checkOwnership && $model->user_id != Yii::$app->user->id) {
-                throw new ForbiddenHttpException('You are not allowed to access this form.');
+        $id = (int)$id;
+
+        if (!$checkOwnership) {
+            $model = Form::findOne($id);
+            if ($model !== null) {
+                return $model;
             }
+            throw new NotFoundHttpException('The requested form does not exist.');
+        }
+
+        $criteria = [
+            'id' => $id,
+            'user_id' => Yii::$app->user->id,
+        ];
+
+        $activeProjectId = $this->getActiveProjectId();
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $criteria['project_id'] = $activeProjectId;
+        }
+
+        if (($model = Form::findOne($criteria)) !== null) {
             return $model;
+        }
+
+        if (Form::find()->where(['id' => $id])->exists()) {
+            throw new ForbiddenHttpException('You are not allowed to access this form in current project.');
         }
 
         throw new NotFoundHttpException('The requested form does not exist.');

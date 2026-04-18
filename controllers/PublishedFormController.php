@@ -7,12 +7,23 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use app\models\PublishedForm;
 use app\models\Form;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 
 /**
  * PublishedFormController implements CRUD operations for published forms
  */
 class PublishedFormController extends Controller
 {
+    private function getActiveProjectId(): ?int
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        return (new ActiveProjectContext())->getActiveProjectId();
+    }
+
     /**
      * @inheritdoc
      */
@@ -36,16 +47,37 @@ class PublishedFormController extends Controller
         ];
     }
 
+    public function beforeAction($action)
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            return true;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        if ($activeProjectId === null) {
+            Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
+            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola data form.');
+            $this->redirect(['project/index']);
+            return false;
+        }
+
+        return true;
+    }
+
     /**
      * Lists all published forms
      */
     public function actionIndex()
     {
         $userId = Yii::$app->user->id;
+        $activeProjectId = $this->getActiveProjectId();
         $query = Form::find()
             ->alias('f')
             ->select(['f.id', 'f.user_id', 'f.name', 'f.created_at'])
-            ->where(['f.user_id' => $userId])
             ->with([
                 'publishedForms' => function ($q) use ($userId) {
                     $q->select(['id', 'user_id', 'form_id', 'name', 'slug', 'created_at'])
@@ -54,6 +86,10 @@ class PublishedFormController extends Controller
                 }
             ])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
+        $query->where(['f.user_id' => $userId]);
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $query->andWhere(['f.project_id' => $activeProjectId]);
+        }
 
         // Search functionality
         $search = Yii::$app->request->get('q');
@@ -90,6 +126,7 @@ class PublishedFormController extends Controller
         $model->user_id = Yii::$app->user->id;
         $request = Yii::$app->request;
         $isAjax = $request->isAjax;
+        $activeProjectId = $this->getActiveProjectId();
 
         $availableFormsQuery = Form::find()
             ->alias('f')
@@ -102,6 +139,9 @@ class PublishedFormController extends Controller
             ->where(['f.user_id' => Yii::$app->user->id])
             ->andWhere(['pf.id' => null])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $availableFormsQuery->andWhere(['f.project_id' => $activeProjectId]);
+        }
 
         // Get form_id from query parameter (from publish button)
         $formId = $request->get('form_id');
@@ -188,10 +228,14 @@ class PublishedFormController extends Controller
         }
 
         // Get available forms for dropdown
-        $forms = Form::find()
+        $formsQuery = Form::find()
             ->where(['user_id' => Yii::$app->user->id])
-            ->orderBy(['name' => SORT_ASC])
-            ->all();
+            ->orderBy(['name' => SORT_ASC]);
+        $activeProjectId = $this->getActiveProjectId();
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $formsQuery->andWhere(['project_id' => $activeProjectId]);
+        }
+        $forms = $formsQuery->all();
 
         return $this->render('update', [
             'model' => $model,
@@ -220,7 +264,22 @@ class PublishedFormController extends Controller
      */
     protected function findModel($id)
     {
-        if (($model = PublishedForm::findOne(['id' => $id, 'user_id' => Yii::$app->user->id])) !== null) {
+        $activeProjectId = $this->getActiveProjectId();
+
+        $model = PublishedForm::find()
+            ->alias('pf')
+            ->innerJoin(['f' => Form::tableName()], 'f.id = pf.form_id')
+            ->where([
+                'pf.id' => (int)$id,
+                'pf.user_id' => Yii::$app->user->id,
+            ])
+            ;
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $model->andWhere(['f.project_id' => $activeProjectId]);
+        }
+        $model = $model->one();
+
+        if ($model !== null) {
             return $model;
         }
 

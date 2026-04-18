@@ -6,11 +6,20 @@ use Yii;
 use yii\web\Controller;
 use app\models\LoginForm;
 use app\models\Form;
+use app\models\Project;
 use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 
 class SiteController extends Controller
 {
+    private function redirectAfterAuthentication()
+    {
+        // Always redirect to projects page first after login
+        return $this->redirect(['project/index']);
+    }
+
     /**
      * @inheritdoc
      */
@@ -52,7 +61,7 @@ class SiteController extends Controller
     public function actionIndex()
     {
         if (!Yii::$app->user->isGuest) {
-            return $this->redirect(['dashboard']);
+            return $this->redirectAfterAuthentication();
         }
         return $this->redirect(['login']);
     }
@@ -62,24 +71,53 @@ class SiteController extends Controller
      */
     public function actionDashboard()
     {
+        $projectContext = new ActiveProjectContext();
+        $projectContextEnabled = ProjectSchema::supportsProjectContext();
+        $activeProjectId = $projectContextEnabled ? $projectContext->getActiveProjectId() : null;
+        if ($projectContextEnabled && $activeProjectId === null) {
+            Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
+            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table/form.');
+            return $this->redirect(['project/index']);
+        }
+
         $databaseContext = (new ActiveDatabaseContext())->resolveAndApply();
         if (!empty($databaseContext['switchError'])) {
             Yii::$app->session->setFlash('warning', $databaseContext['switchError']);
         }
 
         $userId = Yii::$app->user->id;
+        $activeProject = null;
+        $projectDatabaseName = null;
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $activeProject = Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
+            // Get the project's database name
+            if ($activeProject !== null) {
+                $projectController = new ProjectController('project', Yii::$app);
+                $projectDatabaseName = $projectController->resolveProjectDatabaseName($activeProject);
+            }
+        }
         $schemaColumn = Form::getSchemaStorageColumn();
         $cacheSuffix = '-' . ($databaseContext['activeDatabase'] ?? 'default');
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $cacheSuffix .= '-project-' . $activeProjectId;
+        }
 
-        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId) {
-            $totalForms = Form::find()->where(['user_id' => $userId])->count();
+        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId, $activeProjectId, $projectContextEnabled) {
+            $formFilter = ['user_id' => $userId];
+            $submissionFormFilter = ['forms.user_id' => $userId];
+            if ($projectContextEnabled && $activeProjectId !== null) {
+                $formFilter['project_id'] = $activeProjectId;
+                $submissionFormFilter['forms.project_id'] = $activeProjectId;
+            }
+
+            $totalForms = Form::find()->where($formFilter)->count();
             $totalSubmissions = FormSubmission::find()
                 ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-                ->where(['forms.user_id' => $userId])
+                ->where($submissionFormFilter)
                 ->count();
             $todaySubmissions = FormSubmission::find()
                 ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-                ->where(['forms.user_id' => $userId])
+                ->where($submissionFormFilter)
                 ->andWhere(['>=', 'form_submissions.created_at', date('Y-m-d 00:00:00')])
                 ->count();
 
@@ -94,18 +132,21 @@ class SiteController extends Controller
         $totalSubmissions = $dashboardStats['totalSubmissions'];
         $todaySubmissions = $dashboardStats['todaySubmissions'];
 
-        $recentForms = Form::find()
+        $recentFormsQuery = Form::find()
             ->select(['id'])
             ->where(['user_id' => $userId])
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
-            ->limit(5)
-            ->all();
+            ->limit(5);
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $recentFormsQuery->andWhere(['project_id' => $activeProjectId]);
+        }
+        $recentForms = $recentFormsQuery->all();
 
         $submissionCountSubQuery = FormSubmission::find()
             ->select(['form_id', 'submission_count' => 'COUNT(*)'])
             ->groupBy('form_id');
 
-        $forms = Form::find()
+        $formsQuery = Form::find()
             ->alias('f')
             ->select([
                 'f.id',
@@ -116,23 +157,29 @@ class SiteController extends Controller
                 'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
             ])
             ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
-            ->where(['f.user_id' => $userId])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC])
-            ->limit(6)
-            ->all();
+            ->limit(6);
+        $formsQuery->where(['f.user_id' => $userId]);
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $formsQuery->andWhere(['f.project_id' => $activeProjectId]);
+        }
+        $forms = $formsQuery->all();
 
-        $recentSubmissions = FormSubmission::find()
+        $recentSubmissionsQuery = FormSubmission::find()
             ->select(['form_submissions.id', 'form_submissions.form_id', 'form_submissions.created_at'])
             ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $userId])
             ->with([
                 'form' => function ($q) {
                     $q->select(['id', 'name']);
                 }
             ])
             ->orderBy(['created_at' => SORT_DESC])
-            ->limit(10)
-            ->all();
+            ->limit(10);
+        $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $recentSubmissionsQuery->andWhere(['forms.project_id' => $activeProjectId]);
+        }
+        $recentSubmissions = $recentSubmissionsQuery->all();
 
         $recentFormIds = array_unique(array_map(function ($submission) {
             return (int) $submission->form_id;
@@ -152,6 +199,9 @@ class SiteController extends Controller
             }
         }
 
+        // Use project database name if available, otherwise use the general active database
+        $displayDatabase = $projectDatabaseName ?: ($databaseContext['activeDatabase'] ?? 'default');
+
         return $this->render('dashboard', [
             'forms' => $forms,
             'recentSubmissions' => $recentSubmissions,
@@ -161,6 +211,8 @@ class SiteController extends Controller
             'todaySubmissions' => $todaySubmissions,
             'recentForms' => $recentForms,
             'databaseContext' => $databaseContext,
+            'activeProject' => $activeProject,
+            'projectDatabaseName' => $displayDatabase,
         ]);
     }
 
@@ -170,12 +222,12 @@ class SiteController extends Controller
     public function actionLogin()
     {
         if (!Yii::$app->user->isGuest) {
-            return $this->redirect(['dashboard']);
+            return $this->redirectAfterAuthentication();
         }
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
-            return $this->redirect(['dashboard']);
+            return $this->redirectAfterAuthentication();
         }
 
         $model->password = '';

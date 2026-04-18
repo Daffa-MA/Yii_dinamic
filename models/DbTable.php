@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use app\components\ProjectSchema;
 use Yii;
 use yii\db\ActiveRecord;
 
@@ -21,9 +22,22 @@ class DbTable extends ActiveRecord
 
     public function rules()
     {
-        return [
-            [['user_id', 'name', 'label'], 'required'],
-            [['user_id'], 'integer'],
+        $requiresProject = $this->hasAttribute('project_id') && ProjectSchema::supportsProjectContext();
+        $requiredAttributes = ['user_id', 'name', 'label'];
+        $integerAttributes = ['user_id'];
+        if ($requiresProject) {
+            $requiredAttributes[] = 'project_id';
+            $integerAttributes[] = 'project_id';
+        }
+
+        $uniqueTarget = $requiresProject ? ['user_id', 'project_id', 'name'] : ['user_id', 'name'];
+        $uniqueMessage = $requiresProject
+            ? 'You already have a table with this name in this project.'
+            : 'You already have a table with this name.';
+
+        $rules = [
+            [$requiredAttributes, 'required'],
+            [$integerAttributes, 'integer'],
             [['description'], 'string'],
             [['name'], 'string', 'max' => 100],
             [['label'], 'string', 'max' => 255],
@@ -33,10 +47,16 @@ class DbTable extends ActiveRecord
             [['engine'], 'in', 'range' => self::ALLOWED_ENGINES],
             [['charset'], 'in', 'range' => self::ALLOWED_CHARSETS],
             [['collation'], 'in', 'range' => self::ALLOWED_COLLATIONS],
-            [['name'], 'unique', 'targetAttribute' => ['user_id', 'name'], 'message' => 'You already have a table with this name.'],
+            [['name'], 'unique', 'targetAttribute' => $uniqueTarget, 'message' => $uniqueMessage],
             [['name'], 'match', 'pattern' => '/^[a-z][a-z0-9_]*$/', 'message' => 'Table name must start with a letter and contain only lowercase letters, numbers, and underscores.'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];
+
+        if ($requiresProject) {
+            $rules[] = [['project_id'], 'exist', 'skipOnError' => true, 'targetClass' => Project::class, 'targetAttribute' => ['project_id' => 'id']];
+        }
+
+        return $rules;
     }
 
     public function attributeLabels()
@@ -44,6 +64,7 @@ class DbTable extends ActiveRecord
         return [
             'id' => 'ID',
             'user_id' => 'User ID',
+            'project_id' => 'Project',
             'name' => 'Table Name',
             'label' => 'Display Label',
             'description' => 'Description',
@@ -59,6 +80,11 @@ class DbTable extends ActiveRecord
     public function getUser()
     {
         return $this->hasOne(User::class, ['id' => 'user_id']);
+    }
+
+    public function getProject()
+    {
+        return $this->hasOne(Project::class, ['id' => 'project_id']);
     }
 
     public function getColumns()

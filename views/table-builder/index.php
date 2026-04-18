@@ -6,6 +6,7 @@
 use yii\bootstrap5\Html;
 
 $this->title = 'Database Tables';
+$this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
@@ -34,9 +35,10 @@ $totalColumns = array_sum(array_map(static fn($item) => count($item->columns), $
 }
 
 main#main > .container > .alert {
-    margin-left: 16rem;
+    margin-left: var(--app-sidebar-width, 16rem);
     margin-top: 1.5rem;
-    width: calc(100% - 16rem);
+    width: calc(100% - var(--app-sidebar-width, 16rem));
+    transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1), width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .table-index-page .page-shell {
@@ -438,9 +440,15 @@ main#main > .container > .alert {
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
 
 <nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
-    <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
-        <span class="material-symbols-outlined text-outline text-[20px]">table_chart</span>
-        <span class="text-sm text-on-surface-variant font-medium">Database Tables</span>
+    <div class="flex items-center gap-6">
+        <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
+            <span class="material-symbols-outlined text-outline text-[20px]">table_chart</span>
+            <span class="text-sm text-on-surface-variant font-medium">Database Tables</span>
+        </div>
+        <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+            'class' => 'text-on-surface-variant hover:text-on-surface px-4 py-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center gap-2 text-sm font-medium no-underline',
+            'encode' => false
+        ]) ?>
     </div>
     <div class="flex items-center gap-4">
         <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create Table', ['table-builder/create'], [

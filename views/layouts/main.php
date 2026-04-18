@@ -16,6 +16,8 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 $this->registerMetaTag(['name' => 'description', 'content' => $this->params['meta_description'] ?? '']);
 $this->registerMetaTag(['name' => 'keywords', 'content' => $this->params['meta_keywords'] ?? '']);
 $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii::getAlias('@web/favicon.ico')]);
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
@@ -25,6 +27,22 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
     <style>
+        /* Material Symbols Font */
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: 400;
+            font-style: normal;
+            font-size: 24px;
+            display: inline-flex;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
         /* Body Styles */
         body {
             background: #f9fafb;
@@ -64,6 +82,28 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
         #alert-container .alert {
             animation: slideDown 0.3s ease-out;
             border-left: 4px solid;
+            width: fit-content;
+            min-width: 280px;
+            max-width: 420px;
+        }
+
+        body:not(.login-page) #alert-container {
+            position: relative;
+            z-index: 1;
+            margin: 0 0 20px var(--app-sidebar-width, 16rem);
+            transition: margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body.login-page #alert-container {
+            position: relative;
+            z-index: 1;
+            margin: 0 0 20px;
+        }
+
+        @media (max-width: 768px) {
+            body:not(.login-page) #alert-container {
+                margin-left: 0;
+            }
         }
 
         @keyframes slideDown {
@@ -108,7 +148,7 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
             <?php if (!empty($this->params['breadcrumbs'])): ?>
                 <?= Breadcrumbs::widget(['links' => $this->params['breadcrumbs']]) ?>
             <?php endif ?>
-            <div id="alert-container" style="position: sticky; top: 80px; z-index: 1050; margin-bottom: 20px;">
+            <div id="alert-container">
                 <?= Alert::widget() ?>
             </div>
             <?= $content ?>

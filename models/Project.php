@@ -27,7 +27,9 @@ class Project extends ActiveRecord
             [['description'], 'string'],
             [['name'], 'string', 'max' => 150],
             [['name'], 'trim'],
-            [['name'], 'filter', 'filter' => static fn($value) => $value === '' ? null : $value],
+            [['name'], 'filter', 'filter' => static function ($value) {
+                return $value === '' ? null : $value;
+            }],
             [['name'], 'unique', 'targetAttribute' => ['user_id', 'name'], 'message' => 'Project name already exists.'],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];

@@ -89,6 +89,89 @@ if (!function_exists('dbParseUrl')) {
     }
 }
 
+if (!function_exists('dbNormalizeMysqlHost')) {
+    function dbNormalizeMysqlHost(?string $host): string
+    {
+        $h = strtolower(trim((string)$host));
+        if ($h === 'localhost') {
+            return '127.0.0.1';
+        }
+
+        return $h;
+    }
+}
+
+if (!function_exists('dbMysqlHostsEquivalent')) {
+    function dbMysqlHostsEquivalent(?string $a, ?string $b): bool
+    {
+        return dbNormalizeMysqlHost($a) === dbNormalizeMysqlHost($b);
+    }
+}
+
+if (!function_exists('dbMysqlConnectionOptions')) {
+    /**
+     * @return array<string, mixed>
+     */
+    function dbMysqlConnectionOptions(): array
+    {
+        return [
+            'charset' => 'utf8mb4',
+            'enableSchemaCache' => true,
+            'schemaCache' => 'cache',
+            'schemaCacheDuration' => 86400,
+            'enableQueryCache' => true,
+            'queryCacheDuration' => 120,
+        ];
+    }
+}
+
+if (!function_exists('dbBuildMysqlConnectionFromParts')) {
+    /**
+     * @return array<string, mixed>
+     */
+    function dbBuildMysqlConnectionFromParts(
+        string $host,
+        $port,
+        string $dbname,
+        string $username,
+        string $password
+    ): array {
+        $port = (string)$port;
+
+        return array_merge([
+            'class' => 'yii\db\Connection',
+            'dsn' => sprintf('mysql:host=%s;port=%s;dbname=%s', $host, $port, $dbname),
+            'username' => $username,
+            'password' => $password,
+        ], dbMysqlConnectionOptions());
+    }
+}
+
+if (!function_exists('dbBuildMysqlConnectionFromParsedUrl')) {
+    /**
+     * @param array{host?: ?string, port?: ?int, dbname?: ?string, username?: ?string, password?: ?string} $parsed
+     * @return array<string, mixed>|null
+     */
+    function dbBuildMysqlConnectionFromParsedUrl(array $parsed, string $fallbackDbName = 'mysql'): ?array
+    {
+        $host = isset($parsed['host']) ? trim((string)$parsed['host']) : '';
+        if ($host === '') {
+            return null;
+        }
+
+        $port = (string)($parsed['port'] ?? '3306');
+        $dbname = trim((string)($parsed['dbname'] ?? ''));
+        if ($dbname === '') {
+            $dbname = $fallbackDbName;
+        }
+
+        $username = (string)($parsed['username'] ?? 'root');
+        $password = (string)($parsed['password'] ?? '');
+
+        return dbBuildMysqlConnectionFromParts($host, $port, $dbname, $username, $password);
+    }
+}
+
 $envFile = dirname(__DIR__) . '/.env';
 $loadedDotenv = false;
 if (is_readable($envFile)) {
@@ -145,47 +228,79 @@ $parsedDatabaseUrl = dbParseUrl($databaseUrl);
 [$userKey, $userValue] = dbEnvValue(['YII_DB_USER', 'MYSQLUSER', 'RAILWAY_MYSQL_USER']);
 [$passwordKey, $passwordValue] = dbEnvValue(['YII_DB_PASSWORD', 'MYSQLPASSWORD', 'RAILWAY_MYSQL_PASSWORD']);
 
-$isLocalDev = defined('YII_ENV_DEV') && YII_ENV_DEV;
+// Match Yii2 basic template: YII_ENV_DEV is defined in entry scripts (web/index.php, yii).
+$isLocalDev = (defined('YII_ENV_DEV') && YII_ENV_DEV)
+    || (defined('YII_ENV') && YII_ENV === 'dev');
 $useUrlInLocalDev = getenv('YII_DB_USE_URL_IN_DEV') === '1';
+$forceLocalPrimary = getenv('YII_DB_FORCE_LOCAL_PRIMARY') === '1';
 
-if ($isLocalDev && !$useUrlInLocalDev) {
-    // Local development should default to local MySQL unless explicitly overridden.
+// Primary app DB: localhost when forcing local primary (boss workflow) or classic local dev.
+$useLocalPrimary = $forceLocalPrimary || ($isLocalDev && !$useUrlInLocalDev);
+
+if ($useLocalPrimary) {
     $dbHost = $hostValue ?? '127.0.0.1';
     $dbPort = $portValue ?? '3306';
     $dbName = $nameValue ?? 'yii2basic';
     $dbUser = $userValue ?? 'root';
     $dbPassword = $passwordValue ?? '';
-    $dbSource = $hostKey ?: 'local-default';
+    $dbSource = $forceLocalPrimary ? 'local-forced-primary' : ($hostKey ?: 'local-default');
 } else {
-    // Non-dev environments should prefer database URL-based configuration.
+    // URL-based primary (e.g. app deployed on Railway using cloud MySQL).
     $dbHost = $parsedDatabaseUrl['host'] ?? $hostValue ?? '127.0.0.1';
-    $dbPort = $parsedDatabaseUrl['port'] ?? $portValue ?? '3306';
+    $dbPort = (string)($parsedDatabaseUrl['port'] ?? $portValue ?? '3306');
     $dbName = $parsedDatabaseUrl['dbname'] ?? $nameValue ?? 'yii2basic';
     $dbUser = $parsedDatabaseUrl['username'] ?? $userValue ?? 'root';
     $dbPassword = $parsedDatabaseUrl['password'] ?? $passwordValue ?? '';
     $dbSource = $sourceKey ?: ($hostKey ?: 'fallback');
 }
 
+$dbPrimary = dbBuildMysqlConnectionFromParts($dbHost, $dbPort, $dbName, $dbUser, $dbPassword);
+
+$dbBackup = null;
+$backupSyncDisabled = getenv('YII_DB_BACKUP_SYNC') === '0';
+if (!$backupSyncDisabled) {
+    [, $explicitBackupUrl] = dbEnvValue([
+        'YII_DB_BACKUP_URL',
+        'YII_DB_REMOTE_BACKUP_URL',
+        'MYSQL_BACKUP_URL',
+    ]);
+
+    $candidateBackupUrl = $explicitBackupUrl ?: '';
+    if ($candidateBackupUrl === '' && $useLocalPrimary) {
+        [, $candidateBackupUrl] = dbEnvValue([
+            'DATABASE_PUBLIC_URL',
+            'MYSQL_PUBLIC_URL',
+            'RAILWAY_DATABASE_PUBLIC_URL',
+            'RAILWAY_MYSQL_PUBLIC_URL',
+            'DATABASE_URL',
+            'MYSQL_URL',
+            'RAILWAY_DATABASE_URL',
+            'RAILWAY_MYSQL_URL',
+        ]);
+    }
+
+    if ($candidateBackupUrl !== '') {
+        $parsedBackup = dbParseUrl($candidateBackupUrl);
+        $backupHost = isset($parsedBackup['host']) ? trim((string)$parsedBackup['host']) : '';
+        if ($backupHost !== '' && !dbMysqlHostsEquivalent($backupHost, $dbHost)) {
+            $dbBackup = dbBuildMysqlConnectionFromParsedUrl($parsedBackup);
+        }
+    }
+}
+
 dbBootstrapLog(sprintf(
-    'DB config loaded. dotenv=%s driver=%s source=%s host=%s port=%s db=%s user=%s',
+    'DB config loaded. dotenv=%s driver=%s source=%s host=%s port=%s db=%s user=%s backup=%s',
     $loadedDotenv ? 'yes' : 'no',
     $driver,
     $dbSource,
     $dbHost,
     $dbPort,
     $dbName,
-    $dbUser
+    $dbUser,
+    $dbBackup ? 'yes' : 'no'
 ));
 
 return [
-    'class' => 'yii\db\Connection',
-    'dsn' => sprintf('mysql:host=%s;port=%s;dbname=%s', $dbHost, $dbPort, $dbName),
-    'username' => $dbUser,
-    'password' => $dbPassword,
-    'charset' => 'utf8mb4',
-    'enableSchemaCache' => true,
-    'schemaCacheDuration' => 3600,
-    'schemaCache' => 'cache',
-    'enableQueryCache' => true,
-    'queryCacheDuration' => 60,
+    'db' => $dbPrimary,
+    'dbBackup' => $dbBackup,
 ];

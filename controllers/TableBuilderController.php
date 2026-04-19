@@ -13,6 +13,103 @@ use app\components\ProjectSchema;
 
 class TableBuilderController extends Controller
 {
+    private const IDENTIFIER_PATTERN = '/^[a-z][a-z0-9_]*$/';
+    private const DB_TABLE_COLUMNS_TABLE = 'db_table_columns';
+
+    /**
+     * Refresh db_table_columns schema because schema cache is enabled.
+     * This ensures newly-migrated FK metadata columns are recognized immediately.
+     */
+    private function refreshDbTableColumnsSchema(): void
+    {
+        Yii::$app->db->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
+    }
+
+    private function isFkDebugEnabled(): bool
+    {
+        $request = Yii::$app->request;
+        $raw = $request->post('fk_debug', $request->get('fk_debug', '0'));
+        return (string)$raw === '1';
+    }
+
+    private function logFkDebug(string $stage, array $context = []): void
+    {
+        if (!$this->isFkDebugEnabled()) {
+            return;
+        }
+
+        Yii::info([
+            'stage' => $stage,
+            'context' => $context,
+            'route' => Yii::$app->requestedRoute,
+        ], 'table_builder_fk_debug');
+    }
+
+    private function hasForeignKeyPayload(array $columns): bool
+    {
+        foreach ($columns as $column) {
+            if (!is_array($column)) {
+                continue;
+            }
+
+            $isForeignKey = (bool)($column['is_foreign_key'] ?? false);
+            $referencedTable = trim((string)($column['referenced_table_name'] ?? $column['referenced_table'] ?? ''));
+            $referencedColumn = trim((string)($column['referenced_column_name'] ?? $column['referenced_column'] ?? ''));
+
+            if ($isForeignKey || $referencedTable !== '' || $referencedColumn !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function supportsForeignKeyMetadataColumns(): bool
+    {
+        $schema = Yii::$app->db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
+        if ($schema === null) {
+            return false;
+        }
+
+        $requiredColumns = [
+            'is_foreign_key',
+            'referenced_table_name',
+            'referenced_column_name',
+            'on_delete_action',
+            'on_update_action',
+        ];
+
+        foreach ($requiredColumns as $requiredColumn) {
+            if (!isset($schema->columns[$requiredColumn])) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function assertForeignKeyMetadataSupport(array $columns): void
+    {
+        if (!$this->hasForeignKeyPayload($columns)) {
+            return;
+        }
+
+        if ($this->supportsForeignKeyMetadataColumns()) {
+            return;
+        }
+
+        Yii::warning([
+            'stage' => 'fk_payload_without_metadata_columns',
+            'columns' => $columns,
+            'table' => self::DB_TABLE_COLUMNS_TABLE,
+        ], 'table_builder_fk_debug');
+
+        throw new \RuntimeException(
+            "Konfigurasi Foreign Key terdeteksi, tetapi kolom metadata FK di tabel '" . self::DB_TABLE_COLUMNS_TABLE . "' belum tersedia. " .
+            "Jalankan migration: php yii migrate/up"
+        );
+    }
+
     private function getActiveProjectId(): ?int
     {
         if (!ProjectSchema::supportsProjectContext()) {
@@ -73,12 +170,122 @@ class TableBuilderController extends Controller
         return (bool)$column->is_primary && in_array(strtoupper((string)$column->type), $integerTypes, true);
     }
 
+    private function isForeignKeyColumn(DbTableColumn $column): bool
+    {
+        return $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
+    }
+
+    private function validateForeignKeyConfig(DbTableColumn $column): void
+    {
+        if (!$this->isForeignKeyColumn($column)) {
+            if ($column->hasAttribute('referenced_table_name')) {
+                $column->setAttribute('referenced_table_name', null);
+            }
+            if ($column->hasAttribute('referenced_column_name')) {
+                $column->setAttribute('referenced_column_name', null);
+            }
+            if ($column->hasAttribute('on_delete_action')) {
+                $column->setAttribute('on_delete_action', 'RESTRICT');
+            }
+            if ($column->hasAttribute('on_update_action')) {
+                $column->setAttribute('on_update_action', 'RESTRICT');
+            }
+            return;
+        }
+
+        $referencedTableName = strtolower(trim((string)$column->getAttribute('referenced_table_name')));
+        $referencedColumnName = strtolower(trim((string)$column->getAttribute('referenced_column_name')));
+        $onDeleteAction = strtoupper(trim((string)$column->getAttribute('on_delete_action')));
+        $onUpdateAction = strtoupper(trim((string)$column->getAttribute('on_update_action')));
+        if ($onDeleteAction === '') {
+            $onDeleteAction = 'RESTRICT';
+        }
+        if ($onUpdateAction === '') {
+            $onUpdateAction = 'RESTRICT';
+        }
+
+        if ($referencedTableName === '') {
+            $column->addError('referenced_table_name', 'Referenced table name is required when Foreign Key is enabled.');
+        } elseif (!preg_match(self::IDENTIFIER_PATTERN, $referencedTableName)) {
+            $column->addError('referenced_table_name', 'Referenced table name must start with a letter and contain only lowercase letters, numbers, and underscores.');
+        }
+
+        if ($referencedColumnName === '') {
+            $column->addError('referenced_column_name', 'Referenced column name is required when Foreign Key is enabled.');
+        } elseif (!preg_match(self::IDENTIFIER_PATTERN, $referencedColumnName)) {
+            $column->addError('referenced_column_name', 'Referenced column name must start with a letter and contain only lowercase letters, numbers, and underscores.');
+        }
+
+        if (!in_array($onDeleteAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
+            $column->addError('on_delete_action', 'Invalid ON DELETE action. Allowed values: ' . implode(', ', DbTableColumn::FOREIGN_KEY_ACTIONS) . '.');
+        }
+
+        if (!in_array($onUpdateAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
+            $column->addError('on_update_action', 'Invalid ON UPDATE action. Allowed values: ' . implode(', ', DbTableColumn::FOREIGN_KEY_ACTIONS) . '.');
+        }
+
+        $column->setAttribute('referenced_table_name', $referencedTableName ?: null);
+        $column->setAttribute('referenced_column_name', $referencedColumnName ?: null);
+        $column->setAttribute('on_delete_action', $onDeleteAction !== '' ? $onDeleteAction : 'RESTRICT');
+        $column->setAttribute('on_update_action', $onUpdateAction !== '' ? $onUpdateAction : 'RESTRICT');
+    }
+
+    private function buildForeignKeyConstraintName(string $tableName, string $columnName, array &$usedConstraintNames): string
+    {
+        $base = strtolower(preg_replace('/[^a-z0-9_]+/', '_', 'fk_' . $tableName . '_' . $columnName));
+        $base = trim($base, '_');
+        if ($base === '') {
+            $base = 'fk_constraint';
+        }
+
+        $maxLength = 64;
+        $candidate = substr($base, 0, $maxLength);
+        $suffix = 1;
+        while (isset($usedConstraintNames[$candidate])) {
+            $suffixText = '_' . $suffix;
+            $candidate = substr($base, 0, $maxLength - strlen($suffixText)) . $suffixText;
+            $suffix++;
+        }
+
+        $usedConstraintNames[$candidate] = true;
+        return $candidate;
+    }
+
+    private function getForeignKeyReferenceMap(): array
+    {
+        $activeProjectId = $this->getActiveProjectId();
+        $tablesQuery = DbTable::find()
+            ->where(['user_id' => Yii::$app->user->id])
+            ->orderBy(['name' => SORT_ASC]);
+
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+        }
+
+        $tables = $tablesQuery->all();
+        $referenceMap = [];
+
+        foreach ($tables as $table) {
+            $columns = $table->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            $referenceMap[(string)$table->name] = array_values(array_filter(array_map(
+                static function (DbTableColumn $column): string {
+                    return (string)$column->name;
+                },
+                $columns
+            )));
+        }
+
+        return $referenceMap;
+    }
+
     private function buildCreateTableSql(DbTable $model, array $columns): string
     {
         $db = Yii::$app->db;
         $columnDefs = [];
         $primaryKeys = [];
         $autoIncrementCandidates = [];
+        $foreignKeyDefs = [];
+        $usedConstraintNames = [];
 
         foreach ($columns as $col) {
             $type = $col->getMySQLType();
@@ -116,11 +323,54 @@ class TableBuilderController extends Controller
             }
         }
 
+        foreach ($columns as $col) {
+            if (!$this->isForeignKeyColumn($col)) {
+                continue;
+            }
+
+            $referencedTableName = strtolower(trim((string)$col->getAttribute('referenced_table_name')));
+            $referencedColumnName = strtolower(trim((string)$col->getAttribute('referenced_column_name')));
+            $onDeleteAction = strtoupper(trim((string)$col->getAttribute('on_delete_action')));
+            $onUpdateAction = strtoupper(trim((string)$col->getAttribute('on_update_action')));
+            if ($onDeleteAction === '') {
+                $onDeleteAction = 'RESTRICT';
+            }
+            if ($onUpdateAction === '') {
+                $onUpdateAction = 'RESTRICT';
+            }
+
+            if ($referencedTableName === '' || $referencedColumnName === '') {
+                throw new \RuntimeException("Foreign key column '{$col->name}' requires referenced table and column names.");
+            }
+            if (!preg_match(self::IDENTIFIER_PATTERN, $referencedTableName) || !preg_match(self::IDENTIFIER_PATTERN, $referencedColumnName)) {
+                throw new \RuntimeException("Foreign key column '{$col->name}' has invalid referenced table or column format.");
+            }
+            if (!in_array($onDeleteAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
+                throw new \RuntimeException("Foreign key column '{$col->name}' has invalid ON DELETE action.");
+            }
+            if (!in_array($onUpdateAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
+                throw new \RuntimeException("Foreign key column '{$col->name}' has invalid ON UPDATE action.");
+            }
+
+            $constraintName = $this->buildForeignKeyConstraintName($model->name, $col->name, $usedConstraintNames);
+            $foreignKeyDefs[] = "CONSTRAINT `{$constraintName}` FOREIGN KEY (`{$col->name}`) REFERENCES `{$referencedTableName}` (`{$referencedColumnName}`) ON DELETE {$onDeleteAction} ON UPDATE {$onUpdateAction}";
+        }
+
+        if (!empty($foreignKeyDefs)) {
+            $columnDefs = array_merge($columnDefs, $foreignKeyDefs);
+        }
+
         return "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
     }
 
     private function buildColumnModels(array $columns, int $tableId): array
     {
+        $this->logFkDebug('buildColumnModels.input', [
+            'table_id' => $tableId,
+            'columns_count' => count($columns),
+            'columns' => $columns,
+        ]);
+
         $columnModels = [];
         $seenNames = [];
 
@@ -140,6 +390,52 @@ class TableBuilderController extends Controller
             $column->is_unique = (bool)($colData['is_unique'] ?? false);
             if ($column->hasAttribute('is_auto_increment')) {
                 $column->setAttribute('is_auto_increment', (bool)($colData['is_auto_increment'] ?? false));
+            }
+            if ($column->hasAttribute('is_foreign_key')) {
+                $rawReferencedTable = $colData['referenced_table_name']
+                    ?? $colData['referenced_table']
+                    ?? $colData['referencedTable']
+                    ?? null;
+                $rawReferencedColumn = $colData['referenced_column_name']
+                    ?? $colData['referenced_column']
+                    ?? $colData['referencedColumn']
+                    ?? null;
+                $rawOnDeleteAction = $colData['on_delete_action']
+                    ?? $colData['on_delete']
+                    ?? $colData['onDelete']
+                    ?? 'RESTRICT';
+                $rawOnUpdateAction = $colData['on_update_action']
+                    ?? $colData['on_update']
+                    ?? $colData['onUpdate']
+                    ?? 'RESTRICT';
+
+                $column->setAttribute('is_foreign_key', (bool)($colData['is_foreign_key'] ?? false));
+                $column->setAttribute('referenced_table_name', (string)($rawReferencedTable ?? ''));
+                $column->setAttribute('referenced_column_name', (string)($rawReferencedColumn ?? ''));
+                $column->setAttribute('on_delete_action', (string)$rawOnDeleteAction);
+                $column->setAttribute('on_update_action', (string)$rawOnUpdateAction);
+                $this->validateForeignKeyConfig($column);
+                $this->logFkDebug('buildColumnModels.fk_resolved', [
+                    'index' => $index,
+                    'column_name' => $column->name,
+                    'is_foreign_key' => (bool)$column->getAttribute('is_foreign_key'),
+                    'referenced_table_name' => (string)$column->getAttribute('referenced_table_name'),
+                    'referenced_column_name' => (string)$column->getAttribute('referenced_column_name'),
+                    'on_delete_action' => (string)$column->getAttribute('on_delete_action'),
+                    'on_update_action' => (string)$column->getAttribute('on_update_action'),
+                ]);
+            } elseif (
+                isset($colData['is_foreign_key'])
+                || isset($colData['referenced_table_name'])
+                || isset($colData['referenced_table'])
+                || isset($colData['referenced_column_name'])
+                || isset($colData['referenced_column'])
+            ) {
+                $this->logFkDebug('buildColumnModels.fk_attributes_missing', [
+                    'index' => $index,
+                    'column_name' => $column->name,
+                    'payload' => $colData,
+                ]);
             }
             $column->default_value = $colData['default_value'] !== '' ? (string)$colData['default_value'] : null;
             $column->comment = $colData['comment'] !== '' ? (string)$colData['comment'] : null;
@@ -172,6 +468,11 @@ class TableBuilderController extends Controller
             $columnModels[] = $column;
         }
 
+        $this->logFkDebug('buildColumnModels.output', [
+            'table_id' => $tableId,
+            'column_models_count' => count($columnModels),
+        ]);
+
         return $columnModels;
     }
 
@@ -180,7 +481,7 @@ class TableBuilderController extends Controller
         $errors = [];
 
         foreach ($columnModels as $column) {
-            if (!$column->validate()) {
+            if (!$column->validate(null, false)) {
                 $identifier = $column->label ?: $column->name ?: 'Unnamed column';
                 $errors[] = "Column '{$identifier}': " . implode(', ', $column->getErrorSummary(true));
             }
@@ -323,6 +624,8 @@ class TableBuilderController extends Controller
 
     public function actionCreate()
     {
+        $this->refreshDbTableColumnsSchema();
+
         $model = new DbTable();
         $model->user_id = Yii::$app->user->id;
         $this->assignActiveProject($model);
@@ -332,6 +635,7 @@ class TableBuilderController extends Controller
 
         // Preserve column data for re-rendering on validation failure
         $savedColumns = [];
+        $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
 
         if ($model->load(Yii::$app->request->post())) {
             $model->user_id = Yii::$app->user->id;
@@ -342,10 +646,17 @@ class TableBuilderController extends Controller
                 $columns = json_decode($columns, true) ?: [];
             }
 
+            $this->logFkDebug('actionCreate.post_columns', [
+                'columns_count' => count($columns),
+                'columns' => $columns,
+            ]);
+
             // Save columns for restoring on validation failure
             $savedColumns = $columns;
 
             try {
+                $this->assertForeignKeyMetadataSupport($columns);
+
                 if ($model->save()) {
                     $transaction = Yii::$app->db->beginTransaction();
 
@@ -396,13 +707,28 @@ class TableBuilderController extends Controller
         return $this->render('create', [
             'model' => $model,
             'savedColumns' => $savedColumns,
+            'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
         ]);
     }
 
     public function actionView($id)
     {
+        $this->refreshDbTableColumnsSchema();
+
         $model = $this->findModel($id);
         $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+        $fkCount = 0;
+        foreach ($columns as $column) {
+            if ($column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key')) {
+                $fkCount++;
+            }
+        }
+        $this->logFkDebug('actionView.columns_loaded', [
+            'table_id' => (int)$model->id,
+            'table_name' => (string)$model->name,
+            'columns_count' => count($columns),
+            'fk_count' => $fkCount,
+        ]);
         $isCreated = $this->syncTableCreationState($model);
 
         // Fetch actual data from the database table if created
@@ -424,6 +750,8 @@ class TableBuilderController extends Controller
 
     public function actionUpdate($id)
     {
+        $this->refreshDbTableColumnsSchema();
+
         $model = $this->findModel($id);
         $oldTableName = (string)$model->name;
         $wasPhysicallyCreated = $this->syncTableCreationState($model);
@@ -437,10 +765,20 @@ class TableBuilderController extends Controller
                 'is_primary' => (bool)$column->is_primary,
                 'is_unique' => (bool)$column->is_unique,
                 'is_auto_increment' => $column->hasAttribute('is_auto_increment') ? (bool)$column->getAttribute('is_auto_increment') : false,
+                'is_foreign_key' => $column->hasAttribute('is_foreign_key') ? (bool)$column->getAttribute('is_foreign_key') : false,
+                'referenced_table_name' => $column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : null,
+                'referenced_column_name' => $column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : null,
+                'on_delete_action' => $column->hasAttribute('on_delete_action') ? $column->getAttribute('on_delete_action') : 'RESTRICT',
+                'on_update_action' => $column->hasAttribute('on_update_action') ? $column->getAttribute('on_update_action') : 'RESTRICT',
+                'referenced_table' => $column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : null,
+                'referenced_column' => $column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : null,
+                'on_delete' => $column->hasAttribute('on_delete_action') ? $column->getAttribute('on_delete_action') : 'RESTRICT',
+                'on_update' => $column->hasAttribute('on_update_action') ? $column->getAttribute('on_update_action') : 'RESTRICT',
                 'default_value' => $column->default_value,
                 'comment' => $column->comment,
             ];
         }, $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all());
+        $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
 
         if ($model->load(Yii::$app->request->post())) {
             $model->user_id = Yii::$app->user->id;
@@ -451,8 +789,15 @@ class TableBuilderController extends Controller
                 $columns = json_decode($columns, true) ?: [];
             }
             $savedColumns = $columns;
-            
+            $this->logFkDebug('actionUpdate.post_columns', [
+                'table_id' => (int)$model->id,
+                'columns_count' => count($columns),
+                'columns' => $columns,
+            ]);
+             
             try {
+                $this->assertForeignKeyMetadataSupport($columns);
+
                 if ($model->save()) {
                     $transaction = Yii::$app->db->beginTransaction();
                     $columnModels = [];
@@ -513,11 +858,14 @@ class TableBuilderController extends Controller
         return $this->render('update', [
             'model' => $model,
             'savedColumns' => $savedColumns,
+            'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
         ]);
     }
 
     public function actionExecuteSql($id)
     {
+        $this->refreshDbTableColumnsSchema();
+
         $model = $this->findModel($id);
 
         if ($this->syncTableCreationState($model)) {
@@ -539,6 +887,11 @@ class TableBuilderController extends Controller
             }
 
             $sql = $this->buildCreateTableSql($model, $columns);
+            $this->logFkDebug('actionExecuteSql.generated_sql', [
+                'table_id' => (int)$model->id,
+                'table_name' => (string)$model->name,
+                'sql' => $sql,
+            ]);
             $db->createCommand($sql)->execute();
 
             if (!$this->hasPhysicalTable($model)) {
@@ -578,6 +931,8 @@ class TableBuilderController extends Controller
 
     public function actionPreviewSql($id)
     {
+        $this->refreshDbTableColumnsSchema();
+
         $model = $this->findModel($id);
         $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
         
@@ -586,6 +941,11 @@ class TableBuilderController extends Controller
         }
 
         $sql = $this->buildCreateTableSql($model, $columns);
+        $this->logFkDebug('actionPreviewSql.generated_sql', [
+            'table_id' => (int)$model->id,
+            'table_name' => (string)$model->name,
+            'sql' => $sql,
+        ]);
 
         return $this->asJson(['sql' => $sql]);
     }

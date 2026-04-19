@@ -11,9 +11,13 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 
 $tableCount = count($tables);
-$createdCount = count(array_filter($tables, static fn($item) => (bool)$item->table->is_created));
+$createdCount = count(array_filter($tables, static function ($item) {
+    return (bool)$item->table->is_created;
+}));
 $pendingCount = $tableCount - $createdCount;
-$totalColumns = array_sum(array_map(static fn($item) => count($item->columns), $tables));
+$totalColumns = array_sum(array_map(static function ($item) {
+    return count($item->columns);
+}, $tables));
 ?>
 
 <style>

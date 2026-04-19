@@ -11,6 +11,20 @@ class ActiveDatabaseContext
     public const SESSION_KEY = 'active_dashboard_database';
 
     /**
+     * Host portion of a mysql: DSN (for user-facing hints about which server holds a database).
+     */
+    public function mysqlHostFromConnection(?Connection $connection = null): string
+    {
+        $connection = $connection ?? Yii::$app->db;
+        $dsn = (string)$connection->dsn;
+        if (preg_match('/host=([^;]+)/i', $dsn, $matches) === 1) {
+            return trim($matches[1], "[]");
+        }
+
+        return '';
+    }
+
+    /**
      * Resolve the active database from request/session and switch db connection when needed.
      */
     public function resolveAndApply(): array
@@ -89,13 +103,26 @@ class ActiveDatabaseContext
             throw new \RuntimeException('Pembuatan database baru hanya didukung untuk MySQL.');
         }
 
-        if ($this->databaseExists($connection, $databaseName)) {
-            return;
-        }
-
         $quotedDatabaseName = '`' . str_replace('`', '``', $databaseName) . '`';
         $sql = "CREATE DATABASE {$quotedDatabaseName} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci";
-        $connection->createCommand($sql)->execute();
+
+        if (!$this->databaseExists($connection, $databaseName)) {
+            $connection->createCommand($sql)->execute();
+        }
+
+        $backup = Yii::$app->get('dbBackup', false);
+        if ($backup instanceof Connection && getenv('YII_DB_BACKUP_SYNC') !== '0') {
+            try {
+                if (!$this->databaseExists($backup, $databaseName)) {
+                    $backup->createCommand($sql)->execute();
+                }
+            } catch (\Throwable $e) {
+                Yii::warning(
+                    "Gagal membuat database backup '{$databaseName}': {$e->getMessage()}",
+                    __METHOD__
+                );
+            }
+        }
     }
 
     /**

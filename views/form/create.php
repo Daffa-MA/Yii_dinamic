@@ -6,6 +6,7 @@
 use yii\bootstrap5\Html;
 
 $this->title = 'Visual Website Builder';
+$this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 
 // Register dependencies - MUST be before other scripts
 $this->registerCssFile('https://unpkg.com/grapesjs@0.21.7/dist/css/grapes.min.css', ['position' => \yii\web\View::POS_HEAD]);
@@ -2225,11 +2226,21 @@ display: none;
                         }
                         $tables = $tablesQuery->asArray()->all();
                         $hasTable = !empty($tables);
+                        $selectedTableId = $model->hasAttribute('db_table_id')
+                            ? (int)$model->getAttribute('db_table_id')
+                            : (int)$model->table_id;
+                        if ($selectedTableId <= 0) {
+                            $selectedTableId = (int)$model->table_id;
+                        }
+                        $insertToTableChecked = $model->hasAttribute('insert_to_table')
+                            ? ((int)$model->getAttribute('insert_to_table') === 1)
+                            : ($model->storage_type === 'database');
                         ?>
+                        <span class="text-xs font-semibold text-[#4b5563] tracking-wide">Database Connection</span>
                         <select id="table-selector" class="zoom-select" title="Select table to auto-generate form fields" <?= !$hasTable ? 'disabled' : '' ?>>
                             <option value=""><span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">storage</span>Select a table...</option>
                             <?php foreach ($tables as $table): ?>
-                                <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $model->table_id == $table['id'] ? 'selected' : '' ?>>
+                                <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $selectedTableId === (int)$table['id'] ? 'selected' : '' ?>>
                                     <span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">table_chart</span><?= Html::encode($table['name']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -2243,6 +2254,10 @@ display: none;
                                 <span class="material-symbols-outlined" style="font-size:18px;">block</span> No Tables
                             </button>
                         <?php endif; ?>
+                        <label class="flex items-center gap-2 text-xs font-medium text-[#374151]">
+                            <input type="checkbox" id="insert-to-table-toggle" class="h-4 w-4 rounded border-gray-300 text-[#3525cd] focus:ring-[#3525cd]" <?= $insertToTableChecked ? 'checked' : '' ?>>
+                            Insert langsung ke tabel database (bukan ke form_submissions)
+                        </label>
 
                         <div class="toolbar-divider"></div>
                         <button class="device-btn active" data-device="desktop" title="Desktop"><span class="material-symbols-outlined" style="font-size:18px;">desktop_windows</span></button>
@@ -2492,9 +2507,22 @@ display: none;
                                     </div>
                                 </div>
 
+                    <?php
+                    $selectedTableId = $model->hasAttribute('db_table_id')
+                        ? (int)$model->getAttribute('db_table_id')
+                        : (int)$model->table_id;
+                    if ($selectedTableId <= 0) {
+                        $selectedTableId = (int)$model->table_id;
+                    }
+                    $insertToTable = $model->hasAttribute('insert_to_table')
+                        ? ((int)$model->getAttribute('insert_to_table') === 1)
+                        : ($model->storage_type === 'database');
+                    ?>
                     <?= Html::hiddenInput('Form[schema_js]', $model->isNewRecord ? '[]' : Html::encode($model->schema_js), ['id' => 'schema-js']) ?>
-                    <?= Html::hiddenInput('Form[table_id]', $model->table_id, ['id' => 'table-id']) ?>
-                    <?= Html::hiddenInput('Form[storage_type]', $model->storage_type ?: ($model->table_id ? 'database' : 'json'), ['id' => 'storage-type']) ?>
+                    <?= Html::hiddenInput('Form[table_id]', $selectedTableId, ['id' => 'table-id']) ?>
+                    <?= Html::hiddenInput('Form[db_table_id]', $selectedTableId, ['id' => 'db-table-id']) ?>
+                    <?= Html::hiddenInput('Form[storage_type]', $insertToTable ? 'database' : 'json', ['id' => 'storage-type']) ?>
+                    <?= Html::hiddenInput('Form[insert_to_table]', $insertToTable ? 1 : 0, ['id' => 'insert-to-table']) ?>
                     <?= Html::hiddenInput('form_pages', '', ['id' => 'form-pages-data']) ?>
 
                                 <div class="canvas-body" id="canvas-body">
@@ -3124,7 +3152,10 @@ return html;</pre>
                     schemaJson = document.getElementById('schema-js');
                     tableSelector = document.getElementById('table-selector');
                     tableIdInput = document.getElementById('table-id');
+                    const dbTableIdInput = document.getElementById('db-table-id');
                     const storageTypeInput = document.getElementById('storage-type');
+                    const insertToTableInput = document.getElementById('insert-to-table');
+                    const insertToTableToggle = document.getElementById('insert-to-table-toggle');
                     btnAutoGenerate = document.getElementById('btn-auto-generate');
                     canvasBlocks = document.getElementById('canvas-body');
 
@@ -3162,6 +3193,17 @@ return html;</pre>
                                 safeLog.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
                             }
                         }
+                    }
+
+                    if (insertToTableToggle && insertToTableInput) {
+                        insertToTableToggle.checked = insertToTableInput.value === '1';
+                        insertToTableToggle.addEventListener('change', function() {
+                            const shouldInsert = this.checked;
+                            insertToTableInput.value = shouldInsert ? '1' : '0';
+                            if (storageTypeInput) {
+                                storageTypeInput.value = shouldInsert ? 'database' : 'json';
+                            }
+                        });
                     }
 
                     // Initialize Sortable for canvas blocks with reordering support
@@ -5711,7 +5753,15 @@ document.addEventListener('DOMContentLoaded', function() {
                             e.preventDefault();
                             // Update schema before saving
                             document.getElementById('schema-js').value = JSON.stringify(blocks);
-                            document.getElementById('table-id').value = tableSelector ? tableSelector.value : '';
+                            const selectedTable = tableSelector ? tableSelector.value : '';
+                            document.getElementById('table-id').value = selectedTable;
+                            if (dbTableIdInput) {
+                                dbTableIdInput.value = selectedTable;
+                            }
+                            if (insertToTableInput && storageTypeInput) {
+                                const shouldInsert = insertToTableInput.value === '1';
+                                storageTypeInput.value = shouldInsert ? 'database' : 'json';
+                            }
                             
                             // Submit the form
                             const form = document.getElementById('builder-form');
@@ -5727,13 +5777,24 @@ document.addEventListener('DOMContentLoaded', function() {
                         form._hasSubmitHandler = true; // Prevent duplicate handlers
                         form.addEventListener('submit', function() {
                             document.getElementById('schema-js').value = JSON.stringify(blocks);
-                            document.getElementById('table-id').value = tableSelector ? tableSelector.value : '';
+                            const selectedTable = tableSelector ? tableSelector.value : '';
+                            document.getElementById('table-id').value = selectedTable;
+                            if (dbTableIdInput) {
+                                dbTableIdInput.value = selectedTable;
+                            }
+                            if (insertToTableInput && storageTypeInput) {
+                                const shouldInsert = insertToTableInput.value === '1';
+                                storageTypeInput.value = shouldInsert ? 'database' : 'json';
+                            }
                         });
                     }
 
                     // Table selector change - update hidden input
                     document.getElementById('table-selector').addEventListener('change', function() {
                         document.getElementById('table-id').value = this.value;
+                        if (dbTableIdInput) {
+                            dbTableIdInput.value = this.value;
+                        }
                     });
 
                     // Auto-generate form fields from table

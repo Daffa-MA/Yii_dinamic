@@ -3,11 +3,15 @@
 /** @var yii\web\View $this */
 /** @var app\models\Form $model */
 /** @var array $schema */
+/** @var array $fkConfig */
 
 use yii\bootstrap5\Html;
 use yii\bootstrap5\ActiveForm;
+use yii\helpers\Url;
 
 $this->title = $model->name;
+$fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
+$fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 // Parse schema to get pages and custom design
 $schemaData = json_decode($model->schema_js, true);
@@ -242,6 +246,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                     $options = $required ? 'required' : '';
                                     $width = $field['width'] ?? 'full';
                                     $animation = $field['animation'] ?? '';
+                                    $fkMeta = (is_string($fieldName) && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) ? $fkConfig[$fieldName] : null;
 
                                     // Width classes
                                     $widthClass = 'w-full';
@@ -356,7 +361,31 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                 <?= Html::encode($fieldLabel) ?><?= $required ? ' <span class="text-red-500">*</span>' : '' ?>
                                             </label>
 
-                                            <?php if ($fieldType === 'text-input'): ?>
+                                            <?php if ($fkMeta !== null): ?>
+                                                <?php
+                                                $fkOptions = isset($fkMeta['options']) && is_array($fkMeta['options']) ? $fkMeta['options'] : [];
+                                                $quickAddFields = isset($fkMeta['quickAddFields']) && is_array($fkMeta['quickAddFields']) ? $fkMeta['quickAddFields'] : [];
+                                                ?>
+                                                <div class="flex items-center gap-2">
+                                                    <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                        data-fk-field="<?= Html::encode($fieldName) ?>"
+                                                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                                        <option value=""><?= Html::encode($placeholder ?: 'Pilih salah satu...') ?></option>
+                                                        <?php foreach ($fkOptions as $fkOption): ?>
+                                                            <option value="<?= Html::encode((string)($fkOption['value'] ?? '')) ?>">
+                                                                <?= Html::encode((string)($fkOption['label'] ?? '')) ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                    </select>
+                                                    <button type="button"
+                                                        class="quick-add-btn px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm font-bold text-gray-700"
+                                                        data-fk-field="<?= Html::encode($fieldName) ?>"
+                                                        data-fk-label="<?= Html::encode($fieldLabel) ?>"
+                                                        <?= empty($quickAddFields) ? 'style="display:none;"' : '' ?>
+                                                        title="Tambah Baru">+</button>
+                                                </div>
+
+                                            <?php elseif ($fieldType === 'text-input'): ?>
                                                 <input type="text" name="<?= Html::encode($fieldName) ?>"
                                                     <?= $options ?>
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
@@ -496,6 +525,23 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         <?php endif; ?>
         </div>
 
+    <div id="fkQuickAddModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40">
+        <div class="w-full max-w-md rounded-2xl bg-white shadow-xl">
+            <div class="flex items-center justify-between border-b px-5 py-4">
+                <h3 class="text-lg font-semibold text-gray-900">Tambah Data Referensi</h3>
+                <button type="button" id="fkQuickAddClose" class="text-gray-500 hover:text-gray-700">&times;</button>
+            </div>
+            <form id="fkQuickAddForm" class="px-5 py-4 space-y-4">
+                <input type="hidden" id="fkQuickAddField" name="field" value="">
+                <div id="fkQuickAddFields"></div>
+                <div class="flex items-center justify-end gap-2 border-t pt-4">
+                    <button type="button" id="fkQuickAddCancel" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700">Batal</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white font-semibold">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Page Navigation JavaScript -->
     <?php if (count($pages) > 1): ?>
     <script>
@@ -575,6 +621,10 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
     <?php endif; ?>
 
     <script>
+        const fkConfigMap = <?= $fkConfigJson ?: '{}' ?>;
+        const fkQuickAddUrl = <?= json_encode(Url::to(['form/fk-quick-add', 'id' => $model->id])) ?>;
+        const fkOptionsUrl = <?= json_encode(Url::to(['form/fk-options', 'id' => $model->id])) ?>;
+
         // Firebase Configuration - Sudah otomatis diisi untuk project TableForge
         const firebaseConfig = {
             apiKey: "AIzaSyCJAQkNbZ-Uor-dW93knoeuwdGsrARI3ow",
@@ -599,6 +649,82 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         const loginEmail = document.getElementById('loginEmail');
         const loginPassword = document.getElementById('loginPassword');
         const form = document.querySelector('form');
+        const quickAddModal = document.getElementById('fkQuickAddModal');
+        const quickAddClose = document.getElementById('fkQuickAddClose');
+        const quickAddCancel = document.getElementById('fkQuickAddCancel');
+        const quickAddForm = document.getElementById('fkQuickAddForm');
+        const quickAddFieldInput = document.getElementById('fkQuickAddField');
+        const quickAddFieldsContainer = document.getElementById('fkQuickAddFields');
+
+        function renderQuickAddFields(fieldName) {
+            if (!quickAddFieldsContainer) return;
+            const config = fkConfigMap[fieldName] || {};
+            const fields = Array.isArray(config.quickAddFields) ? config.quickAddFields : [];
+            quickAddFieldsContainer.innerHTML = '';
+
+            if (fields.length === 0) {
+                quickAddFieldsContainer.innerHTML = '<p class="text-sm text-gray-500">Field tambahan tidak diperlukan.</p>';
+                return;
+            }
+
+            fields.forEach((item) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'space-y-1';
+                const label = document.createElement('label');
+                label.className = 'block text-sm font-medium text-gray-700';
+                label.textContent = item.label || item.name;
+                const input = document.createElement('input');
+                input.type = item.inputType || 'text';
+                input.name = item.name;
+                input.required = !!item.required;
+                input.className = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent';
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                quickAddFieldsContainer.appendChild(wrapper);
+            });
+        }
+
+        function openQuickAddModal(fieldName) {
+            if (!quickAddModal || !quickAddForm || !quickAddFieldInput) return;
+            quickAddFieldInput.value = fieldName;
+            renderQuickAddFields(fieldName);
+            quickAddModal.classList.remove('hidden');
+            quickAddModal.classList.add('flex');
+        }
+
+        function closeQuickAddModal() {
+            if (!quickAddModal || !quickAddForm) return;
+            quickAddModal.classList.remove('flex');
+            quickAddModal.classList.add('hidden');
+            quickAddForm.reset();
+        }
+
+        async function refreshFkOptions(fieldName) {
+            const targetSelect = document.querySelector('select[data-fk-field="' + fieldName + '"]');
+            if (!targetSelect) return;
+
+            const payload = new URLSearchParams();
+            payload.append('field', fieldName);
+            payload.append('<?= Yii::$app->request->csrfParam ?>', '<?= Yii::$app->request->csrfToken ?>');
+
+            const response = await fetch(fkOptionsUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                },
+                body: payload.toString()
+            });
+            const result = await response.json();
+            if (!result.success || !Array.isArray(result.options)) return;
+
+            targetSelect.querySelectorAll('option:not([value=""])').forEach((opt) => opt.remove());
+            result.options.forEach((opt) => {
+                const optionEl = document.createElement('option');
+                optionEl.value = String(opt.value ?? '');
+                optionEl.textContent = String(opt.label ?? '');
+                targetSelect.appendChild(optionEl);
+            });
+        }
 
         function upsertHiddenInput(name, value) {
             if (!form) return;
@@ -675,6 +801,71 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         // Form submission handler
         document.addEventListener('DOMContentLoaded', function() {
             const submitBtn = document.getElementById('submitBtn') || document.querySelector('button[type="submit"]');
+            document.querySelectorAll('.quick-add-btn').forEach((button) => {
+                button.addEventListener('click', function() {
+                    const fieldName = this.getAttribute('data-fk-field');
+                    if (!fieldName) return;
+                    openQuickAddModal(fieldName);
+                });
+            });
+
+            if (quickAddClose) {
+                quickAddClose.addEventListener('click', closeQuickAddModal);
+            }
+            if (quickAddCancel) {
+                quickAddCancel.addEventListener('click', closeQuickAddModal);
+            }
+            if (quickAddModal) {
+                quickAddModal.addEventListener('click', function(event) {
+                    if (event.target === quickAddModal) {
+                        closeQuickAddModal();
+                    }
+                });
+            }
+            if (quickAddForm && quickAddFieldInput) {
+                quickAddForm.addEventListener('submit', async function(event) {
+                    event.preventDefault();
+                    const fieldName = quickAddFieldInput.value;
+                    if (!fieldName) return;
+
+                    const formData = new FormData(quickAddForm);
+                    const payload = {};
+                    formData.forEach((value, key) => {
+                        if (key !== 'field') {
+                            payload[key] = String(value).trim();
+                        }
+                    });
+
+                    try {
+                        const requestBody = new URLSearchParams();
+                        requestBody.append('field', fieldName);
+                        requestBody.append('payload', JSON.stringify(payload));
+                        requestBody.append('<?= Yii::$app->request->csrfParam ?>', '<?= Yii::$app->request->csrfToken ?>');
+
+                        const response = await fetch(fkQuickAddUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                            },
+                            body: requestBody.toString()
+                        });
+                        const result = await response.json();
+                        if (!result.success) {
+                            alert(result.message || 'Gagal menambah data baru.');
+                            return;
+                        }
+
+                        await refreshFkOptions(fieldName);
+                        const targetSelect = document.querySelector('select[data-fk-field="' + fieldName + '"]');
+                        if (targetSelect && result.option && result.option.value !== undefined) {
+                            targetSelect.value = String(result.option.value);
+                        }
+                        closeQuickAddModal();
+                    } catch (error) {
+                        alert('Gagal menambah data baru.');
+                    }
+                });
+            }
 
             if (!form || !submitBtn) {
                 return;

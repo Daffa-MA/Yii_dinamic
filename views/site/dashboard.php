@@ -6,6 +6,7 @@
 /** @var array $formSubmissionCounts */
 /** @var array $databaseContext */
 /** @var string $projectDatabaseName */
+/** @var int $databaseTableCount */
 
 use yii\bootstrap5\Html;
 
@@ -100,9 +101,31 @@ $isDatabaseSwitched = (bool)($databaseContext['isSwitched'] ?? false);
     .tonal-transition {
         transition: background-color 0.3s ease;
     }
+
+    .dashboard-hero-grid {
+        background:
+            radial-gradient(circle at 8% 12%, rgba(79, 70, 229, 0.15), transparent 38%),
+            radial-gradient(circle at 92% 25%, rgba(0, 108, 73, 0.14), transparent 40%),
+            linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(237, 244, 255, 0.95));
+    }
+
+    .dashboard-glow {
+        position: relative;
+    }
+
+    .dashboard-glow::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        z-index: -1;
+        border-radius: 24px;
+        background: linear-gradient(130deg, rgba(79, 70, 229, 0.35), rgba(0, 108, 73, 0.28), rgba(53, 37, 205, 0.25));
+        filter: blur(16px);
+        opacity: 0.5;
+    }
 </style>
 
-<body class="bg-surface font-body text-on-surface">
+<body class="bg-gradient-to-br from-[#edf3ff] via-[#f7f8ff] to-[#f4fbff] font-body text-on-surface">
     <!-- Top Navigation Bar -->
     <nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)] tonal-transition">
         <div class="flex items-center gap-6">
@@ -133,27 +156,41 @@ $isDatabaseSwitched = (bool)($databaseContext['isSwitched'] ?? false);
     <main class="app-shell-main pl-64 pt-6 min-h-screen">
         <div class="max-w-[1400px] mx-auto px-8 py-8">
             <!-- Header Section -->
-            <div class="flex justify-between items-end mb-10">
-                <div>
-                    <div class="flex items-center gap-3 mb-2">
-                        <div class="w-10 h-10 bg-primary-container/10 rounded-xl flex items-center justify-center">
-                            <span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+            <section class="dashboard-glow mb-10">
+                <div class="dashboard-hero-grid rounded-3xl border border-white/80 shadow-[0_30px_60px_rgba(53,37,205,0.09)] p-7 md:p-9">
+                    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="w-11 h-11 bg-primary-container/10 rounded-2xl flex items-center justify-center border border-primary-container/20">
+                                    <span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+                                </div>
+                                <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">Workspace Overview</h1>
+                                <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold <?= $isDatabaseSwitched ? 'bg-secondary/10 text-secondary border border-secondary/20' : 'bg-surface-container-high text-on-surface-variant border border-outline-variant/30' ?>">
+                                    <span class="material-symbols-outlined text-[15px]">database</span>
+                                    <?= Html::encode($activeDatabase) ?>
+                                </span>
+                            </div>
+                            <p class="text-on-surface-variant font-medium">
+                                Dashboard sedang membaca data dari database aktif:
+                                <span class="font-bold text-on-surface"><?= Html::encode($activeDatabase) ?></span>.
+                            </p>
                         </div>
-                        <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight">Workspace Overview</h1>
-                        <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold <?= $isDatabaseSwitched ? 'bg-secondary/10 text-secondary border border-secondary/20' : 'bg-surface-container-high text-on-surface-variant border border-outline-variant/30' ?>">
-                            <span class="material-symbols-outlined text-[15px]">database</span>
-                            <?= Html::encode($activeDatabase) ?>
-                        </span>
+                        <div class="grid grid-cols-2 gap-3 min-w-[260px]">
+                            <div class="rounded-2xl bg-white/80 border border-white px-4 py-3">
+                                <p class="text-[11px] uppercase tracking-widest text-outline font-bold mb-1">Tables (Builder)</p>
+                                <p class="text-2xl font-extrabold text-primary-container font-headline"><?= number_format($databaseTableCount) ?></p>
+                            </div>
+                            <div class="rounded-2xl bg-white/80 border border-white px-4 py-3">
+                                <p class="text-[11px] uppercase tracking-widest text-outline font-bold mb-1">Forms Tracked</p>
+                                <p class="text-2xl font-extrabold text-secondary font-headline"><?= number_format($totalForms) ?></p>
+                            </div>
+                        </div>
                     </div>
-                    <p class="text-on-surface-variant font-medium">
-                        Dashboard sedang membaca data dari database aktif:
-                        <span class="font-bold text-on-surface"><?= Html::encode($activeDatabase) ?></span>.
-                    </p>
                 </div>
-            </div>
+            </section>
 
             <!-- Bento Stats Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-12">
                 <!-- Card 1: Indigo -->
                 <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border border-outline-variant/30 hover:border-primary-container/40 transition-all">
                     <div class="h-1 bg-gradient-to-r from-primary-container to-primary absolute top-0 left-0 right-0"></div>
@@ -212,6 +249,21 @@ $isDatabaseSwitched = (bool)($databaseContext['isSwitched'] ?? false);
                     <h3 class="text-3xl font-extrabold text-surface-tint font-headline relative z-10"><?= count($recentForms) ?></h3>
                     <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
                         <span class="material-symbols-outlined text-9xl">new_releases</span>
+                    </div>
+                </div>
+                <!-- Card 5: Database Tables -->
+                <div class="bg-surface-container-lowest p-6 rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] relative overflow-hidden group border border-outline-variant/30 hover:border-indigo-400/40 transition-all">
+                    <div class="h-1 bg-gradient-to-r from-indigo-500 to-cyan-400 absolute top-0 left-0 right-0"></div>
+                    <div class="flex justify-between items-start mb-4 relative z-10 mt-2">
+                        <div class="p-3 bg-gradient-to-br from-indigo-500/10 to-cyan-400/10 rounded-xl border border-indigo-500/20">
+                            <span class="material-symbols-outlined text-indigo-600" style="font-variation-settings: 'FILL' 1;">table_chart</span>
+                        </div>
+                        <span class="text-xs font-bold text-indigo-600 px-2 py-1 bg-indigo-500/10 rounded-full">DATABASE</span>
+                    </div>
+                    <p class="text-sm font-medium text-on-surface-variant mb-1 relative z-10">Total Tables (Builder)</p>
+                    <h3 class="text-3xl font-extrabold text-indigo-600 font-headline relative z-10"><?= number_format($databaseTableCount) ?></h3>
+                    <div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-700">
+                        <span class="material-symbols-outlined text-9xl">table_chart</span>
                     </div>
                 </div>
             </div>

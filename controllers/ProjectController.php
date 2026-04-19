@@ -6,6 +6,8 @@ use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use app\models\Project;
+use app\models\Form;
+use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
@@ -121,7 +123,14 @@ class ProjectController extends Controller
                     }
 
                     $context->setActiveProject((int)$model->id);
-                    Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. Database baru '{$databaseName}' juga sudah dibuat.");
+                    $dbHostHint = (new ActiveDatabaseContext())->mysqlHostFromConnection();
+                    $backupHint = Yii::$app->has('dbBackup')
+                        ? ' Nama database yang sama juga dicoba dibuat di server backup (Railway/remote). Sinkronisasi penuh isi tabel diluar aplikasi ini—misalnya dump/restore berkala.'
+                        : '';
+                    $serverHint = $dbHostHint !== ''
+                        ? "Database baru '{$databaseName}' dibuat di server MySQL {$dbHostHint}. Di phpMyAdmin, pastikan Anda terhubung ke host yang sama agar database tampil di sidebar kiri (refresh daftar database bila perlu)."
+                        : "Database baru '{$databaseName}' sudah dibuat. Di phpMyAdmin, pastikan koneksi ke server MySQL yang sama dengan aplikasi ini, lalu refresh daftar database.";
+                    Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}");
 
                     return $this->redirectAfterProjectSelected();
                 }
@@ -186,7 +195,9 @@ class ProjectController extends Controller
         $context = new ActiveProjectContext();
         $context->setActiveProject((int)$project->id);
 
-        Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}.");
+        $dbHostHint = (new ActiveDatabaseContext())->mysqlHostFromConnection();
+        $hostSuffix = $dbHostHint !== '' ? " (server: {$dbHostHint})" : '';
+        Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}{$hostSuffix}.");
         return $this->redirectAfterProjectSelected();
     }
 
@@ -201,5 +212,40 @@ class ProjectController extends Controller
         }
 
         return $this->redirect(['site/dashboard']);
+    }
+
+    public function actionProfile()
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Project context not available.');
+            return $this->redirect(['site/profile']);
+        }
+
+        $context = new ActiveProjectContext();
+        $activeProjectId = $context->getActiveProjectId();
+        
+        if ($activeProjectId === null) {
+            Yii::$app->session->setFlash('warning', 'No active project selected.');
+            return $this->redirect(['project/index']);
+        }
+
+        $project = Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+        if ($project === null) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        $user = Yii::$app->user->identity;
+        $totalForms = Form::find()->where(['user_id' => $user->id])->count();
+        $totalSubmissions = FormSubmission::find()
+            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
+            ->where(['forms.user_id' => $user->id])
+            ->count();
+
+        return $this->render('profile', [
+            'user' => $user,
+            'project' => $project,
+            'totalForms' => $totalForms,
+            'totalSubmissions' => $totalSubmissions,
+        ]);
     }
 }

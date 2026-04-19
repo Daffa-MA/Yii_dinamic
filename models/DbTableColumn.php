@@ -10,6 +10,8 @@ use yii\db\ActiveRecord;
  */
 class DbTableColumn extends ActiveRecord
 {
+    public const FOREIGN_KEY_ACTIONS = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
+
     // MySQL column types
     public static $columnTypes = [
         'VARCHAR' => 'Text (Variable Length)',
@@ -36,7 +38,7 @@ class DbTableColumn extends ActiveRecord
 
     public function rules()
     {
-        return [
+        $rules = [
             [['table_id', 'name', 'label', 'type'], 'required'],
             [['table_id', 'length', 'sort_order'], 'integer'],
             [['is_nullable', 'is_primary', 'is_unique', 'is_auto_increment'], 'boolean'],
@@ -52,6 +54,57 @@ class DbTableColumn extends ActiveRecord
             // PRIMARY KEY columns cannot be NULL
             [['is_nullable'], 'validatePrimaryKeyNullable'],
         ];
+
+        if ($this->hasAttribute('is_foreign_key')) {
+            $rules[] = [['is_foreign_key'], 'boolean'];
+            $rules[] = [['referenced_table_name', 'referenced_column_name'], 'string', 'max' => 100];
+            $rules[] = [['on_delete_action', 'on_update_action'], 'string', 'max' => 20];
+            $rules[] = [['is_foreign_key'], 'validateForeignKeyMetadata'];
+        }
+
+        return $rules;
+    }
+
+    public static function normalizeForeignKeyAction(?string $action): string
+    {
+        $normalized = strtoupper(trim((string)$action));
+        return in_array($normalized, self::FOREIGN_KEY_ACTIONS, true) ? $normalized : 'RESTRICT';
+    }
+
+    public function validateForeignKeyMetadata($attribute, $params)
+    {
+        if (!$this->hasAttribute('is_foreign_key') || !(bool)$this->getAttribute('is_foreign_key')) {
+            return;
+        }
+
+        $refTable = trim((string)$this->getAttribute('referenced_table_name'));
+        $refColumn = trim((string)$this->getAttribute('referenced_column_name'));
+        $identifierPattern = '/^[a-z][a-z0-9_]*$/';
+
+        if ($refTable === '') {
+            $this->addError('referenced_table_name', 'Referenced table name is required when Foreign Key is enabled.');
+        } elseif (!preg_match($identifierPattern, strtolower($refTable))) {
+            $this->addError('referenced_table_name', 'Referenced table name must start with a letter and contain only lowercase letters, numbers, and underscores.');
+        }
+
+        if ($refColumn === '') {
+            $this->addError('referenced_column_name', 'Referenced column name is required when Foreign Key is enabled.');
+        } elseif (!preg_match($identifierPattern, strtolower($refColumn))) {
+            $this->addError('referenced_column_name', 'Referenced column name must start with a letter and contain only lowercase letters, numbers, and underscores.');
+        }
+
+        foreach (['on_delete_action', 'on_update_action'] as $actionAttribute) {
+            $action = strtoupper(trim((string)$this->getAttribute($actionAttribute)));
+            if ($action === '') {
+                $action = 'RESTRICT';
+            }
+            if (!in_array($action, self::FOREIGN_KEY_ACTIONS, true)) {
+                $this->addError(
+                    $actionAttribute,
+                    'Invalid action. Allowed values: ' . implode(', ', self::FOREIGN_KEY_ACTIONS) . '.'
+                );
+            }
+        }
     }
 
     /**
@@ -101,6 +154,11 @@ class DbTableColumn extends ActiveRecord
             'is_primary' => 'Primary Key',
             'is_unique' => 'Unique',
             'is_auto_increment' => 'Auto Increment',
+            'is_foreign_key' => 'Foreign Key',
+            'referenced_table_name' => 'Referenced Table',
+            'referenced_column_name' => 'Referenced Column',
+            'on_delete_action' => 'On Delete Action',
+            'on_update_action' => 'On Update Action',
             'default_value' => 'Default Value',
             'comment' => 'Comment',
             'sort_order' => 'Sort Order',
@@ -131,6 +189,22 @@ class DbTableColumn extends ActiveRecord
     {
         if (parent::beforeSave($insert)) {
             $this->name = strtolower(trim($this->name));
+
+            if ($this->hasAttribute('is_foreign_key')) {
+                $isForeignKey = (bool)$this->getAttribute('is_foreign_key');
+                if ($isForeignKey) {
+                    $this->setAttribute('referenced_table_name', strtolower(trim((string)$this->getAttribute('referenced_table_name'))) ?: null);
+                    $this->setAttribute('referenced_column_name', strtolower(trim((string)$this->getAttribute('referenced_column_name'))) ?: null);
+                    $this->setAttribute('on_delete_action', self::normalizeForeignKeyAction((string)$this->getAttribute('on_delete_action')));
+                    $this->setAttribute('on_update_action', self::normalizeForeignKeyAction((string)$this->getAttribute('on_update_action')));
+                } else {
+                    $this->setAttribute('referenced_table_name', null);
+                    $this->setAttribute('referenced_column_name', null);
+                    $this->setAttribute('on_delete_action', 'RESTRICT');
+                    $this->setAttribute('on_update_action', 'RESTRICT');
+                }
+            }
+
             if ($insert && $this->sort_order === null) {
                 $maxOrder = static::find()->where(['table_id' => $this->table_id])->max('sort_order');
                 $this->sort_order = ($maxOrder ?? 0) + 1;

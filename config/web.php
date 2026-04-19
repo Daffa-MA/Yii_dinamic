@@ -1,7 +1,8 @@
 <?php
 
 $params = require __DIR__ . '/params.php';
-$db = require __DIR__ . '/db.php';
+$dbBundle = require __DIR__ . '/db.php';
+$db = $dbBundle['db'] ?? $dbBundle;
 
 $config = [
     'id' => 'basic',
@@ -84,6 +85,7 @@ $config = [
                 // Project routes
                 'projects' => 'project/index',
                 'projects/select/<id:\d+>' => 'project/select',
+                'project/profile' => 'project/profile',
 
                 // Site routes
                 'dashboard' => 'site/dashboard',
@@ -93,6 +95,10 @@ $config = [
     ],
     'params' => $params,
 ];
+
+if (!empty($dbBundle['dbBackup']) && is_array($dbBundle['dbBackup'])) {
+    $config['components']['dbBackup'] = $dbBundle['dbBackup'];
+}
 
 if (YII_ENV_DEV) {
     // configuration adjustments for 'dev' environment

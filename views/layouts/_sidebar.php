@@ -585,7 +585,7 @@ if (!Yii::$app->user->isGuest) {
                 <span class="app-sidebar-link-text"><?= Html::encode($projectNavLabel) ?></span>
             </a>
         <?php endif; ?>
-        <a href="<?= \yii\helpers\Url::to(['site/profile']) ?>" class="app-sidebar-link <?= $activeMenu === 'profile' ? 'active' : '' ?>">
+        <a href="<?= \yii\helpers\Url::to($activeMenu === 'projects' ? ['project/profile'] : ['site/profile']) ?>" class="app-sidebar-link <?= $activeMenu === 'profile' ? 'active' : '' ?>">
             <span class="material-symbols-outlined">person</span>
             <span class="app-sidebar-link-text"><?= Html::encode($profileNavLabel) ?></span>
         </a>

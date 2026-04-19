@@ -7,6 +7,7 @@ use yii\web\Controller;
 use app\models\LoginForm;
 use app\models\Form;
 use app\models\Project;
+use app\models\DbTable;
 use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
@@ -201,6 +202,11 @@ class SiteController extends Controller
 
         // Use project database name if available, otherwise use the general active database
         $displayDatabase = $projectDatabaseName ?: ($databaseContext['activeDatabase'] ?? 'default');
+        $databaseTableQuery = DbTable::find()->where(['user_id' => $userId]);
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
+        }
+        $databaseTableCount = (int) $databaseTableQuery->count();
 
         return $this->render('dashboard', [
             'forms' => $forms,
@@ -213,6 +219,7 @@ class SiteController extends Controller
             'databaseContext' => $databaseContext,
             'activeProject' => $activeProject,
             'projectDatabaseName' => $displayDatabase,
+            'databaseTableCount' => $databaseTableCount,
         ]);
     }
 

@@ -3,6 +3,9 @@
 namespace app\controllers;
 
 use Yii;
+use app\components\RelationMapper;
+use yii\db\IntegrityException;
+use yii\db\Query;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
@@ -15,6 +18,9 @@ use app\components\ProjectSchema;
 
 class FormController extends Controller
 {
+    /** @var RelationMapper|null */
+    private $relationMapper;
+
     private function getActiveProjectId(): ?int
     {
         if (!ProjectSchema::supportsProjectContext()) {
@@ -36,7 +42,169 @@ class FormController extends Controller
 
     private function shouldBypassProjectContext(string $actionId): bool
     {
-        return in_array($actionId, ['render', 'submit', 'public-render', 'success'], true);
+        return in_array($actionId, ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add'], true);
+    }
+
+    private function getRelationMapper(): RelationMapper
+    {
+        if ($this->relationMapper === null) {
+            $this->relationMapper = new RelationMapper();
+        }
+
+        return $this->relationMapper;
+    }
+
+    private function resolveFormTargetTableId(Form $form): int
+    {
+        if (method_exists($form, 'getEffectiveTableId')) {
+            return (int)($form->getEffectiveTableId() ?? 0);
+        }
+
+        if ($form->hasAttribute('db_table_id')) {
+            $newId = (int)$form->getAttribute('db_table_id');
+            if ($newId > 0) {
+                return $newId;
+            }
+        }
+
+        return (int)$form->table_id;
+    }
+
+    private function shouldInsertDirectlyToTable(Form $form): bool
+    {
+        if (method_exists($form, 'shouldInsertToTargetTable')) {
+            return $form->shouldInsertToTargetTable();
+        }
+
+        if ($form->hasAttribute('insert_to_table')) {
+            return (int)$form->getAttribute('insert_to_table') === 1;
+        }
+
+        return $form->storage_type === 'database';
+    }
+
+    private function findTargetTableForForm(Form $form): ?DbTable
+    {
+        $tableId = $this->resolveFormTargetTableId($form);
+        if ($tableId <= 0) {
+            return null;
+        }
+
+        $criteria = [
+            'id' => $tableId,
+            'user_id' => (int)$form->user_id,
+        ];
+        if (ProjectSchema::supportsProjectContext() && $form->hasAttribute('project_id')) {
+            $criteria['project_id'] = (int)$form->project_id;
+        }
+
+        return DbTable::findOne($criteria);
+    }
+
+    private function ensureGuestCanAccessPublicForm(Form $form): void
+    {
+        if (!Yii::$app->user->isGuest) {
+            return;
+        }
+
+        $isPublished = PublishedForm::find()
+            ->where(['form_id' => (int)$form->id])
+            ->exists();
+        if (!$isPublished) {
+            throw new NotFoundHttpException('The requested form does not exist.');
+        }
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function getForeignKeyConfigForForm(Form $form): array
+    {
+        $targetTable = $this->findTargetTableForForm($form);
+        if ($targetTable === null || !(bool)$targetTable->is_created) {
+            return [];
+        }
+
+        return $this->getRelationMapper()->buildForeignKeyConfig($targetTable);
+    }
+
+    private function buildFriendlyIntegrityErrorMessage(IntegrityException $exception, Form $form): string
+    {
+        $message = $exception->getMessage();
+        $isForeignKeyError = stripos($message, 'foreign key constraint fails') !== false;
+        if (!$isForeignKeyError) {
+            return 'Data gagal disimpan karena constraint database. Mohon periksa kembali input Anda.';
+        }
+
+        $fieldLabel = null;
+        $constraintName = null;
+        $columnName = null;
+        if (preg_match('/CONSTRAINT [`"]?([^`"\\s]+)[`"]?/i', $message, $constraintMatch)) {
+            $constraintName = $constraintMatch[1];
+        }
+        if (preg_match('/FOREIGN KEY \\(`([^`]+)`\\)/i', $message, $columnMatch)) {
+            $columnName = $columnMatch[1];
+        }
+
+        $fkConfig = $this->getForeignKeyConfigForForm($form);
+        foreach ($fkConfig as $field => $config) {
+            $configConstraint = isset($config['constraintName']) ? (string)$config['constraintName'] : '';
+            $configField = isset($config['field']) ? (string)$config['field'] : (string)$field;
+
+            if ($constraintName !== null && $configConstraint !== '' && strcasecmp($configConstraint, $constraintName) === 0) {
+                $fieldLabel = isset($config['fieldLabel']) ? (string)$config['fieldLabel'] : $configField;
+                break;
+            }
+            if ($columnName !== null && strcasecmp($configField, $columnName) === 0) {
+                $fieldLabel = isset($config['fieldLabel']) ? (string)$config['fieldLabel'] : $configField;
+                break;
+            }
+        }
+
+        if ($fieldLabel === null && $columnName !== null) {
+            $fieldLabel = ucwords(str_replace('_', ' ', $columnName));
+        }
+        if ($fieldLabel === null || trim($fieldLabel) === '') {
+            return 'Data relasi yang dipilih tidak valid. Pastikan memilih data yang tersedia.';
+        }
+
+        return "Data pada field '{$fieldLabel}' tidak valid. Pastikan memilih data yang tersedia.";
+    }
+
+    private function resolveInsertedReferenceValue(string $tableName, string $referencedColumn, array $insertData): ?string
+    {
+        if (array_key_exists($referencedColumn, $insertData)) {
+            $explicitValue = $insertData[$referencedColumn];
+            if ($explicitValue !== null && $explicitValue !== '') {
+                return (string)$explicitValue;
+            }
+        }
+
+        $lastInsertId = (string)Yii::$app->db->getLastInsertID();
+        if ($lastInsertId !== '') {
+            return $lastInsertId;
+        }
+
+        if (empty($insertData)) {
+            return null;
+        }
+
+        $query = (new Query())
+            ->select([$referencedColumn])
+            ->from($tableName);
+        foreach ($insertData as $columnName => $columnValue) {
+            $query->andWhere([$columnName => $columnValue]);
+        }
+
+        $resolvedValue = $query
+            ->orderBy([$referencedColumn => SORT_DESC])
+            ->scalar();
+
+        if ($resolvedValue === false || $resolvedValue === null || $resolvedValue === '') {
+            return null;
+        }
+
+        return (string)$resolvedValue;
     }
 
     /**
@@ -176,9 +344,9 @@ class FormController extends Controller
     /**
      * Save submission into the selected custom table when mapping exists.
      */
-    private function persistSubmissionToCustomTable(Form $form, array $data): bool
+    private function persistSubmissionToCustomTable(Form $form, array $data, ?int $targetTableId = null): bool
     {
-        $tableId = (int)$form->table_id;
+        $tableId = $targetTableId !== null ? (int)$targetTableId : $this->resolveFormTargetTableId($form);
         if ($tableId <= 0) {
             return false;
         }
@@ -364,7 +532,7 @@ class FormController extends Controller
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['render', 'submit', 'public-render', 'success'],
+                        'actions' => ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add'],
                         'allow' => true,
                         'roles' => ['?', '@'], // Allow both guests and authenticated users
                     ],
@@ -454,6 +622,9 @@ class FormController extends Controller
         $model->user_id = Yii::$app->user->id;
         $this->assignActiveProject($model);
         $model->schema_js = '[]';
+        if ($model->hasAttribute('insert_to_table')) {
+            $model->setAttribute('insert_to_table', 0);
+        }
 
         if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
             $model->user_id = Yii::$app->user->id;
@@ -603,11 +774,20 @@ class FormController extends Controller
     public function actionPublicRender($id)
     {
         $model = $this->findModel($id, false);
+        $this->ensureGuestCanAccessPublicForm($model);
         $schema = $model->getSchema();
+        $fkConfig = [];
+
+        try {
+            $fkConfig = $this->getForeignKeyConfigForForm($model);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to resolve foreign key config for public-render: ' . $e->getMessage(), 'app');
+        }
 
         return $this->render('public-render', [
             'model' => $model,
             'schema' => $schema,
+            'fkConfig' => $fkConfig,
         ]);
     }
 
@@ -681,6 +861,7 @@ class FormController extends Controller
     public function actionSubmit($id)
     {
         $model = $this->findModel($id, false);
+        $this->ensureGuestCanAccessPublicForm($model);
         $schema = $model->getSchema();
 
         if (Yii::$app->request->isPost) {
@@ -712,36 +893,36 @@ class FormController extends Controller
                 $data['_user_name'] = Yii::$app->user->identity->username;
             }
 
-            $submission = new FormSubmission();
-            $submission->form_id = $id;
-            $submission->user_id = !Yii::$app->user->isGuest ? Yii::$app->user->id : null;
-            $submission->firebase_uid = Yii::$app->request->post('firebase_uid');
-            $submission->firebase_email = Yii::$app->request->post('user_email');
-            $submission->firebase_name = Yii::$app->request->post('user_name');
-            $submission->data_json = json_encode($data, JSON_UNESCAPED_UNICODE);
-
+            $targetTableId = $this->resolveFormTargetTableId($model);
+            $insertDirectlyToTable = $this->shouldInsertDirectlyToTable($model);
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 $storedToTable = false;
-                if ((int)$model->table_id > 0) {
-                    if ($model->storage_type === 'database') {
-                        $storedToTable = $this->persistSubmissionToCustomTable($model, $data);
-                        if (!$storedToTable) {
-                            throw new \RuntimeException('No matching submission fields were found for the selected database table columns.');
-                        }
-                    } else {
-                        try {
-                            $storedToTable = $this->persistSubmissionToCustomTable($model, $data);
-                        } catch (\Throwable $e) {
-                            Yii::warning('Optional custom-table submit skipped: ' . $e->getMessage(), 'app');
-                        }
+                if ($insertDirectlyToTable) {
+                    if ($targetTableId <= 0) {
+                        throw new \RuntimeException('Form ini belum terhubung ke tabel database tujuan.');
+                    }
+
+                    $storedToTable = $this->persistSubmissionToCustomTable($model, $data, $targetTableId);
+                    if (!$storedToTable) {
+                        throw new \RuntimeException('Tidak ada field yang cocok untuk disimpan ke tabel target.');
                     }
                 }
 
-                if (!$submission->save()) {
-                    $errors = $submission->getFirstErrors();
-                    $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to submit form. Please try again.';
-                    throw new \RuntimeException($errorMessage);
+                if (!$insertDirectlyToTable) {
+                    $submission = new FormSubmission();
+                    $submission->form_id = $id;
+                    $submission->user_id = !Yii::$app->user->isGuest ? Yii::$app->user->id : null;
+                    $submission->firebase_uid = Yii::$app->request->post('firebase_uid');
+                    $submission->firebase_email = Yii::$app->request->post('user_email');
+                    $submission->firebase_name = Yii::$app->request->post('user_name');
+                    $submission->data_json = json_encode($data, JSON_UNESCAPED_UNICODE);
+
+                    if (!$submission->save()) {
+                        $errors = $submission->getFirstErrors();
+                        $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to submit form. Please try again.';
+                        throw new \RuntimeException($errorMessage);
+                    }
                 }
 
                 $transaction->commit();
@@ -750,6 +931,15 @@ class FormController extends Controller
                     return $this->redirect(['success', 'id' => $id]);
                 }
                 Yii::$app->session->setFlash('success', 'Form submitted successfully!');
+                return $this->redirect(['render', 'id' => $id]);
+            } catch (IntegrityException $e) {
+                $transaction->rollBack();
+                Yii::warning('IntegrityException on form submit: ' . $e->getMessage(), 'app');
+                Yii::$app->session->setFlash('error', $this->buildFriendlyIntegrityErrorMessage($e, $model));
+
+                if (Yii::$app->user->isGuest) {
+                    return $this->redirect(['public-render', 'id' => $id]);
+                }
                 return $this->redirect(['render', 'id' => $id]);
             } catch (\Throwable $e) {
                 $transaction->rollBack();
@@ -775,6 +965,7 @@ class FormController extends Controller
     public function actionSuccess($id)
     {
         $model = $this->findModel($id, false);
+        $this->ensureGuestCanAccessPublicForm($model);
 
         return $this->render('success', [
             'model' => $model,
@@ -823,6 +1014,12 @@ class FormController extends Controller
         $newForm->schema_js = $model->schema_js;
         $newForm->table_id = $model->table_id;
         $newForm->storage_type = $model->storage_type;
+        if ($newForm->hasAttribute('db_table_id') && $model->hasAttribute('db_table_id')) {
+            $newForm->setAttribute('db_table_id', $model->getAttribute('db_table_id'));
+        }
+        if ($newForm->hasAttribute('insert_to_table') && $model->hasAttribute('insert_to_table')) {
+            $newForm->setAttribute('insert_to_table', (int)$model->getAttribute('insert_to_table'));
+        }
 
         if ($newForm->save()) {
             Yii::$app->session->setFlash('success', 'Form duplicated successfully!');
@@ -942,6 +1139,138 @@ class FormController extends Controller
             'table_id' => $table->id,
             'table_name' => $table->name,
             'column_count' => count($columns)
+        ];
+    }
+
+    public function actionFkOptions($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $model = $this->findModel($id, false);
+        $this->ensureGuestCanAccessPublicForm($model);
+        $field = (string)Yii::$app->request->post('field', Yii::$app->request->get('field', ''));
+        if ($field === '') {
+            return ['success' => false, 'message' => 'Field is required.'];
+        }
+
+        $fkConfig = $this->getForeignKeyConfigForForm($model);
+        if (!isset($fkConfig[$field])) {
+            return ['success' => false, 'message' => 'Field relasi tidak ditemukan.'];
+        }
+
+        return [
+            'success' => true,
+            'field' => $field,
+            'options' => $fkConfig[$field]['options'] ?? [],
+        ];
+    }
+
+    public function actionFkQuickAdd($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $model = $this->findModel($id, false);
+        $this->ensureGuestCanAccessPublicForm($model);
+        $field = (string)Yii::$app->request->post('field', '');
+        $payload = Yii::$app->request->post('payload', []);
+        if (is_string($payload) && trim($payload) !== '') {
+            $decodedPayload = json_decode($payload, true);
+            if (is_array($decodedPayload)) {
+                $payload = $decodedPayload;
+            }
+        }
+        if (!is_array($payload)) {
+            $payload = [];
+        }
+        if ($field === '') {
+            return ['success' => false, 'message' => 'Field relasi wajib diisi.'];
+        }
+
+        $fkConfig = $this->getForeignKeyConfigForForm($model);
+        if (!isset($fkConfig[$field])) {
+            return ['success' => false, 'message' => 'Konfigurasi relasi untuk field tidak ditemukan.'];
+        }
+
+        $config = $fkConfig[$field];
+        $referencedTable = (string)($config['referencedTable'] ?? '');
+        $referencedColumn = (string)($config['referencedColumn'] ?? '');
+        $displayColumn = isset($config['displayColumn']) ? (string)$config['displayColumn'] : '';
+        if ($referencedTable === '' || $referencedColumn === '') {
+            return ['success' => false, 'message' => 'Konfigurasi referensi tidak valid.'];
+        }
+
+        $tableSchema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
+        if ($tableSchema === null) {
+            return ['success' => false, 'message' => 'Tabel referensi tidak ditemukan.'];
+        }
+
+        $quickAddFields = [];
+        foreach (($config['quickAddFields'] ?? []) as $quickField) {
+            $fieldName = (string)($quickField['name'] ?? '');
+            if ($fieldName !== '' && isset($tableSchema->columns[$fieldName])) {
+                $quickAddFields[$fieldName] = true;
+            }
+        }
+
+        $insertData = [];
+        foreach ($quickAddFields as $fieldName => $enabled) {
+            if (!$enabled) {
+                continue;
+            }
+            $value = array_key_exists($fieldName, $payload) ? $payload[$fieldName] : null;
+            $value = is_string($value) ? trim($value) : $value;
+            if ($value === null || $value === '') {
+                return [
+                    'success' => false,
+                    'message' => "Field '{$fieldName}' wajib diisi sebelum menambah data baru.",
+                ];
+            }
+            $insertData[$fieldName] = $value;
+        }
+
+        if ($displayColumn !== '' && !array_key_exists($displayColumn, $insertData) && array_key_exists($displayColumn, $payload)) {
+            $displayValue = is_string($payload[$displayColumn]) ? trim((string)$payload[$displayColumn]) : $payload[$displayColumn];
+            if ($displayValue !== null && $displayValue !== '') {
+                $insertData[$displayColumn] = $displayValue;
+            }
+        }
+
+        if (empty($insertData)) {
+            return ['success' => false, 'message' => 'Tidak ada data yang dapat disimpan.'];
+        }
+
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            Yii::$app->db->createCommand()->insert($referencedTable, $insertData)->execute();
+            $transaction->commit();
+        } catch (IntegrityException $e) {
+            $transaction->rollBack();
+            return ['success' => false, 'message' => 'Data gagal disimpan karena melanggar aturan relasi.'];
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            return ['success' => false, 'message' => 'Gagal menambah data baru.'];
+        }
+
+        $newValue = $this->resolveInsertedReferenceValue($referencedTable, $referencedColumn, $insertData);
+        if ($newValue === null || $newValue === '') {
+            return ['success' => false, 'message' => 'Data berhasil ditambah, tetapi nilai referensi baru tidak dapat ditentukan.'];
+        }
+
+        $newLabel = '';
+        if ($displayColumn !== '' && array_key_exists($displayColumn, $insertData)) {
+            $newLabel = (string)$insertData[$displayColumn];
+        }
+        if ($newLabel === '') {
+            $newLabel = 'Record #' . $newValue;
+        }
+
+        return [
+            'success' => true,
+            'option' => [
+                'value' => $newValue,
+                'label' => $newLabel,
+            ],
+            'field' => $field,
         ];
     }
 

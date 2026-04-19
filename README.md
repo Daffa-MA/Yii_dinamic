@@ -1,6 +1,7 @@
 # Yii Dynamic Form Builder
 
 A production-ready **dynamic form builder** built with **Yii2 + MySQL**, with:
+
 - form/page builder
 - custom public render page
 - public submission flow
@@ -34,11 +35,13 @@ A production-ready **dynamic form builder** built with **Yii2 + MySQL**, with:
 ## Quick Start (Local)
 
 1. Install dependency:
+
 ```bash
 composer install
 ```
 
 2. Copy env:
+
 ```bash
 copy .env.example .env
 ```
@@ -46,17 +49,19 @@ copy .env.example .env
 3. Set DB in `.env` (local MySQL or Railway `MYSQL_PUBLIC_URL`).
 
 4. Run migration:
+
 ```bash
 php yii migrate --interactive=0
 ```
 
 5. Start app:
+
 ```bash
 php -S localhost:8080 -t web
 ```
 
 6. Open:
-`http://localhost:8080`
+   `http://localhost:8080`
 
 Default user (from migration):  
 `admin / admin123`
@@ -81,7 +86,9 @@ APP_URL=
 ```
 
 ### Priority for DB connection
+
 `config/db.php` prioritizes:
+
 1. `DATABASE_PUBLIC_URL`, `MYSQL_PUBLIC_URL`, `RAILWAY_*_PUBLIC_URL`
 2. `DATABASE_URL`, `MYSQL_URL`, `RAILWAY_*_URL`
 3. `YII_DB_HOST/YII_DB_PORT/...` fallback
@@ -96,6 +103,7 @@ APP_URL=
    - `APP_URL` (your Railway app domain, e.g. `https://your-app.up.railway.app`)
 3. Redeploy app.
 4. Run migration against Railway DB:
+
 ```bash
 php yii migrate --interactive=0
 ```
@@ -115,11 +123,11 @@ If Google login shows `auth/unauthorized-domain`:
 
 ## Common Errors
 
-| Error | Cause | Fix |
-|---|---|---|
-| `SQLSTATE[HY000] [2002]` | DB host/URL not reachable | Set correct `MYSQL_PUBLIC_URL` in app env |
-| `The table does not exist: users` | Migration not run on active DB | Run `php yii migrate --interactive=0` |
-| `auth/unauthorized-domain` | Firebase domain not whitelisted | Add domain in Firebase Authorized domains |
+| Error                             | Cause                           | Fix                                       |
+| --------------------------------- | ------------------------------- | ----------------------------------------- |
+| `SQLSTATE[HY000] [2002]`          | DB host/URL not reachable       | Set correct `MYSQL_PUBLIC_URL` in app env |
+| `The table does not exist: users` | Migration not run on active DB  | Run `php yii migrate --interactive=0`     |
+| `auth/unauthorized-domain`        | Firebase domain not whitelisted | Add domain in Firebase Authorized domains |
 
 ---
 

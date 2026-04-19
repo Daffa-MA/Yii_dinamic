@@ -13,10 +13,10 @@ class NotificationSystem {
     init() {
         this.createNotificationPanel();
         this.setupEventListeners();
-        this.updateUnreadCount();
+        // this.updateUnreadCount();  // Disabled - endpoint not available yet
         
-        // Poll for new notifications every 30 seconds
-        setInterval(() => this.updateUnreadCount(), 30000);
+        // Poll for new notifications every 30 seconds (DISABLED)
+        // setInterval(() => this.updateUnreadCount(), 30000);
     }
 
     createNotificationPanel() {
@@ -111,7 +111,12 @@ class NotificationSystem {
 
     async updateUnreadCount() {
         try {
-            const response = await fetch('/api/notification/count');
+            const response = await fetch('/api/notification/count', { 
+                signal: AbortSignal.timeout(5000) // 5 second timeout
+            });
+            if (!response.ok) {
+                return; // Silently skip if endpoint not available
+            }
             const data = await response.json();
             
             if (data.success) {
@@ -119,7 +124,8 @@ class NotificationSystem {
                 this.updateBadge();
             }
         } catch (error) {
-            console.error('Error fetching unread count:', error);
+            // Silently fail - don't spam console
+            return;
         }
     }
 

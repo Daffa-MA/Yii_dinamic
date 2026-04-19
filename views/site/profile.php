@@ -9,6 +9,7 @@ use yii\bootstrap5\Html;
 use yii\bootstrap5\ActiveForm;
 
 $this->title = 'My Profile';
+$this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');

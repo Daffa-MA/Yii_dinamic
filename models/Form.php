@@ -13,7 +13,9 @@ use yii\db\ActiveRecord;
  * @property integer $user_id
  * @property integer $project_id
  * @property integer $table_id
+ * @property integer|null $db_table_id
  * @property string $storage_type
+ * @property integer|bool $insert_to_table
  * @property string $name
  * @property string $schema_js
  * @property string $created_at
@@ -60,6 +62,9 @@ class Form extends ActiveRecord
         $requiresProject = $this->hasAttribute('project_id') && ProjectSchema::supportsProjectContext();
         $requiredAttributes = ['user_id', 'name', 'schema_js'];
         $integerAttributes = ['user_id', 'table_id'];
+        if ($this->hasAttribute('db_table_id')) {
+            $integerAttributes[] = 'db_table_id';
+        }
         if ($requiresProject) {
             $requiredAttributes[] = 'project_id';
             $integerAttributes[] = 'project_id';
@@ -76,6 +81,13 @@ class Form extends ActiveRecord
             [['table_id'], 'exist', 'skipOnError' => true, 'targetClass' => DbTable::class, 'targetAttribute' => ['table_id' => 'id']],
             [['table_id'], 'validateTableBelongsToProject'],
         ];
+        if ($this->hasAttribute('insert_to_table')) {
+            $rules[] = [['insert_to_table'], 'boolean'];
+        }
+        if ($this->hasAttribute('db_table_id')) {
+            $rules[] = [['db_table_id'], 'exist', 'skipOnError' => true, 'targetClass' => DbTable::class, 'targetAttribute' => ['db_table_id' => 'id']];
+            $rules[] = [['db_table_id'], 'validateTableBelongsToProject'];
+        }
 
         if ($requiresProject) {
             $rules[] = [['project_id'], 'exist', 'skipOnError' => true, 'targetClass' => Project::class, 'targetAttribute' => ['project_id' => 'id']];
@@ -114,7 +126,9 @@ class Form extends ActiveRecord
             'user_id' => 'User ID',
             'project_id' => 'Project',
             'table_id' => 'Database Table',
+            'db_table_id' => 'Database Table (New)',
             'storage_type' => 'Storage Type',
+            'insert_to_table' => 'Insert To Database Table',
             'name' => 'Form Name',
             'schema_js' => 'Form Schema',
             'created_at' => 'Created At',
@@ -231,5 +245,65 @@ class Form extends ActiveRecord
                 'value' => new \yii\db\Expression($timestampExpression),
             ],
         ];
+    }
+
+    public function beforeValidate()
+    {
+        if (!parent::beforeValidate()) {
+            return false;
+        }
+
+        $this->syncStorageCompatibility();
+        return true;
+    }
+
+    public function beforeSave($insert)
+    {
+        $this->syncStorageCompatibility();
+        return parent::beforeSave($insert);
+    }
+
+    public function getEffectiveTableId(): ?int
+    {
+        $newTableId = $this->hasAttribute('db_table_id') ? (int)$this->getAttribute('db_table_id') : 0;
+        if ($newTableId > 0) {
+            return $newTableId;
+        }
+
+        $legacyTableId = (int)$this->table_id;
+        return $legacyTableId > 0 ? $legacyTableId : null;
+    }
+
+    public function shouldInsertToTargetTable(): bool
+    {
+        if ($this->hasAttribute('insert_to_table')) {
+            return (int)$this->getAttribute('insert_to_table') === 1;
+        }
+
+        return $this->storage_type === 'database';
+    }
+
+    private function syncStorageCompatibility(): void
+    {
+        $legacyTableId = (int)$this->table_id;
+        $newTableId = $this->hasAttribute('db_table_id') ? (int)$this->getAttribute('db_table_id') : 0;
+
+        if ($this->hasAttribute('db_table_id')) {
+            if ($newTableId > 0) {
+                $this->table_id = $newTableId;
+            } elseif ($legacyTableId > 0) {
+                $this->setAttribute('db_table_id', $legacyTableId);
+            }
+        }
+
+        $insertToTable = $this->storage_type === 'database';
+        if ($this->hasAttribute('insert_to_table')) {
+            $rawInsert = $this->getAttribute('insert_to_table');
+            if ($rawInsert !== null && $rawInsert !== '') {
+                $insertToTable = (int)$rawInsert === 1 || $rawInsert === true || $rawInsert === '1';
+            }
+            $this->setAttribute('insert_to_table', $insertToTable ? 1 : 0);
+        }
+        $this->storage_type = $insertToTable ? 'database' : 'json';
     }
 }

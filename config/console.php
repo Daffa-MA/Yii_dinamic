@@ -1,7 +1,8 @@
 <?php
 
 $params = require __DIR__ . '/params.php';
-$db = require __DIR__ . '/db.php';
+$dbBundle = require __DIR__ . '/db.php';
+$db = $dbBundle['db'] ?? $dbBundle;
 
 $config = [
     'id' => 'basic-console',
@@ -35,6 +36,10 @@ $config = [
     ],
     'params' => $params,
 ];
+
+if (!empty($dbBundle['dbBackup']) && is_array($dbBundle['dbBackup'])) {
+    $config['components']['dbBackup'] = $dbBundle['dbBackup'];
+}
 
 if (YII_ENV_DEV) {
     // configuration adjustments for 'dev' environment

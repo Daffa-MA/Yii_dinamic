@@ -3,6 +3,7 @@
 /** @var yii\web\View $this */
 /** @var app\models\DbTable $model */
 /** @var array $savedColumns */
+/** @var array $foreignKeyReferenceMap */
 /** @var string|null $pageTitle */
 /** @var string|null $pageHeading */
 /** @var string|null $heroText */
@@ -20,6 +21,12 @@ $executionStatusLabel = $model->is_created ? 'Created' : 'Pending';
 $executionStatusNote = $model->is_created
     ? 'Physical SQL table already exists in the database'
     : 'Physical SQL table is created after save';
+$foreignKeyReferenceMap = $foreignKeyReferenceMap ?? ($referenceMetadata ?? ($referenceTables ?? []));
+$fkDebugEnabled = Yii::$app->request->get('fk_debug') === '1';
+$indexRoute = ['table-builder/index'];
+if ($fkDebugEnabled) {
+    $indexRoute['fk_debug'] = 1;
+}
 
 $this->title = $pageTitle;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -433,6 +440,19 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     font-weight: 600;
 }
 
+.table-create-page .relation-settings {
+    border: 1px dashed #d3e1f3;
+    background: #f8fbff;
+    border-radius: 14px;
+    padding: 14px;
+    margin-top: 2px;
+}
+
+.table-create-page .relation-settings-grid {
+    display: grid;
+    gap: 12px;
+}
+
 .table-create-page .meta-list {
     gap: 0;
     border: 1px solid #e9eff6;
@@ -520,6 +540,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
 <div class="table-create-page">
     <?php $form = ActiveForm::begin(['id' => 'table-form', 'enableClientValidation' => false]); ?>
+    <?php if ($fkDebugEnabled): ?>
+        <?= Html::hiddenInput('fk_debug', '1') ?>
+    <?php endif; ?>
 
     <div class="page-shell">
         <?php if (!empty($model->getFirstError('name'))): ?>
@@ -541,7 +564,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                 </div>
 
                 <div class="hero-actions">
-                    <?= Html::a('Back to Tables', ['table-builder/index'], ['class' => 'btn-clean']) ?>
+                    <?= Html::a('Back to Tables', $indexRoute, ['class' => 'btn-clean']) ?>
                     <button type="submit" class="btn-clean btn-primary-clean"><?= Html::encode($submitLabel) ?></button>
                 </div>
             </div>
@@ -696,6 +719,47 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                     <label class="check-card"><input type="checkbox" id="prop-unique"><span>Unique values only</span></label>
                                     <label class="check-card"><input type="checkbox" id="prop-primary"><span>Primary key</span></label>
                                     <label class="check-card"><input type="checkbox" id="prop-auto-increment"><span>Auto increment</span></label>
+                                    <label class="check-card"><input type="checkbox" id="prop-is-foreign-key"><span>Relasi Foreign Key</span></label>
+                                </div>
+
+                                <div class="relation-settings" id="foreign-key-settings" style="display:none;">
+                                    <div class="relation-settings-grid">
+                                        <div class="field-group">
+                                            <label class="field-label" for="prop-referenced-table">Tabel Referensi</label>
+                                            <select class="field-select" id="prop-referenced-table">
+                                                <option value="">Pilih tabel referensi</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="field-group">
+                                            <label class="field-label" for="prop-referenced-column">Kolom Referensi</label>
+                                            <select class="field-select" id="prop-referenced-column">
+                                                <option value="">Pilih kolom referensi</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="field-group">
+                                            <label class="field-label" for="prop-on-delete">Aksi ON DELETE</label>
+                                            <select class="field-select" id="prop-on-delete">
+                                                <option value="">Default</option>
+                                                <option value="RESTRICT">RESTRICT</option>
+                                                <option value="CASCADE">CASCADE</option>
+                                                <option value="SET NULL">SET NULL</option>
+                                                <option value="NO ACTION">NO ACTION</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="field-group">
+                                            <label class="field-label" for="prop-on-update">Aksi ON UPDATE</label>
+                                            <select class="field-select" id="prop-on-update">
+                                                <option value="">Default</option>
+                                                <option value="RESTRICT">RESTRICT</option>
+                                                <option value="CASCADE">CASCADE</option>
+                                                <option value="SET NULL">SET NULL</option>
+                                                <option value="NO ACTION">NO ACTION</option>
+                                            </select>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -773,13 +837,57 @@ document.addEventListener('DOMContentLoaded', function () {
     const tableNameInput = document.getElementById('dbtable-name');
     const tableLabelInput = document.getElementById('dbtable-label');
     const tableEngineInput = document.getElementById('table-engine');
+    const foreignKeyToggleInput = document.getElementById('prop-is-foreign-key');
+    const foreignKeySettings = document.getElementById('foreign-key-settings');
+    const referencedTableInput = document.getElementById('prop-referenced-table');
+    const referencedColumnInput = document.getElementById('prop-referenced-column');
+    const onDeleteInput = document.getElementById('prop-on-delete');
+    const onUpdateInput = document.getElementById('prop-on-update');
+    const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
 
-    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment'];
+    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
+    const rawForeignKeyReferenceMap = <?= \yii\helpers\Json::encode($foreignKeyReferenceMap) ?>;
+    const foreignKeyReferenceMap = normalizeReferenceMetadata(rawForeignKeyReferenceMap);
+    const fkDebugEnabled = <?= $fkDebugEnabled ? 'true' : 'false' ?> || window.localStorage.getItem('tb_fk_debug') === '1';
+
+    function cloneDebugPayload(value) {
+        try {
+            return JSON.parse(JSON.stringify(value));
+        } catch (error) {
+            return value;
+        }
+    }
+
+    function fkDebugLog(stage, payload) {
+        if (!fkDebugEnabled) {
+            return;
+        }
+
+        try {
+            console.groupCollapsed('[TableBuilder FK Debug] ' + stage);
+            console.log(payload);
+            console.groupEnd();
+        } catch (error) {
+            console.log('[TableBuilder FK Debug]', stage, payload);
+        }
+    }
 
     const savedColumns = <?= !empty($savedColumns) ? \yii\helpers\Json::encode($savedColumns) : '[]' ?>;
+    fkDebugLog('init', {
+        fkDebugEnabled: fkDebugEnabled,
+        formAction: document.getElementById('table-form').getAttribute('action') || window.location.href,
+        savedColumnsCount: savedColumns.length,
+        savedColumns: cloneDebugPayload(savedColumns),
+        foreignKeyReferenceMap: cloneDebugPayload(foreignKeyReferenceMap),
+    });
     if (savedColumns.length > 0) {
         columns = savedColumns.map(normalizeColumn);
+        fkDebugLog('savedColumns.normalized', {
+            columnsCount: columns.length,
+            columns: cloneDebugPayload(columns),
+        });
         refreshAllColumns();
+        updateSchema();
     }
 
     if (typeof Sortable !== 'undefined') {
@@ -815,7 +923,12 @@ document.addEventListener('DOMContentLoaded', function () {
             is_primary: false,
             is_unique: false,
             default_value: '',
-            comment: ''
+            comment: '',
+            is_foreign_key: false,
+            referenced_table: '',
+            referenced_column: '',
+            on_delete: '',
+            on_update: ''
         });
 
         columns.push(newColumn);
@@ -850,12 +963,48 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         columnsJson.value = JSON.stringify(columns);
+        const incompleteFkColumns = columns.filter(function (column) {
+            return !!column.is_foreign_key && (!column.referenced_table || !column.referenced_column);
+        });
+        fkDebugLog('submit.columns_json', {
+            columnsCount: columns.length,
+            fkColumns: cloneDebugPayload(columns.filter(function (column) {
+                return !!column.is_foreign_key;
+            })),
+            incompleteFkColumns: cloneDebugPayload(incompleteFkColumns),
+            columnsJson: columnsJson.value,
+        });
     });
 
     updateEmptyState();
     updateSummary();
 
     function normalizeColumn(column) {
+        const relation = column.foreign_key || column.foreignKey || column.relation || {};
+        const referencedTable = (
+            column.referenced_table
+            || column.referencedTable
+            || relation.referenced_table
+            || relation.referencedTable
+            || ''
+        ).toString();
+        const referencedColumn = (
+            column.referenced_column
+            || column.referencedColumn
+            || relation.referenced_column
+            || relation.referencedColumn
+            || ''
+        ).toString();
+        const hasReference = referencedTable !== '' || referencedColumn !== '';
+        const relationEnabledValue = column.is_foreign_key !== undefined
+            ? column.is_foreign_key
+            : (column.isForeignKey !== undefined
+                ? column.isForeignKey
+                : (relation.is_foreign_key !== undefined
+                    ? relation.is_foreign_key
+                    : (relation.enabled !== undefined ? relation.enabled : hasReference)));
+        const isForeignKey = toBoolean(relationEnabledValue, hasReference);
+
         return {
             name: sanitizeColumnName(column.name || ''),
             label: (column.label || column.name || 'Column').toString(),
@@ -866,7 +1015,16 @@ document.addEventListener('DOMContentLoaded', function () {
             is_unique: toBoolean(column.is_unique, false),
             is_auto_increment: toBoolean(column.is_auto_increment, false),
             default_value: column.default_value || '',
-            comment: column.comment || ''
+            comment: column.comment || '',
+            is_foreign_key: isForeignKey,
+            referenced_table: isForeignKey ? referencedTable : '',
+            referenced_column: isForeignKey ? referencedColumn : '',
+            on_delete: isForeignKey
+                ? normalizeForeignKeyAction(column.on_delete || column.onDelete || relation.on_delete || relation.onDelete || '')
+                : '',
+            on_update: isForeignKey
+                ? normalizeForeignKeyAction(column.on_update || column.onUpdate || relation.on_update || relation.onUpdate || '')
+                : ''
         };
     }
 
@@ -878,6 +1036,129 @@ document.addEventListener('DOMContentLoaded', function () {
             return value;
         }
         return value === 1 || value === '1' || value === 'true' || value === true;
+    }
+
+    function normalizeForeignKeyAction(value) {
+        const action = (value || '').toString().toUpperCase();
+        return foreignKeyActions.indexOf(action) !== -1 ? action : '';
+    }
+
+    function normalizeReferenceMetadata(rawData) {
+        const map = {};
+        if (!rawData) {
+            return map;
+        }
+
+        if (Array.isArray(rawData)) {
+            rawData.forEach(function (item) {
+                if (!item || typeof item !== 'object') {
+                    return;
+                }
+                const tableName = (item.table || item.table_name || item.name || item.tableName || '').toString().trim();
+                if (!tableName) {
+                    return;
+                }
+                map[tableName] = normalizeReferenceColumns(item.columns || item.column_list || item.referenced_columns || item.referencedColumns || []);
+            });
+            return map;
+        }
+
+        if (typeof rawData === 'object') {
+            Object.keys(rawData).forEach(function (tableName) {
+                const item = rawData[tableName];
+                if (Array.isArray(item)) {
+                    map[tableName] = normalizeReferenceColumns(item);
+                    return;
+                }
+                if (item && typeof item === 'object') {
+                    map[tableName] = normalizeReferenceColumns(item.columns || item.column_list || item.referenced_columns || item.referencedColumns || []);
+                    return;
+                }
+                map[tableName] = [];
+            });
+        }
+
+        return map;
+    }
+
+    function normalizeReferenceColumns(columns) {
+        if (!Array.isArray(columns)) {
+            return [];
+        }
+
+        const seen = {};
+        const normalized = [];
+        columns.forEach(function (column) {
+            const columnName = (column || '').toString().trim();
+            if (!columnName || seen[columnName]) {
+                return;
+            }
+            seen[columnName] = true;
+            normalized.push(columnName);
+        });
+        return normalized;
+    }
+
+    function populateReferencedTableOptions(selectedTable) {
+        if (!referencedTableInput) {
+            return;
+        }
+
+        const knownTables = Object.keys(foreignKeyReferenceMap).sort();
+        const options = ['<option value="">Pilih tabel referensi</option>'];
+        knownTables.forEach(function (tableName) {
+            options.push('<option value="' + escapeHtml(tableName) + '">' + escapeHtml(tableName) + '</option>');
+        });
+
+        if (selectedTable && knownTables.indexOf(selectedTable) === -1) {
+            options.push('<option value="' + escapeHtml(selectedTable) + '">' + escapeHtml(selectedTable) + '</option>');
+        }
+
+        referencedTableInput.innerHTML = options.join('');
+        referencedTableInput.value = selectedTable || '';
+    }
+
+    function populateReferencedColumnOptions(tableName, selectedColumn) {
+        if (!referencedColumnInput) {
+            return;
+        }
+
+        const availableColumns = normalizeReferenceColumns(foreignKeyReferenceMap[tableName] || []);
+        const options = ['<option value="">Pilih kolom referensi</option>'];
+        availableColumns.forEach(function (columnName) {
+            options.push('<option value="' + escapeHtml(columnName) + '">' + escapeHtml(columnName) + '</option>');
+        });
+
+        if (selectedColumn && availableColumns.indexOf(selectedColumn) === -1) {
+            options.push('<option value="' + escapeHtml(selectedColumn) + '">' + escapeHtml(selectedColumn) + '</option>');
+        }
+
+        referencedColumnInput.innerHTML = options.join('');
+        referencedColumnInput.value = selectedColumn || '';
+    }
+
+    function toggleForeignKeySettings(isEnabled) {
+        if (!foreignKeySettings) {
+            return;
+        }
+
+        foreignKeySettings.style.display = isEnabled ? '' : 'none';
+        [referencedTableInput, referencedColumnInput, onDeleteInput, onUpdateInput].forEach(function (input) {
+            if (!input) {
+                return;
+            }
+            input.disabled = !isEnabled;
+        });
+    }
+
+    function formatForeignKeySummary(column) {
+        if (!column.is_foreign_key) {
+            return '';
+        }
+        if (column.referenced_table && column.referenced_column) {
+            return 'FK -> ' + column.referenced_table + '.' + column.referenced_column;
+        }
+        return 'FK belum lengkap';
     }
 
     function refreshAllColumns() {
@@ -920,6 +1201,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (column.is_auto_increment) {
             flags.push('<span class="flag-badge">AI</span>');
         }
+        if (column.is_foreign_key) {
+            flags.push('<span class="flag-badge">FK</span>');
+        }
 
         const summary = [];
         summary.push('<span class="summary-chip">' + escapeHtml(column.is_nullable ? 'Nullable' : 'Required') + '</span>');
@@ -928,6 +1212,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (column.comment) {
             summary.push('<span class="summary-chip">Comment set</span>');
+        }
+        const foreignKeySummary = formatForeignKeySummary(column);
+        if (foreignKeySummary) {
+            summary.push('<span class="summary-chip">' + escapeHtml(foreignKeySummary) + '</span>');
         }
 
         return '' +
@@ -1003,7 +1291,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     is_unique: false,
                     is_auto_increment: false,
                     default_value: source.default_value,
-                    comment: source.comment
+                    comment: source.comment,
+                    is_foreign_key: source.is_foreign_key,
+                    referenced_table: source.referenced_table,
+                    referenced_column: source.referenced_column,
+                    on_delete: source.on_delete,
+                    on_update: source.on_update
                 });
                 columns.splice(index + 1, 0, copy);
                 refreshAllColumns();
@@ -1099,15 +1392,22 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('prop-auto-increment').checked = toBoolean(column.is_auto_increment, false);
         document.getElementById('prop-default').value = column.default_value || '';
         document.getElementById('prop-comment').value = column.comment || '';
+        foreignKeyToggleInput.checked = toBoolean(column.is_foreign_key, false);
+        populateReferencedTableOptions(column.referenced_table || '');
+        populateReferencedColumnOptions(column.referenced_table || '', column.referenced_column || '');
+        onDeleteInput.value = normalizeForeignKeyAction(column.on_delete || '');
+        onUpdateInput.value = normalizeForeignKeyAction(column.on_update || '');
+        toggleForeignKeySettings(foreignKeyToggleInput.checked);
         isSyncingProperties = false;
     }
 
-    function syncProperty() {
+    function syncProperty(event) {
         if (selectedIndex < 0 || !columns[selectedIndex] || isSyncingProperties) {
             return;
         }
 
         const column = columns[selectedIndex];
+        const eventSource = event && event.target ? event.target.id : 'unknown';
         const nameInput = document.getElementById('prop-name');
 
         column.name = sanitizeColumnName(nameInput.value, true);
@@ -1120,6 +1420,24 @@ document.addEventListener('DOMContentLoaded', function () {
         column.is_auto_increment = document.getElementById('prop-auto-increment').checked;
         column.default_value = document.getElementById('prop-default').value;
         column.comment = document.getElementById('prop-comment').value;
+        column.is_foreign_key = foreignKeyToggleInput.checked;
+
+        if (column.is_foreign_key) {
+            const selectedReferencedTable = referencedTableInput.value;
+            if ((column.referenced_table || '') !== selectedReferencedTable) {
+                populateReferencedColumnOptions(selectedReferencedTable, '');
+            }
+            column.referenced_table = selectedReferencedTable;
+            column.referenced_column = referencedColumnInput.value || '';
+            column.on_delete = normalizeForeignKeyAction(onDeleteInput.value);
+            column.on_update = normalizeForeignKeyAction(onUpdateInput.value);
+        } else {
+            column.referenced_table = '';
+            column.referenced_column = '';
+            column.on_delete = '';
+            column.on_update = '';
+        }
+        toggleForeignKeySettings(column.is_foreign_key);
 
         const integerTypes = ['INT', 'BIGINT', 'TINYINT'];
         if (column.is_auto_increment && integerTypes.indexOf(column.type) === -1) {
@@ -1149,6 +1467,11 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         updateSchema();
         updateSummary();
+        fkDebugLog('syncProperty.updated', {
+            eventSource: eventSource,
+            selectedIndex: selectedIndex,
+            column: cloneDebugPayload(column),
+        });
     }
 
     function updateEmptyState() {

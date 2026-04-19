@@ -13,11 +13,31 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
 $rowCount = count($tableData);
 $columnCount = count($columns);
-$primaryColumns = array_filter($columns, static fn($column) => (bool)$column->is_primary);
-$uniqueColumns = array_filter($columns, static fn($column) => (bool)$column->is_unique);
+$primaryColumns = array_filter($columns, static function ($column) {
+    return (bool)$column->is_primary;
+});
+$uniqueColumns = array_filter($columns, static function ($column) {
+    return (bool)$column->is_unique;
+});
+$foreignKeyColumns = array_filter($columns, static function ($column) {
+    return $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
+});
 $displayedRowsText = $model->is_created
     ? ($rowCount === 100 ? 'Showing latest 100 rows' : "Showing {$rowCount} row" . ($rowCount === 1 ? '' : 's'))
     : 'Table has not been created in the database yet';
+$fkDebugEnabled = Yii::$app->request->get('fk_debug') === '1';
+$indexRoute = ['table-builder/index'];
+$updateRoute = ['table-builder/update', 'id' => $model->id];
+$viewRoute = ['table-builder/view', 'id' => $model->id];
+$executeRoute = ['table-builder/execute-sql', 'id' => $model->id];
+$previewSqlRoute = ['table-builder/preview-sql', 'id' => $model->id];
+if ($fkDebugEnabled) {
+    $indexRoute['fk_debug'] = 1;
+    $updateRoute['fk_debug'] = 1;
+    $viewRoute['fk_debug'] = 1;
+    $executeRoute['fk_debug'] = 1;
+    $previewSqlRoute['fk_debug'] = 1;
+}
 ?>
 
 <style>
@@ -375,6 +395,13 @@ $displayedRowsText = $model->is_created
     font-size: 13px;
 }
 
+.table-detail-page .relation-detail {
+    display: block;
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
 .table-detail-page .null-value {
     color: #c2410c;
     font-weight: 700;
@@ -448,10 +475,10 @@ $displayedRowsText = $model->is_created
             </div>
 
             <div class="actions">
-                <?= Html::a('Back to Tables', ['table-builder/index'], ['class' => 'btn-clean']) ?>
-                <?= Html::a('Edit Structure', ['table-builder/update', 'id' => $model->id], ['class' => 'btn-clean']) ?>
+                <?= Html::a('Back to Tables', $indexRoute, ['class' => 'btn-clean']) ?>
+                <?= Html::a('Edit Structure', $updateRoute, ['class' => 'btn-clean']) ?>
                 <?php if (!$model->is_created): ?>
-                    <?= Html::a('Create in Database', ['table-builder/execute-sql', 'id' => $model->id], [
+                    <?= Html::a('Create in Database', $executeRoute, [
                         'class' => 'btn-clean btn-primary-clean',
                         'data' => [
                             'confirm' => 'Create this table in the database now?',
@@ -459,7 +486,7 @@ $displayedRowsText = $model->is_created
                         ],
                     ]) ?>
                 <?php else: ?>
-                    <?= Html::a('Refresh Data', ['table-builder/view', 'id' => $model->id], ['class' => 'btn-clean']) ?>
+                    <?= Html::a('Refresh Data', $viewRoute, ['class' => 'btn-clean']) ?>
                 <?php endif; ?>
             </div>
         </div>
@@ -468,7 +495,7 @@ $displayedRowsText = $model->is_created
             <div class="stat-card">
                 <span class="stat-label">Columns</span>
                 <div class="stat-value"><?= $columnCount ?></div>
-                <p class="stat-note"><?= count($primaryColumns) ?> primary key, <?= count($uniqueColumns) ?> unique</p>
+                <p class="stat-note"><?= count($primaryColumns) ?> primary key, <?= count($uniqueColumns) ?> unique, <?= count($foreignKeyColumns) ?> foreign key</p>
             </div>
             <div class="stat-card">
                 <span class="stat-label">Rows Loaded</span>
@@ -579,10 +606,18 @@ $displayedRowsText = $model->is_created
                                         <th>Nullable</th>
                                         <th>Default</th>
                                         <th>Flags</th>
+                                        <th>Relation</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($columns as $index => $col): ?>
+                                        <?php
+                                        $isForeignKey = $col->hasAttribute('is_foreign_key') && (bool)$col->getAttribute('is_foreign_key');
+                                        $referencedTable = $col->hasAttribute('referenced_table_name') ? (string)$col->getAttribute('referenced_table_name') : '';
+                                        $referencedColumn = $col->hasAttribute('referenced_column_name') ? (string)$col->getAttribute('referenced_column_name') : '';
+                                        $onDeleteAction = $col->hasAttribute('on_delete_action') ? (string)$col->getAttribute('on_delete_action') : 'RESTRICT';
+                                        $onUpdateAction = $col->hasAttribute('on_update_action') ? (string)$col->getAttribute('on_update_action') : 'RESTRICT';
+                                        ?>
                                         <tr>
                                             <td><?= $index + 1 ?></td>
                                             <td><code><?= Html::encode($col->name) ?></code></td>
@@ -603,8 +638,21 @@ $displayedRowsText = $model->is_created
                                                 <?php if ($col->is_unique): ?>
                                                     <span class="flag-badge">UQ</span>
                                                 <?php endif; ?>
-                                                <?php if (!$col->is_primary && !$col->is_unique): ?>
+                                                <?php if ($isForeignKey): ?>
+                                                    <span class="flag-badge">FK</span>
+                                                <?php endif; ?>
+                                                <?php if (!$col->is_primary && !$col->is_unique && !$isForeignKey): ?>
                                                     <span class="muted-inline">None</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <?php if ($isForeignKey && $referencedTable !== '' && $referencedColumn !== ''): ?>
+                                                    <code><?= Html::encode($referencedTable) ?>.<?= Html::encode($referencedColumn) ?></code>
+                                                    <span class="relation-detail">ON DELETE <?= Html::encode($onDeleteAction ?: 'RESTRICT') ?> / ON UPDATE <?= Html::encode($onUpdateAction ?: 'RESTRICT') ?></span>
+                                                <?php elseif ($isForeignKey): ?>
+                                                    <span class="muted-inline">FK belum lengkap</span>
+                                                <?php else: ?>
+                                                    <span class="muted-inline">-</span>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -647,6 +695,10 @@ $displayedRowsText = $model->is_created
                         <div class="meta-value"><?= $rowCount ?></div>
                     </div>
                     <div class="meta-row">
+                        <div class="meta-label">Foreign keys</div>
+                        <div class="meta-value"><?= count($foreignKeyColumns) ?></div>
+                    </div>
+                    <div class="meta-row">
                         <div class="meta-label">Created at</div>
                         <div class="meta-value"><?= Html::encode(date('d M Y H:i', strtotime($model->created_at))) ?></div>
                     </div>
@@ -677,16 +729,50 @@ $displayedRowsText = $model->is_created
 document.addEventListener('DOMContentLoaded', function () {
     const sqlPreview = document.getElementById('sql-preview');
     const copySqlBtn = document.getElementById('copy-sql-btn');
+    const fkDebugEnabled = <?= $fkDebugEnabled ? 'true' : 'false' ?> || window.localStorage.getItem('tb_fk_debug') === '1';
+    const columnMetadata = <?= \yii\helpers\Json::encode(array_map(static function ($column) {
+        return [
+            'name' => $column->name,
+            'is_foreign_key' => $column->hasAttribute('is_foreign_key') ? (bool)$column->getAttribute('is_foreign_key') : false,
+            'referenced_table_name' => $column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : null,
+            'referenced_column_name' => $column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : null,
+            'on_delete_action' => $column->hasAttribute('on_delete_action') ? $column->getAttribute('on_delete_action') : null,
+            'on_update_action' => $column->hasAttribute('on_update_action') ? $column->getAttribute('on_update_action') : null,
+        ];
+    }, $columns)) ?>;
 
-    fetch('<?= Url::to(['table-builder/preview-sql', 'id' => $model->id]) ?>')
+    function fkDebugLog(stage, payload) {
+        if (!fkDebugEnabled) {
+            return;
+        }
+        try {
+            console.groupCollapsed('[TableBuilder FK Debug] ' + stage);
+            console.log(payload);
+            console.groupEnd();
+        } catch (error) {
+            console.log('[TableBuilder FK Debug]', stage, payload);
+        }
+    }
+
+    fkDebugLog('view.columns_metadata', {
+        tableId: <?= (int)$model->id ?>,
+        tableName: '<?= Html::encode($model->name) ?>',
+        columnsCount: columnMetadata.length,
+        fkColumnsCount: columnMetadata.filter(function (column) { return !!column.is_foreign_key; }).length,
+        columns: columnMetadata,
+    });
+
+    fetch('<?= Url::to($previewSqlRoute) ?>')
         .then(function (response) {
             return response.json();
         })
         .then(function (data) {
             sqlPreview.textContent = data.sql || '-- SQL preview unavailable';
+            fkDebugLog('view.preview_sql_response', data);
         })
         .catch(function () {
             sqlPreview.textContent = '-- Failed to load SQL preview';
+            fkDebugLog('view.preview_sql_error', { message: 'Failed to load SQL preview' });
         });
 
     copySqlBtn.addEventListener('click', function () {

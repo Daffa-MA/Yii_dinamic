@@ -24,6 +24,9 @@ $config = [
         ],
         'cache' => [
             'class' => 'yii\caching\FileCache',
+            'cachePath' => '@runtime/cache',
+            'defaultDuration' => 86400,
+            'directoryLevel' => 1,
         ],
         'session' => [
             'class' => 'yii\web\Session',
@@ -102,7 +105,10 @@ if (!empty($dbBundle['dbBackup']) && is_array($dbBundle['dbBackup'])) {
 
 if (YII_ENV_DEV) {
     // configuration adjustments for 'dev' environment
-    if (class_exists('yii\debug\Module')) {
+    // Hanya aktifkan debug jika diperlukan untuk debugging
+    $enableDebug = false; // Set ke true hanya saat perlu debugging
+    
+    if ($enableDebug && class_exists('yii\debug\Module')) {
         $config['bootstrap'][] = 'debug';
         $config['modules']['debug'] = [
             'class' => 'yii\debug\Module',

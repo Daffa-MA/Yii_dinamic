@@ -125,7 +125,7 @@ class ProjectController extends Controller
                     $context->setActiveProject((int)$model->id);
                     $dbHostHint = (new ActiveDatabaseContext())->mysqlHostFromConnection();
                     $backupHint = Yii::$app->has('dbBackup')
-                        ? ' Nama database yang sama juga dicoba dibuat di server backup (Railway/remote). Sinkronisasi penuh isi tabel diluar aplikasi ini—misalnya dump/restore berkala.'
+                        ? ' Nama database yang sama juga dicoba dibuat di server backup (Railway/remote). Sinkronisasi perubahan data berjalan otomatis dari master ke backup.'
                         : '';
                     $serverHint = $dbHostHint !== ''
                         ? "Database baru '{$databaseName}' dibuat di server MySQL {$dbHostHint}. Di phpMyAdmin, pastikan Anda terhubung ke host yang sama agar database tampil di sidebar kiri (refresh daftar database bila perlu)."
@@ -147,8 +147,9 @@ class ProjectController extends Controller
             ->where(['user_id' => Yii::$app->user->id])
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC]);
         
+        $totalCount = $query->count();
         $pagination = new \yii\data\Pagination([
-            'totalCount' => $query->count(),
+            'totalCount' => $totalCount,
             'pageSize' => $pageSize,
         ]);
 
@@ -167,7 +168,7 @@ class ProjectController extends Controller
             'projects' => $projects,
             'activeProject' => $context->getActiveProject(),
             'activeProjectId' => $context->getActiveProjectId(),
-            'projectCount' => (new \yii\data\Pagination(['totalCount' => Project::find()->where(['user_id' => Yii::$app->user->id])->count(), 'pageSize' => $pageSize]))->totalCount,
+            'projectCount' => $totalCount,
             'projectDatabases' => $projectDatabases,
             'pagination' => $pagination,
         ]);

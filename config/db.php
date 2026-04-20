@@ -172,6 +172,35 @@ if (!function_exists('dbBuildMysqlConnectionFromParsedUrl')) {
     }
 }
 
+if (!function_exists('dbCanConnect')) {
+    /**
+     * Best-effort connectivity probe for optional failover decision.
+     *
+     * @param array<string, mixed> $connectionConfig
+     */
+    function dbCanConnect(array $connectionConfig): bool
+    {
+        $dsn = isset($connectionConfig['dsn']) ? (string)$connectionConfig['dsn'] : '';
+        if ($dsn === '') {
+            return false;
+        }
+
+        $username = isset($connectionConfig['username']) ? (string)$connectionConfig['username'] : '';
+        $password = isset($connectionConfig['password']) ? (string)$connectionConfig['password'] : '';
+
+        try {
+            new PDO($dsn, $username, $password, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 3,
+            ]);
+            return true;
+        } catch (Throwable $e) {
+            dbBootstrapLog('DB connectivity probe failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+}
+
 $envFile = dirname(__DIR__) . '/.env';
 $loadedDotenv = false;
 if (is_readable($envFile)) {
@@ -286,6 +315,18 @@ if (!$backupSyncDisabled) {
             $dbBackup = dbBuildMysqlConnectionFromParsedUrl($parsedBackup);
         }
     }
+}
+
+$allowFailoverToBackup = getenv('YII_DB_FAILOVER_TO_BACKUP') === '1';
+if ($allowFailoverToBackup && is_array($dbBackup) && !dbCanConnect($dbPrimary)) {
+    dbBootstrapLog('Primary DB unreachable. Failover activated to backup connection.');
+    $failedPrimary = $dbPrimary;
+    $dbPrimary = $dbBackup;
+    $dbBackup = $failedPrimary;
+}
+
+if (is_array($dbBackup) && !$backupSyncDisabled) {
+    $dbPrimary['commandClass'] = 'app\components\BackupSyncCommand';
 }
 
 dbBootstrapLog(sprintf(

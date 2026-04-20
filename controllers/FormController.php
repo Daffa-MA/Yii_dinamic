@@ -128,6 +128,131 @@ class FormController extends Controller
         return $this->getRelationMapper()->buildForeignKeyConfig($targetTable);
     }
 
+    private function stripForeignKeySuffix(string $value): string
+    {
+        $normalized = $this->normalizeInputKey($value);
+        if ($normalized !== '' && substr($normalized, -3) === '_id') {
+            return substr($normalized, 0, -3);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $fkConfig
+     */
+    private function resolveForeignKeyKey(array $fkConfig, string $fieldName, string $fieldLabel = ''): ?string
+    {
+        if ($fieldName !== '' && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) {
+            return $fieldName;
+        }
+
+        $normalizedFieldName = $this->normalizeInputKey($fieldName);
+        $normalizedFieldWithoutId = $this->stripForeignKeySuffix($fieldName);
+        $normalizedFieldLabel = $this->normalizeInputKey($fieldLabel);
+
+        foreach ($fkConfig as $key => $config) {
+            if (!is_array($config)) {
+                continue;
+            }
+
+            $candidateFields = [
+                (string)$key,
+                (string)($config['field'] ?? ''),
+            ];
+
+            foreach ($candidateFields as $candidateField) {
+                if ($candidateField === '') {
+                    continue;
+                }
+
+                if ($candidateField === $fieldName) {
+                    return (string)$key;
+                }
+
+                $normalizedCandidate = $this->normalizeInputKey($candidateField);
+                if ($normalizedCandidate === '') {
+                    continue;
+                }
+
+                if ($normalizedFieldName !== '' && $normalizedCandidate === $normalizedFieldName) {
+                    return (string)$key;
+                }
+
+                if ($normalizedFieldWithoutId !== '' && $this->stripForeignKeySuffix($candidateField) === $normalizedFieldWithoutId) {
+                    return (string)$key;
+                }
+            }
+
+            $normalizedConfigLabel = $this->normalizeInputKey((string)($config['fieldLabel'] ?? ''));
+            if (
+                $normalizedFieldLabel !== ''
+                && $normalizedConfigLabel !== ''
+                && $normalizedFieldLabel === $normalizedConfigLabel
+            ) {
+                return (string)$key;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Align FK config key with schema field names used by public-render.
+     *
+     * @param array<int, array<string, mixed>> $schema
+     * @param array<string, array<string, mixed>> $fkConfig
+     * @return array<string, array<string, mixed>>
+     */
+    private function mapForeignKeyConfigToSchema(array $schema, array $fkConfig): array
+    {
+        if (empty($schema) || empty($fkConfig)) {
+            return $fkConfig;
+        }
+
+        $resolvedConfig = $fkConfig;
+        foreach ($schema as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $fieldName = trim((string)($field['name'] ?? $field['label'] ?? ''));
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $fieldLabel = trim((string)($field['label'] ?? $fieldName));
+            $resolvedKey = $this->resolveForeignKeyKey($fkConfig, $fieldName, $fieldLabel);
+            if ($resolvedKey === null || !isset($fkConfig[$resolvedKey]) || !is_array($fkConfig[$resolvedKey])) {
+                continue;
+            }
+
+            $mappedConfig = $fkConfig[$resolvedKey];
+            $mappedConfig['sourceField'] = (string)($mappedConfig['field'] ?? $resolvedKey);
+            $mappedConfig['field'] = $fieldName;
+            if (!isset($mappedConfig['fieldLabel']) || trim((string)$mappedConfig['fieldLabel']) === '') {
+                $mappedConfig['fieldLabel'] = $fieldLabel;
+            }
+
+            $resolvedConfig[$fieldName] = $mappedConfig;
+        }
+
+        return $resolvedConfig;
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function getResolvedForeignKeyConfigForForm(Form $form): array
+    {
+        $fkConfig = $this->getForeignKeyConfigForForm($form);
+        if (empty($fkConfig)) {
+            return [];
+        }
+
+        return $this->mapForeignKeyConfigToSchema($form->getSchema(), $fkConfig);
+    }
+
     private function buildFriendlyIntegrityErrorMessage(IntegrityException $exception, Form $form): string
     {
         $message = $exception->getMessage();
@@ -374,6 +499,14 @@ class FormController extends Controller
             ->asArray()
             ->all();
 
+        $normalizedColumnNames = [];
+        foreach ($columns as $columnMeta) {
+            $metaName = $this->normalizeInputKey((string)($columnMeta['name'] ?? ''));
+            if ($metaName !== '') {
+                $normalizedColumnNames[$metaName] = true;
+            }
+        }
+
         $dataLookup = [];
         foreach ($data as $key => $value) {
             if (!is_string($key)) {
@@ -394,14 +527,31 @@ class FormController extends Controller
                 continue;
             }
 
-            if (array_key_exists($columnName, $dataLookup)) {
-                $insertData[$columnName] = $this->castValueForTableColumn($dataLookup[$columnName], $column);
-                continue;
+            $candidateKeys = [$columnName];
+            $normalizedColumnName = $this->normalizeInputKey($columnName);
+            if ($normalizedColumnName !== '') {
+                $candidateKeys[] = $normalizedColumnName;
             }
 
-            $normalizedColumnName = $this->normalizeInputKey($columnName);
-            if (array_key_exists($normalizedColumnName, $dataLookup)) {
-                $insertData[$columnName] = $this->castValueForTableColumn($dataLookup[$normalizedColumnName], $column);
+            $normalizedLabel = $this->normalizeInputKey((string)($column['label'] ?? ''));
+            if ($normalizedLabel !== '') {
+                $candidateKeys[] = $normalizedLabel;
+            }
+
+            if ($normalizedColumnName !== '' && substr($normalizedColumnName, -3) === '_id') {
+                $withoutId = substr($normalizedColumnName, 0, -3);
+                if ($withoutId !== '' && !isset($normalizedColumnNames[$withoutId])) {
+                    $candidateKeys[] = $withoutId;
+                }
+            }
+
+            foreach (array_values(array_unique($candidateKeys)) as $candidateKey) {
+                if (!array_key_exists($candidateKey, $dataLookup)) {
+                    continue;
+                }
+
+                $insertData[$columnName] = $this->castValueForTableColumn($dataLookup[$candidateKey], $column);
+                break;
             }
         }
 
@@ -779,7 +929,7 @@ class FormController extends Controller
         $fkConfig = [];
 
         try {
-            $fkConfig = $this->getForeignKeyConfigForForm($model);
+            $fkConfig = $this->mapForeignKeyConfigToSchema($schema, $this->getForeignKeyConfigForForm($model));
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve foreign key config for public-render: ' . $e->getMessage(), 'app');
         }
@@ -1153,9 +1303,13 @@ class FormController extends Controller
             return ['success' => false, 'message' => 'Field is required.'];
         }
 
-        $fkConfig = $this->getForeignKeyConfigForForm($model);
+        $fkConfig = $this->getResolvedForeignKeyConfigForForm($model);
         if (!isset($fkConfig[$field])) {
-            return ['success' => false, 'message' => 'Field relasi tidak ditemukan.'];
+            $resolvedFieldKey = $this->resolveForeignKeyKey($fkConfig, $field, $field);
+            if ($resolvedFieldKey === null || !isset($fkConfig[$resolvedFieldKey])) {
+                return ['success' => false, 'message' => 'Field relasi tidak ditemukan.'];
+            }
+            $field = $resolvedFieldKey;
         }
 
         return [
@@ -1186,9 +1340,13 @@ class FormController extends Controller
             return ['success' => false, 'message' => 'Field relasi wajib diisi.'];
         }
 
-        $fkConfig = $this->getForeignKeyConfigForForm($model);
+        $fkConfig = $this->getResolvedForeignKeyConfigForForm($model);
         if (!isset($fkConfig[$field])) {
-            return ['success' => false, 'message' => 'Konfigurasi relasi untuk field tidak ditemukan.'];
+            $resolvedFieldKey = $this->resolveForeignKeyKey($fkConfig, $field, $field);
+            if ($resolvedFieldKey === null || !isset($fkConfig[$resolvedFieldKey])) {
+                return ['success' => false, 'message' => 'Konfigurasi relasi untuk field tidak ditemukan.'];
+            }
+            $field = $resolvedFieldKey;
         }
 
         $config = $fkConfig[$field];

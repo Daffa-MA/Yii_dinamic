@@ -93,7 +93,7 @@ class RelationMapper
             return null;
         }
 
-        $priorities = ['name', 'title', 'label', 'description'];
+        $priorities = ['name', 'nama', 'title', 'judul', 'label', 'deskripsi', 'description'];
         foreach ($priorities as $candidate) {
             if ($candidate === $referencedColumn) {
                 continue;
@@ -108,7 +108,12 @@ class RelationMapper
             if ($columnName === $referencedColumn || $columnSchema->isPrimaryKey) {
                 continue;
             }
-            if (in_array($phpType, ['string'], true) && stripos($columnName, 'id') === false) {
+            $normalizedColumn = strtolower((string)$columnName);
+            if (
+                in_array($phpType, ['string'], true)
+                && stripos($normalizedColumn, 'id') === false
+                && !in_array($normalizedColumn, ['created_at', 'updated_at', 'deleted_at'], true)
+            ) {
                 return $columnName;
             }
         }

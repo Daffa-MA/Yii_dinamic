@@ -85,6 +85,14 @@ YII_DB_PASSWORD=
 APP_URL=
 ```
 
+### Dual Database (Local Master + Railway Backup)
+
+- Gunakan `YII_DB_FORCE_LOCAL_PRIMARY=1` agar localhost tetap jadi **master** baca/tulis.
+- Isi `YII_DB_BACKUP_URL` (atau `MYSQL_PUBLIC_URL`) untuk koneksi backup Railway.
+- Auto-sync write master -> backup aktif saat `YII_DB_BACKUP_SYNC` tidak diisi atau bukan `0`.
+- Jika ingin request gagal saat backup gagal sinkron, set `YII_DB_BACKUP_SYNC_STRICT=1`.
+- Untuk failover otomatis ke backup saat master tidak bisa diakses, set `YII_DB_FAILOVER_TO_BACKUP=1` (sinkronisasi akan mencoba arah sebaliknya saat mode failover aktif).
+
 ### Priority for DB connection
 
 `config/db.php` prioritizes:

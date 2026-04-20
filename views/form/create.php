@@ -2229,9 +2229,7 @@ display: none;
                         $selectedTableId = $model->hasAttribute('db_table_id')
                             ? (int)$model->getAttribute('db_table_id')
                             : (int)$model->table_id;
-                        if ($selectedTableId <= 0) {
-                            $selectedTableId = (int)$model->table_id;
-                        }
+                        $selectedTableValue = $selectedTableId > 0 ? (string)$selectedTableId : '';
                         $insertToTableChecked = $model->hasAttribute('insert_to_table')
                             ? ((int)$model->getAttribute('insert_to_table') === 1)
                             : ($model->storage_type === 'database');
@@ -2240,7 +2238,7 @@ display: none;
                         <select id="table-selector" class="zoom-select" title="Select table to auto-generate form fields" <?= !$hasTable ? 'disabled' : '' ?>>
                             <option value=""><span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">storage</span>Select a table...</option>
                             <?php foreach ($tables as $table): ?>
-                                <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $selectedTableId === (int)$table['id'] ? 'selected' : '' ?>>
+                                <option value="<?= $table['id'] ?>" data-name="<?= Html::encode($table['name']) ?>" <?= $selectedTableValue !== '' && $selectedTableId === (int)$table['id'] ? 'selected' : '' ?>>
                                     <span class="material-symbols-outlined" style="font-size:16px;margin-right:6px;">table_chart</span><?= Html::encode($table['name']) ?>
                                 </option>
                             <?php endforeach; ?>
@@ -2511,16 +2509,14 @@ display: none;
                     $selectedTableId = $model->hasAttribute('db_table_id')
                         ? (int)$model->getAttribute('db_table_id')
                         : (int)$model->table_id;
-                    if ($selectedTableId <= 0) {
-                        $selectedTableId = (int)$model->table_id;
-                    }
+                    $selectedTableValue = $selectedTableId > 0 ? (string)$selectedTableId : '';
                     $insertToTable = $model->hasAttribute('insert_to_table')
                         ? ((int)$model->getAttribute('insert_to_table') === 1)
                         : ($model->storage_type === 'database');
                     ?>
                     <?= Html::hiddenInput('Form[schema_js]', $model->isNewRecord ? '[]' : Html::encode($model->schema_js), ['id' => 'schema-js']) ?>
-                    <?= Html::hiddenInput('Form[table_id]', $selectedTableId, ['id' => 'table-id']) ?>
-                    <?= Html::hiddenInput('Form[db_table_id]', $selectedTableId, ['id' => 'db-table-id']) ?>
+                    <?= Html::hiddenInput('Form[table_id]', $selectedTableValue, ['id' => 'table-id']) ?>
+                    <?= Html::hiddenInput('Form[db_table_id]', $selectedTableValue, ['id' => 'db-table-id']) ?>
                     <?= Html::hiddenInput('Form[storage_type]', $insertToTable ? 'database' : 'json', ['id' => 'storage-type']) ?>
                     <?= Html::hiddenInput('Form[insert_to_table]', $insertToTable ? 1 : 0, ['id' => 'insert-to-table']) ?>
                     <?= Html::hiddenInput('form_pages', '', ['id' => 'form-pages-data']) ?>
@@ -3162,37 +3158,6 @@ return html;</pre>
                     if (!schemaJson || !canvasBlocks) {
                         safeLog.error('FATAL: Required elements missing!');
                         return;
-                    }
-
-                    // ===== AUTO-SELECT FIRST TABLE IF EXISTS =====
-                    if (tableSelector && tableSelector.options.length > 1) {
-                        // If no table is selected and model has no table_id, auto-select first table
-                        if (!tableSelector.value) {
-                            // Try to find "toko" table first (it has columns)
-                            let selectedIdx = -1;
-                            for (let i = 1; i < tableSelector.options.length; i++) {
-                                const optionText = tableSelector.options[i].text;
-                                if (optionText.includes('toko')) {
-                                    selectedIdx = i;
-                                    break;
-                                }
-                            }
-
-                            // If not found, select first available table
-                            if (selectedIdx === -1) {
-                                for (let i = 1; i < tableSelector.options.length; i++) {
-                                    if (tableSelector.options[i].value) {
-                                        selectedIdx = i;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (selectedIdx > 0) {
-                                tableSelector.selectedIndex = selectedIdx;
-                                safeLog.log('Auto-selected table: ' + tableSelector.options[selectedIdx].text + ' (ID: ' + tableSelector.options[selectedIdx].value + ')');
-                            }
-                        }
                     }
 
                     if (insertToTableToggle && insertToTableInput) {

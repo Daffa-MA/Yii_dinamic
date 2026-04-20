@@ -255,6 +255,7 @@ class TableBuilderController extends Controller
     {
         $activeProjectId = $this->getActiveProjectId();
         $tablesQuery = DbTable::find()
+            ->with(['columns'])
             ->where(['user_id' => Yii::$app->user->id])
             ->orderBy(['name' => SORT_ASC]);
 
@@ -266,12 +267,11 @@ class TableBuilderController extends Controller
         $referenceMap = [];
 
         foreach ($tables as $table) {
-            $columns = $table->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
             $referenceMap[(string)$table->name] = array_values(array_filter(array_map(
                 static function (DbTableColumn $column): string {
                     return (string)$column->name;
                 },
-                $columns
+                $table->columns
             )));
         }
 
@@ -599,6 +599,7 @@ class TableBuilderController extends Controller
     {
         $activeProjectId = $this->getActiveProjectId();
         $tablesQuery = DbTable::find()
+            ->with(['columns'])
             ->where(['user_id' => Yii::$app->user->id])
             ->orderBy(['created_at' => SORT_DESC]);
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
@@ -610,10 +611,9 @@ class TableBuilderController extends Controller
         $tablesWithColumns = [];
         foreach ($tables as $table) {
             $this->syncTableCreationState($table);
-            $columns = $table->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
             $item = new \stdClass();
             $item->table = $table;
-            $item->columns = $columns;
+            $item->columns = $table->columns;
             $tablesWithColumns[] = $item;
         }
 

@@ -11,12 +11,13 @@ use yii\helpers\ArrayHelper;
 $this->title = 'Publish Form';
 $hasAvailableForms = !empty($forms);
 $publishResult = Yii::$app->session->getFlash('publishResult');
+$this->registerJs("document.body.classList.add('dashboard-main-page', 'font-body', 'text-on-surface'); document.body.style.background = 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 55%, #ede9fe 100%)';", \yii\web\View::POS_READY);
 
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
+$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 ?>
 
-<script src="https://cdn.tailwindcss.com"></script>
 <script>
     tailwind.config = {
         theme: {
@@ -50,9 +51,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     }
 </style>
 
-<body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface">
-
-    <nav class="fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
+    <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="flex items-center gap-3">
             <a href="<?= \yii\helpers\Url::to(['published-form/index']) ?>" class="text-on-surface-variant hover:text-on-surface transition-colors">
                 <span class="material-symbols-outlined">arrow_back</span>
@@ -66,7 +65,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
     <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'published-forms']) ?>
 
-    <main class="pl-64 pt-6 min-h-screen">
+    <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="max-w-[800px] mx-auto px-8 py-8">
             <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
                 <div class="bg-gradient-to-r from-primary-container/10 to-primary/5 px-8 py-6 border-b border-gray-200">
@@ -323,4 +322,3 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
         showPublishResultModal(<?= json_encode($publishResult['url']) ?>);
         <?php endif; ?>
     </script>
-</body>

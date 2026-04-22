@@ -7,9 +7,12 @@
 
 use yii\bootstrap5\Html;
 use yii\bootstrap5\ActiveForm;
+use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
 
 $this->title = $model->name;
+$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJs("document.body.style.minHeight = '100vh';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
 $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -18,6 +21,49 @@ $schemaData = json_decode($model->schema_js, true);
 $pages = $schemaData['pages'] ?? null;
 $customDesign = $schemaData['customDesign'] ?? [];
 $blocks = $schemaData['blocks'] ?? $schema;
+
+$sanitizeCustomCss = static function (string $css): string {
+    $css = trim($css);
+    if ($css === '') {
+        return '';
+    }
+
+    $css = preg_replace('/<\\/?style\\b[^>]*>/i', '', $css) ?? $css;
+    $css = preg_replace('/@import\\s+/i', '', $css) ?? $css;
+    $css = preg_replace('/expression\\s*\\(/i', '', $css) ?? $css;
+    $css = preg_replace('/javascript\\s*:/i', '', $css) ?? $css;
+    $css = preg_replace('/vbscript\\s*:/i', '', $css) ?? $css;
+    $css = preg_replace('/behavior\\s*:/i', '', $css) ?? $css;
+    $css = preg_replace('/-moz-binding\\s*:/i', '', $css) ?? $css;
+    $css = preg_replace('/url\\s*\\(\\s*[\'"]?\\s*(javascript|vbscript)\\s*:/i', 'url(', $css) ?? $css;
+
+    return trim($css);
+};
+
+$sanitizeCustomHtml = static function (string $html): string {
+    $html = trim($html);
+    if ($html === '') {
+        return '';
+    }
+
+    return HtmlPurifier::process($html, [
+        'HTML.SafeIframe' => false,
+        'URI.DisableExternalResources' => false,
+        'URI.DisableResources' => false,
+        'Attr.EnableID' => false,
+        'HTML.Allowed' => implode(',', [
+            'div', 'span', 'p', 'br', 'hr',
+            'strong', 'b', 'em', 'i', 'u',
+            'ul', 'ol', 'li',
+            'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+            'blockquote', 'code', 'pre',
+            'a[href|title|target|rel]',
+            'img[src|alt|title|width|height]',
+        ]),
+        'Attr.AllowedFrameTargets' => ['_blank'],
+        'AutoFormat.RemoveEmpty' => true,
+    ]);
+};
 
 // If no pages structure, use old schema format
 if (!$pages) {
@@ -44,20 +90,14 @@ if (!$pages) {
 }
 
 // Extract custom design
-$customCSS = $customDesign['css'] ?? '';
-$customHTMLBefore = $customDesign['htmlBefore'] ?? '';
-$customHTMLAfter = $customDesign['htmlAfter'] ?? '';
-$customJS = $customDesign['js'] ?? '';
+$customCSS = $sanitizeCustomCss((string)($customDesign['css'] ?? ''));
+$customHTMLBefore = $sanitizeCustomHtml((string)($customDesign['htmlBefore'] ?? ''));
+$customHTMLAfter = $sanitizeCustomHtml((string)($customDesign['htmlAfter'] ?? ''));
+$customJS = '';
 
 // Determine if we should use custom design (if any custom design element exists)
 $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($customHTMLAfter) || !empty($customJS);
 
-// DEBUG: Log what's in the database
-if (YII_DEBUG) {
-    echo '<!-- DEBUG schema_js: ' . htmlspecialchars($model->schema_js) . ' -->';
-    echo '<!-- DEBUG customDesign: ' . htmlspecialchars(json_encode($customDesign)) . ' -->';
-    echo '<!-- DEBUG hasCustomDesign: ' . ($hasCustomDesign ? 'true' : 'false') . ' -->';
-}
 ?>
 
 <!-- Always load Firebase (required for auth/submission logic) -->
@@ -65,8 +105,13 @@ if (YII_DEBUG) {
 <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 
 <?php if (!$hasCustomDesign): ?>
-<script src="https://cdn.tailwindcss.com"></script>
 <script>
+    if (window.console) {
+        window.console.log = function() {};
+        window.console.info = function() {};
+        window.console.debug = function() {};
+    }
+
     tailwind.config = {
         theme: {
             extend: {
@@ -150,10 +195,9 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 ?>
 
 <?php if (!$hasCustomDesign): ?>
-<body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+<?php $this->registerJs("document.body.style.background = 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)';", \yii\web\View::POS_READY); ?>
     <div class="max-w-2xl mx-auto px-4 py-12">
 <?php else: ?>
-<body>
 <?php endif; ?>
 
         <!-- Default Firebase Login Panel (always available for guest users) -->
@@ -890,10 +934,3 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         });
     </script>
     
-    <!-- Custom JavaScript -->
-    <?php if ($customJS): ?>
-    <script>
-    <?= $customJS ?>
-    </script>
-    <?php endif; ?>
-</body>

@@ -4,8 +4,10 @@ namespace app\controllers;
 
 use Yii;
 use app\components\RelationMapper;
+use yii\db\Connection;
 use yii\db\IntegrityException;
 use yii\db\Query;
+use yii\helpers\HtmlPurifier;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
@@ -13,7 +15,9 @@ use app\models\Form;
 use app\models\FormSubmission;
 use app\models\PublishedForm;
 use app\models\DbTable;
+use app\models\Project;
 use app\components\ActiveProjectContext;
+use app\components\ActiveDatabaseContext;
 use app\components\ProjectSchema;
 
 class FormController extends Controller
@@ -45,13 +49,112 @@ class FormController extends Controller
         return in_array($actionId, ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add'], true);
     }
 
-    private function getRelationMapper(): RelationMapper
+    private function getRelationMapper(?Connection $db = null): RelationMapper
     {
-        if ($this->relationMapper === null) {
-            $this->relationMapper = new RelationMapper();
+        return new RelationMapper($db);
+    }
+
+    private function getForeignKeyConfigForForm(Form $form): array
+    {
+        $targetTable = $this->findTargetTableForForm($form);
+        if ($targetTable === null || !(bool)$targetTable->is_created) {
+            return [];
         }
 
-        return $this->relationMapper;
+        $projectId = $form->hasAttribute('project_id') ? (int)$form->project_id : null;
+        $db = $this->getPhysicalDb($projectId);
+
+        return $this->getRelationMapper($db)->buildForeignKeyConfig($targetTable);
+    }
+
+    private function isIncrementColumn(array $column): bool
+    {
+        return !empty($column['is_auto_increment']) || !empty($column['is_primary']);
+    }
+
+    /**
+     * Filter out primary key and auto increment columns from form schema while preserving structure.
+     *
+     * @param Form $form
+     * @return string
+     */
+    private function getFilteredSchemaJs(Form $form): string
+    {
+        $schemaJs = (string)$form->schema_js;
+        if ($schemaJs === '' || $schemaJs === '[]') {
+            return '[]';
+        }
+
+        $targetTable = $this->findTargetTableForForm($form);
+        if ($targetTable === null) {
+            return $schemaJs;
+        }
+
+        $columns = $targetTable->getColumns()->asArray()->all();
+        $hiddenNames = [];
+        foreach ($columns as $col) {
+            if ($this->isIncrementColumn($col)) {
+                $name = strtolower(trim((string)($col['name'] ?? '')));
+                if ($name !== '') {
+                    $hiddenNames[$name] = true;
+                }
+            }
+        }
+
+        if (empty($hiddenNames)) {
+            return $schemaJs;
+        }
+
+        $data = json_decode($schemaJs, true);
+        if (!is_array($data)) {
+            return $schemaJs;
+        }
+
+        $filterBlocks = function($blocks) use ($hiddenNames) {
+            if (!is_array($blocks)) return $blocks;
+            $filtered = [];
+            foreach ($blocks as $block) {
+                if (!is_array($block)) continue;
+                $name = strtolower(trim((string)($block['name'] ?? $block['label'] ?? '')));
+                if (isset($hiddenNames[$name])) {
+                    continue;
+                }
+                $filtered[] = $block;
+            }
+            return $filtered;
+        };
+
+        if (isset($data['pages']) && is_array($data['pages'])) {
+            foreach ($data['pages'] as $i => $page) {
+                if (isset($page['blocks'])) {
+                    $data['pages'][$i]['blocks'] = $filterBlocks($page['blocks']);
+                }
+            }
+        }
+
+        if (isset($data['blocks']) && is_array($data['blocks'])) {
+            $data['blocks'] = $filterBlocks($data['blocks']);
+        }
+
+        if (!isset($data['pages']) && !isset($data['blocks']) && array_values($data) === $data) {
+            $data = $filterBlocks($data);
+        }
+
+        return json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Get flattened filtered blocks for rendering.
+     *
+     * @param Form $form
+     * @return array<int, array<string, mixed>>
+     */
+    private function getFilteredBlocks(Form $form): array
+    {
+        $filteredJs = $this->getFilteredSchemaJs($form);
+        $tempForm = new Form();
+        $tempForm->schema_js = $filteredJs;
+        return $tempForm->getSchema();
     }
 
     private function resolveFormTargetTableId(Form $form): int
@@ -113,19 +216,6 @@ class FormController extends Controller
         if (!$isPublished) {
             throw new NotFoundHttpException('The requested form does not exist.');
         }
-    }
-
-    /**
-     * @return array<string, array<string, mixed>>
-     */
-    private function getForeignKeyConfigForForm(Form $form): array
-    {
-        $targetTable = $this->findTargetTableForForm($form);
-        if ($targetTable === null || !(bool)$targetTable->is_created) {
-            return [];
-        }
-
-        return $this->getRelationMapper()->buildForeignKeyConfig($targetTable);
     }
 
     private function stripForeignKeySuffix(string $value): string
@@ -333,20 +423,6 @@ class FormController extends Controller
     }
 
     /**
-     * Increment columns are system-generated and should not be mapped to form inputs.
-     */
-    private function isIncrementColumn(array $column): bool
-    {
-        if (!empty($column['is_auto_increment'])) {
-            return true;
-        }
-
-        $type = strtoupper((string)($column['type'] ?? ''));
-        $isIntegerType = in_array($type, ['INT', 'BIGINT', 'TINYINT'], true);
-        return $isIntegerType && !empty($column['is_primary']);
-    }
-
-    /**
      * Capture user-input fields that are posted outside generated schema mapping.
      */
     private function mergeAdditionalPostedInputs(array $data): array
@@ -489,7 +565,10 @@ class FormController extends Controller
             throw new \RuntimeException("Target table '{$table->name}' has not been created in database.");
         }
 
-        $tableSchema = Yii::$app->db->schema->getTableSchema($table->name, true);
+        // Use the physical DB connection which might be switched for the project
+        $targetDb = $this->getPhysicalDb();
+        $tableSchema = $targetDb->schema->getTableSchema($table->name, true);
+
         if ($tableSchema === null) {
             throw new \RuntimeException("Physical table '{$table->name}' was not found in database.");
         }
@@ -559,7 +638,7 @@ class FormController extends Controller
             return false;
         }
 
-        Yii::$app->db->createCommand()->insert($table->name, $insertData)->execute();
+        $targetDb->createCommand()->insert($table->name, $insertData)->execute();
         return true;
     }
 
@@ -590,6 +669,70 @@ class FormController extends Controller
     }
 
     /**
+     * Normalize custom design to a safe subset for storage/rendering.
+     *
+     * Custom JS is intentionally disabled because arbitrary script execution
+     * from database-backed form design is not safe for shared/public forms.
+     *
+     * @param array<string, mixed> $customDesign
+     * @return array<string, string>
+     */
+    private function sanitizeCustomDesign(array $customDesign): array
+    {
+        return [
+            'css' => $this->sanitizeCustomCss((string)($customDesign['css'] ?? '')),
+            'htmlBefore' => $this->sanitizeCustomHtml((string)($customDesign['htmlBefore'] ?? '')),
+            'htmlAfter' => $this->sanitizeCustomHtml((string)($customDesign['htmlAfter'] ?? '')),
+            'js' => '',
+        ];
+    }
+
+    private function sanitizeCustomHtml(string $html): string
+    {
+        $html = trim($html);
+        if ($html === '') {
+            return '';
+        }
+
+        return HtmlPurifier::process($html, [
+            'HTML.SafeIframe' => false,
+            'URI.DisableExternalResources' => false,
+            'URI.DisableResources' => false,
+            'Attr.EnableID' => false,
+            'HTML.Allowed' => implode(',', [
+                'div', 'span', 'p', 'br', 'hr',
+                'strong', 'b', 'em', 'i', 'u',
+                'ul', 'ol', 'li',
+                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                'blockquote', 'code', 'pre',
+                'a[href|title|target|rel]',
+                'img[src|alt|title|width|height]',
+            ]),
+            'Attr.AllowedFrameTargets' => ['_blank'],
+            'AutoFormat.RemoveEmpty' => true,
+        ]);
+    }
+
+    private function sanitizeCustomCss(string $css): string
+    {
+        $css = trim($css);
+        if ($css === '') {
+            return '';
+        }
+
+        $css = preg_replace('/<\\/?style\\b[^>]*>/i', '', $css) ?? $css;
+        $css = preg_replace('/@import\\s+/i', '', $css) ?? $css;
+        $css = preg_replace('/expression\\s*\\(/i', '', $css) ?? $css;
+        $css = preg_replace('/javascript\\s*:/i', '', $css) ?? $css;
+        $css = preg_replace('/vbscript\\s*:/i', '', $css) ?? $css;
+        $css = preg_replace('/behavior\\s*:/i', '', $css) ?? $css;
+        $css = preg_replace('/-moz-binding\\s*:/i', '', $css) ?? $css;
+        $css = preg_replace('/url\\s*\\(\\s*[\'"]?\\s*(javascript|vbscript)\\s*:/i', 'url(', $css) ?? $css;
+
+        return trim($css);
+    }
+
+    /**
      * Normalize builder payload into canonical schema_js shape.
      */
     private function normalizeBuilderSchema(?string $pagesData, ?string $rawSchema): string
@@ -617,9 +760,9 @@ class FormController extends Controller
 
         $customDesign = [];
         if (is_array($decodedPagesData) && isset($decodedPagesData['customDesign']) && is_array($decodedPagesData['customDesign'])) {
-            $customDesign = $decodedPagesData['customDesign'];
+            $customDesign = $this->sanitizeCustomDesign($decodedPagesData['customDesign']);
         } elseif (isset($decodedRawSchema['customDesign']) && is_array($decodedRawSchema['customDesign'])) {
-            $customDesign = $decodedRawSchema['customDesign'];
+            $customDesign = $this->sanitizeCustomDesign($decodedRawSchema['customDesign']);
         }
 
         $rawBlocks = $this->extractBlocksFromSchema($decodedRawSchema);
@@ -838,6 +981,7 @@ class FormController extends Controller
 
         return $this->render('create', [
             'model' => $model,
+            'filteredSchemaJs' => $this->getFilteredSchemaJs($model),
         ]);
     }
 
@@ -877,6 +1021,7 @@ class FormController extends Controller
         // Use the same builder UI as create page so edit experience stays identical.
         return $this->render('create', [
             'model' => $model,
+            'filteredSchemaJs' => $this->getFilteredSchemaJs($model),
         ]);
     }
 
@@ -886,7 +1031,7 @@ class FormController extends Controller
     public function actionView($id)
     {
         $model = $this->findModel($id);
-        $schema = $model->getSchema();
+        $schema = $this->getFilteredBlocks($model);
         $totalSubmissions = (int) FormSubmission::find()
             ->where(['form_id' => $id])
             ->count();
@@ -925,7 +1070,7 @@ class FormController extends Controller
     {
         $model = $this->findModel($id, false);
         $this->ensureGuestCanAccessPublicForm($model);
-        $schema = $model->getSchema();
+        $schema = $this->getFilteredBlocks($model);
         $fkConfig = [];
 
         try {
@@ -977,7 +1122,7 @@ class FormController extends Controller
             // Save to schema_js with custom design
             $model->schema_js = json_encode([
                 'pages' => $data['pages'] ?? [],
-                'customDesign' => $data['customDesign'] ?? [],
+                'customDesign' => $this->sanitizeCustomDesign((array)($data['customDesign'] ?? [])),
                 'blocks' => $allBlocks
             ], JSON_UNESCAPED_UNICODE);
 
@@ -997,11 +1142,21 @@ class FormController extends Controller
     public function actionRender($id)
     {
         $model = $this->findModel($id, false);
-        $schema = $model->getSchema();
+        $this->ensureGuestCanAccessPublicForm($model);
+        $schema = $this->getFilteredBlocks($model);
+        $fkConfig = [];
+
+        try {
+            $fkConfig = $this->mapForeignKeyConfigToSchema($schema, $this->getForeignKeyConfigForForm($model));
+            Yii::info('FK Config for Form ' . $id . ': ' . json_encode(array_keys($fkConfig)), 'app');
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to resolve foreign key config for render: ' . $e->getMessage(), 'app');
+        }
 
         return $this->render('render', [
             'model' => $model,
             'schema' => $schema,
+            'fkConfig' => $fkConfig,
         ]);
     }
 
@@ -1012,11 +1167,12 @@ class FormController extends Controller
     {
         $model = $this->findModel($id, false);
         $this->ensureGuestCanAccessPublicForm($model);
-        $schema = $model->getSchema();
+        $schema = $this->getFilteredBlocks($model);
 
         if (Yii::$app->request->isPost) {
             $data = [];
             foreach ($schema as $field) {
+                if (!is_array($field)) continue;
                 $name = $field['name'] ?? $field['label'] ?? '';
                 if ($name) {
                     $data[$name] = Yii::$app->request->post($name, '');
@@ -1038,9 +1194,14 @@ class FormController extends Controller
 
             // Auto inject Yii logged in user data if available
             if (!Yii::$app->user->isGuest) {
-                $data['_user_id'] = Yii::$app->user->id;
-                $data['_user_email'] = Yii::$app->user->identity->email;
-                $data['_user_name'] = Yii::$app->user->identity->username;
+                $identity = Yii::$app->user->identity;
+                $data['_user_id'] = $identity->getId();
+                $data['_user_name'] = $identity->username;
+                
+                // User model might not have email field (it doesn't in current schema)
+                if (property_exists($identity, 'email') && isset($identity->email)) {
+                    $data['_user_email'] = $identity->email;
+                }
             }
 
             $targetTableId = $this->resolveFormTargetTableId($model);
@@ -1053,7 +1214,13 @@ class FormController extends Controller
                         throw new \RuntimeException('Form ini belum terhubung ke tabel database tujuan.');
                     }
 
-                    $storedToTable = $this->persistSubmissionToCustomTable($model, $data, $targetTableId);
+                    try {
+                        $storedToTable = $this->persistSubmissionToCustomTable($model, $data, $targetTableId);
+                    } catch (\Throwable $persistError) {
+                        Yii::error('Persist to custom table failed: ' . $persistError->getMessage(), 'app');
+                        throw new \RuntimeException('Gagal menyimpan ke tabel target: ' . $persistError->getMessage());
+                    }
+
                     if (!$storedToTable) {
                         throw new \RuntimeException('Tidak ada field yang cocok untuk disimpan ke tabel target.');
                     }
@@ -1061,12 +1228,20 @@ class FormController extends Controller
 
                 if (!$insertDirectlyToTable) {
                     $submission = new FormSubmission();
-                    $submission->form_id = $id;
-                    $submission->user_id = !Yii::$app->user->isGuest ? Yii::$app->user->id : null;
-                    $submission->firebase_uid = Yii::$app->request->post('firebase_uid');
-                    $submission->firebase_email = Yii::$app->request->post('user_email');
-                    $submission->firebase_name = Yii::$app->request->post('user_name');
-                    $submission->data_json = json_encode($data, JSON_UNESCAPED_UNICODE);
+                    $submission->setAttribute('form_id', (int)$id);
+                    $submission->setAttribute('user_id', !Yii::$app->user->isGuest ? (int)Yii::$app->user->id : null);
+                    
+                    if ($submission->hasAttribute('firebase_uid')) {
+                        $submission->setAttribute('firebase_uid', (string)Yii::$app->request->post('firebase_uid'));
+                    }
+                    if ($submission->hasAttribute('firebase_email')) {
+                        $submission->setAttribute('firebase_email', (string)Yii::$app->request->post('user_email'));
+                    }
+                    if ($submission->hasAttribute('firebase_name')) {
+                        $submission->setAttribute('firebase_name', (string)Yii::$app->request->post('user_name'));
+                    }
+                    
+                    $submission->setAttribute('data_json', json_encode($data, JSON_UNESCAPED_UNICODE));
 
                     if (!$submission->save()) {
                         $errors = $submission->getFirstErrors();
@@ -1077,11 +1252,8 @@ class FormController extends Controller
 
                 $transaction->commit();
 
-                if (Yii::$app->user->isGuest) {
-                    return $this->redirect(['success', 'id' => $id]);
-                }
-                Yii::$app->session->setFlash('success', 'Form submitted successfully!');
-                return $this->redirect(['render', 'id' => $id]);
+                // Always show success page after successful submission
+                return $this->redirect(['success', 'id' => $id]);
             } catch (IntegrityException $e) {
                 $transaction->rollBack();
                 Yii::warning('IntegrityException on form submit: ' . $e->getMessage(), 'app');
@@ -1186,7 +1358,7 @@ class FormController extends Controller
     public function actionExport($id)
     {
         $model = $this->findModel($id);
-        $schema = $model->getSchema();
+        $schema = $this->getFilteredBlocks($model);
 
         $submissions = FormSubmission::find()
             ->where(['form_id' => $id])
@@ -1537,26 +1709,86 @@ class FormController extends Controller
 
     /**
      * Get the application base URL for public links.
-     * APP_URL is used first (Railway), then current request host.
+     * Uses current request host to ensure links work in any environment (Local/Cloud).
      * @return string
      */
     protected function getPublicUrl()
     {
-        $baseUrl = getenv('APP_URL');
-        if (!$baseUrl) {
-            $railwayDomain = getenv('RAILWAY_PUBLIC_DOMAIN') ?: getenv('RAILWAY_STATIC_URL');
-            if ($railwayDomain) {
-                $baseUrl = preg_match('/^https?:\/\//i', $railwayDomain)
-                    ? $railwayDomain
-                    : 'https://' . $railwayDomain;
-            }
-        }
-
-        if (!$baseUrl) {
-            $baseUrl = Yii::$app->request->hostInfo;
-        }
-
+        $baseUrl = Yii::$app->request->hostInfo;
         return rtrim($baseUrl, '/');
+    }
+
+    private function getPhysicalDb(?int $projectId = null): Connection
+    {
+        $metadataDb = Yii::$app->db;
+        $activeProjectId = $projectId ?? $this->getActiveProjectId();
+        
+        if ($activeProjectId === null) {
+            return $metadataDb;
+        }
+
+        $project = Project::findOne($activeProjectId);
+        if ($project === null) {
+            return $metadataDb;
+        }
+
+        $databaseContext = new ActiveDatabaseContext();
+        $legacyDatabaseName = sprintf('proj_u%d_p%d', (int)$project->user_id, (int)$project->id);
+
+        $customDatabaseName = strtolower(trim((string)$project->name));
+        $customDatabaseName = preg_replace('/[^a-z0-9]+/i', '_', $customDatabaseName) ?? '';
+        $customDatabaseName = trim($customDatabaseName, '_');
+        if ($customDatabaseName === '') {
+            $customDatabaseName = 'project';
+        }
+        if (preg_match('/^[0-9]/', $customDatabaseName) === 1) {
+            $customDatabaseName = 'project_' . $customDatabaseName;
+        }
+        if (strlen($customDatabaseName) > 64) {
+            $customDatabaseName = rtrim(substr($customDatabaseName, 0, 64), '_');
+        }
+
+        $targetDatabase = $databaseContext->databaseExistsOnCurrentServer($legacyDatabaseName)
+            && !$databaseContext->databaseExistsOnCurrentServer($customDatabaseName)
+            ? $legacyDatabaseName
+            : $customDatabaseName;
+
+        if ($targetDatabase === '') {
+            return $metadataDb;
+        }
+
+        $dsn = (string)$metadataDb->dsn;
+        if (stripos($dsn, 'mysql:') !== 0) {
+            return $metadataDb;
+        }
+
+        if (preg_match('/dbname=([^;]+)/i', $dsn, $matches) === 1 && trim((string)$matches[1]) === $targetDatabase) {
+            return $metadataDb;
+        }
+
+        $projectDsn = preg_match('/dbname=([^;]+)/i', $dsn)
+            ? (string)preg_replace('/dbname=([^;]+)/i', 'dbname=' . $targetDatabase, $dsn, 1)
+            : rtrim($dsn, ';') . ';dbname=' . $targetDatabase;
+
+        $connection = Yii::createObject([
+            'class' => Connection::class,
+            'dsn' => $projectDsn,
+            'username' => $metadataDb->username,
+            'password' => $metadataDb->password,
+            'charset' => $metadataDb->charset,
+            'tablePrefix' => $metadataDb->tablePrefix,
+            'attributes' => $metadataDb->attributes,
+            'enableSchemaCache' => $metadataDb->enableSchemaCache,
+            'schemaCacheDuration' => $metadataDb->schemaCacheDuration,
+            'schemaCacheExclude' => $metadataDb->schemaCacheExclude,
+            'schemaCache' => $metadataDb->schemaCache,
+            'enableQueryCache' => $metadataDb->enableQueryCache,
+            'queryCacheDuration' => $metadataDb->queryCacheDuration,
+            'queryCache' => $metadataDb->queryCache,
+        ]);
+        $connection->open();
+
+        return $connection;
     }
 
     /**

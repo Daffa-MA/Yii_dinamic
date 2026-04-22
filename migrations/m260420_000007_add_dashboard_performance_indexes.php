@@ -36,7 +36,7 @@ class m260420_000007_add_dashboard_performance_indexes extends Migration
         }
 
         foreach ($this->db->schema->getTableIndexes($tableName) as $index) {
-            if ($index->getColumnNames() === $columns) {
+            if ($index->columnNames === $columns) {
                 return;
             }
         }

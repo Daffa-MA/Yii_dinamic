@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use Yii;
 use yii\db\ActiveRecord;
 
 /**
@@ -9,6 +10,14 @@ use yii\db\ActiveRecord;
  */
 class Project extends ActiveRecord
 {
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
     public static function tableName()
     {
         return 'projects';

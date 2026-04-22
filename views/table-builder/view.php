@@ -4,6 +4,7 @@
 /** @var app\models\DbTable $model */
 /** @var app\models\DbTableColumn[] $columns */
 /** @var array $tableData */
+/** @var array $databaseInfo */
 
 use yii\bootstrap5\Html;
 use yii\helpers\Url;
@@ -22,6 +23,17 @@ $uniqueColumns = array_filter($columns, static function ($column) {
 $foreignKeyColumns = array_filter($columns, static function ($column) {
     return $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
 });
+$databaseInfo = $databaseInfo ?? [];
+$databaseName = $databaseInfo['name'] ?? null;
+$databaseHost = $databaseInfo['host'] ?? null;
+$databasePort = $databaseInfo['port'] ?? null;
+$databaseTarget = $databaseName ?: '-';
+if ($databaseHost) {
+    $databaseTarget .= ' @ ' . $databaseHost;
+    if ($databasePort) {
+        $databaseTarget .= ':' . $databasePort;
+    }
+}
 $displayedRowsText = $model->is_created
     ? ($rowCount === 100 ? 'Showing latest 100 rows' : "Showing {$rowCount} row" . ($rowCount === 1 ? '' : 's'))
     : 'Table has not been created in the database yet';
@@ -512,6 +524,11 @@ if ($fkDebugEnabled) {
                 <div class="stat-value" style="font-size:22px;"><?= Html::encode(date('d M Y', strtotime($model->created_at))) ?></div>
                 <p class="stat-note"><?= Html::encode(date('H:i', strtotime($model->created_at))) ?></p>
             </div>
+            <div class="stat-card">
+                <span class="stat-label">Database</span>
+                <div class="stat-value" style="font-size:22px;"><?= Html::encode($databaseName ?: '-') ?></div>
+                <p class="stat-note"><?= Html::encode($databaseHost ? ($databaseHost . ($databasePort ? ':' . $databasePort : '')) : '-') ?></p>
+            </div>
         </div>
     </section>
 
@@ -677,6 +694,10 @@ if ($fkDebugEnabled) {
                     <div class="meta-row">
                         <div class="meta-label">Status</div>
                         <div class="meta-value"><?= $model->is_created ? 'Created in database' : 'Metadata only' ?></div>
+                    </div>
+                    <div class="meta-row">
+                        <div class="meta-label">Database</div>
+                        <div class="meta-value"><?= Html::encode($databaseTarget) ?></div>
                     </div>
                     <div class="meta-row">
                         <div class="meta-label">Engine</div>

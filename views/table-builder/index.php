@@ -2,6 +2,7 @@
 
 /** @var yii\web\View $this */
 /** @var array $tables */
+/** @var array $databaseInfo */
 
 use yii\bootstrap5\Html;
 
@@ -9,6 +10,7 @@ $this->title = 'Database Tables';
 $this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 
 $tableCount = count($tables);
 $createdCount = count(array_filter($tables, static function ($item) {
@@ -18,6 +20,10 @@ $pendingCount = $tableCount - $createdCount;
 $totalColumns = array_sum(array_map(static function ($item) {
     return count($item->columns);
 }, $tables));
+$databaseInfo = $databaseInfo ?? [];
+$databaseName = $databaseInfo['name'] ?? null;
+$databaseHost = $databaseInfo['host'] ?? null;
+$databasePort = $databaseInfo['port'] ?? null;
 ?>
 
 <style>
@@ -404,7 +410,6 @@ main#main > .container > .alert {
 }
 </style>
 
-<script src="https://cdn.tailwindcss.com"></script>
 <script>
     tailwind.config = {
         theme: {
@@ -443,7 +448,7 @@ main#main > .container > .alert {
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
 
-<nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
+<nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
     <div class="flex items-center gap-6">
         <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
             <span class="material-symbols-outlined text-outline text-[20px]">table_chart</span>
@@ -463,7 +468,7 @@ main#main > .container > .alert {
 
 <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'tables']) ?>
 
-<main class="app-shell-main pl-64 pt-6 min-h-screen">
+<main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
     <div class="max-w-[1400px] mx-auto px-8 py-8">
         <div class="table-index-page">
             <div class="page-shell">
@@ -504,6 +509,11 @@ main#main > .container > .alert {
                     <span class="stat-label">Columns</span>
                     <div class="stat-value"><?= $totalColumns ?></div>
                     <p class="stat-note">Total columns across all definitions</p>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Database</span>
+                    <div class="stat-value"><?= Html::encode($databaseName ?: '-') ?></div>
+                    <p class="stat-note"><?= Html::encode($databaseHost ? ($databaseHost . ($databasePort ? ':' . $databasePort : '')) : '-') ?></p>
                 </div>
             </div>
         </section>

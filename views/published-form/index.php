@@ -7,6 +7,7 @@ use yii\bootstrap5\Html;
 
 $this->title = 'Data Form';
 $this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
+$this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); document.body.style.backgroundAttachment = 'fixed'; document.body.style.background = 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 55%, #ede9fe 100%)';", \yii\web\View::POS_READY);
 
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
@@ -64,10 +65,8 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
     }
 </style>
 
-<body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
-
     <!-- Top Navigation Bar -->
-    <nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
+    <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="flex items-center gap-6">
             <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
                 <span class="material-symbols-outlined text-outline text-[20px]">search</span>
@@ -90,7 +89,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
     <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'published-forms']) ?>
 
     <!-- Main Content -->
-    <main class="app-shell-main pl-64 pt-6 min-h-screen">
+    <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="max-w-[1400px] mx-auto px-8 py-8">
             <!-- Header -->
             <div class="flex justify-between items-end mb-10">
@@ -395,4 +394,3 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
             }
         });
     </script>
-</body>

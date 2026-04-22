@@ -9,14 +9,14 @@
 use yii\bootstrap5\Html;
 
 $this->title = 'Form: ' . $model->name;
+$this->registerJs("document.body.classList.add('dashboard-main-page', 'font-body', 'text-on-surface'); document.body.style.background = '#e5e9f0';", \yii\web\View::POS_READY);
+$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
 ?>
 
-<!-- Tailwind CSS v3 -->
-<script src="https://cdn.tailwindcss.com"></script>
 <script>
     tailwind.config = {
         theme: {
@@ -53,10 +53,8 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     }
 </style>
 
-<body class="bg-surface font-body text-on-surface">
-
     <!-- Top Navigation Bar -->
-    <nav class="fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
+    <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
             <span class="material-symbols-outlined text-outline text-[20px]">search</span>
             <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search forms, analytics, or users..." type="text" />
@@ -76,7 +74,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'forms']) ?>
 
     <!-- Main Content -->
-    <main class="pl-64 pt-6 min-h-screen">
+    <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="max-w-[1400px] mx-auto px-8 py-8">
             <!-- Header -->
             <div class="flex justify-between items-end mb-10">
@@ -227,16 +225,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
     <?php
     $csrfToken = Yii::$app->request->csrfToken;
     $csrfParam = Yii::$app->request->csrfParam;
-    $baseUrl = getenv('APP_URL');
-    if (!$baseUrl) {
-        $railwayDomain = getenv('RAILWAY_PUBLIC_DOMAIN') ?: getenv('RAILWAY_STATIC_URL');
-        if ($railwayDomain) {
-            $baseUrl = preg_match('/^https?:\/\//i', $railwayDomain) ? $railwayDomain : 'https://' . $railwayDomain;
-        }
-    }
-    if (!$baseUrl) {
-        $baseUrl = Yii::$app->request->hostInfo;
-    }
+    
+    // Always prefer the current host for links to ensure they work in localhost environment
+    $baseUrl = Yii::$app->request->hostInfo;
     $baseUrl = rtrim($baseUrl, '/');
     $defaultPublicUrl = $baseUrl . '/form/public-render/' . $model->id;
     ?>
@@ -562,4 +553,3 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
     <!-- Notification System -->
     <script src="<?= Yii::$app->request->baseUrl ?>/js/notifications.js"></script>
-</body>

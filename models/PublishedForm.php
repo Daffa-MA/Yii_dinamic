@@ -22,6 +22,14 @@ use yii\helpers\Inflector;
  */
 class PublishedForm extends ActiveRecord
 {
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
     public static function tableName()
     {
         return 'published_forms';

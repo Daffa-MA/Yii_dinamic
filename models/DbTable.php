@@ -11,6 +11,14 @@ use yii\db\ActiveRecord;
  */
 class DbTable extends ActiveRecord
 {
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
     public const ALLOWED_ENGINES = ['InnoDB', 'MyISAM'];
     public const ALLOWED_CHARSETS = ['utf8mb4', 'utf8'];
     public const ALLOWED_COLLATIONS = ['utf8mb4_unicode_ci', 'utf8mb4_general_ci'];

@@ -27,6 +27,14 @@ use yii\db\ActiveRecord;
  */
 class Form extends ActiveRecord
 {
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
     /** @var string|null */
     private static $schemaStorageColumn;
 
@@ -163,7 +171,9 @@ class Form extends ActiveRecord
 
     public function getSchema()
     {
-        $schemaData = json_decode((string)$this->schema_js, true) ?: [];
+        $schemaColumn = self::getSchemaStorageColumn();
+        $schemaJs = $this->hasAttribute($schemaColumn) ? (string)$this->getAttribute($schemaColumn) : '';
+        $schemaData = json_decode($schemaJs, true) ?: [];
         
         // If schema has 'pages' structure, extract blocks from all pages
         if (isset($schemaData['pages']) && is_array($schemaData['pages'])) {

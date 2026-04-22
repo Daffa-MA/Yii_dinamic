@@ -21,11 +21,17 @@ $this->registerCssFile('https://unpkg.com/aos@2.3.1/dist/aos.css', ['position' =
 $this->registerJsFile('https://unpkg.com/aos@2.3.1/dist/aos.js', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 
-// Tailwind CSS
 ?>
-<script src="https://cdn.tailwindcss.com"></script>
 <script>
+    window.__FORM_BUILDER_DEBUG__ = false;
+    if (!window.__FORM_BUILDER_DEBUG__ && window.console) {
+        window.console.log = function() {};
+        window.console.info = function() {};
+        window.console.debug = function() {};
+    }
+
     tailwind.config = {
         theme: {
             extend: {

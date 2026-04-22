@@ -43,12 +43,11 @@ class BackupSyncCommand extends Command
             return;
         }
 
-        $targetBackup = $this->resolveBackupConnectionForCurrentDatabase($backup);
-        if (!$targetBackup instanceof Connection) {
-            return;
-        }
-
         try {
+            $targetBackup = $this->resolveBackupConnectionForCurrentDatabase($backup);
+            if (!$targetBackup instanceof Connection) {
+                return;
+            }
             $targetBackup->createCommand($sql, $this->params)->execute();
         } catch (\Throwable $e) {
             $message = 'Sinkronisasi ke database backup gagal: ' . $e->getMessage();

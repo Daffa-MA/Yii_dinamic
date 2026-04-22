@@ -308,25 +308,12 @@ class PublishedFormController extends Controller
 
     /**
      * Get the application base URL for public links.
-     * APP_URL is used first (Railway), then current request host.
+     * Uses current request host to ensure links work in any environment (Local/Cloud).
      * @return string
      */
     protected function getPublicUrl()
     {
-        $baseUrl = getenv('APP_URL');
-        if (!$baseUrl) {
-            $railwayDomain = getenv('RAILWAY_PUBLIC_DOMAIN') ?: getenv('RAILWAY_STATIC_URL');
-            if ($railwayDomain) {
-                $baseUrl = preg_match('/^https?:\/\//i', $railwayDomain)
-                    ? $railwayDomain
-                    : 'https://' . $railwayDomain;
-            }
-        }
-
-        if (!$baseUrl) {
-            $baseUrl = Yii::$app->request->hostInfo;
-        }
-
+        $baseUrl = Yii::$app->request->hostInfo;
         return rtrim($baseUrl, '/');
     }
 }

@@ -9,6 +9,19 @@ use yii\db\TableSchema;
 
 class RelationMapper
 {
+    /** @var \yii\db\Connection|null */
+    private $db;
+
+    public function __construct(?\yii\db\Connection $db = null)
+    {
+        $this->db = $db;
+    }
+
+    private function getDb(): \yii\db\Connection
+    {
+        return $this->db ?? Yii::$app->db;
+    }
+
     /**
      * Build FK configuration map indexed by source column name.
      *
@@ -16,38 +29,37 @@ class RelationMapper
      */
     public function buildForeignKeyConfig(DbTable $table): array
     {
+        $db = $this->getDb();
         $tableName = (string)$table->name;
-        if ($tableName === '' || Yii::$app->db->driverName !== 'mysql') {
+        if ($tableName === '') {
             return [];
         }
 
-        $foreignKeys = $this->detectForeignKeys($tableName);
-        if (empty($foreignKeys)) {
-            return [];
-        }
-
-        $columnLabels = [];
-        $columns = $table->getColumns()->asArray()->all();
+        // Prioritize Metadata from the system instead of just physical DB
+        // This ensures dropdowns work even if physical FKs are not yet synced or slightly different.
+        $config = [];
+        $columns = $table->getColumns()->all();
+        
         foreach ($columns as $column) {
-            $columnName = (string)($column['name'] ?? '');
-            if ($columnName === '') {
+            if (!$column->hasAttribute('is_foreign_key') || !(bool)$column->getAttribute('is_foreign_key')) {
                 continue;
             }
-            $columnLabels[$columnName] = (string)($column['label'] ?? $this->humanizeColumnName($columnName));
-        }
 
-        $config = [];
-        foreach ($foreignKeys as $fk) {
-            $sourceColumn = (string)$fk['column_name'];
-            $referencedTable = (string)$fk['referenced_table_name'];
-            $referencedColumn = (string)$fk['referenced_column_name'];
+            $sourceColumn = (string)$column->name;
+            $referencedTable = (string)$column->getAttribute('referenced_table_name');
+            $referencedColumn = (string)$column->getAttribute('referenced_column_name');
+
+            if ($referencedTable === '' || $referencedColumn === '') {
+                continue;
+            }
+
             $displayColumn = $this->resolveDisplayColumn($referencedTable, $referencedColumn);
             $options = $this->loadReferenceOptions($referencedTable, $referencedColumn, $displayColumn);
 
             $config[$sourceColumn] = [
                 'field' => $sourceColumn,
-                'fieldLabel' => $columnLabels[$sourceColumn] ?? $this->humanizeColumnName($sourceColumn),
-                'constraintName' => (string)$fk['constraint_name'],
+                'fieldLabel' => (string)($column->label ?? $this->humanizeColumnName($sourceColumn)),
+                'constraintName' => 'fk_' . $tableName . '_' . $sourceColumn,
                 'referencedTable' => $referencedTable,
                 'referencedColumn' => $referencedColumn,
                 'displayColumn' => $displayColumn,
@@ -64,7 +76,8 @@ class RelationMapper
      */
     private function detectForeignKeys(string $tableName): array
     {
-        $dbName = Yii::$app->db->createCommand('SELECT DATABASE()')->queryScalar();
+        $db = $this->getDb();
+        $dbName = $db->createCommand('SELECT DATABASE()')->queryScalar();
         if (!is_string($dbName) || $dbName === '') {
             return [];
         }
@@ -83,12 +96,13 @@ class RelationMapper
             ])
             ->andWhere(['not', ['kcu.REFERENCED_TABLE_NAME' => null]])
             ->orderBy(['kcu.ORDINAL_POSITION' => SORT_ASC])
-            ->all();
+            ->all($db);
     }
 
     private function resolveDisplayColumn(string $tableName, string $referencedColumn): ?string
     {
-        $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        $db = $this->getDb();
+        $schema = $db->schema->getTableSchema($tableName, true);
         if (!$schema instanceof TableSchema) {
             return null;
         }
@@ -132,7 +146,8 @@ class RelationMapper
      */
     private function loadReferenceOptions(string $tableName, string $valueColumn, ?string $labelColumn): array
     {
-        $tableSchema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        $db = $this->getDb();
+        $tableSchema = $db->schema->getTableSchema($tableName, true);
         if (!$tableSchema instanceof TableSchema || !isset($tableSchema->columns[$valueColumn])) {
             return [];
         }
@@ -150,7 +165,7 @@ class RelationMapper
             ->from($tableName)
             ->orderBy([$resolvedLabelColumn => SORT_ASC])
             ->limit(500)
-            ->all();
+            ->all($db);
 
         $options = [];
         foreach ($rows as $row) {
@@ -178,7 +193,8 @@ class RelationMapper
      */
     private function resolveQuickAddFields(string $tableName, string $valueColumn, ?string $displayColumn): array
     {
-        $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        $db = $this->getDb();
+        $schema = $db->schema->getTableSchema($tableName, true);
         if (!$schema instanceof TableSchema) {
             return [];
         }

@@ -20,6 +20,14 @@ class User extends ActiveRecord implements IdentityInterface
     /**
      * @inheritdoc
      */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
+    /**
+     * @inheritdoc
+     */
     public static function tableName()
     {
         return 'users';

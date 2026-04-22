@@ -55,6 +55,7 @@ $config = [
             ],
         ],
         'db' => $db,
+        'metadataDb' => $db,
         'urlManager' => [
             'enablePrettyUrl' => true,
             'showScriptName' => false,

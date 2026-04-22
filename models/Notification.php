@@ -24,6 +24,14 @@ use yii\behaviors\TimestampBehavior;
  */
 class Notification extends ActiveRecord
 {
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
     const TYPE_INFO = 'info';
     const TYPE_SUCCESS = 'success';
     const TYPE_WARNING = 'warning';

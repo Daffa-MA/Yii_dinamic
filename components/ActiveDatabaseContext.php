@@ -2,6 +2,7 @@
 
 namespace app\components;
 
+use app\models\Project;
 use Yii;
 use yii\db\Connection;
 use yii\db\Query;
@@ -36,10 +37,11 @@ class ActiveDatabaseContext
         $defaultDatabase = $this->resolveCurrentDatabaseName($currentConnection);
         $requestedDatabase = trim((string)($request->get('database', $request->get('db', ''))));
         $sessionDatabase = trim((string)$session->get(self::SESSION_KEY, ''));
+        $projectDatabase = $this->resolveActiveProjectDatabaseName();
 
         $targetDatabase = $requestedDatabase !== '' ? $requestedDatabase : $sessionDatabase;
         if ($targetDatabase === '') {
-            $targetDatabase = $defaultDatabase;
+            $targetDatabase = $projectDatabase !== '' ? $projectDatabase : $defaultDatabase;
         }
 
         if (!$this->isValidDatabaseName($targetDatabase)) {
@@ -213,5 +215,46 @@ class ActiveDatabaseContext
     private function isValidDatabaseName(string $databaseName): bool
     {
         return $databaseName !== '' && preg_match('/^[a-zA-Z0-9_]+$/', $databaseName) === 1;
+    }
+
+    private function resolveActiveProjectDatabaseName(): string
+    {
+        $project = (new ActiveProjectContext())->getActiveProject();
+        if (!$project instanceof Project) {
+            return '';
+        }
+
+        $legacyDatabaseName = sprintf('proj_u%d_p%d', (int)$project->user_id, (int)$project->id);
+        $customDatabaseName = $this->buildCustomProjectDatabaseName((string)$project->name);
+
+        if (
+            $this->databaseExistsOnCurrentServer($legacyDatabaseName)
+            && !$this->databaseExistsOnCurrentServer($customDatabaseName)
+        ) {
+            return $legacyDatabaseName;
+        }
+
+        return $customDatabaseName;
+    }
+
+    private function buildCustomProjectDatabaseName(string $projectName): string
+    {
+        $normalized = strtolower(trim($projectName));
+        $normalized = preg_replace('/[^a-z0-9]+/i', '_', $normalized) ?? '';
+        $normalized = trim($normalized, '_');
+
+        if ($normalized === '') {
+            $normalized = 'project';
+        }
+
+        if (preg_match('/^[0-9]/', $normalized) === 1) {
+            $normalized = 'project_' . $normalized;
+        }
+
+        if (strlen($normalized) > 64) {
+            $normalized = rtrim(substr($normalized, 0, 64), '_');
+        }
+
+        return $normalized !== '' ? $normalized : 'project';
     }
 }

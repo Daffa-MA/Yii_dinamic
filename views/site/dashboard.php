@@ -127,7 +127,7 @@ $isDatabaseSwitched = (bool)($databaseContext['isSwitched'] ?? false);
 
 <body class="bg-gradient-to-br from-[#edf3ff] via-[#f7f8ff] to-[#f4fbff] font-body text-on-surface">
     <!-- Top Navigation Bar -->
-    <nav class="app-shell-nav fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)] tonal-transition">
+    <nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)] tonal-transition" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="flex items-center gap-6">
             <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
                 <span class="material-symbols-outlined text-outline text-[20px]">search</span>
@@ -153,7 +153,7 @@ $isDatabaseSwitched = (bool)($databaseContext['isSwitched'] ?? false);
     <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'dashboard', 'sidebarVariant' => 'full']) ?>
 
     <!-- Main Content Canvas -->
-    <main class="app-shell-main pl-64 pt-6 min-h-screen">
+    <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
         <div class="max-w-[1400px] mx-auto px-8 py-8">
             <!-- Header Section -->
             <section class="dashboard-glow mb-10">

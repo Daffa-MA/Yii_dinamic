@@ -6,8 +6,10 @@ use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
+use yii\db\Connection;
 use app\models\DbTable;
 use app\models\DbTableColumn;
+use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
 
@@ -129,9 +131,43 @@ class TableBuilderController extends Controller
         $model->project_id = $activeProjectId !== null ? (int)$activeProjectId : null;
     }
 
+    private function getDatabaseInfo(): array
+    {
+        $db = $this->getPhysicalDb();
+        $dsn = (string)$db->dsn;
+        $host = null;
+        $port = null;
+        $name = null;
+
+        if (preg_match('/host=([^;]+)/i', $dsn, $matches) === 1) {
+            $host = trim((string)$matches[1]);
+        }
+        if (preg_match('/port=([^;]+)/i', $dsn, $matches) === 1) {
+            $port = trim((string)$matches[1]);
+        }
+        if (preg_match('/dbname=([^;]+)/i', $dsn, $matches) === 1) {
+            $name = trim((string)$matches[1]);
+        }
+
+        if ($name === null || $name === '') {
+            try {
+                $resolvedName = $db->createCommand('SELECT DATABASE()')->queryScalar();
+                $name = $resolvedName !== false ? trim((string)$resolvedName) : null;
+            } catch (\Throwable $e) {
+                $name = null;
+            }
+        }
+
+        return [
+            'name' => $name ?: null,
+            'host' => $host ?: null,
+            'port' => $port ?: null,
+        ];
+    }
+
     private function hasPhysicalTableByName(string $tableName): bool
     {
-        return Yii::$app->db->schema->getTableSchema($tableName, true) !== null;
+        return $this->getPhysicalDb()->schema->getTableSchema($tableName, true) !== null;
     }
 
     private function hasPhysicalTable(DbTable $model): bool
@@ -161,7 +197,7 @@ class TableBuilderController extends Controller
      */
     private function isAutoIncrementColumn(DbTableColumn $column): bool
     {
-        $integerTypes = ['INT', 'BIGINT', 'TINYINT'];
+        $integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
         if ($column->hasAttribute('is_auto_increment')) {
             return (bool)$column->getAttribute('is_auto_increment');
         }
@@ -238,6 +274,10 @@ class TableBuilderController extends Controller
             $base = 'fk_constraint';
         }
 
+        // Append a short unique hash based on the current time to avoid collisions with
+        // backup tables or previous versions of the same table during sync/rebuild.
+        $base .= '_' . substr(md5(uniqid((string)mt_rand(), true)), 0, 4);
+
         $maxLength = 64;
         $candidate = substr($base, 0, $maxLength);
         $suffix = 1;
@@ -249,6 +289,38 @@ class TableBuilderController extends Controller
 
         $usedConstraintNames[$candidate] = true;
         return $candidate;
+    }
+
+    private function parseEnumValues(?string $rawValues): array
+    {
+        $rawValues = trim((string)$rawValues);
+        if ($rawValues === '') {
+            return [];
+        }
+
+        $values = array_map(static function ($value) {
+            $value = trim((string)$value);
+            return trim($value, " \t\n\r\0\x0B'\"");
+        }, preg_split('/,/', $rawValues) ?: []);
+        $values = array_filter($values, static function ($value) {
+            return $value !== '';
+        });
+
+        return array_values(array_unique($values));
+    }
+
+    private function buildEnumSetType(DbTableColumn $column, \yii\db\Connection $db): string
+    {
+        $rawValues = $column->hasAttribute('enum_values')
+            ? (string)$column->getAttribute('enum_values')
+            : '';
+        $values = $this->parseEnumValues($rawValues);
+        if (empty($values)) {
+            throw new \RuntimeException("Column '{$column->name}' requires values for {$column->type}.");
+        }
+
+        $quotedValues = array_map([$db, 'quoteValue'], $values);
+        return strtoupper((string)$column->type) . '(' . implode(',', $quotedValues) . ')';
     }
 
     private function getForeignKeyReferenceMap(): array
@@ -280,7 +352,7 @@ class TableBuilderController extends Controller
 
     private function buildCreateTableSql(DbTable $model, array $columns): string
     {
-        $db = Yii::$app->db;
+        $db = $this->getPhysicalDb();
         $columnDefs = [];
         $primaryKeys = [];
         $autoIncrementCandidates = [];
@@ -289,6 +361,10 @@ class TableBuilderController extends Controller
 
         foreach ($columns as $col) {
             $type = $col->getMySQLType();
+            $typeName = strtoupper((string)$col->type);
+            if (in_array($typeName, ['ENUM', 'SET'], true)) {
+                $type = $this->buildEnumSetType($col, $db);
+            }
             $isAutoIncrement = $this->isAutoIncrementColumn($col);
             $nullable = ($col->is_primary || $isAutoIncrement) ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
             $default = ($isAutoIncrement || $col->default_value === null) ? '' : 'DEFAULT ' . $db->quoteValue($col->default_value);
@@ -361,6 +437,72 @@ class TableBuilderController extends Controller
         }
 
         return "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
+    }
+
+    private function getPhysicalDb(): Connection
+    {
+        $metadataDb = Yii::$app->db;
+        $project = (new ActiveProjectContext())->getActiveProject();
+        if ($project === null) {
+            return $metadataDb;
+        }
+
+        $databaseContext = new ActiveDatabaseContext();
+        $legacyDatabaseName = sprintf('proj_u%d_p%d', (int)$project->user_id, (int)$project->id);
+        $customDatabaseName = strtolower(trim((string)$project->name));
+        $customDatabaseName = preg_replace('/[^a-z0-9]+/i', '_', $customDatabaseName) ?? '';
+        $customDatabaseName = trim($customDatabaseName, '_');
+        if ($customDatabaseName === '') {
+            $customDatabaseName = 'project';
+        }
+        if (preg_match('/^[0-9]/', $customDatabaseName) === 1) {
+            $customDatabaseName = 'project_' . $customDatabaseName;
+        }
+        if (strlen($customDatabaseName) > 64) {
+            $customDatabaseName = rtrim(substr($customDatabaseName, 0, 64), '_');
+        }
+
+        $targetDatabase = $databaseContext->databaseExistsOnCurrentServer($legacyDatabaseName)
+            && !$databaseContext->databaseExistsOnCurrentServer($customDatabaseName)
+            ? $legacyDatabaseName
+            : $customDatabaseName;
+
+        if ($targetDatabase === '') {
+            return $metadataDb;
+        }
+
+        $dsn = (string)$metadataDb->dsn;
+        if (stripos($dsn, 'mysql:') !== 0) {
+            return $metadataDb;
+        }
+
+        if (preg_match('/dbname=([^;]+)/i', $dsn, $matches) === 1 && trim((string)$matches[1]) === $targetDatabase) {
+            return $metadataDb;
+        }
+
+        $projectDsn = preg_match('/dbname=([^;]+)/i', $dsn)
+            ? (string)preg_replace('/dbname=([^;]+)/i', 'dbname=' . $targetDatabase, $dsn, 1)
+            : rtrim($dsn, ';') . ';dbname=' . $targetDatabase;
+
+        $connection = Yii::createObject([
+            'class' => Connection::class,
+            'dsn' => $projectDsn,
+            'username' => $metadataDb->username,
+            'password' => $metadataDb->password,
+            'charset' => $metadataDb->charset,
+            'tablePrefix' => $metadataDb->tablePrefix,
+            'attributes' => $metadataDb->attributes,
+            'enableSchemaCache' => $metadataDb->enableSchemaCache,
+            'schemaCacheDuration' => $metadataDb->schemaCacheDuration,
+            'schemaCacheExclude' => $metadataDb->schemaCacheExclude,
+            'schemaCache' => $metadataDb->schemaCache,
+            'enableQueryCache' => $metadataDb->enableQueryCache,
+            'queryCacheDuration' => $metadataDb->queryCacheDuration,
+            'queryCache' => $metadataDb->queryCache,
+        ]);
+        $connection->open();
+
+        return $connection;
     }
 
     private function buildColumnModels(array $columns, int $tableId): array
@@ -437,14 +579,25 @@ class TableBuilderController extends Controller
                     'payload' => $colData,
                 ]);
             }
+            if ($column->hasAttribute('enum_values')) {
+                $rawEnumValues = $colData['enum_values'] ?? $colData['enumValues'] ?? '';
+                $rawEnumValues = trim((string)$rawEnumValues);
+                $type = strtoupper((string)$column->type);
+                if (in_array($type, ['ENUM', 'SET'], true)) {
+                    $column->setAttribute('enum_values', $rawEnumValues);
+                } else {
+                    $column->setAttribute('enum_values', null);
+                }
+            }
+
             $column->default_value = $colData['default_value'] !== '' ? (string)$colData['default_value'] : null;
             $column->comment = $colData['comment'] !== '' ? (string)$colData['comment'] : null;
             $column->sort_order = $index;
 
             if ($this->isAutoIncrementColumn($column)) {
                 $type = strtoupper((string)$column->type);
-                if (!in_array($type, ['INT', 'BIGINT', 'TINYINT'], true)) {
-                    $column->addError('is_auto_increment', 'Auto increment is only supported for INT, BIGINT, or TINYINT.');
+                if (!in_array($type, ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'], true)) {
+                    $column->addError('is_auto_increment', 'Auto increment is only supported for TINYINT, SMALLINT, MEDIUMINT, INT, or BIGINT.');
                 }
                 $column->is_primary = true;
                 $column->is_nullable = false;
@@ -495,7 +648,7 @@ class TableBuilderController extends Controller
      */
     private function syncUpdatedPhysicalTable(DbTable $model, string $oldTableName, array $columnModels): void
     {
-        $db = Yii::$app->db;
+        $db = $this->getPhysicalDb();
         $newTableName = (string)$model->name;
 
         if (!$this->hasPhysicalTableByName($oldTableName)) {
@@ -517,6 +670,10 @@ class TableBuilderController extends Controller
         $newTableCreated = false;
 
         try {
+            // Disable foreign key checks during table sync/rebuild to allow renaming parent tables
+            // and avoiding immediate constraint violations during the reconstruction process.
+            $db->createCommand("SET FOREIGN_KEY_CHECKS = 0")->execute();
+
             $db->createCommand("RENAME TABLE `{$oldTableName}` TO `{$backupTableName}`")->execute();
             $renamedToBackup = true;
 
@@ -556,6 +713,11 @@ class TableBuilderController extends Controller
             }
 
             throw $e;
+        } finally {
+            try {
+                $db->createCommand("SET FOREIGN_KEY_CHECKS = 1")->execute();
+            } catch (\Throwable $ignore) {
+            }
         }
     }
 
@@ -598,6 +760,7 @@ class TableBuilderController extends Controller
     public function actionIndex()
     {
         $activeProjectId = $this->getActiveProjectId();
+        $databaseInfo = $this->getDatabaseInfo();
         $tablesQuery = DbTable::find()
             ->with(['columns'])
             ->where(['user_id' => Yii::$app->user->id])
@@ -619,6 +782,7 @@ class TableBuilderController extends Controller
 
         return $this->render('index', [
             'tables' => $tablesWithColumns,
+            'databaseInfo' => $databaseInfo,
         ]);
     }
 
@@ -708,6 +872,7 @@ class TableBuilderController extends Controller
             'model' => $model,
             'savedColumns' => $savedColumns,
             'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
+            'databaseInfo' => $this->getDatabaseInfo(),
         ]);
     }
 
@@ -735,7 +900,7 @@ class TableBuilderController extends Controller
         $tableData = [];
         if ($isCreated) {
             try {
-                $tableData = Yii::$app->db->createCommand("SELECT * FROM `{$model->name}` ORDER BY id DESC LIMIT 100")->queryAll();
+                $tableData = $this->getPhysicalDb()->createCommand("SELECT * FROM `{$model->name}` ORDER BY id DESC LIMIT 100")->queryAll();
             } catch (\Exception $e) {
                 $tableData = [];
             }
@@ -745,6 +910,7 @@ class TableBuilderController extends Controller
             'model' => $model,
             'columns' => $columns,
             'tableData' => $tableData,
+            'databaseInfo' => $this->getDatabaseInfo(),
         ]);
     }
 
@@ -776,6 +942,7 @@ class TableBuilderController extends Controller
                 'on_update' => $column->hasAttribute('on_update_action') ? $column->getAttribute('on_update_action') : 'RESTRICT',
                 'default_value' => $column->default_value,
                 'comment' => $column->comment,
+                'enum_values' => $column->hasAttribute('enum_values') ? $column->getAttribute('enum_values') : null,
             ];
         }, $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all());
         $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
@@ -859,6 +1026,7 @@ class TableBuilderController extends Controller
             'model' => $model,
             'savedColumns' => $savedColumns,
             'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
+            'databaseInfo' => $this->getDatabaseInfo(),
         ]);
     }
 
@@ -881,7 +1049,7 @@ class TableBuilderController extends Controller
         }
 
         try {
-            $db = Yii::$app->db;
+            $db = $this->getPhysicalDb();
             if (!$model->validate(['name', 'engine', 'charset', 'collation'])) {
                 throw new \RuntimeException(implode(', ', $model->getErrorSummary(true)));
             }
@@ -892,7 +1060,13 @@ class TableBuilderController extends Controller
                 'table_name' => (string)$model->name,
                 'sql' => $sql,
             ]);
-            $db->createCommand($sql)->execute();
+
+            $db->createCommand("SET FOREIGN_KEY_CHECKS = 0")->execute();
+            try {
+                $db->createCommand($sql)->execute();
+            } finally {
+                $db->createCommand("SET FOREIGN_KEY_CHECKS = 1")->execute();
+            }
 
             if (!$this->hasPhysicalTable($model)) {
                 throw new \RuntimeException("Table '{$model->name}' was not found after SQL execution.");
@@ -901,7 +1075,7 @@ class TableBuilderController extends Controller
             $model->is_created = true;
             $model->save(false, ['is_created']);
 
-            $dbName = Yii::$app->db->createCommand('SELECT DATABASE()')->queryScalar();
+            $dbName = $db->createCommand('SELECT DATABASE()')->queryScalar();
             Yii::$app->session->setFlash('success', "Table '{$model->name}' created successfully in database '{$dbName}'.");
             
         } catch (\Exception $e) {
@@ -917,7 +1091,7 @@ class TableBuilderController extends Controller
         
         if ($model->is_created) {
             try {
-                Yii::$app->db->createCommand("DROP TABLE IF EXISTS `{$model->name}`")->execute();
+                $this->getPhysicalDb()->createCommand("DROP TABLE IF EXISTS `{$model->name}`")->execute();
             } catch (\Exception $e) {
                 // Ignore drop errors
             }

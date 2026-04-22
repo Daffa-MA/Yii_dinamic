@@ -14,6 +14,9 @@ use app\components\ProjectSchema;
 
 class ProjectController extends Controller
 {
+    /** @var array<string, bool> */
+    private static $databaseExistsCache = [];
+
     private function buildLegacyProjectDatabaseName(Project $project): string
     {
         return sprintf('proj_u%d_p%d', (int)$project->user_id, (int)$project->id);
@@ -60,13 +63,26 @@ class ProjectController extends Controller
 
         // Backward compatibility: keep using old generated DB name if it already exists.
         if (
-            $databaseContext->databaseExistsOnCurrentServer($legacyDatabaseName)
-            && !$databaseContext->databaseExistsOnCurrentServer($customDatabaseName)
+            $this->databaseExistsCached($databaseContext, $legacyDatabaseName)
+            && !$this->databaseExistsCached($databaseContext, $customDatabaseName)
         ) {
             return $legacyDatabaseName;
         }
 
         return $customDatabaseName;
+    }
+
+    private function databaseExistsCached(ActiveDatabaseContext $databaseContext, string $databaseName): bool
+    {
+        if ($databaseName === '') {
+            return false;
+        }
+
+        if (!array_key_exists($databaseName, self::$databaseExistsCache)) {
+            self::$databaseExistsCache[$databaseName] = $databaseContext->databaseExistsOnCurrentServer($databaseName);
+        }
+
+        return self::$databaseExistsCache[$databaseName];
     }
 
     private function ensureProjectDatabase(Project $project, bool $mustBeNew = false): string

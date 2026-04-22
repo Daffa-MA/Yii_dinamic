@@ -4,6 +4,7 @@
 /** @var app\models\DbTable $model */
 /** @var array $savedColumns */
 /** @var array $foreignKeyReferenceMap */
+/** @var array $databaseInfo */
 /** @var string|null $pageTitle */
 /** @var string|null $pageHeading */
 /** @var string|null $heroText */
@@ -21,6 +22,20 @@ $executionStatusLabel = $model->is_created ? 'Created' : 'Pending';
 $executionStatusNote = $model->is_created
     ? 'Physical SQL table already exists in the database'
     : 'Physical SQL table is created after save';
+$databaseInfo = $databaseInfo ?? [];
+$databaseName = $databaseInfo['name'] ?? null;
+$databaseHost = $databaseInfo['host'] ?? null;
+$databasePort = $databaseInfo['port'] ?? null;
+$databaseTarget = $databaseName ?: '-';
+if ($databaseHost) {
+    $databaseTarget .= ' @ ' . $databaseHost;
+    if ($databasePort) {
+        $databaseTarget .= ':' . $databasePort;
+    }
+}
+if ($databaseName) {
+    $executionStatusNote .= ' (DB: ' . $databaseTarget . ')';
+}
 $foreignKeyReferenceMap = $foreignKeyReferenceMap ?? ($referenceMetadata ?? ($referenceTables ?? []));
 $fkDebugEnabled = Yii::$app->request->get('fk_debug') === '1';
 $indexRoute = ['table-builder/index'];
@@ -590,6 +605,11 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     <div class="stat-value" style="font-size:22px;"><?= Html::encode($executionStatusLabel) ?></div>
                     <p class="stat-note"><?= Html::encode($executionStatusNote) ?></p>
                 </div>
+                <div class="stat-card">
+                    <span class="stat-label">Database</span>
+                    <div class="stat-value" style="font-size:22px;"><?= Html::encode($databaseName ?: '-') ?></div>
+                    <p class="stat-note"><?= Html::encode($databaseHost ? ($databaseHost . ($databasePort ? ':' . $databasePort : '')) : '-') ?></p>
+                </div>
             </div>
         </section>
 
@@ -693,8 +713,16 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                 <div class="field-group">
                                     <label class="field-label" for="prop-type">Data Type</label>
                                     <select class="field-select" id="prop-type">
-                                        <?php foreach (DbTableColumn::$columnTypes as $key => $value): ?>
-                                            <option value="<?= Html::encode($key) ?>"><?= Html::encode($value) ?></option>
+                                        <?php foreach (DbTableColumn::getColumnTypeGroups() as $groupLabel => $types): ?>
+                                            <optgroup label="<?= Html::encode($groupLabel) ?>">
+                                                <?php foreach ($types as $type): ?>
+                                                    <?php if ($type === '-'): ?>
+                                                        <option value="" disabled>-</option>
+                                                    <?php else: ?>
+                                                        <option value="<?= Html::encode($type) ?>"><?= Html::encode($type) ?></option>
+                                                    <?php endif; ?>
+                                                <?php endforeach; ?>
+                                            </optgroup>
                                         <?php endforeach; ?>
                                     </select>
                                 </div>
@@ -702,6 +730,12 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                                 <div class="field-group">
                                     <label class="field-label" for="prop-length">Length / Precision</label>
                                     <input type="number" class="field-input" id="prop-length" min="1">
+                                </div>
+
+                                <div class="field-group" id="enum-values-group" style="display:none;">
+                                    <label class="field-label" for="prop-enum-values">Enum/Set Values</label>
+                                    <input type="text" class="field-input" id="prop-enum-values" autocomplete="off" placeholder="contoh: aktif, nonaktif">
+                                    <p class="field-note">Pisahkan dengan koma untuk ENUM atau SET.</p>
                                 </div>
 
                                 <div class="field-group">
@@ -839,13 +873,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const tableEngineInput = document.getElementById('table-engine');
     const foreignKeyToggleInput = document.getElementById('prop-is-foreign-key');
     const foreignKeySettings = document.getElementById('foreign-key-settings');
+    const enumValuesInput = document.getElementById('prop-enum-values');
+    const enumValuesGroup = document.getElementById('enum-values-group');
     const referencedTableInput = document.getElementById('prop-referenced-table');
     const referencedColumnInput = document.getElementById('prop-referenced-column');
     const onDeleteInput = document.getElementById('prop-on-delete');
     const onUpdateInput = document.getElementById('prop-on-update');
     const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
 
-    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
+    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-enum-values', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
+    const lengthInput = document.getElementById('prop-length');
+    const typeDefaultLengths = <?= json_encode(DbTableColumn::getDefaultLengthMap()) ?>;
     const rawForeignKeyReferenceMap = <?= \yii\helpers\Json::encode($foreignKeyReferenceMap) ?>;
     const foreignKeyReferenceMap = normalizeReferenceMetadata(rawForeignKeyReferenceMap);
     const fkDebugEnabled = <?= $fkDebugEnabled ? 'true' : 'false' ?> || window.localStorage.getItem('tb_fk_debug') === '1';
@@ -914,20 +952,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('btn-add-column').addEventListener('click', function () {
         const nextIndex = columns.length + 1;
-        const newColumn = normalizeColumn({
-            name: 'column_' + nextIndex,
-            label: 'Column ' + nextIndex,
-            type: 'VARCHAR',
-            length: 255,
-            is_nullable: true,
-            is_primary: false,
-            is_unique: false,
-            default_value: '',
-            comment: '',
-            is_foreign_key: false,
-            referenced_table: '',
-            referenced_column: '',
-            on_delete: '',
+            const newColumn = normalizeColumn({
+                name: 'column_' + nextIndex,
+                label: 'Column ' + nextIndex,
+                type: 'VARCHAR',
+                length: 255,
+                is_nullable: true,
+                is_primary: false,
+                is_unique: false,
+                default_value: '',
+                comment: '',
+                enum_values: '',
+                is_foreign_key: false,
+                referenced_table: '',
+                referenced_column: '',
+                on_delete: '',
             on_update: ''
         });
 
@@ -1005,17 +1044,24 @@ document.addEventListener('DOMContentLoaded', function () {
                     : (relation.enabled !== undefined ? relation.enabled : hasReference)));
         const isForeignKey = toBoolean(relationEnabledValue, hasReference);
 
+        const normalizedType = (column.type || 'VARCHAR').toString().toUpperCase();
+        const recommendedLength = getRecommendedLength(normalizedType);
+        const resolvedLength = recommendedLength !== ''
+            ? (column.length !== '' && column.length !== null ? column.length : recommendedLength)
+            : null;
+
         return {
             name: sanitizeColumnName(column.name || ''),
             label: (column.label || column.name || 'Column').toString(),
-            type: column.type || 'VARCHAR',
-            length: column.length !== '' && column.length !== null ? column.length : 255,
+            type: normalizedType,
+            length: resolvedLength !== '' && resolvedLength !== null ? resolvedLength : null,
             is_nullable: toBoolean(column.is_nullable, true),
             is_primary: toBoolean(column.is_primary, false),
             is_unique: toBoolean(column.is_unique, false),
             is_auto_increment: toBoolean(column.is_auto_increment, false),
             default_value: column.default_value || '',
             comment: column.comment || '',
+            enum_values: (column.enum_values || column.enumValues || '').toString(),
             is_foreign_key: isForeignKey,
             referenced_table: isForeignKey ? referencedTable : '',
             referenced_column: isForeignKey ? referencedColumn : '',
@@ -1041,6 +1087,28 @@ document.addEventListener('DOMContentLoaded', function () {
     function normalizeForeignKeyAction(value) {
         const action = (value || '').toString().toUpperCase();
         return foreignKeyActions.indexOf(action) !== -1 ? action : '';
+    }
+
+    function isEnumType(type) {
+        return ['ENUM', 'SET'].indexOf((type || '').toUpperCase()) !== -1;
+    }
+
+    function getRecommendedLength(type) {
+        const normalizedType = (type || '').toUpperCase();
+        return Object.prototype.hasOwnProperty.call(typeDefaultLengths, normalizedType)
+            ? typeDefaultLengths[normalizedType]
+            : '';
+    }
+
+    function syncEnumValuesVisibility(type) {
+        if (!enumValuesGroup) {
+            return;
+        }
+        const shouldShow = isEnumType(type);
+        enumValuesGroup.style.display = shouldShow ? '' : 'none';
+        if (!shouldShow && enumValuesInput) {
+            enumValuesInput.value = '';
+        }
     }
 
     function normalizeReferenceMetadata(rawData) {
@@ -1385,7 +1453,10 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('prop-name').value = column.name || '';
         document.getElementById('prop-label').value = column.label || '';
         document.getElementById('prop-type').value = column.type;
-        document.getElementById('prop-length').value = column.length || '';
+        lengthInput.value = column.length || '';
+        if (enumValuesInput) {
+            enumValuesInput.value = column.enum_values || '';
+        }
         document.getElementById('prop-nullable').checked = column.is_nullable;
         document.getElementById('prop-unique').checked = column.is_unique;
         document.getElementById('prop-primary').checked = column.is_primary;
@@ -1398,6 +1469,7 @@ document.addEventListener('DOMContentLoaded', function () {
         onDeleteInput.value = normalizeForeignKeyAction(column.on_delete || '');
         onUpdateInput.value = normalizeForeignKeyAction(column.on_update || '');
         toggleForeignKeySettings(foreignKeyToggleInput.checked);
+        syncEnumValuesVisibility(column.type);
         isSyncingProperties = false;
     }
 
@@ -1410,10 +1482,20 @@ document.addEventListener('DOMContentLoaded', function () {
         const eventSource = event && event.target ? event.target.id : 'unknown';
         const nameInput = document.getElementById('prop-name');
 
+        const selectedType = document.getElementById('prop-type').value;
+        if (eventSource === 'prop-type') {
+            const recommendedLength = getRecommendedLength(selectedType);
+            lengthInput.value = recommendedLength !== '' ? recommendedLength : '';
+            syncEnumValuesVisibility(selectedType);
+        }
+
         column.name = sanitizeColumnName(nameInput.value, true);
         column.label = document.getElementById('prop-label').value;
-        column.type = document.getElementById('prop-type').value;
-        column.length = document.getElementById('prop-length').value || null;
+        column.type = selectedType;
+        column.length = lengthInput.value || null;
+        if (enumValuesInput) {
+            column.enum_values = isEnumType(selectedType) ? enumValuesInput.value : '';
+        }
         column.is_nullable = document.getElementById('prop-nullable').checked;
         column.is_unique = document.getElementById('prop-unique').checked;
         column.is_primary = document.getElementById('prop-primary').checked;
@@ -1439,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         toggleForeignKeySettings(column.is_foreign_key);
 
-        const integerTypes = ['INT', 'BIGINT', 'TINYINT'];
+        const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
         if (column.is_auto_increment && integerTypes.indexOf(column.type) === -1) {
             column.is_auto_increment = false;
             document.getElementById('prop-auto-increment').checked = false;
@@ -1507,7 +1589,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .toLowerCase()
             .replace(/[^a-z0-9_]+/g, '_')
             .replace(/_+/g, '_')
-            .replace(/^_+|_+$/g, '');
+            .replace(/^_+/, '');
 
         if (allowEmpty) {
             return sanitized;

@@ -27,6 +27,7 @@ $config = [
             ],
         ],
         'db' => $db,
+        'metadataDb' => $db,
     ],
     'controllerMap' => [
         'migrate' => [

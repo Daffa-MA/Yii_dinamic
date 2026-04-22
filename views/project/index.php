@@ -482,7 +482,6 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         border-radius: 18px;
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(12px);
     }
 
     .project-home-metric strong {
@@ -508,7 +507,6 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         background: rgba(255, 255, 255, 0.82);
         border: 1px solid rgba(148, 163, 184, 0.24);
         box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
-        backdrop-filter: blur(18px);
         display: flex;
         flex-direction: column;
         gap: 18px;
@@ -1050,7 +1048,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
 
     body.project-welcome-page .project-home-orb-a,
     body.project-welcome-page .project-home-orb-b {
-        animation: projectOrbFloat 7s ease-in-out infinite alternate;
+        animation: none;
     }
 
     body.project-welcome-page .project-home-orb-b {
@@ -1086,7 +1084,6 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
     body.project-welcome-page .project-home-action-secondary {
         background: rgba(15, 23, 42, 0.25);
         border: 1px solid rgba(191, 219, 254, 0.28);
-        backdrop-filter: blur(12px);
     }
 
     body.project-welcome-page .project-home-action-secondary:hover {
@@ -1103,7 +1100,6 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         background: rgba(255, 255, 255, 0.9);
         border-color: rgba(148, 163, 184, 0.2);
         box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
-        backdrop-filter: blur(12px);
     }
 
     body.project-welcome-page .project-card {
@@ -1129,23 +1125,21 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
     }
 
     body.project-welcome-page [data-animate] {
-        opacity: 0;
-        transform: translateY(18px);
-        animation: projectReveal 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        opacity: 1;
+        transform: none;
+        animation: none;
     }
 
     body.project-welcome-page [data-animate="slideInLeft"] {
-        transform: translateX(-22px);
-        animation-delay: 0.05s;
+        transform: none;
     }
 
     body.project-welcome-page [data-animate="slideInRight"] {
-        transform: translateX(22px);
-        animation-delay: 0.18s;
+        transform: none;
     }
 
     body.project-welcome-page [data-animate="slideInUp"] {
-        animation-delay: 0.28s;
+        transform: none;
     }
 
     body.project-welcome-page .app-sidebar {

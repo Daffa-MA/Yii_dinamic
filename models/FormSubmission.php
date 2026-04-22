@@ -10,6 +10,9 @@ use yii\db\ActiveRecord;
  * @property integer $id
  * @property integer $form_id
  * @property integer $user_id
+ * @property string $firebase_uid
+ * @property string $firebase_email
+ * @property string $firebase_name
  * @property string $data_json
  * @property string $created_at
  *
@@ -18,6 +21,14 @@ use yii\db\ActiveRecord;
  */
 class FormSubmission extends ActiveRecord
 {
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
     /**
      * @inheritdoc
      */
@@ -35,6 +46,7 @@ class FormSubmission extends ActiveRecord
             [['form_id', 'data_json'], 'required'],
             [['form_id', 'user_id'], 'integer'],
             [['data_json'], 'string'],
+            [['firebase_uid', 'firebase_email', 'firebase_name'], 'string', 'max' => 255],
             [['form_id'], 'exist', 'skipOnError' => true, 'targetClass' => Form::class, 'targetAttribute' => ['form_id' => 'id']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];

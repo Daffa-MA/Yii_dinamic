@@ -251,11 +251,11 @@ if ($driver !== 'mysql') {
 ]);
 $parsedDatabaseUrl = dbParseUrl($databaseUrl);
 
-[$hostKey, $hostValue] = dbEnvValue(['YII_DB_HOST', 'MYSQLHOST', 'RAILWAY_MYSQL_HOST']);
-[$portKey, $portValue] = dbEnvValue(['YII_DB_PORT', 'MYSQLPORT', 'RAILWAY_MYSQL_PORT']);
-[$nameKey, $nameValue] = dbEnvValue(['YII_DB_NAME', 'MYSQLDATABASE', 'RAILWAY_MYSQL_DATABASE']);
-[$userKey, $userValue] = dbEnvValue(['YII_DB_USER', 'MYSQLUSER', 'RAILWAY_MYSQL_USER']);
-[$passwordKey, $passwordValue] = dbEnvValue(['YII_DB_PASSWORD', 'MYSQLPASSWORD', 'RAILWAY_MYSQL_PASSWORD']);
+[$hostKey, $hostValue] = dbEnvValue(['YII_DB_HOST', 'DB_HOST', 'MYSQLHOST', 'MYSQL_HOST', 'RAILWAY_MYSQL_HOST']);
+[$portKey, $portValue] = dbEnvValue(['YII_DB_PORT', 'DB_PORT', 'MYSQLPORT', 'MYSQL_PORT', 'RAILWAY_MYSQL_PORT']);
+[$nameKey, $nameValue] = dbEnvValue(['YII_DB_NAME', 'DB_DATABASE', 'MYSQLDATABASE', 'MYSQL_DATABASE', 'RAILWAY_MYSQL_DATABASE']);
+[$userKey, $userValue] = dbEnvValue(['YII_DB_USER', 'DB_USERNAME', 'MYSQLUSER', 'MYSQL_USER', 'RAILWAY_MYSQL_USER']);
+[$passwordKey, $passwordValue] = dbEnvValue(['YII_DB_PASSWORD', 'DB_PASSWORD', 'MYSQLPASSWORD', 'MYSQL_PASSWORD', 'RAILWAY_MYSQL_PASSWORD']);
 
 // Match Yii2 basic template: YII_ENV_DEV is defined in entry scripts (web/index.php, yii).
 $isLocalDev = (defined('YII_ENV_DEV') && YII_ENV_DEV)
@@ -274,11 +274,11 @@ if ($useLocalPrimary) {
     $dbPassword = $passwordValue ?? '';
     $dbSource = $forceLocalPrimary ? 'local-forced-primary' : ($hostKey ?: 'local-default');
 } else {
-    // URL-based primary (e.g. app deployed on Railway using cloud MySQL).
-    $dbHost = $parsedDatabaseUrl['host'] ?? $hostValue ?? '127.0.0.1';
+    // URL-based primary (e.g. containerized deploy on Coolify internal network).
+    $dbHost = $parsedDatabaseUrl['host'] ?? $hostValue ?? 'mysql-database-xb782ufttxvm1k992vvkup98';
     $dbPort = (string)($parsedDatabaseUrl['port'] ?? $portValue ?? '3306');
-    $dbName = $parsedDatabaseUrl['dbname'] ?? $nameValue ?? 'yii2basic';
-    $dbUser = $parsedDatabaseUrl['username'] ?? $userValue ?? 'root';
+    $dbName = $parsedDatabaseUrl['dbname'] ?? $nameValue ?? 'default';
+    $dbUser = $parsedDatabaseUrl['username'] ?? $userValue ?? 'mysql';
     $dbPassword = $parsedDatabaseUrl['password'] ?? $passwordValue ?? '';
     $dbSource = $sourceKey ?: ($hostKey ?: 'fallback');
 }

@@ -10,7 +10,7 @@ use yii\bootstrap5\Html;
 
 $this->title = 'Form: ' . $model->name;
 $this->registerJs("document.body.classList.add('dashboard-main-page', 'font-body', 'text-on-surface'); document.body.style.background = '#e5e9f0';", \yii\web\View::POS_READY);
-$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('https://cdn.tailwindcss.com/3.4.1', ['position' => \yii\web\View::POS_HEAD]);
 
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
@@ -339,9 +339,28 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             const input = document.getElementById('public-link-input');
             input.select();
             input.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(input.value).then(() => {
-                const btn = event.target.closest('button');
-                const originalHTML = btn.innerHTML;
+
+            const copyToClipboard = (text) => {
+                if (navigator.clipboard && window.isSecureContext) {
+                    return navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for non-secure contexts
+                    return new Promise((resolve, reject) => {
+                        try {
+                            const success = document.execCommand('copy');
+                            if (success) resolve();
+                            else reject(new Error('ExecCommand copy failed'));
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+                }
+            };
+
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+
+            copyToClipboard(input.value).then(() => {
                 btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">check</span> Copied!';
                 btn.style.background = 'linear-gradient(135deg,#198754,#20c997)';
                 setTimeout(() => {

@@ -668,8 +668,12 @@ class TableBuilderController extends Controller
 
         $renamedToBackup = false;
         $newTableCreated = false;
+        $incomingFks = [];
 
         try {
+            // 1. Detect incoming foreign keys from other tables that point to this table
+            $incomingFks = $this->getIncomingForeignKeys($oldTableName);
+
             // Disable foreign key checks during table sync/rebuild to allow renaming parent tables
             // and avoiding immediate constraint violations during the reconstruction process.
             $db->createCommand("SET FOREIGN_KEY_CHECKS = 0")->execute();
@@ -697,6 +701,20 @@ class TableBuilderController extends Controller
                 }
             }
 
+            // 2. Update incoming foreign keys to point to the new table
+            // After RENAME, MySQL automatically updated these FKs to point to $backupTableName.
+            // We need to point them back to $newTableName.
+            foreach ($incomingFks as $fk) {
+                try {
+                    $db->createCommand("ALTER TABLE `{$fk['table_name']}` DROP FOREIGN KEY `{$fk['constraint_name']}`")->execute();
+                    $db->createCommand("ALTER TABLE `{$fk['table_name']}` ADD CONSTRAINT `{$fk['constraint_name']}` 
+                        FOREIGN KEY (`{$fk['column_name']}`) REFERENCES `{$newTableName}` (`{$fk['referenced_column_name']}`) 
+                        ON DELETE {$fk['delete_rule']} ON UPDATE {$fk['update_rule']}")->execute();
+                } catch (\Throwable $fkError) {
+                    Yii::error("Failed to re-map foreign key {$fk['constraint_name']} from {$fk['table_name']}: " . $fkError->getMessage());
+                }
+            }
+
             $db->createCommand("DROP TABLE `{$backupTableName}`")->execute();
             $model->is_created = true;
             $model->save(false, ['is_created']);
@@ -706,6 +724,7 @@ class TableBuilderController extends Controller
                     $db->createCommand("DROP TABLE `{$newTableName}`")->execute();
                 }
                 if ($renamedToBackup && $this->hasPhysicalTableByName($backupTableName)) {
+                    // Try to restore FKs to backup before renaming back
                     $db->createCommand("RENAME TABLE `{$backupTableName}` TO `{$oldTableName}`")->execute();
                 }
             } catch (\Throwable $rollbackError) {
@@ -719,6 +738,43 @@ class TableBuilderController extends Controller
             } catch (\Throwable $ignore) {
             }
         }
+    }
+
+    /**
+     * Find all foreign keys from other tables pointing to the specified table.
+     */
+    private function getIncomingForeignKeys(string $tableName): array
+    {
+        $db = $this->getPhysicalDb();
+        $dbName = (string)$db->createCommand('SELECT DATABASE()')->queryScalar();
+        
+        if ($dbName === '') {
+            return [];
+        }
+
+        $sql = "
+            SELECT 
+                kcu.TABLE_NAME as table_name,
+                kcu.COLUMN_NAME as column_name,
+                kcu.CONSTRAINT_NAME as constraint_name,
+                kcu.REFERENCED_COLUMN_NAME as referenced_column_name,
+                rc.UPDATE_RULE as update_rule,
+                rc.DELETE_RULE as delete_rule
+            FROM 
+                INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+            JOIN 
+                INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc 
+                ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME 
+                AND kcu.TABLE_SCHEMA = rc.CONSTRAINT_SCHEMA
+            WHERE 
+                kcu.REFERENCED_TABLE_NAME = :tableName
+                AND kcu.TABLE_SCHEMA = :dbName
+        ";
+
+        return $db->createCommand($sql, [
+            ':tableName' => $tableName,
+            ':dbName' => $dbName,
+        ])->queryAll();
     }
 
     public function behaviors()

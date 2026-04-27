@@ -15,7 +15,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 ?>
 
 <!-- Tailwind CSS v3 -->
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com/3.4.1"></script>
 <script>
     tailwind.config = {
         theme: {

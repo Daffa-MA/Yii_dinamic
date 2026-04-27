@@ -5,6 +5,9 @@ namespace app\controllers;
 use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\db\Expression;
+use yii\db\Query;
+use yii\data\Pagination;
 use app\models\Project;
 use app\models\Form;
 use app\models\FormSubmission;
@@ -263,6 +266,67 @@ class ProjectController extends Controller
             'project' => $project,
             'totalForms' => $totalForms,
             'totalSubmissions' => $totalSubmissions,
+        ]);
+    }
+
+    public function actionFirebaseUsers()
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Project context belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
+            return $this->redirect(['project/index']);
+        }
+
+        $context = new ActiveProjectContext();
+        $activeProjectId = $context->getActiveProjectId();
+        if ($activeProjectId === null) {
+            Yii::$app->session->setFlash('warning', 'Pilih project aktif terlebih dahulu untuk melihat user login Firebase.');
+            return $this->redirect(['project/index']);
+        }
+
+        $project = Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+        if ($project === null) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        $baseQuery = (new Query())
+            ->from(['fs' => FormSubmission::tableName()])
+            ->innerJoin(['f' => Form::tableName()], 'f.id = fs.form_id')
+            ->where(['f.user_id' => Yii::$app->user->id])
+            ->andWhere(['f.project_id' => $activeProjectId])
+            ->andWhere(['not', ['fs.firebase_uid' => null]])
+            ->andWhere(['<>', 'fs.firebase_uid', '']);
+
+        $groupedQuery = (clone $baseQuery)
+            ->select([
+                'firebase_uid' => 'fs.firebase_uid',
+                'firebase_email' => new Expression("MAX(NULLIF(TRIM(fs.firebase_email), ''))"),
+                'firebase_name' => new Expression("MAX(NULLIF(TRIM(fs.firebase_name), ''))"),
+                'submission_count' => new Expression('COUNT(*)'),
+                'form_count' => new Expression('COUNT(DISTINCT fs.form_id)'),
+                'last_login_at' => new Expression('MAX(fs.created_at)'),
+            ])
+            ->groupBy(['fs.firebase_uid']);
+
+        $totalCount = (int)(new Query())
+            ->from(['firebase_users' => $groupedQuery])
+            ->count('*');
+
+        $pagination = new Pagination([
+            'totalCount' => $totalCount,
+            'pageSize' => 20,
+        ]);
+
+        $firebaseUsers = (clone $groupedQuery)
+            ->orderBy(['last_login_at' => SORT_DESC])
+            ->offset($pagination->offset)
+            ->limit($pagination->limit)
+            ->all();
+
+        return $this->render('firebase-users', [
+            'project' => $project,
+            'firebaseUsers' => $firebaseUsers,
+            'pagination' => $pagination,
+            'totalFirebaseUsers' => $totalCount,
         ]);
     }
 }

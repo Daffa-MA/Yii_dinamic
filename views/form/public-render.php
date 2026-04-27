@@ -915,7 +915,47 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                 return;
             }
 
+            function hasAtLeastOneUserInput(formEl) {
+                const ignoredNames = new Set([
+                    '<?= Yii::$app->request->csrfParam ?>',
+                    'user_email',
+                    'user_name',
+                    'firebase_uid'
+                ]);
+                const formData = new FormData(formEl);
+
+                for (const [name, value] of formData.entries()) {
+                    if (!name || ignoredNames.has(name)) {
+                        continue;
+                    }
+
+                    const field = formEl.elements.namedItem(name);
+                    if (field && !Array.isArray(field) && field.type === 'hidden') {
+                        continue;
+                    }
+
+                    if (value instanceof File) {
+                        if (value.name && value.name.trim() !== '') {
+                            return true;
+                        }
+                        continue;
+                    }
+
+                    if (String(value).trim() !== '') {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
             form.addEventListener('submit', function(e) {
+                if (!hasAtLeastOneUserInput(form)) {
+                    e.preventDefault();
+                    alert('Form belum diisi. Isi minimal satu field sebelum submit.');
+                    return;
+                }
+
                 console.log('🚀 Form submit triggered!');
                 console.log('📤 Submitting to:', form.action);
 
@@ -927,8 +967,10 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
             });
 
             submitBtn.addEventListener('click', function(e) {
-                if (form.checkValidity()) {
-                    form.submit();
+                if (!hasAtLeastOneUserInput(form)) {
+                    e.preventDefault();
+                    alert('Form belum diisi. Isi minimal satu field sebelum submit.');
+                    return;
                 }
             });
         });

@@ -465,6 +465,97 @@ class FormController extends Controller
         return $data;
     }
 
+    private function isInteractiveSubmissionField(array $field): bool
+    {
+        $type = strtolower(trim((string)($field['type'] ?? 'text-input')));
+        $nonInputTypes = [
+            'container', 'columns', 'grid', 'section',
+            'heading', 'text', 'richtext', 'divider', 'spacer',
+            'image', 'video', 'alert', 'button', 'submit', 'hidden',
+        ];
+
+        return !in_array($type, $nonInputTypes, true);
+    }
+
+    private function hasMeaningfulSubmissionValue($value): bool
+    {
+        if ($value === null) {
+            return false;
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if ($this->hasMeaningfulSubmissionValue($item)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return true;
+        }
+
+        return trim((string)$value) !== '';
+    }
+
+    private function hasAtLeastOneFilledField(array $schema, array $data): bool
+    {
+        $lookup = [];
+        foreach ($data as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            $lookup[$key] = $value;
+            $normalizedKey = $this->normalizeInputKey($key);
+            if ($normalizedKey !== '') {
+                $lookup[$normalizedKey] = $value;
+            }
+        }
+
+        foreach ($schema as $field) {
+            if (!is_array($field) || !$this->isInteractiveSubmissionField($field)) {
+                continue;
+            }
+
+            $fieldName = trim((string)($field['name'] ?? $field['label'] ?? ''));
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $candidateKeys = [$fieldName];
+            $normalizedFieldName = $this->normalizeInputKey($fieldName);
+            if ($normalizedFieldName !== '') {
+                $candidateKeys[] = $normalizedFieldName;
+            }
+
+            $fieldLabel = trim((string)($field['label'] ?? ''));
+            if ($fieldLabel !== '') {
+                $normalizedLabel = $this->normalizeInputKey($fieldLabel);
+                if ($normalizedLabel !== '') {
+                    $candidateKeys[] = $normalizedLabel;
+                }
+            }
+
+            foreach ($candidateKeys as $candidateKey) {
+                if ($candidateKey === '' || !array_key_exists($candidateKey, $lookup)) {
+                    continue;
+                }
+
+                if ($this->hasMeaningfulSubmissionValue($lookup[$candidateKey])) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Convert PHP $_FILES name/error structure into storable value.
      */
@@ -1181,6 +1272,14 @@ class FormController extends Controller
             }
 
             $data = $this->mergeAdditionalPostedInputs($data);
+
+            if (!$this->hasAtLeastOneFilledField($schema, $data)) {
+                Yii::$app->session->setFlash('error', 'Form belum diisi. Isi minimal satu field sebelum submit.');
+                if (Yii::$app->user->isGuest) {
+                    return $this->redirect(['public-render', 'id' => $id]);
+                }
+                return $this->redirect(['render', 'id' => $id]);
+            }
 
             // Auto inject Firebase user data from hidden fields
             if (Yii::$app->request->post('user_email')) {

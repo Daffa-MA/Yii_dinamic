@@ -565,8 +565,9 @@ class FormController extends Controller
             throw new \RuntimeException("Target table '{$table->name}' has not been created in database.");
         }
 
-        // Use the physical DB connection which might be switched for the project
-        $targetDb = $this->getPhysicalDb();
+        // Resolve physical DB from the form's project to avoid relying on current session context.
+        $projectId = $form->hasAttribute('project_id') ? (int)$form->project_id : null;
+        $targetDb = $this->getPhysicalDb($projectId);
         $tableSchema = $targetDb->schema->getTableSchema($table->name, true);
 
         if ($tableSchema === null) {

@@ -896,12 +896,36 @@ class TableBuilderController extends Controller
         ]);
         $isCreated = $this->syncTableCreationState($model);
 
-        // Fetch actual data from the database table if created
+        // Fetch actual data from the database table if created.
+        // Do not assume an "id" column exists; many custom tables use a different primary key.
         $tableData = [];
         if ($isCreated) {
             try {
-                $tableData = $this->getPhysicalDb()->createCommand("SELECT * FROM `{$model->name}` ORDER BY id DESC LIMIT 100")->queryAll();
-            } catch (\Exception $e) {
+                $db = $this->getPhysicalDb();
+                $tableSchema = $db->schema->getTableSchema($model->name, true);
+                if ($tableSchema !== null) {
+                    $orderColumn = null;
+                    if (isset($tableSchema->columns['id'])) {
+                        $orderColumn = 'id';
+                    } elseif (!empty($tableSchema->primaryKey)) {
+                        $primaryKeyColumn = (string)$tableSchema->primaryKey[0];
+                        if (isset($tableSchema->columns[$primaryKeyColumn])) {
+                            $orderColumn = $primaryKeyColumn;
+                        }
+                    }
+
+                    $escapedTableName = str_replace('`', '``', (string)$model->name);
+                    $sql = "SELECT * FROM `{$escapedTableName}`";
+                    if ($orderColumn !== null) {
+                        $escapedOrderColumn = str_replace('`', '``', $orderColumn);
+                        $sql .= " ORDER BY `{$escapedOrderColumn}` DESC";
+                    }
+                    $sql .= ' LIMIT 100';
+
+                    $tableData = $db->createCommand($sql)->queryAll();
+                }
+            } catch (\Throwable $e) {
+                Yii::warning('Failed loading live table data: ' . $e->getMessage(), __METHOD__);
                 $tableData = [];
             }
         }

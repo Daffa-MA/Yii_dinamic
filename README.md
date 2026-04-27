@@ -46,7 +46,7 @@ composer install
 copy .env.example .env
 ```
 
-3. Set DB in `.env` (local MySQL or Railway `MYSQL_PUBLIC_URL`).
+3. Set DB in `.env` (local MySQL or internal Docker host in Coolify).
 
 4. Run migration:
 
@@ -57,11 +57,11 @@ php yii migrate --interactive=0
 5. Start app:
 
 ```bash
-php -S localhost:8080 -t web
+php -S 0.0.0.0:8000 -t web
 ```
 
 6. Open:
-   `http://localhost:8080`
+   `http://localhost:8000`
 
 Default user (from migration):  
 `admin / admin123`
@@ -76,10 +76,10 @@ Use `.env`:
 YII_DB_DRIVER=mysql
 MYSQL_PUBLIC_URL=
 
-YII_DB_HOST=127.0.0.1
+YII_DB_HOST=mysql-database-xb782ufttxvm1k992vvkup98
 YII_DB_PORT=3306
-YII_DB_NAME=yii2basic
-YII_DB_USER=root
+YII_DB_NAME=default
+YII_DB_USER=mysql
 YII_DB_PASSWORD=
 
 APP_URL=
@@ -103,14 +103,18 @@ APP_URL=
 
 ---
 
-## Railway Deployment
+## Coolify Deployment
 
-1. Deploy app service.
-2. Set app Variables:
-   - `MYSQL_PUBLIC_URL` (full mysql URL)
-   - `APP_URL` (your Railway app domain, e.g. `https://your-app.up.railway.app`)
-3. Redeploy app.
-4. Run migration against Railway DB:
+1. Ensure MySQL service is attached to the same Coolify project/network and listens on `3306`.
+2. Set app environment variables:
+   - `YII_DB_HOST=mysql-database-xb782ufttxvm1k992vvkup98`
+   - `YII_DB_PORT=3306`
+   - `YII_DB_NAME=default`
+   - `YII_DB_USER=mysql`
+   - `YII_DB_PASSWORD=<your-mysql-password>`
+3. Build from `Dockerfile` and expose container port `8000`.
+4. In Coolify, set the application port to `8000` so the proxy routes the public domain correctly.
+5. Redeploy app, then run migration:
 
 ```bash
 php yii migrate --interactive=0

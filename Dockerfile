@@ -24,4 +24,4 @@ RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoload
 
 EXPOSE 8000
 
-CMD php -S 0.0.0.0:8000 -t web
+CMD ["php", "-S", "0.0.0.0:8000", "-t", "web"]

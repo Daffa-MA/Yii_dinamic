@@ -90,6 +90,7 @@ $config = [
                 'projects' => 'project/index',
                 'projects/select/<id:\d+>' => 'project/select',
                 'projects/firebase-users' => 'project/firebase-users',
+                'dashboard/firebase-users' => 'project/firebase-users',
                 'project/profile' => 'project/profile',
 
                 // Site routes

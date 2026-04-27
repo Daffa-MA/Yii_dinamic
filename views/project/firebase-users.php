@@ -10,10 +10,10 @@ use yii\bootstrap5\Html;
 use yii\widgets\LinkPager;
 
 $this->title = 'User Firebase - ' . Html::encode($project->name);
-$this->registerJs("document.body.classList.add('project-welcome-page');", \yii\web\View::POS_READY);
+$this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 ?>
 
-<?= $this->render('../layouts/_sidebar', ['activeMenu' => 'projects-firebase-users', 'sidebarVariant' => 'minimal']) ?>
+<?= $this->render('../layouts/_sidebar', ['activeMenu' => 'firebase-users', 'sidebarVariant' => 'full']) ?>
 
 <main class="app-shell-main project-home-shell" style="padding-left: var(--app-sidebar-width, 16rem); min-height: 100vh; padding-top: 2rem; padding-bottom: 2rem; transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
     <div class="container-lg" style="max-width: 1280px;">
@@ -98,8 +98,8 @@ $this->registerJs("document.body.classList.add('project-welcome-page');", \yii\w
 
 <style>
     .firebase-hero {
-        background: linear-gradient(135deg, #3525cd 0%, #4f46e5 55%, #667eea 100%);
-        color: #fff;
+        background: linear-gradient(135deg, #f8fbff 0%, #eef4ff 55%, #e9f2ff 100%);
+        color: #0b1c30;
         border-radius: 20px;
         padding: 24px 28px;
         display: flex;
@@ -117,7 +117,7 @@ $this->registerJs("document.body.classList.add('project-welcome-page');", \yii\w
         letter-spacing: .08em;
         text-transform: uppercase;
         margin: 0 0 8px;
-        opacity: .9;
+        opacity: .8;
     }
 
     .firebase-hero h1 {
@@ -137,8 +137,8 @@ $this->registerJs("document.body.classList.add('project-welcome-page');", \yii\w
         gap: 8px;
         padding: 10px 14px;
         border-radius: 12px;
-        background: rgba(255, 255, 255, .16);
-        border: 1px solid rgba(255, 255, 255, .28);
+        background: rgba(79, 70, 229, .08);
+        border: 1px solid rgba(79, 70, 229, .22);
         font-weight: 700;
         white-space: nowrap;
     }

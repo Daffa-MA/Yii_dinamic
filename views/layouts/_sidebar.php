@@ -1,7 +1,7 @@
 <?php
 
 /**
- * @var string $activeMenu - Which menu item is active: 'home', 'dashboard', 'projects', 'projects-firebase-users', 'forms', 'tables', 'profile'
+ * @var string $activeMenu - Which menu item is active: 'home', 'dashboard', 'firebase-users', 'projects', 'forms', 'tables', 'profile'
  */
 use yii\bootstrap5\Html;
 use app\components\ProjectSchema;
@@ -9,7 +9,7 @@ use app\components\ProjectSchema;
 $activeMenu = $activeMenu ?? '';
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
-$sidebarVariant = $sidebarVariant ?? (in_array($activeMenu, ['projects', 'projects-firebase-users'], true) ? 'minimal' : 'full');
+$sidebarVariant = $sidebarVariant ?? ($activeMenu === 'projects' ? 'minimal' : 'full');
 $isMinimalSidebar = $sidebarVariant === 'minimal';
 $headerBadge = $isMinimalSidebar ? 'Project Hub' : 'Workspace';
 $headerTitle = $isMinimalSidebar ? 'Navigasi Project' : 'Projects';
@@ -261,14 +261,6 @@ if (!Yii::$app->user->isGuest) {
         min-height: 44px;
     }
 
-    .app-sidebar-sublink {
-        margin-left: 18px;
-        min-height: 40px;
-        padding-top: 10px;
-        padding-bottom: 10px;
-        font-size: 13px;
-    }
-
     .app-sidebar-link .material-symbols-outlined {
         width: 24px;
         height: 24px;
@@ -389,10 +381,6 @@ if (!Yii::$app->user->isGuest) {
         justify-content: center;
         gap: 0;
         padding: 12px 10px;
-    }
-
-    body.has-app-sidebar.app-sidebar-collapsed .app-sidebar-sublink {
-        margin-left: 0;
     }
 
     body.has-app-sidebar.app-sidebar-collapsed .app-sidebar-link:hover {
@@ -579,6 +567,10 @@ if (!Yii::$app->user->isGuest) {
                 <span class="material-symbols-outlined">dashboard</span>
                 <span class="app-sidebar-link-text">Dashboard</span>
             </a>
+            <a href="<?= \yii\helpers\Url::to(['dashboard/firebase-users']) ?>" class="app-sidebar-link <?= $activeMenu === 'firebase-users' ? 'active' : '' ?>">
+                <span class="material-symbols-outlined">group</span>
+                <span class="app-sidebar-link-text">User Firebase</span>
+            </a>
             <a href="<?= \yii\helpers\Url::to(['form/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'forms' ? 'active' : '' ?>">
                 <span class="material-symbols-outlined">description</span>
                 <span class="app-sidebar-link-text">Forms</span>
@@ -592,14 +584,9 @@ if (!Yii::$app->user->isGuest) {
                 <span class="app-sidebar-link-text">Data Form</span>
             </a>
         <?php else: ?>
-            <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= in_array($activeMenu, ['projects', 'projects-firebase-users'], true) ? 'active' : '' ?>">
+            <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'projects' ? 'active' : '' ?>">
                 <span class="material-symbols-outlined">folder_open</span>
                 <span class="app-sidebar-link-text"><?= Html::encode($projectNavLabel) ?></span>
-            </a>
-
-            <a href="<?= \yii\helpers\Url::to(['project/firebase-users']) ?>" class="app-sidebar-link app-sidebar-sublink <?= $activeMenu === 'projects-firebase-users' ? 'active' : '' ?>">
-                <span class="material-symbols-outlined">group</span>
-                <span class="app-sidebar-link-text">User Firebase</span>
             </a>
         <?php endif; ?>
         <a href="<?= \yii\helpers\Url::to($sidebarVariant === 'minimal' ? ['project/profile'] : ['site/profile']) ?>" class="app-sidebar-link <?= $activeMenu === 'profile' ? 'active' : '' ?>">

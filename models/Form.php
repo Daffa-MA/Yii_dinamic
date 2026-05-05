@@ -30,9 +30,31 @@ class Form extends ActiveRecord
     /**
      * @inheritdoc
      */
-    public static function getDb()
+public static function getDb()
     {
         return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+    }
+
+    public function fields()
+    {
+        return [
+            'id',
+            'user_id',
+            'project_id',
+            'table_id',
+            'name',
+            'created_at',
+            'updated_at',
+        ];
+    }
+    
+    public function __get($name)
+    {
+        try {
+            return parent::__get($name);
+        } catch (\yii\base\UnknownPropertyException $e) {
+            return null;
+        }
     }
 
     /** @var string|null */

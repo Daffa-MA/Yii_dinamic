@@ -7,6 +7,7 @@ use app\components\RelationMapper;
 use yii\db\Connection;
 use yii\db\IntegrityException;
 use yii\db\Query;
+use yii\helpers\Url;
 use yii\helpers\HtmlPurifier;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -584,6 +585,25 @@ class FormController extends Controller
     private function normalizeInputKey(string $key): string
     {
         return strtolower(trim(preg_replace('/[^a-z0-9_]+/i', '_', $key), '_'));
+    }
+
+    private function resolveSafeReturnUrl(): ?string
+    {
+        $returnUrl = trim((string) Yii::$app->request->post('return_url', Yii::$app->request->get('return_url', '')));
+        if ($returnUrl === '') {
+            return null;
+        }
+
+        if (Url::isRelative($returnUrl)) {
+            return $returnUrl;
+        }
+
+        $hostInfo = rtrim((string) Yii::$app->request->hostInfo, '/');
+        if ($hostInfo !== '' && str_starts_with($returnUrl, $hostInfo . '/')) {
+            return substr($returnUrl, strlen($hostInfo));
+        }
+
+        return null;
     }
 
     private function castValueForTableColumn($value, array $column)
@@ -1260,6 +1280,7 @@ class FormController extends Controller
         $model = $this->findModel($id, false);
         $this->ensureGuestCanAccessPublicForm($model);
         $schema = $this->getFilteredBlocks($model);
+        $returnUrl = $this->resolveSafeReturnUrl();
 
         if (Yii::$app->request->isPost) {
             $data = [];
@@ -1275,6 +1296,9 @@ class FormController extends Controller
 
             if (!$this->hasAtLeastOneFilledField($schema, $data)) {
                 Yii::$app->session->setFlash('error', 'Form belum diisi. Isi minimal satu field sebelum submit.');
+                if ($returnUrl !== null) {
+                    return $this->redirect($returnUrl);
+                }
                 if (Yii::$app->user->isGuest) {
                     return $this->redirect(['public-render', 'id' => $id]);
                 }
@@ -1352,13 +1376,20 @@ class FormController extends Controller
 
                 $transaction->commit();
 
-                // Always show success page after successful submission
+                if ($returnUrl !== null) {
+                    Yii::$app->session->setFlash('success', 'Form "' . $model->name . '" berhasil dikirim.');
+                    return $this->redirect($returnUrl);
+                }
+
                 return $this->redirect(['success', 'id' => $id]);
             } catch (IntegrityException $e) {
                 $transaction->rollBack();
                 Yii::warning('IntegrityException on form submit: ' . $e->getMessage(), 'app');
                 Yii::$app->session->setFlash('error', $this->buildFriendlyIntegrityErrorMessage($e, $model));
 
+                if ($returnUrl !== null) {
+                    return $this->redirect($returnUrl);
+                }
                 if (Yii::$app->user->isGuest) {
                     return $this->redirect(['public-render', 'id' => $id]);
                 }
@@ -1367,6 +1398,9 @@ class FormController extends Controller
                 $transaction->rollBack();
                 Yii::$app->session->setFlash('error', $e->getMessage());
 
+                if ($returnUrl !== null) {
+                    return $this->redirect($returnUrl);
+                }
                 if (Yii::$app->user->isGuest) {
                     return $this->redirect(['public-render', 'id' => $id]);
                 }
@@ -1374,7 +1408,10 @@ class FormController extends Controller
             }
         }
 
-        // If not POST, redirect appropriately
+        if ($returnUrl !== null) {
+            return $this->redirect($returnUrl);
+        }
+
         if (Yii::$app->user->isGuest) {
             return $this->redirect(['public-render', 'id' => $id]);
         }

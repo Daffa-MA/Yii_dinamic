@@ -10,7 +10,10 @@ use yii\bootstrap5\ActiveForm;
 use yii\helpers\Url;
 
 $this->title = 'Fill Form: ' . $model->name;
-$this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); document.body.style.background = '#e5e9f0';", \yii\web\View::POS_READY);
+$embedded = (string) Yii::$app->request->get('embedded', '') === '1';
+$returnUrl = (string) Yii::$app->request->get('return_url', '');
+$bodyBackground = $embedded ? '#ffffff' : '#e5e9f0';
+$this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); document.body.style.background = '{$bodyBackground}';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
 $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -56,7 +59,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
     }
 </style>
 
-    <!-- Top Navigation Bar -->
+<?php if (!$embedded): ?>
     <nav class="fixed top-0 left-64 right-0 z-50 flex items-center justify-between px-8 h-20 bg-[#e5e9f0]/70 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]">
         <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
             <span class="material-symbols-outlined text-outline text-[20px]">search</span>
@@ -76,18 +79,21 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
 
     <?= $this->render('../layouts/_sidebar', ['activeMenu' => 'forms']) ?>
 
-    <!-- Main Content -->
     <main class="pl-64 pt-6 min-h-screen">
         <div class="max-w-[800px] mx-auto px-8 py-8">
+<?php else: ?>
+    <main class="min-h-screen bg-white">
+        <div class="max-w-none mx-auto px-4 py-4">
+<?php endif; ?>
             <!-- Header -->
             <div class="mb-10">
                 <div class="flex items-center gap-3 mb-2">
-                    <a href="<?= \yii\helpers\Url::to(['form/view', 'id' => $model->id]) ?>" class="text-on-surface-variant hover:text-on-surface transition-colors">
+                    <a href="<?= Html::encode($embedded && $returnUrl !== '' ? $returnUrl : \yii\helpers\Url::to(['form/view', 'id' => $model->id])) ?>" class="text-on-surface-variant hover:text-on-surface transition-colors"<?= $embedded && $returnUrl !== '' ? ' target="_top"' : '' ?>>
                         <span class="material-symbols-outlined">arrow_back</span>
                     </a>
                     <h1 class="text-3xl font-extrabold text-on-surface font-headline tracking-tight"><?= Html::encode($model->name) ?></h1>
                 </div>
-                <p class="text-on-surface-variant font-medium">Fill out the form below and submit your response.</p>
+                <p class="text-on-surface-variant font-medium"><?= $embedded ? 'Form ini ditampilkan langsung di halaman dinamis.' : 'Fill out the form below and submit your response.' ?></p>
             </div>
 
             <?php if (Yii::$app->session->hasFlash('success')): ?>
@@ -116,7 +122,13 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                         <?php $form = ActiveForm::begin([
                             'action' => ['form/submit', 'id' => $model->id],
                             'method' => 'post',
+                            'options' => array_filter([
+                                'target' => $embedded ? '_top' : null,
+                            ]),
                         ]); ?>
+                        <?php if ($embedded && $returnUrl !== ''): ?>
+                            <input type="hidden" name="return_url" value="<?= Html::encode($returnUrl) ?>">
+                        <?php endif; ?>
 
                         <div class="space-y-6">
                             <?php foreach ($schema as $field): ?>

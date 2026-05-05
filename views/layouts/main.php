@@ -7,6 +7,7 @@ use app\assets\AppAsset;
 use app\widgets\Alert;
 use yii\bootstrap5\Breadcrumbs;
 use yii\bootstrap5\Html;
+use yii\helpers\Url;
 
 AppAsset::register($this);
 
@@ -16,7 +17,40 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 $this->registerMetaTag(['name' => 'description', 'content' => $this->params['meta_description'] ?? '']);
 $this->registerMetaTag(['name' => 'keywords', 'content' => $this->params['meta_keywords'] ?? '']);
 $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii::getAlias('@web/favicon.ico')]);
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
+
+$isGuest = Yii::$app->user->isGuest;
+$brandUrl = $isGuest ? ['site/index'] : ['project/index'];
+$footerPrimaryLinks = $isGuest
+    ? [
+        ['label' => 'Beranda', 'url' => ['site/index']],
+        ['label' => 'Tentang', 'url' => ['site/about']],
+        ['label' => 'Kontak', 'url' => ['site/contact']],
+        ['label' => 'Masuk', 'url' => ['site/login']],
+    ]
+    : [
+        ['label' => 'Projects', 'url' => ['project/index']],
+        ['label' => 'Dashboard', 'url' => ['site/dashboard']],
+        ['label' => 'Forms', 'url' => ['form/index']],
+        ['label' => 'Tables', 'url' => ['table-builder/index']],
+    ];
+$footerWorkspaceLinks = $isGuest
+    ? [
+        ['label' => 'Keunggulan', 'url' => ['site/about']],
+        ['label' => 'Hubungi Tim', 'url' => ['site/contact']],
+        ['label' => 'Yii Framework', 'url' => 'https://www.yiiframework.com'],
+    ]
+    : [
+        ['label' => 'Profil', 'url' => ['site/profile']],
+        ['label' => 'Data Form', 'url' => ['published-form/index']],
+        ['label' => 'Hubungi Tim', 'url' => ['site/contact']],
+        ['label' => 'Tentang', 'url' => ['site/about']],
+    ];
+$footerSupportLinks = [
+    ['label' => 'Dokumentasi Yii', 'url' => 'https://www.yiiframework.com/doc/guide/2.0/id'],
+    ['label' => 'API Reference', 'url' => 'https://www.yiiframework.com/doc/api/2.0'],
+    ['label' => 'Best Practices', 'url' => 'https://www.yiiframework.com/doc/guide/2.0/id/tutorial-core-validators'],
+];
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
@@ -25,8 +59,29 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 <head>
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4f46e5',
+                        secondary: '#006c49',
+                        tertiary: '#7e3000',
+                        'surface-tint': '#4d44e3',
+                        'surface-container-lowest': '#ffffff',
+                        'surface-container-low': '#f9fafb',
+                        'surface-container-high': '#f3f4f6',
+                        'on-surface': '#0b1c30',
+                        'on-surface-variant': '#4a4a6a',
+                        outline: '#6b7280',
+                        'outline-variant': '#d1d5db',
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        /* Material Symbols Font */
         .material-symbols-outlined {
             font-family: 'Material Symbols Outlined';
             font-weight: 400;
@@ -42,25 +97,13 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
 
-        /* Body Styles */
         body {
-            background: #f9fafb;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(15, 118, 110, 0.06), transparent 22%),
+                linear-gradient(180deg, #f8fafc 0%, #f4f7fb 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
-        /* Footer */
-        #footer {
-            background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
-            color: white;
-            margin-top: 60px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        #footer .text-muted {
-            color: rgba(255, 255, 255, 0.7) !important;
-        }
-
-        /* Smooth Animations */
         main {
             animation: fadeIn 0.5s ease-out;
         }
@@ -77,7 +120,6 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             }
         }
 
-        /* Alert Styles */
         #alert-container .alert {
             animation: slideDown 0.3s ease-out;
             border-left: 4px solid;
@@ -154,77 +196,136 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
         </div>
     </main>
 
-    <footer id="footer" class="mt-auto">
-        <div style="background: linear-gradient(180deg, #ffffff 0%, #e5e9f0 100%);">
-            <div class="container" style="max-width: 1400px;">
-                <div style="border-top: 1px solid rgba(79, 70, 229, 0.1); padding: 32px 0;">
-                    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 20px;">
-                        <!-- Left Section -->
-                        <div style="display: flex; align-items: center; gap: 24px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #4f46e5, #6366f1); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: white;">
-                                    <i class="fas fa-rocket" style="font-size: 16px;"></i>
-                                </div>
-                                <div>
-                                    <span style="font-weight: 600; font-size: 15px; color: #0b1c30;"><?= Yii::$app->name ?></span>
-                                    <span style="display: block; font-size: 12px; color: #464555;">Intelligent Form Builder</span>
-                                </div>
-                            </div>
-                        </div>
+    <footer id="footer" class="site-footer mt-auto">
+        <div class="site-footer__inner">
+            <div class="site-footer__hero">
+                <div class="site-footer__brand-block">
+                    <span class="site-footer__eyebrow">Professional Workspace</span>
+                    <a href="<?= Url::to($brandUrl) ?>" class="site-footer__brand-link">
+                        <span class="site-footer__brand-icon">
+                            <span class="material-symbols-outlined">stacks</span>
+                        </span>
+                        <span>
+                            <strong><?= Html::encode(Yii::$app->name) ?></strong>
+                            <small>Dynamic form and workspace system</small>
+                        </span>
+                    </a>
+                    <p class="site-footer__description">
+                        Workspace untuk project, form, tabel, dan submission dengan tampilan yang lebih clean,
+                        struktur yang lebih rapi, dan alur kerja yang lebih profesional.
+                    </p>
+                </div>
 
-                        <!-- Center Section -->
-                        <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
-                            <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #464555;">
-                                <i class="fas fa-copyright" style="font-size: 12px;"></i>
-                                <span><?= date('Y') ?></span>
-                            </div>
-                            <div style="width: 4px; height: 4px; background: #c7c4d8; border-radius: 50%;"></div>
-                            <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #464555;">
-                                <span>Powered by</span>
-                                <a href="https://www.yiiframework.com" target="_blank" style="color: #4f46e5; font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
-                                    <i class="fab fa-yii" style="font-size: 14px;"></i>
-                                    Yii Framework
-                                </a>
-                            </div>
-                            <div style="width: 4px; height: 4px; background: #c7c4d8; border-radius: 50%;"></div>
-                            <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #464555;">
-                                <span>Built with</span>
-                                <i class="fas fa-heart" style="color: #006c49; font-size: 12px; animation: heartbeat 1.5s ease infinite;"></i>
-                                <span>for modern forms</span>
-                            </div>
-                        </div>
+                <div class="site-footer__spotlight">
+                    <span class="site-footer__spotlight-tag">
+                        <span class="material-symbols-outlined">verified</span>
+                        System Ready
+                    </span>
+                    <h2>Project, form, dan data sekarang terasa satu ekosistem yang utuh.</h2>
+                    <p>
+                        Gunakan satu workspace untuk memilih project aktif, membangun form, dan menjaga data tetap
+                        terisolasi dengan tampilan yang jauh lebih presisi.
+                    </p>
+                </div>
+            </div>
 
-                        <!-- Right Section -->
-                        <div style="display: flex; align-items: center; gap: 16px;">
-                            <a href="#" style="width: 36px; height: 36px; border-radius: 8px; background: #e5eeff; display: flex; align-items: center; justify-content: center; color: #464555; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='#4f46e5'; this.style.color='white'" onmouseout="this.style.background='#e5eeff'; this.style.color='#464555'">
-                                <i class="fab fa-github" style="font-size: 16px;"></i>
-                            </a>
-                            <a href="#" style="width: 36px; height: 36px; border-radius: 8px; background: #e5eeff; display: flex; align-items: center; justify-content: center; color: #464555; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='#4f46e5'; this.style.color='white'" onmouseout="this.style.background='#e5eeff'; this.style.color='#464555'">
-                                <i class="fab fa-twitter" style="font-size: 16px;"></i>
-                            </a>
-                            <a href="#" style="width: 36px; height: 36px; border-radius: 8px; background: #e5eeff; display: flex; align-items: center; justify-content: center; color: #464555; text-decoration: none; transition: all 0.2s;" onmouseover="this.style.background='#4f46e5'; this.style.color='white'" onmouseout="this.style.background='#e5eeff'; this.style.color='#464555'">
-                                <i class="fas fa-envelope" style="font-size: 16px;"></i>
-                            </a>
+            <div class="row g-4 site-footer__grid">
+                <div class="col-12 col-lg-4">
+                    <div class="site-footer__card">
+                        <h3 class="site-footer__heading">Ringkasan</h3>
+                        <p class="site-footer__card-text">
+                            Dibangun untuk alur kerja internal yang butuh UI bersih, navigasi cepat, dan struktur data
+                            yang tetap mudah dikendalikan.
+                        </p>
+                        <div class="site-footer__pills">
+                            <span class="site-footer__pill">
+                                <span class="material-symbols-outlined">database</span>
+                                Isolated DB
+                            </span>
+                            <span class="site-footer__pill">
+                                <span class="material-symbols-outlined">dashboard</span>
+                                Clean UI
+                            </span>
+                            <span class="site-footer__pill">
+                                <span class="material-symbols-outlined">bolt</span>
+                                Fast workflow
+                            </span>
                         </div>
                     </div>
+                </div>
+
+                <div class="col-6 col-lg-2">
+                    <div class="site-footer__card">
+                        <h3 class="site-footer__heading">Navigasi</h3>
+                        <ul class="site-footer__links">
+                            <?php foreach ($footerPrimaryLinks as $link): ?>
+                                <li><?= Html::a(Html::encode($link['label']), $link['url'], ['class' => 'site-footer__link']) ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-6 col-lg-3">
+                    <div class="site-footer__card">
+                        <h3 class="site-footer__heading">Workspace</h3>
+                        <ul class="site-footer__links">
+                            <?php foreach ($footerWorkspaceLinks as $link): ?>
+                                <?php $isExternal = is_string($link['url']); ?>
+                                <li>
+                                    <?= Html::a(
+                                        Html::encode($link['label']),
+                                        $link['url'],
+                                        array_filter([
+                                            'class' => 'site-footer__link',
+                                            'target' => $isExternal ? '_blank' : null,
+                                            'rel' => $isExternal ? 'noopener noreferrer' : null,
+                                        ])
+                                    ) ?>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-12 col-lg-3">
+                    <div class="site-footer__card">
+                        <h3 class="site-footer__heading">Referensi</h3>
+                        <ul class="site-footer__links">
+                            <?php foreach ($footerSupportLinks as $link): ?>
+                                <li>
+                                    <?= Html::a(
+                                        Html::encode($link['label']),
+                                        $link['url'],
+                                        [
+                                            'class' => 'site-footer__link',
+                                            'target' => '_blank',
+                                            'rel' => 'noopener noreferrer',
+                                        ]
+                                    ) ?>
+                                </li>
+                            <?php endforeach; ?>
+                            <li><?= Html::a('Halaman Kontak', ['site/contact'], ['class' => 'site-footer__link']) ?></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="site-footer__bottom">
+                <p class="site-footer__copyright">
+                    &copy; <?= date('Y') ?> <?= Html::encode(Yii::$app->name) ?>. All rights reserved.
+                </p>
+                <div class="site-footer__bottom-links">
+                    <?= Html::a('Powered by Yii Framework', 'https://www.yiiframework.com', [
+                        'class' => 'site-footer__bottom-link',
+                        'target' => '_blank',
+                        'rel' => 'noopener noreferrer',
+                    ]) ?>
+                    <?= Html::a('Tentang Platform', ['site/about'], ['class' => 'site-footer__bottom-link']) ?>
+                    <?= Html::a('Kontak', ['site/contact'], ['class' => 'site-footer__bottom-link']) ?>
                 </div>
             </div>
         </div>
     </footer>
-
-    <style>
-        @keyframes heartbeat {
-
-            0%,
-            100% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.15);
-            }
-        }
-    </style>
 
     <?php $this->endBody() ?>
 </body>

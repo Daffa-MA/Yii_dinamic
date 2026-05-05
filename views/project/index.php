@@ -10,1240 +10,1101 @@
 /** @var \yii\data\Pagination $pagination */
 
 use yii\bootstrap5\Html;
+use yii\helpers\Url;
 use yii\widgets\LinkPager;
 
-$this->title = 'Beranda Workspace';
-$this->registerJs("document.body.classList.add('project-welcome-page');", \yii\web\View::POS_READY);
+$this->title = 'Workspace Project';
+$this->registerJs("document.body.classList.add('project-page-v4');", \yii\web\View::POS_READY);
+
 $username = Yii::$app->user->identity->username ?? 'Pengguna';
-$projectCount = (int)($projectCount ?? count($projects));
+$projectCount = (int) ($projectCount ?? count($projects));
+$visibleProjectCount = count($projects);
 $activeProjectName = $activeProject !== null ? $activeProject->name : null;
-$activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(int)$activeProject->id]))
-    ? $projectDatabases[(int)$activeProject->id]
+$activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(int) $activeProject->id]))
+    ? $projectDatabases[(int) $activeProject->id]
     : null;
 ?>
 
-<?= $this->render('../layouts/_sidebar', ['activeMenu' => 'projects', 'sidebarVariant' => 'minimal']) ?>
-
-<main class="app-shell-main project-home-shell" style="padding-left: var(--app-sidebar-width, 16rem); min-height: 100vh; padding-top: 2rem; padding-bottom: 2rem; transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-    <div class="project-home-orb project-home-orb-a"></div>
-    <div class="project-home-orb project-home-orb-b"></div>
-    <div class="container-lg position-relative" style="z-index: 1;">
-        <section class="project-home-hero">
-            <div class="project-home-hero-copy" data-animate="slideInLeft">
-                <div class="project-home-kicker">
-                    <span class="material-symbols-outlined">home</span>
-                    <span>Beranda Workspace</span>
-                </div>
-                <h1>Selamat datang, <?= Html::encode($username) ?></h1>
-                <p>
-                    Ini titik awal Anda untuk memilih project aktif atau membuat project baru sebelum masuk ke form,
-                    tabel, dan data form.
-                </p>
-                <div class="project-home-actions">
-                    <a href="#create-project" class="project-home-action project-home-action-primary">
-                        <span class="material-symbols-outlined">add</span>
-                        <span>Buat Project Baru</span>
-                    </a>
-                    <a href="#projects-list" class="project-home-action project-home-action-secondary">
-                        <span class="material-symbols-outlined">folder_open</span>
-                        <span>Lihat Project Saya</span>
-                    </a>
-                </div>
-                <div class="project-home-metrics">
-                    <div class="project-home-metric">
-                        <strong><?= $projectCount ?></strong>
-                        <span>Project tersimpan</span>
-                    </div>
-                    <div class="project-home-metric">
-                        <strong><?= Html::encode($activeProjectName ?? 'Belum ada project aktif') ?></strong>
-                        <span>Project aktif</span>
-                    </div>
-                    <div class="project-home-metric">
-                        <strong>Form & tabel</strong>
-                        <span>Satu workspace</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="project-home-hero-panel" data-animate="slideInRight">
-                <div class="project-home-hero-panel-top">
-                    <span class="project-home-panel-tag">Project Hub</span>
-                    <span class="project-home-live-pill">
-                        <span class="material-symbols-outlined">space_dashboard</span>
-                        Navigation
-                    </span>
-                </div>
-                <div class="project-home-hero-panel-body">
-                    <div class="project-home-panel-icon">
-                        <span class="material-symbols-outlined">dashboard</span>
-                    </div>
-                    <h2>Kelola workspace dari sini</h2>
-                    <p>Pilih project aktif untuk melanjutkan ke dashboard form, tabel, dan data form.</p>
-                    <div class="project-home-panel-stats">
-                        <div class="project-home-panel-stat">
-                            <span>Project tersimpan</span>
-                            <strong><?= $projectCount ?></strong>
-                        </div>
-                        <div class="project-home-panel-stat">
-                            <span>Database aktif</span>
-                            <strong><?= Html::encode($activeProjectDatabase ?? '-') ?></strong>
-                        </div>
-                    </div>
-                </div>
-                <div class="project-home-hero-panel-footer">
-                    <span>Project aktif</span>
-                    <strong><?= Html::encode($activeProjectName ?? 'Belum dipilih') ?></strong>
-                </div>
-            </div>
-        </section>
-
-        <div class="row g-4 align-items-stretch">
-            <div class="col-12 col-lg-4" id="create-project">
-                <section class="project-card project-card-create" data-animate="slideInUp">
-                    <div class="project-card-head">
-                        <div class="project-card-head-icon project-card-head-icon-create">
-                            <span class="material-symbols-outlined">add</span>
-                        </div>
-                        <div>
-                            <div class="project-card-kicker">Mulai dari sini</div>
-                            <h2 class="project-card-title">Buat Project Baru</h2>
-                        </div>
-                    </div>
-                    <p class="project-card-description">
-                        Buat workspace baru untuk form, tabel, dan data form Anda. Saat project dibuat, sistem juga membuat DATABASE MySQL baru khusus project tersebut.
-                    </p>
-
-                    <form method="post" action="<?= \yii\helpers\Url::to(['project/index']) ?>" class="project-form" autocomplete="off">
-                        <input type="hidden" name="_csrf" value="<?= Yii::$app->request->getCsrfToken() ?>">
-
-                        <div class="mb-3">
-                            <label for="proj-name" class="project-field-label">Nama Project</label>
-                            <input type="text" id="proj-name" name="Project[name]" value="<?= Html::encode($model->name ?? '') ?>" class="form-control form-control-lg" placeholder="Contoh: Absensi Siswa" maxlength="150" required>
-                            <?php if ($model->hasErrors('name')): ?>
-                                <div class="project-field-error">
-                                    <?= Html::encode($model->getFirstError('name')) ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="mb-4">
-                            <label for="proj-desc" class="project-field-label">Deskripsi</label>
-                            <textarea id="proj-desc" name="Project[description]" class="form-control form-control-lg" rows="4" placeholder="Deskripsi singkat project (opsional)"><?= Html::encode($model->description ?? '') ?></textarea>
-                            <?php if ($model->hasErrors('description')): ?>
-                                <div class="project-field-error">
-                                    <?= Html::encode($model->getFirstError('description')) ?>
-                                </div>
-                            <?php endif; ?>
-                        </div>
-
-                        <button type="submit" class="project-submit-btn">
-                            <span class="material-symbols-outlined">check</span>
-                            <span>Simpan & Gunakan</span>
-                        </button>
-
-                        <p class="project-submit-hint">Project baru akan menjadi project aktif setelah disimpan.</p>
-                    </form>
-                </section>
-            </div>
-
-            <div class="col-12 col-lg-8" id="projects-list">
-                <section class="project-card project-card-list" data-animate="slideInUp">
-                    <div class="project-list-head">
-                        <div>
-                            <div class="project-card-kicker">Workspace utama</div>
-                            <h2 class="project-card-title">Project Saya</h2>
-                            <p class="project-list-subtitle">Ini adalah beranda Anda. Pilih project untuk masuk ke workspace.</p>
-                        </div>
-                        <span class="project-count-pill"><?= $projectCount ?> project</span>
-                    </div>
-
-                    <?php if (empty($projects)): ?>
-                        <div class="project-empty-state">
-                            <div class="project-empty-icon">
-                                <span class="material-symbols-outlined">home</span>
-                            </div>
-                            <h3>Belum ada project</h3>
-                            <p>Mulai dari kartu di sebelah kiri untuk membuat workspace pertama Anda.</p>
-                            <a href="#create-project" class="project-empty-action">Buat project pertama</a>
-                        </div>
-                    <?php else: ?>
-                        <div class="project-list">
-                            <?php foreach ($projects as $project): ?>
-                                <div class="project-item <?= (int)$activeProjectId === (int)$project->id ? 'is-active' : '' ?>">
-                                    <div class="project-item-main">
-                                        <div class="project-item-avatar">
-                                            <span class="material-symbols-outlined">folder_open</span>
-                                        </div>
-                                        <div class="project-item-copy">
-                                            <div class="project-item-title-row">
-                                                <h3><?= Html::encode($project->name) ?></h3>
-                                                <?php if ((int)$activeProjectId === (int)$project->id): ?>
-                                                    <span class="project-item-badge is-active">Aktif</span>
-                                                <?php endif; ?>
-                                            </div>
-                                            <p><?= Html::encode($project->description ?: 'Tanpa deskripsi') ?></p>
-                                            <p class="project-item-database">
-                                                <span class="material-symbols-outlined">database</span>
-                                                <span><?= Html::encode($projectDatabases[(int)$project->id] ?? '-') ?></span>
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <?= Html::a(
-                                        'Pilih',
-                                        ['project/select', 'id' => $project->id],
-                                        ['class' => 'project-item-action']
-                                    ) ?>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                        
-                        <!-- Pagination Controls -->
-                        <div class="project-pagination">
-                            <?= LinkPager::widget([
-                                'pagination' => $pagination,
-                                'options' => ['class' => 'pagination pagination-sm justify-content-center'],
-                                'linkOptions' => ['class' => 'page-link'],
-                            ]) ?>
-                        </div>
-                    <?php endif; ?>
-                </section>
-            </div>
-        </div>
-    </div>
-</main>
-
 <style>
-    .project-pagination {
-        margin-top: 32px;
-        padding-top: 24px;
-        border-top: 1px solid #e2e8f0;
-        display: flex;
-        justify-content: center;
-    }
-
-    .project-pagination .pagination {
-        gap: 4px;
-        margin-bottom: 0;
-    }
-
-    .project-pagination .page-item {
-        margin: 0;
-    }
-
-    .project-pagination .page-link {
-        min-width: 40px;
-        height: 40px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        background: #ffffff;
+    .project-page-v4 {
+        background:
+            radial-gradient(circle at top right, rgba(15, 118, 110, 0.10), transparent 24%),
+            radial-gradient(circle at left center, rgba(30, 64, 175, 0.08), transparent 26%),
+            linear-gradient(180deg, #f8fafc 0%, #f4f7fb 100%);
         color: #0f172a;
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: all 0.2s ease;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
-    .project-pagination .page-link:hover {
-        background: #f1f5f9;
-        border-color: #cbd5e1;
-        color: #0f172a;
+    .project-page-v4 main#main > .container {
+        max-width: 100% !important;
+        padding: 0 !important;
     }
 
-    .project-pagination .page-item.active .page-link {
-        background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
-        border-color: #2563eb;
-        color: #ffffff;
-        box-shadow: 0 8px 16px rgba(37, 99, 235, 0.24);
-    }
-
-    .project-pagination .page-item.disabled .page-link {
-        background: #f8fafc;
-        border-color: #e2e8f0;
-        color: #cbd5e1;
-        cursor: not-allowed;
-    }
-
-    /* Dark theme override for pagination */
-    body.project-welcome-page .project-pagination {
-        border-top-color: rgba(148, 163, 184, 0.2);
-    }
-
-    body.project-welcome-page .project-pagination .page-link {
-        background: rgba(255, 255, 255, 0.92);
-        border-color: rgba(148, 163, 184, 0.2);
-        color: #0f172a;
-    }
-
-    body.project-welcome-page .project-pagination .page-link:hover {
-        background: rgba(255, 255, 255, 0.98);
-        border-color: rgba(59, 130, 246, 0.4);
-        color: #1d4ed8;
-    }
-
-    body.project-welcome-page .project-pagination .page-item.active .page-link {
-        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #0369a1 100%);
-        border-color: #2563eb;
-        box-shadow: 0 12px 24px rgba(37, 99, 235, 0.32);
-    }
-
-    .project-home-shell {
+    .projects-shell {
+        min-height: 100vh;
+        padding-left: var(--app-sidebar-width, 16rem);
         position: relative;
-        overflow: hidden;
-        background: linear-gradient(180deg, #f7fbff 0%, #eef2ff 42%, #f8fafc 100%);
+        transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .project-home-shell::before,
-    .project-home-shell::after {
+    .projects-shell::before,
+    .projects-shell::after {
         content: '';
         position: absolute;
-        border-radius: 999px;
-        filter: blur(10px);
+        inset: auto;
         pointer-events: none;
+        border-radius: 999px;
+        filter: blur(28px);
+        opacity: 0.6;
     }
 
-    .project-home-shell::before {
-        top: 72px;
-        right: -120px;
-        width: 320px;
-        height: 320px;
-        background: radial-gradient(circle, rgba(79, 70, 229, 0.16) 0%, rgba(79, 70, 229, 0) 70%);
+    .projects-shell::before {
+        top: 7rem;
+        right: 2rem;
+        width: 16rem;
+        height: 16rem;
+        background: rgba(15, 118, 110, 0.12);
     }
 
-    .project-home-shell::after {
-        left: -140px;
-        bottom: 160px;
-        width: 300px;
-        height: 300px;
-        background: radial-gradient(circle, rgba(14, 165, 233, 0.14) 0%, rgba(14, 165, 233, 0) 70%);
+    .projects-shell::after {
+        left: 1rem;
+        bottom: 8rem;
+        width: 18rem;
+        height: 18rem;
+        background: rgba(30, 64, 175, 0.08);
     }
 
-    .project-home-orb {
+    .projects-main-content {
+        position: relative;
+        z-index: 1;
+        padding: 2rem 0 3rem;
+    }
+
+    .projects-container {
+        max-width: 1480px;
+    }
+
+    .projects-surface {
+        position: relative;
+        overflow: hidden;
+        border-radius: 28px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(255, 255, 255, 0.82);
+        box-shadow: 0 22px 48px rgba(15, 23, 42, 0.08);
+        backdrop-filter: blur(18px);
+    }
+
+    .projects-surface::before {
+        content: '';
         position: absolute;
-        border-radius: 999px;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.34), transparent 38%);
         pointer-events: none;
-        opacity: 0.55;
-        filter: blur(22px);
     }
 
-    .project-home-orb-a {
-        top: 240px;
-        right: 96px;
-        width: 110px;
-        height: 110px;
-        background: rgba(251, 146, 60, 0.22);
-    }
-
-    .project-home-orb-b {
-        left: 260px;
-        top: 96px;
-        width: 80px;
-        height: 80px;
-        background: rgba(34, 197, 94, 0.18);
-    }
-
-    .project-home-hero {
+    .projects-hero {
         display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
-        gap: 24px;
-        margin-bottom: 24px;
-        align-items: stretch;
+        grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
     }
 
-    .project-home-hero-copy {
-        position: relative;
-        overflow: hidden;
-        border-radius: 30px;
-        padding: 32px;
-        color: #ffffff;
-        background: linear-gradient(135deg, #0f172a 0%, #0f766e 60%, #1d4ed8 120%);
-        box-shadow: 0 30px 60px rgba(15, 23, 42, 0.16);
+    .projects-hero-copy {
+        padding: 2rem;
     }
 
-    .project-home-hero-copy::after {
-        content: '';
-        position: absolute;
-        inset: auto -80px -120px auto;
-        width: 260px;
-        height: 260px;
-        border-radius: 999px;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 72%);
-    }
-
-    .project-home-kicker {
+    .projects-kicker {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
+        gap: 0.65rem;
+        padding: 0.6rem 0.9rem;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        background: rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.24);
+        background: rgba(255, 255, 255, 0.84);
+        color: #334155;
+        font-size: 0.72rem;
         font-weight: 700;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
     }
 
-    .project-home-kicker .material-symbols-outlined {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
+    .projects-kicker .material-symbols-outlined {
+        font-size: 1rem;
+        color: #0f766e;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
     }
 
-    .project-home-hero-copy h1 {
-        position: relative;
-        margin: 18px 0 12px;
-        font-size: clamp(2.2rem, 4vw, 3.6rem);
+    .projects-title {
+        margin: 1.4rem 0 1rem;
+        max-width: 12ch;
+        font-family: 'Manrope', 'Inter', sans-serif;
+        font-size: clamp(2.5rem, 4.8vw, 4.2rem);
+        line-height: 1.02;
         font-weight: 800;
-        line-height: 1.04;
-        letter-spacing: -0.04em;
-        z-index: 1;
+        letter-spacing: -0.05em;
+        color: #0f172a;
     }
 
-    .project-home-hero-copy p {
-        position: relative;
-        max-width: 46rem;
+    .projects-title-accent {
+        color: #0f766e;
+    }
+
+    .projects-hero-text {
+        max-width: 42rem;
         margin: 0;
-        color: rgba(255, 255, 255, 0.82);
-        font-size: 1.05rem;
-        line-height: 1.7;
-        z-index: 1;
+        color: #475569;
+        font-size: 1.02rem;
+        line-height: 1.8;
     }
 
-    .project-home-actions {
-        position: relative;
+    .projects-action-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 24px;
-        z-index: 1;
+        gap: 0.85rem;
+        margin-top: 1.75rem;
     }
 
-    .project-home-action {
+    .projects-button {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 10px;
-        padding: 12px 18px;
-        border-radius: 14px;
-        text-decoration: none;
+        gap: 0.6rem;
+        min-height: 3.35rem;
+        padding: 0 1.25rem;
+        border-radius: 16px;
         font-weight: 700;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        text-decoration: none;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
     }
 
-    .project-home-action:hover {
+    .projects-button:hover {
         transform: translateY(-2px);
     }
 
-    .project-home-action .material-symbols-outlined {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
+    .projects-button .material-symbols-outlined {
+        font-size: 1.15rem;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
     }
 
-    .project-home-action-primary {
-        background: linear-gradient(135deg, #f59e0b 0%, #fb7185 100%);
-        color: #111827;
-        box-shadow: 0 14px 24px rgba(249, 115, 22, 0.22);
+    .projects-button-primary {
+        border: 1px solid #0f172a;
+        background: linear-gradient(135deg, #0f172a 0%, #1f2937 100%);
+        box-shadow: 0 18px 34px rgba(15, 23, 42, 0.16);
+        color: #fff;
     }
 
-    .project-home-action-primary:hover {
-        box-shadow: 0 18px 30px rgba(249, 115, 22, 0.28);
-        color: #111827;
+    .projects-button-primary:hover {
+        color: #fff;
+        box-shadow: 0 22px 42px rgba(15, 23, 42, 0.22);
     }
 
-    .project-home-action-secondary {
-        background: rgba(255, 255, 255, 0.1);
-        color: #ffffff;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+    .projects-button-secondary {
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: rgba(255, 255, 255, 0.88);
+        color: #0f172a;
     }
 
-    .project-home-action-secondary:hover {
-        color: #ffffff;
-        background: rgba(255, 255, 255, 0.14);
+    .projects-button-secondary:hover {
+        color: #0f172a;
+        border-color: rgba(15, 118, 110, 0.28);
+        box-shadow: 0 16px 30px rgba(148, 163, 184, 0.14);
     }
 
-    .project-home-metrics {
-        position: relative;
+    .projects-stat-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
-        margin-top: 28px;
-        z-index: 1;
+        gap: 1rem;
+        margin-top: 1.75rem;
     }
 
-    .project-home-metric {
-        padding: 16px;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.12);
+    .projects-stat-card {
+        border-radius: 22px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.9));
+        padding: 1rem 1.05rem;
     }
 
-    .project-home-metric strong {
+    .projects-stat-label {
         display: block;
-        color: #ffffff;
-        font-size: 1rem;
-        line-height: 1.25;
-        word-break: break-word;
-    }
-
-    .project-home-metric span {
-        display: block;
-        margin-top: 4px;
-        color: rgba(255, 255, 255, 0.72);
-        font-size: 0.86rem;
-    }
-
-    .project-home-hero-panel {
-        position: relative;
-        overflow: hidden;
-        border-radius: 30px;
-        padding: 26px;
-        background: rgba(255, 255, 255, 0.82);
-        border: 1px solid rgba(148, 163, 184, 0.24);
-        box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-    }
-
-    .project-home-hero-panel-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .project-home-panel-tag {
-        display: inline-flex;
-        align-items: center;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: #e0f2fe;
-        color: #075985;
-        font-size: 12px;
+        margin-bottom: 0.45rem;
+        color: #64748b;
+        font-size: 0.73rem;
         font-weight: 700;
+        letter-spacing: 0.12em;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
     }
 
-    .project-home-live-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: #eff6ff;
-        color: #1d4ed8;
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    .project-home-live-pill .material-symbols-outlined {
-        font-size: 16px;
-        width: 16px;
-        height: 16px;
-    }
-
-    .project-home-hero-panel-body {
-        position: relative;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        gap: 14px;
-    }
-
-    .project-home-panel-icon {
-        width: 68px;
-        height: 68px;
-        border-radius: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
-        color: #ffffff;
-        box-shadow: 0 18px 30px rgba(37, 99, 235, 0.22);
-    }
-
-    .project-home-panel-icon .material-symbols-outlined {
-        font-size: 30px;
-        width: 30px;
-        height: 30px;
-    }
-
-    .project-home-hero-panel-body h2 {
-        margin: 0;
+    .projects-stat-value {
+        display: block;
         color: #0f172a;
         font-size: 1.5rem;
         font-weight: 800;
-        letter-spacing: -0.02em;
+        line-height: 1.15;
     }
 
-    .project-home-hero-panel-body p {
-        margin: 0;
-        color: #475569;
-        line-height: 1.65;
-    }
-
-    .project-home-panel-stats {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-        margin-top: 10px;
-    }
-
-    .project-home-panel-stat {
-        padding: 14px 16px;
-        border-radius: 18px;
-        background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-        border: 1px solid #e2e8f0;
-    }
-
-    .project-home-panel-stat span {
+    .projects-stat-hint {
         display: block;
+        margin-top: 0.35rem;
         color: #64748b;
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
+        font-size: 0.82rem;
+        line-height: 1.5;
     }
 
-    .project-home-panel-stat strong {
-        display: block;
-        margin-top: 4px;
-        color: #0f172a;
-        font-size: 1rem;
-        font-weight: 800;
-        word-break: break-word;
-    }
-
-    .project-home-hero-panel-footer {
+    .projects-hero-side {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        padding-top: 18px;
-        border-top: 1px solid rgba(148, 163, 184, 0.24);
+        gap: 1.5rem;
     }
 
-    .project-home-hero-panel-footer span {
-        color: #64748b;
-        font-size: 0.8rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
+    .projects-spotlight {
+        padding: 1.75rem;
+        background:
+            radial-gradient(circle at top right, rgba(45, 212, 191, 0.16), transparent 30%),
+            linear-gradient(145deg, #0f172a 0%, #162033 60%, #1c2f43 100%);
+        border-color: rgba(148, 163, 184, 0.08);
+        color: #fff;
     }
 
-    .project-home-hero-panel-footer strong {
-        color: #0f172a;
-        font-size: 1rem;
-        font-weight: 800;
-        word-break: break-word;
+    .projects-spotlight::before {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.12), transparent 42%);
     }
 
-    .project-card {
-        position: relative;
-        height: 100%;
-        border-radius: 28px;
-        padding: 28px;
-        background: rgba(255, 255, 255, 0.92);
-        border: 1px solid rgba(226, 232, 240, 0.96);
-        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
-    }
-
-    .project-card-create {
-        border-top: 4px solid #f97316;
-    }
-
-    .project-card-list {
-        border-top: 4px solid #0ea5e9;
-    }
-
-    .project-card-head,
-    .project-list-head {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-    }
-
-    .project-card-head-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 14px;
+    .projects-spotlight-top {
         display: flex;
         align-items: center;
-        justify-content: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .projects-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        min-height: 2rem;
+        padding: 0 0.75rem;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.88);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .projects-chip .material-symbols-outlined {
+        font-size: 1rem;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+
+    .projects-status-dot {
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 999px;
+        background: #34d399;
+        box-shadow: 0 0 0 0.45rem rgba(52, 211, 153, 0.16);
         flex-shrink: 0;
     }
 
-    .project-card-head-icon-create {
-        background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
-        color: #ffffff;
-    }
-
-    .project-card-head-icon .material-symbols-outlined {
-        font-size: 22px;
-        width: 22px;
-        height: 22px;
-    }
-
-    .project-card-kicker {
-        color: #64748b;
-        font-size: 0.78rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .project-card-title {
-        margin: 4px 0 0;
-        color: #0f172a;
+    .projects-spotlight-title {
+        margin: 0;
+        font-family: 'Manrope', 'Inter', sans-serif;
         font-size: 1.5rem;
         font-weight: 800;
         letter-spacing: -0.03em;
     }
 
-    .project-card-description,
-    .project-list-subtitle {
-        margin: 12px 0 22px;
-        color: #475569;
-        line-height: 1.65;
+    .projects-spotlight-text {
+        margin: 0.6rem 0 0;
+        color: rgba(226, 232, 240, 0.78);
+        line-height: 1.7;
     }
 
-    .project-form .form-control {
-        border-color: #dbe3ee;
-        border-radius: 16px;
-        background: #ffffff;
+    .projects-spotlight-meta {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.85rem;
+        margin-top: 1.5rem;
+    }
+
+    .projects-spotlight-meta-card {
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.06);
+        padding: 0.95rem 1rem;
+    }
+
+    .projects-spotlight-meta-card span {
+        display: block;
+        color: rgba(226, 232, 240, 0.7);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .projects-spotlight-meta-card strong {
+        display: block;
+        margin-top: 0.4rem;
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.5;
+        word-break: break-word;
+    }
+
+    .projects-note-card {
+        padding: 1.5rem;
+    }
+
+    .projects-note-head {
+        display: flex;
+        align-items: center;
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .projects-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3rem;
+        height: 3rem;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(30, 64, 175, 0.10));
         color: #0f172a;
-        padding: 0.9rem 1rem;
-        box-shadow: none;
     }
 
-    .project-form .form-control::placeholder {
+    .projects-icon .material-symbols-outlined {
+        font-size: 1.35rem;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .projects-note-title {
+        margin: 0;
+        font-size: 1.08rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .projects-note-list {
+        display: grid;
+        gap: 0.75rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .projects-note-list li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.7rem;
+        color: #475569;
+        line-height: 1.7;
+    }
+
+    .projects-note-list .material-symbols-outlined {
+        margin-top: 0.12rem;
+        font-size: 1rem;
+        color: #0f766e;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+
+    .projects-panel {
+        height: 100%;
+        padding: 1.75rem;
+    }
+
+    .projects-panel-head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .projects-panel-title {
+        margin: 0;
+        font-family: 'Manrope', 'Inter', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.03em;
+    }
+
+    .projects-panel-subtitle {
+        margin: 0.4rem 0 0;
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    .projects-count-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-height: 2.5rem;
+        padding: 0 0.9rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(248, 250, 252, 0.9);
+        color: #334155;
+        font-size: 0.82rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .projects-count-badge .material-symbols-outlined {
+        font-size: 1rem;
+        color: #0f766e;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 20;
+    }
+
+    .projects-form {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .projects-field {
+        display: grid;
+        gap: 0.55rem;
+    }
+
+    .projects-field label {
+        color: #334155;
+        font-size: 0.84rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .projects-input {
+        min-height: 3.35rem;
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(255, 255, 255, 0.94);
+        color: #0f172a;
+        padding: 0.95rem 1rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .projects-input:focus {
+        border-color: rgba(15, 118, 110, 0.48);
+        box-shadow: 0 0 0 0.28rem rgba(15, 118, 110, 0.12);
+        background: #fff;
+        color: #0f172a;
+        outline: none;
+    }
+
+    .projects-input::placeholder {
         color: #94a3b8;
     }
 
-    .project-form .form-control:focus {
-        border-color: #0ea5e9;
-        box-shadow: 0 0 0 0.2rem rgba(14, 165, 233, 0.14);
+    .projects-input.projects-textarea {
+        min-height: 8.5rem;
+        resize: vertical;
     }
 
-    .project-field-label {
-        display: block;
-        margin-bottom: 10px;
-        color: #0f172a;
-        font-weight: 700;
-    }
-
-    .project-field-error {
-        margin-top: 8px;
+    .projects-field-error {
         color: #dc2626;
-        font-size: 0.875rem;
+        font-size: 0.85rem;
         font-weight: 600;
     }
 
-    .project-submit-btn {
+    .projects-submit {
         width: 100%;
-        min-height: 56px;
-        border: none;
-        border-radius: 16px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%);
-        color: #ffffff;
-        font-weight: 800;
-        font-size: 1rem;
-        box-shadow: 0 16px 28px rgba(37, 99, 235, 0.22);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        margin-top: 0.25rem;
     }
 
-    .project-submit-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 20px 32px rgba(37, 99, 235, 0.28);
-    }
-
-    .project-submit-btn .material-symbols-outlined {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-    }
-
-    .project-submit-hint {
-        margin: 14px 0 0;
-        color: #64748b;
-        font-size: 0.875rem;
-    }
-
-    .project-count-pill {
-        display: inline-flex;
-        align-items: center;
-        padding: 10px 14px;
-        border-radius: 999px;
-        background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
-        color: #ffffff;
-        font-size: 0.85rem;
-        font-weight: 800;
-        white-space: nowrap;
-        box-shadow: 0 12px 22px rgba(37, 99, 235, 0.2);
-    }
-
-    .project-list {
+    .projects-submit-hint {
         display: flex;
-        flex-direction: column;
-        gap: 14px;
+        align-items: center;
+        gap: 0.65rem;
+        margin-top: 1rem;
+        padding: 0.9rem 1rem;
+        border-radius: 18px;
+        background: rgba(248, 250, 252, 0.95);
+        color: #64748b;
+        line-height: 1.6;
     }
 
-    .project-item {
+    .projects-submit-hint .material-symbols-outlined {
+        color: #0f766e;
+        font-size: 1.1rem;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 22;
+    }
+
+    .projects-list-wrap {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .projects-project-card {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
-        padding: 18px 20px;
-        border-radius: 22px;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        border: 1px solid #e2e8f0;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        gap: 1.1rem;
+        border-radius: 24px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
+        padding: 1.2rem 1.25rem;
+        transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
     }
 
-    .project-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 14px 26px rgba(15, 23, 42, 0.08);
-        border-color: #bfdbfe;
+    .projects-project-card:hover {
+        transform: translateY(-3px);
+        border-color: rgba(15, 118, 110, 0.24);
+        box-shadow: 0 20px 34px rgba(15, 23, 42, 0.08);
     }
 
-    .project-item.is-active {
-        background: linear-gradient(135deg, rgba(239, 246, 255, 0.92) 0%, rgba(240, 253, 250, 0.92) 100%);
-        border-color: rgba(37, 99, 235, 0.18);
+    .projects-project-card.is-active {
+        border-color: rgba(15, 118, 110, 0.25);
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 253, 250, 0.9));
+        box-shadow: 0 22px 40px rgba(15, 118, 110, 0.10);
     }
 
-    .project-item-main {
+    .projects-project-main {
         display: flex;
         align-items: center;
-        gap: 16px;
-        min-width: 0;
+        gap: 1rem;
         flex: 1;
+        min-width: 0;
     }
 
-    .project-item-avatar {
-        width: 52px;
-        height: 52px;
-        border-radius: 16px;
-        display: flex;
+    .projects-project-icon {
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        flex-shrink: 0;
-        background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
-        color: #ffffff;
-        box-shadow: 0 12px 24px rgba(79, 70, 229, 0.2);
+        width: 3.35rem;
+        height: 3.35rem;
+        min-width: 3.35rem;
+        border-radius: 18px;
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(100, 116, 139, 0.14));
+        color: #334155;
     }
 
-    .project-item-avatar .material-symbols-outlined {
-        font-size: 24px;
-        width: 24px;
-        height: 24px;
+    .projects-project-card.is-active .projects-project-icon {
+        background: linear-gradient(135deg, #0f172a, #1f2937);
+        color: #fff;
+        box-shadow: 0 16px 28px rgba(15, 23, 42, 0.16);
     }
 
-    .project-item-copy {
+    .projects-project-icon .material-symbols-outlined {
+        font-size: 1.35rem;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .projects-project-copy {
         min-width: 0;
         flex: 1;
     }
 
-    .project-item-title-row {
+    .projects-project-title-row {
         display: flex;
         align-items: center;
-        gap: 10px;
         flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-bottom: 0.35rem;
     }
 
-    .project-item-copy h3 {
+    .projects-project-title {
         margin: 0;
         color: #0f172a;
-        font-size: 1.08rem;
+        font-size: 1.02rem;
         font-weight: 800;
+        letter-spacing: -0.02em;
     }
 
-    .project-item-copy p {
-        margin: 6px 0 0;
-        color: #64748b;
-        font-size: 0.92rem;
-        line-height: 1.55;
-    }
-
-    .project-item-copy .project-item-database {
-        margin-top: 8px;
+    .projects-active-badge {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        font-size: 0.8rem;
-        font-weight: 700;
-        color: #1d4ed8;
-        background: #eff6ff;
-        border: 1px solid #dbeafe;
+        gap: 0.35rem;
+        min-height: 1.7rem;
+        padding: 0 0.7rem;
         border-radius: 999px;
-        padding: 5px 10px;
-        max-width: 100%;
-    }
-
-    .project-item-copy .project-item-database .material-symbols-outlined {
-        font-size: 14px;
-        width: 14px;
-        height: 14px;
-    }
-
-    .project-item-badge {
-        display: inline-flex;
-        align-items: center;
-        padding: 6px 10px;
-        border-radius: 999px;
-        font-size: 0.75rem;
+        background: rgba(15, 118, 110, 0.10);
+        color: #0f766e;
+        font-size: 0.7rem;
         font-weight: 800;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
     }
 
-    .project-item-badge.is-active {
-        background: #dcfce7;
-        color: #166534;
+    .projects-active-badge .material-symbols-outlined {
+        font-size: 0.95rem;
+        font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 18;
     }
 
-    .project-item-action {
+    .projects-project-description {
+        margin: 0;
+        color: #64748b;
+        line-height: 1.7;
+    }
+
+    .projects-project-meta {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        margin-top: 0.9rem;
+    }
+
+    .projects-meta-pill {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        min-width: 88px;
-        padding: 10px 16px;
-        border-radius: 14px;
-        text-decoration: none;
-        background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
-        color: #ffffff;
-        font-size: 0.9rem;
-        font-weight: 800;
-        box-shadow: 0 12px 22px rgba(37, 99, 235, 0.18);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        gap: 0.45rem;
+        min-height: 2rem;
+        max-width: 100%;
+        padding: 0 0.8rem;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(248, 250, 252, 0.92);
+        color: #475569;
+        font-size: 0.76rem;
+        font-weight: 700;
+    }
+
+    .projects-meta-pill .material-symbols-outlined {
+        font-size: 0.95rem;
+        color: #0f766e;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 18;
+    }
+
+    .projects-meta-pill-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .projects-project-action {
         flex-shrink: 0;
     }
 
-    .project-item-action:hover {
-        transform: translateY(-2px);
-        color: #ffffff;
-        box-shadow: 0 16px 26px rgba(37, 99, 235, 0.24);
-    }
-
-    .project-empty-state {
-        padding: 44px 24px;
+    .projects-empty-state {
+        padding: 3rem 1.25rem 3.25rem;
         text-align: center;
-        border-radius: 24px;
-        border: 1px dashed #cbd5e1;
-        background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
     }
 
-    .project-empty-icon {
-        width: 84px;
-        height: 84px;
-        margin: 0 auto 18px;
-        border-radius: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-        color: #1d4ed8;
-    }
-
-    .project-empty-icon .material-symbols-outlined {
-        font-size: 38px;
-        width: 38px;
-        height: 38px;
-    }
-
-    .project-empty-state h3 {
-        margin: 0;
-        color: #0f172a;
-        font-size: 1.25rem;
-        font-weight: 800;
-    }
-
-    .project-empty-state p {
-        max-width: 28rem;
-        margin: 10px auto 18px;
-        color: #64748b;
-        line-height: 1.65;
-    }
-
-    .project-empty-action {
+    .projects-empty-icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 12px 18px;
-        border-radius: 14px;
-        background: linear-gradient(135deg, #0f766e 0%, #2563eb 100%);
-        color: #ffffff;
-        text-decoration: none;
-        font-weight: 800;
-        box-shadow: 0 14px 24px rgba(37, 99, 235, 0.2);
+        width: 5.25rem;
+        height: 5.25rem;
+        margin-bottom: 1.25rem;
+        border-radius: 28px;
+        background: linear-gradient(135deg, rgba(15, 118, 110, 0.12), rgba(30, 64, 175, 0.10));
+        color: #0f172a;
     }
 
-    .project-empty-action:hover {
-        color: #ffffff;
+    .projects-empty-icon .material-symbols-outlined {
+        font-size: 2rem;
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 40;
+    }
+
+    .projects-empty-title {
+        margin: 0;
+        font-family: 'Manrope', 'Inter', sans-serif;
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #0f172a;
+    }
+
+    .projects-empty-text {
+        max-width: 26rem;
+        margin: 0.85rem auto 0;
+        color: #64748b;
+        line-height: 1.75;
+    }
+
+    .projects-pagination {
+        margin-top: 1.5rem;
+        padding-top: 1.4rem;
+        border-top: 1px solid rgba(148, 163, 184, 0.16);
+    }
+
+    .projects-pagination .pagination {
+        gap: 0.4rem;
+    }
+
+    .projects-pagination .page-link {
+        min-width: 2.65rem;
+        height: 2.65rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: rgba(255, 255, 255, 0.92);
+        color: #334155;
+        font-weight: 700;
+        transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    }
+
+    .projects-pagination .page-link:hover {
+        transform: translateY(-1px);
+        border-color: rgba(15, 118, 110, 0.28);
+        background: #fff;
+        color: #0f172a;
+        box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
+    }
+
+    .projects-pagination .page-item.active .page-link {
+        border-color: #0f172a;
+        background: linear-gradient(135deg, #0f172a, #1f2937);
+        color: #fff;
+        box-shadow: 0 16px 28px rgba(15, 23, 42, 0.16);
+    }
+
+    .projects-pagination .page-item.disabled .page-link {
+        background: rgba(248, 250, 252, 0.92);
+        color: #cbd5e1;
+        box-shadow: none;
     }
 
     @media (max-width: 1199.98px) {
-        .project-home-hero {
-            grid-template-columns: 1fr;
-        }
-
-        .project-home-metrics {
+        .projects-hero {
             grid-template-columns: 1fr;
         }
     }
 
     @media (max-width: 991.98px) {
-        .project-card-head,
-        .project-list-head,
-        .project-item {
-            align-items: flex-start;
+        .projects-shell {
+            padding-left: 0;
         }
 
-        .project-item {
-            flex-direction: column;
+        .projects-main-content {
+            padding-top: 1.5rem;
         }
 
-        .project-item-action {
-            width: 100%;
+        .projects-hero-copy,
+        .projects-panel,
+        .projects-spotlight,
+        .projects-note-card {
+            padding: 1.4rem;
+        }
+
+        .projects-stat-grid {
+            grid-template-columns: 1fr;
         }
     }
 
     @media (max-width: 767.98px) {
-        .project-home-hero-copy,
-        .project-home-hero-panel,
-        .project-card {
-            padding: 24px;
+        .projects-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
         }
 
-        .project-home-actions {
+        .projects-title {
+            max-width: none;
+        }
+
+        .projects-panel-head,
+        .projects-project-card {
             flex-direction: column;
+            align-items: flex-start;
         }
 
-        .project-home-action {
+        .projects-count-badge,
+        .projects-project-action,
+        .projects-project-action .projects-button {
             width: 100%;
         }
-    }
 
-    /* Premium overrides khusus halaman welcome project */
-    body.project-welcome-page .project-home-shell {
-        background:
-            radial-gradient(circle at 14% 14%, rgba(59, 130, 246, 0.22) 0%, rgba(59, 130, 246, 0) 36%),
-            radial-gradient(circle at 86% 18%, rgba(14, 165, 233, 0.2) 0%, rgba(14, 165, 233, 0) 34%),
-            radial-gradient(circle at 75% 82%, rgba(99, 102, 241, 0.14) 0%, rgba(99, 102, 241, 0) 32%),
-            linear-gradient(165deg, #edf4ff 0%, #eef2ff 50%, #f8fafc 100%);
-    }
-
-    body.project-welcome-page .project-home-orb-a,
-    body.project-welcome-page .project-home-orb-b {
-        animation: none;
-    }
-
-    body.project-welcome-page .project-home-orb-b {
-        animation-delay: 1.2s;
-    }
-
-    body.project-welcome-page .project-home-hero-copy {
-        background:
-            radial-gradient(circle at 82% 12%, rgba(56, 189, 248, 0.35) 0%, rgba(56, 189, 248, 0) 46%),
-            linear-gradient(130deg, #0b1530 0%, #0f2f63 42%, #0f766e 100%);
-        border: 1px solid rgba(191, 219, 254, 0.28);
-        box-shadow:
-            0 34px 64px rgba(15, 23, 42, 0.2),
-            inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    }
-
-    body.project-welcome-page .project-home-hero-copy h1 {
-        text-shadow: 0 8px 30px rgba(15, 23, 42, 0.45);
-    }
-
-    body.project-welcome-page .project-home-action-primary {
-        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 55%, #0369a1 100%);
-        color: #ffffff;
-        border: 1px solid rgba(191, 219, 254, 0.42);
-        box-shadow: 0 14px 28px rgba(30, 64, 175, 0.36);
-    }
-
-    body.project-welcome-page .project-home-action-primary:hover {
-        color: #ffffff;
-        transform: translateY(-2px) scale(1.02);
-    }
-
-    body.project-welcome-page .project-home-action-secondary {
-        background: rgba(15, 23, 42, 0.25);
-        border: 1px solid rgba(191, 219, 254, 0.28);
-    }
-
-    body.project-welcome-page .project-home-action-secondary:hover {
-        background: rgba(15, 23, 42, 0.36);
-    }
-
-    body.project-welcome-page .project-home-metric {
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.14) 0%, rgba(219, 234, 254, 0.08) 100%);
-        border-color: rgba(191, 219, 254, 0.25);
-    }
-
-    body.project-welcome-page .project-home-hero-panel,
-    body.project-welcome-page .project-card {
-        background: rgba(255, 255, 255, 0.9);
-        border-color: rgba(148, 163, 184, 0.2);
-        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.08);
-    }
-
-    body.project-welcome-page .project-card {
-        transition: transform 0.26s ease, box-shadow 0.26s ease, border-color 0.26s ease;
-    }
-
-    body.project-welcome-page .project-card:hover {
-        transform: translateY(-5px);
-        border-color: rgba(59, 130, 246, 0.24);
-        box-shadow: 0 28px 56px rgba(15, 23, 42, 0.12);
-    }
-
-    body.project-welcome-page .project-submit-btn {
-        background: linear-gradient(135deg, #1e40af 0%, #2563eb 52%, #0f766e 100%);
-    }
-
-    body.project-welcome-page .project-item {
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.96) 0%, rgba(241, 245, 249, 0.92) 100%);
-    }
-
-    body.project-welcome-page .project-item:hover {
-        transform: translateY(-3px) scale(1.005);
-    }
-
-    body.project-welcome-page [data-animate] {
-        opacity: 1;
-        transform: none;
-        animation: none;
-    }
-
-    body.project-welcome-page [data-animate="slideInLeft"] {
-        transform: none;
-    }
-
-    body.project-welcome-page [data-animate="slideInRight"] {
-        transform: none;
-    }
-
-    body.project-welcome-page [data-animate="slideInUp"] {
-        transform: none;
-    }
-
-    body.project-welcome-page .app-sidebar {
-        background:
-            radial-gradient(circle at 20% 8%, rgba(59, 130, 246, 0.28) 0%, rgba(59, 130, 246, 0) 38%),
-            radial-gradient(circle at 82% 16%, rgba(14, 165, 233, 0.16) 0%, rgba(14, 165, 233, 0) 34%),
-            linear-gradient(180deg, #0b1220 0%, #0f172a 48%, #16253b 100%);
-        border-right: 1px solid rgba(148, 163, 184, 0.24);
-        box-shadow: 16px 0 38px rgba(2, 6, 23, 0.42);
-    }
-
-    body.project-welcome-page .app-sidebar-header {
-        border-bottom-color: rgba(148, 163, 184, 0.2);
-    }
-
-    body.project-welcome-page .app-sidebar-header-badge {
-        background: rgba(148, 163, 184, 0.12);
-        border-color: rgba(148, 163, 184, 0.28);
-        color: #cbd5e1;
-    }
-
-    body.project-welcome-page .app-sidebar-header-text h2 {
-        color: #f8fafc;
-    }
-
-    body.project-welcome-page .app-sidebar-header-text p {
-        color: #94a3b8;
-    }
-
-    body.project-welcome-page .app-sidebar-context {
-        border-bottom-color: rgba(148, 163, 184, 0.2);
-    }
-
-    body.project-welcome-page .app-sidebar-context-item-label {
-        color: #93c5fd;
-    }
-
-    body.project-welcome-page .app-sidebar-context-item {
-        background: rgba(15, 23, 42, 0.78);
-        border-color: rgba(148, 163, 184, 0.22);
-    }
-
-    body.project-welcome-page .app-sidebar-link {
-        color: #dbe3ef;
-        border-color: rgba(148, 163, 184, 0.08);
-    }
-
-    body.project-welcome-page .app-sidebar-link .material-symbols-outlined {
-        color: #bfdbfe;
-        background: rgba(148, 163, 184, 0.16);
-    }
-
-    body.project-welcome-page .app-sidebar-link:hover {
-        background: rgba(37, 99, 235, 0.18);
-        border-color: rgba(96, 165, 250, 0.3);
-    }
-
-    body.project-welcome-page .app-sidebar-link.active {
-        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #0284c7 100%);
-        box-shadow: 0 14px 24px rgba(37, 99, 235, 0.36);
-    }
-
-    body.project-welcome-page .app-sidebar-link.active .material-symbols-outlined {
-        background: rgba(255, 255, 255, 0.24);
-    }
-
-    body.project-welcome-page .app-sidebar-toggle {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border-color: rgba(148, 163, 184, 0.34);
-        color: #0f172a;
-    }
-
-    body.project-welcome-page .app-sidebar-logout {
-        background: rgba(15, 23, 42, 0.76);
-        border-color: rgba(148, 163, 184, 0.24);
-    }
-
-    body.project-welcome-page .app-sidebar-logout .material-symbols-outlined {
-        color: #bfdbfe;
-        background: rgba(59, 130, 246, 0.18);
-    }
-
-    body.project-welcome-page .app-sidebar-logout:hover {
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
-        border-color: rgba(148, 163, 184, 0.5);
-        color: #0f172a;
-    }
-
-    @keyframes projectOrbFloat {
-        0% {
-            transform: translate3d(0, 0, 0) scale(0.96);
-            opacity: 0.45;
+        .projects-project-main,
+        .projects-project-copy {
+            width: 100%;
         }
 
-        100% {
-            transform: translate3d(0, -14px, 0) scale(1.08);
-            opacity: 0.65;
-        }
-    }
-
-    @keyframes projectReveal {
-        to {
-            opacity: 1;
-            transform: translate3d(0, 0, 0);
+        .projects-spotlight-meta {
+            grid-template-columns: 1fr;
         }
     }
 </style>
+
+<?= $this->render('../layouts/_sidebar', ['activeMenu' => 'projects', 'sidebarVariant' => 'minimal']) ?>
+
+<div class="projects-shell">
+    <section class="projects-main-content">
+        <div class="container-fluid projects-container">
+            <section class="projects-hero">
+                <div class="projects-surface projects-hero-copy">
+                    <span class="projects-kicker">
+                        <span class="material-symbols-outlined">stacks</span>
+                        Workspace Project
+                    </span>
+
+                    <h1 class="projects-title">
+                        Bangun workspace yang <span class="projects-title-accent">rapi, tajam, dan profesional.</span>
+                    </h1>
+
+                    <p class="projects-hero-text">
+                        Halo, <?= Html::encode($username) ?>. Halaman ini sekarang jadi pusat kontrol project Anda:
+                        pilih workspace aktif, buat project baru, dan kelola database terisolasi dengan tampilan yang
+                        jauh lebih clean dan fokus.
+                    </p>
+
+                    <div class="projects-action-row">
+                        <a href="#create-project" class="projects-button projects-button-primary">
+                            <span class="material-symbols-outlined">add_circle</span>
+                            <span>Buat Project Baru</span>
+                        </a>
+                        <a href="#projects-list" class="projects-button projects-button-secondary">
+                            <span class="material-symbols-outlined">folder_managed</span>
+                            <span>Lihat Semua Project</span>
+                        </a>
+                    </div>
+
+                    <div class="projects-stat-grid">
+                        <div class="projects-stat-card">
+                            <span class="projects-stat-label">Total Workspace</span>
+                            <strong class="projects-stat-value"><?= $projectCount ?></strong>
+                            <span class="projects-stat-hint">Semua project tersimpan dalam hub Anda.</span>
+                        </div>
+                        <div class="projects-stat-card">
+                            <span class="projects-stat-label">Project Aktif</span>
+                            <strong class="projects-stat-value"><?= Html::encode($activeProjectName ?? 'Belum ada') ?></strong>
+                            <span class="projects-stat-hint">Workspace yang dipakai untuk alur kerja sekarang.</span>
+                        </div>
+                        <div class="projects-stat-card">
+                            <span class="projects-stat-label">Project Ditampilkan</span>
+                            <strong class="projects-stat-value"><?= $visibleProjectCount ?></strong>
+                            <span class="projects-stat-hint">Daftar aktif pada halaman ini dengan pagination.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="projects-hero-side">
+                    <aside class="projects-surface projects-spotlight">
+                        <div class="projects-spotlight-top">
+                            <span class="projects-chip">
+                                <span class="material-symbols-outlined">target</span>
+                                Workspace Aktif
+                            </span>
+                            <span class="projects-status-dot" aria-hidden="true"></span>
+                        </div>
+
+                        <h2 class="projects-spotlight-title"><?= Html::encode($activeProjectName ?? 'Belum ada project dipilih') ?></h2>
+                        <p class="projects-spotlight-text">
+                            <?= $activeProject !== null
+                                ? 'Project ini siap dipakai untuk form, tabel, dan data submission berikutnya.'
+                                : 'Pilih salah satu project di bawah atau buat project baru untuk mengaktifkan workspace.' ?>
+                        </p>
+
+                        <div class="projects-spotlight-meta">
+                            <div class="projects-spotlight-meta-card">
+                                <span>Status</span>
+                                <strong><?= $activeProject !== null ? 'Ready to use' : 'Waiting selection' ?></strong>
+                            </div>
+                            <div class="projects-spotlight-meta-card">
+                                <span>Database</span>
+                                <strong><?= Html::encode($activeProjectDatabase ?? '-') ?></strong>
+                            </div>
+                        </div>
+                    </aside>
+
+                    <div class="projects-surface projects-note-card">
+                        <div class="projects-note-head">
+                            <div class="projects-icon">
+                                <span class="material-symbols-outlined">verified</span>
+                            </div>
+                            <div>
+                                <h3 class="projects-note-title">Struktur lebih aman</h3>
+                                <p class="projects-panel-subtitle">Setiap project dibuat dengan database MySQL terpisah.</p>
+                            </div>
+                        </div>
+
+                        <ul class="projects-note-list">
+                            <li>
+                                <span class="material-symbols-outlined">check_circle</span>
+                                <span>Lebih mudah menjaga data antar project tetap terorganisir.</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined">check_circle</span>
+                                <span>Transisi dari pilih project ke dashboard tetap cepat dan jelas.</span>
+                            </li>
+                            <li>
+                                <span class="material-symbols-outlined">check_circle</span>
+                                <span>Tampilan kartu, tombol, dan icon sekarang konsisten dan lebih premium.</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <div class="row g-4">
+                <div class="col-12 col-xl-4" id="create-project">
+                    <section class="projects-surface projects-panel">
+                        <div class="projects-panel-head">
+                            <div>
+                                <div class="projects-note-head mb-0">
+                                    <div class="projects-icon">
+                                        <span class="material-symbols-outlined">edit_square</span>
+                                    </div>
+                                    <div>
+                                        <h2 class="projects-panel-title">Buat Project Baru</h2>
+                                        <p class="projects-panel-subtitle">Isi nama dan deskripsi singkat untuk membuat workspace baru.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <form method="post" action="<?= Url::to(['project/index']) ?>" class="projects-form" autocomplete="off">
+                            <input type="hidden" name="_csrf" value="<?= Yii::$app->request->getCsrfToken() ?>">
+
+                            <div class="projects-field">
+                                <label for="project-name">Nama Project</label>
+                                <input
+                                    type="text"
+                                    id="project-name"
+                                    name="Project[name]"
+                                    value="<?= Html::encode($model->name ?? '') ?>"
+                                    class="form-control projects-input"
+                                    placeholder="Contoh: Absensi Siswa"
+                                    maxlength="150"
+                                    required
+                                >
+                                <?php if ($model->hasErrors('name')): ?>
+                                    <div class="projects-field-error"><?= Html::encode($model->getFirstError('name')) ?></div>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="projects-field">
+                                <label for="project-description">Deskripsi</label>
+                                <textarea
+                                    id="project-description"
+                                    name="Project[description]"
+                                    class="form-control projects-input projects-textarea"
+                                    rows="4"
+                                    placeholder="Jelaskan tujuan project ini secara singkat"
+                                ><?= Html::encode($model->description ?? '') ?></textarea>
+                                <?php if ($model->hasErrors('description')): ?>
+                                    <div class="projects-field-error"><?= Html::encode($model->getFirstError('description')) ?></div>
+                                <?php endif; ?>
+                            </div>
+
+                            <button type="submit" class="projects-button projects-button-primary projects-submit">
+                                <span class="material-symbols-outlined">rocket_launch</span>
+                                <span>Simpan dan Gunakan</span>
+                            </button>
+
+                            <div class="projects-submit-hint">
+                                <span class="material-symbols-outlined">shield</span>
+                                <span>Setelah disimpan, project baru langsung menjadi workspace aktif untuk pekerjaan berikutnya.</span>
+                            </div>
+                        </form>
+                    </section>
+                </div>
+
+                <div class="col-12 col-xl-8" id="projects-list">
+                    <section class="projects-surface projects-panel">
+                        <div class="projects-panel-head">
+                            <div>
+                                <div class="projects-note-head mb-0">
+                                    <div class="projects-icon">
+                                        <span class="material-symbols-outlined">folder_open</span>
+                                    </div>
+                                    <div>
+                                        <h2 class="projects-panel-title">Daftar Project</h2>
+                                        <p class="projects-panel-subtitle">Pilih workspace yang ingin diaktifkan untuk melanjutkan ke dashboard.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="projects-count-badge">
+                                <span class="material-symbols-outlined">database</span>
+                                <?= $projectCount ?> workspace
+                            </span>
+                        </div>
+
+                        <?php if (empty($projects)): ?>
+                            <div class="projects-empty-state">
+                                <div class="projects-empty-icon">
+                                    <span class="material-symbols-outlined">folder_off</span>
+                                </div>
+                                <h3 class="projects-empty-title">Belum ada project</h3>
+                                <p class="projects-empty-text">
+                                    Mulai dari panel kiri untuk membuat workspace pertama. Setelah itu Anda bisa langsung
+                                    mengaktifkannya dan lanjut ke halaman dashboard.
+                                </p>
+                            </div>
+                        <?php else: ?>
+                            <div class="projects-list-wrap">
+                                <?php foreach ($projects as $project): ?>
+                                    <?php $isActive = (int) $activeProjectId === (int) $project->id; ?>
+                                    <article class="projects-project-card<?= $isActive ? ' is-active' : '' ?>">
+                                        <div class="projects-project-main">
+                                            <div class="projects-project-icon">
+                                                <span class="material-symbols-outlined"><?= $isActive ? 'folder_managed' : 'folder' ?></span>
+                                            </div>
+
+                                            <div class="projects-project-copy">
+                                                <div class="projects-project-title-row">
+                                                    <h3 class="projects-project-title"><?= Html::encode($project->name) ?></h3>
+                                                    <?php if ($isActive): ?>
+                                                        <span class="projects-active-badge">
+                                                            <span class="material-symbols-outlined">check_circle</span>
+                                                            Aktif
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+
+                                                <p class="projects-project-description">
+                                                    <?= Html::encode($project->description ?: 'Deskripsi belum ditambahkan untuk project ini.') ?>
+                                                </p>
+
+                                                <div class="projects-project-meta">
+                                                    <span class="projects-meta-pill">
+                                                        <span class="material-symbols-outlined">dns</span>
+                                                        <span class="projects-meta-pill-text"><?= Html::encode($projectDatabases[(int) $project->id] ?? '-') ?></span>
+                                                    </span>
+                                                    <span class="projects-meta-pill">
+                                                        <span class="material-symbols-outlined">deployed_code</span>
+                                                        <span class="projects-meta-pill-text">Project #<?= (int) $project->id ?></span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="projects-project-action">
+                                            <?= Html::a(
+                                                '<span class="material-symbols-outlined">' . ($isActive ? 'arrow_outward' : 'north_east') . '</span><span>' . ($isActive ? 'Buka Workspace' : 'Jadikan Aktif') . '</span>',
+                                                ['project/select', 'id' => $project->id],
+                                                [
+                                                    'class' => 'projects-button ' . ($isActive ? 'projects-button-primary' : 'projects-button-secondary'),
+                                                    'encode' => false,
+                                                ]
+                                            ) ?>
+                                            
+                                            <?= Html::a(
+                                                '<span class="material-symbols-outlined">delete</span><span>Hapus</span>',
+                                                ['project/delete', 'id' => $project->id],
+                                                [
+                                                    'class' => 'projects-button projects-button-secondary',
+                                                    'encode' => false,
+                                                    'data' => [
+                                                        'confirm' => 'Yakin hapus project "' . Html::encode($project->name) . '"? Semua data di database akan dihapus!',
+                                                        'method' => 'post',
+                                                    ],
+                                                ]
+                                            ) ?>
+                                        </div>
+                                    </article>
+                                <?php endforeach; ?>
+                            </div>
+
+                            <div class="projects-pagination">
+                                <?= LinkPager::widget([
+                                    'pagination' => $pagination,
+                                    'options' => ['class' => 'pagination justify-content-center mb-0'],
+                                    'linkOptions' => ['class' => 'page-link'],
+                                    'activePageCssClass' => 'active',
+                                ]) ?>
+                            </div>
+                        <?php endif; ?>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>

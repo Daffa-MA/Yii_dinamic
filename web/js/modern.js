@@ -344,8 +344,12 @@ class SmoothScroller {
     document.addEventListener("click", (e) => {
       const link = e.target.closest('a[href^="#"]');
       if (link) {
+        const href = link.getAttribute("href");
+        if (href === "#" || href === "#/" || href === "") {
+          return;
+        }
         e.preventDefault();
-        const target = document.querySelector(link.getAttribute("href"));
+        const target = document.querySelector(href);
         if (target) {
           target.scrollIntoView({ behavior: "smooth", block: "start" });
         }

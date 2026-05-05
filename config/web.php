@@ -29,8 +29,7 @@ $config = [
             'directoryLevel' => 1,
         ],
         'session' => [
-            'class' => 'yii\web\Session',
-            'savePath' => __DIR__ . '/../runtime/session',
+            'class' => 'app\components\NoSetPathSession',
         ],
         'user' => [
             'identityClass' => 'app\models\User',
@@ -86,16 +85,48 @@ $config = [
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',
                 'tables/delete/<id:\d+>' => 'table-builder/delete',
 
-                // Project routes
-                'projects' => 'project/index',
-                'projects/select/<id:\d+>' => 'project/select',
-                'projects/firebase-users' => 'project/firebase-users',
-                'dashboard/firebase-users' => 'project/firebase-users',
+                // Project routes (main landing after login)
+                'project-list' => 'project/index',
+                'project-list/select/<id:\d+>' => 'project/select',
+                'project-list/firebase-users' => 'project/firebase-users',
                 'project/profile' => 'project/profile',
+
+                // Multi-project Dashboard routes (NEW - untuk dynamic)
+                'dashboard' => 'dashboard/index',
+                'dashboard/<project_id:\d+>' => 'dashboard/index',
+                'dashboard/handle-menu' => 'dashboard/handle-menu',
+                'dashboard/get-forms' => 'dashboard/get-forms',
+                'dashboard/render-page' => 'dashboard/render-page',
 
                 // Site routes
                 'dashboard' => 'site/dashboard',
                 'profile' => 'site/profile',
+
+                // Master Page routes
+                'master-page' => 'master-page/index',
+                'master-page/create' => 'master-page/create',
+                'master-page/view/<id:\d+>' => 'master-page/view',
+                'master-page/update/<id:\d+>' => 'master-page/update',
+                'master-page/delete/<id:\d+>' => 'master-page/delete',
+                'master-page/toggle/<id:\d+>' => 'master-page/toggle',
+
+                // Master Form routes
+                'master-form' => 'master-form/index',
+                'master-form/create' => 'master-form/create',
+                'master-form/view/<id:\d+>' => 'master-form/view',
+                'master-form/update/<id:\d+>' => 'master-form/update',
+                'master-form/delete/<id:\d+>' => 'master-form/delete',
+
+                // Master Menu routes
+                'master-menu' => 'master-menu/index',
+                'master-menu/create' => 'master-menu/create',
+                'master-menu/view/<id:\d+>' => 'master-menu/view',
+                'master-menu/update/<id:\d+>' => 'master-menu/update',
+                'master-menu/delete/<id:\d+>' => 'master-menu/delete',
+                'master-menu/toggle/<id:\d+>' => 'master-menu/toggle',
+
+                // Dynamic Page route
+                'page/view/<id:\d+>' => 'page/view',
             ],
         ],
     ],

@@ -1,24 +1,32 @@
 <?php
-
-/**
- * @var string $activeMenu - Which menu item is active: 'home', 'dashboard', 'firebase-users', 'projects', 'forms', 'tables', 'profile'
- */
 use yii\bootstrap5\Html;
 use app\components\ProjectSchema;
+use app\models\MasterMenu;
+use app\models\MasterPage;
+
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $activeMenu = $activeMenu ?? '';
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
-$sidebarVariant = $sidebarVariant ?? ($activeMenu === 'projects' ? 'minimal' : 'full');
+
+// Detect if we're on project-list page (minimal sidebar)
+$currentRoute = Yii::$app->controller->route;
+$isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
+$sidebarVariant = $isProjectListPage ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
 $headerBadge = $isMinimalSidebar ? 'Project Hub' : 'Workspace';
 $headerTitle = $isMinimalSidebar ? 'Navigasi Project' : 'Projects';
 $headerSubtitle = $isMinimalSidebar ? 'Pintu masuk workspace' : 'Beranda & navigasi';
-$projectNavLabel = $isMinimalSidebar ? 'Home Project' : 'Projects';
+$projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Projects';
 $profileNavLabel = $isMinimalSidebar ? 'Akun Saya' : 'Profile';
 $logoutLabel = $isMinimalSidebar ? 'Keluar Workspace' : 'Sign Out';
 $activeProjectLabel = $isMinimalSidebar ? 'Project Aktif' : 'Active Project';
 $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
+
+// Resolve database context first so we can query the correct database
+$dbContext = new \app\components\ActiveDatabaseContext();
+$dbContext->resolveAndApply();
 
 if (!Yii::$app->user->isGuest) {
     if (ProjectSchema::supportsProjectContext()) {
@@ -28,9 +36,108 @@ if (!Yii::$app->user->isGuest) {
         }
     }
 }
+
+$menuItems = [];
+try {
+    $menuItems = MasterMenu::getMenuTree(true);
+} catch (\Exception $e) {
+    Yii::error('Failed to load menu tree: ' . $e->getMessage());
+}
+
+$reservedMenuKeys = [
+    'home',
+    'dashboard',
+    'firebase-users',
+    'forms',
+    'tables',
+    'published-forms',
+    'profile',
+    'projects',
+];
+
+$sessionActiveMenu = (string) Yii::$app->session->get('active_menu', '');
+$dynamicActiveMenu = (string) $activeMenu;
+
+if ($dynamicActiveMenu === '') {
+    $dynamicActiveMenu = $sessionActiveMenu;
+}
+
+if (!function_exists('renderDynamicSidebarTree')) {
+    /**
+     * @param array<int, array<string, mixed>> $items
+     * @return array{html: string, active: bool}
+     */
+    function renderDynamicSidebarTree(array $items, string $activeMenu, string $sessionActiveMenu): array
+    {
+        $html = '';
+        $hasActiveBranch = false;
+
+        foreach ($items as $item) {
+            $itemId = isset($item['id']) ? (string) $item['id'] : '';
+            $itemName = strtolower(trim((string) ($item['name'] ?? '')));
+            $hasChildren = !empty($item['children']);
+            $icon = htmlspecialchars((string) ($item['icon'] ?? 'folder'), ENT_QUOTES, 'UTF-8');
+
+            $matchesItem = static function (string $candidate) use ($itemId, $itemName): bool {
+                $normalized = strtolower(trim($candidate));
+                if ($normalized === '') {
+                    return false;
+                }
+
+                return ($itemId !== '' && ($normalized === $itemId || $normalized === 'menu-' . $itemId))
+                    || ($itemName !== '' && $normalized === $itemName);
+            };
+
+            $childState = ['html' => '', 'active' => false];
+            if ($hasChildren) {
+                $childState = renderDynamicSidebarTree($item['children'], $activeMenu, $sessionActiveMenu);
+            }
+
+            $isCurrent = $matchesItem($activeMenu) || $matchesItem($sessionActiveMenu);
+            $isActiveBranch = $isCurrent || $childState['active'];
+            $hasActiveBranch = $hasActiveBranch || $isActiveBranch;
+
+            $linkClasses = 'app-sidebar-link' . ($hasChildren ? ' has-children' : '') . ($isActiveBranch ? ' active' : '') . ($hasChildren && $isActiveBranch ? ' expanded' : '');
+
+            if ($hasChildren) {
+                $html .= '<a href="#" class="' . $linkClasses . '" data-menu-id="' . htmlspecialchars($itemId, ENT_QUOTES, 'UTF-8') . '">' . "\n";
+                $html .= '    <span class="material-symbols-outlined">' . $icon . '</span>' . "\n";
+                $html .= '    <span class="app-sidebar-link-text">' . htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>' . "\n";
+                $html .= '    <span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>' . "\n";
+                $html .= '</a>' . "\n";
+                $html .= '<div class="sub-menu">' . "\n";
+                $html .= $childState['html'];
+                $html .= '</div>' . "\n";
+                continue;
+            }
+
+            $url = '#';
+            if (is_array($item['url'] ?? null) && !empty($item['url'])) {
+                $url = \yii\helpers\Url::to($item['url']);
+            } elseif (is_string($item['url'] ?? null) && $item['url'] !== '' && $item['url'] !== '#') {
+                $url = \yii\helpers\Url::to($item['url']);
+            }
+
+            $html .= '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" class="' . $linkClasses . '" data-menu-id="' . htmlspecialchars($itemId, ENT_QUOTES, 'UTF-8') . '">' . "\n";
+            $html .= '    <span class="material-symbols-outlined">' . $icon . '</span>' . "\n";
+            $html .= '    <span class="app-sidebar-link-text">' . htmlspecialchars((string) ($item['name'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span>' . "\n";
+            $html .= '</a>' . "\n";
+        }
+
+        return [
+            'html' => $html,
+            'active' => $hasActiveBranch,
+        ];
+    }
+}
+
+$dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dynamicActiveMenu);
 ?>
 
 <style>
+    .app-sidebar-nav * {
+        pointer-events: auto !important;
+    }
     body.has-app-sidebar {
         --app-sidebar-expanded-width: 16rem;
         --app-sidebar-collapsed-width: 5.25rem;
@@ -244,10 +351,16 @@ if (!Yii::$app->user->isGuest) {
         padding: 12px;
         overflow-y: auto;
         min-height: 0;
+        position: relative;
+        z-index: 10;
     }
 
     .app-sidebar-link {
         display: flex;
+        position: relative;
+        z-index: 20;
+        pointer-events: auto;
+        cursor: pointer;
         align-items: center;
         gap: 12px;
         padding: 12px 14px;
@@ -302,6 +415,28 @@ if (!Yii::$app->user->isGuest) {
         background: rgba(255, 255, 255, 0.12);
     }
 
+    .app-sidebar-link.has-children {
+        justify-content: space-between;
+    }
+
+    .sub-menu {
+        display: none;
+        flex-direction: column;
+        gap: 6px;
+        margin-top: 6px;
+        margin-left: 16px;
+        padding-left: 8px;
+        border-left: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .app-sidebar-link.has-children.expanded + .sub-menu {
+        display: flex;
+    }
+
+    .app-sidebar-link.has-children.expanded .app-sidebar-chevron {
+        transform: rotate(180deg);
+    }
+
     /* Footer */
     .app-sidebar-footer {
         padding: 12px;
@@ -341,11 +476,23 @@ if (!Yii::$app->user->isGuest) {
         border-radius: 8px;
     }
 
-    .app-sidebar-logout:hover {
+.app-sidebar-logout:hover {
         background: #fee2e2;
-        color: #991b1b;
         border-color: #fecaca;
+        color: #991b1b;
         transform: translateX(2px);
+    }
+
+    .app-sidebar-system-builder {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 0;
+        margin-top: 4px;
+    }
+
+    body.has-app-sidebar.app-sidebar-collapsed .app-sidebar-system-builder {
+        display: none;
     }
 
     body.has-app-sidebar.app-sidebar-collapsed .app-sidebar {
@@ -560,52 +707,150 @@ if (!Yii::$app->user->isGuest) {
         </div>
     <?php endif; ?>
 
-    <!-- Navigation -->
+<!-- Navigation -->
     <nav class="app-sidebar-nav">
-        <?php if ($sidebarVariant === 'full'): ?>
-            <a href="<?= \yii\helpers\Url::to(['site/dashboard']) ?>" class="app-sidebar-link <?= $activeMenu === 'dashboard' ? 'active' : '' ?>">
-                <span class="material-symbols-outlined">dashboard</span>
-                <span class="app-sidebar-link-text">Dashboard</span>
-            </a>
-            <a href="<?= \yii\helpers\Url::to(['dashboard/firebase-users']) ?>" class="app-sidebar-link <?= $activeMenu === 'firebase-users' ? 'active' : '' ?>">
-                <span class="material-symbols-outlined">group</span>
-                <span class="app-sidebar-link-text">User Firebase</span>
-            </a>
-            <a href="<?= \yii\helpers\Url::to(['form/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'forms' ? 'active' : '' ?>">
-                <span class="material-symbols-outlined">description</span>
-                <span class="app-sidebar-link-text">Forms</span>
-            </a>
-            <a href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'tables' ? 'active' : '' ?>">
-                <span class="material-symbols-outlined">table_chart</span>
-                <span class="app-sidebar-link-text">Tables</span>
-            </a>
-            <a href="<?= \yii\helpers\Url::to(['published-form/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'published-forms' ? 'active' : '' ?>">
-                <span class="material-symbols-outlined">public</span>
-                <span class="app-sidebar-link-text">Data Form</span>
-            </a>
-        <?php else: ?>
+        <!-- Projects Page - Minimal: Hardcoded Only -->
+        <?php if ($sidebarVariant === 'minimal'): ?>
+            <!-- Projects (clickable) -->
             <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'projects' ? 'active' : '' ?>">
                 <span class="material-symbols-outlined">folder_open</span>
                 <span class="app-sidebar-link-text"><?= Html::encode($projectNavLabel) ?></span>
             </a>
-        <?php endif; ?>
-        <a href="<?= \yii\helpers\Url::to($sidebarVariant === 'minimal' ? ['project/profile'] : ['site/profile']) ?>" class="app-sidebar-link <?= $activeMenu === 'profile' ? 'active' : '' ?>">
-            <span class="material-symbols-outlined">person</span>
-            <span class="app-sidebar-link-text"><?= Html::encode($profileNavLabel) ?></span>
-        </a>
+            
+            <!-- Akun Saya -->
+            <a href="<?= \yii\helpers\Url::to(['site/profile']) ?>" class="app-sidebar-link <?= $activeMenu === 'profile' ? 'active' : '' ?>">
+                <span class="material-symbols-outlined">person</span>
+                <span class="app-sidebar-link-text"><?= Html::encode($profileNavLabel) ?></span>
+            </a>
+         
+<!-- Full Sidebar - Dashboard Pages -->
+        <?php else: ?>
+            <?php 
+            // Build menu tree with parent-child hierarchy and type support
+            // Use ActiveQuery instead of raw SQL to avoid column issues
+            $menuModels = \app\models\MasterMenu::find()
+                ->where(['is_active' => 1])
+                ->orderBy(['sort_order' => SORT_ASC])
+                ->all();
+            
+            // Convert to array for easier processing
+            $allMenus = [];
+            foreach ($menuModels as $m) {
+                $allMenus[] = [
+                    'id' => $m->getAttribute('id'),
+                    'parent_id' => $m->getAttribute('parent_id'),
+                    'type' => $m->getAttribute('type'),
+                    'page_id' => $m->getAttribute('page_id'),
+                    'name' => $m->getAttribute('name'),
+                    'icon' => $m->getAttribute('icon'),
+                    'route' => $m->getAttribute('route'),
+                ];
+            }
+            
+            // Build tree structure
+            $menuTree = [];
+            $menuMap = [];
+            foreach ($allMenus as $m) {
+                $menuMap[$m['id']] = $m;
+                $menuMap[$m['id']]['children'] = [];
+            }
+            foreach ($allMenus as $m) {
+                if ($m['parent_id'] && isset($menuMap[$m['parent_id']])) {
+                    $menuMap[$m['parent_id']]['children'][] = $m;
+                } else {
+                    $menuTree[] = &$menuMap[$m['id']];
+                }
+            }
+            
+            function renderMenuItem($item, &$menuMap) {
+                $icon = $item['icon'] ?: 'folder';
+                $type = $item['type'] ?? 'page';
+                $route = $item['route'] ?? '';
+                $pageId = $item['page_id'] ?? null;
+                
+                // Determine URL based on type
+                $url = '#';
+                if ($type === 'route' && !empty($route)) {
+                    $url = $route[0] === '/' ? $route : '/' . ltrim($route, '/');
+                } elseif ($type === 'page' && !empty($pageId)) {
+                    $url = ['/page/view', 'id' => $pageId];
+                }
+                
+                $hasChildren = !empty($item['children']) || $type === 'group';
+                
+                if ($hasChildren) {
+                    echo '<a href="#" class="app-sidebar-link has-children" data-menu-id="' . $item['id'] . '">';
+                    echo '<span class="material-symbols-outlined">' . Html::encode($icon) . '</span>';
+                    echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
+                    echo '<span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>';
+                    echo '</a>';
+                    echo '<div class="sub-menu">';
+                    if (!empty($item['children'])) {
+                        foreach ($item['children'] as $child) {
+                            renderMenuItem($child, $menuMap);
+                        }
+                    }
+                    echo '</div>';
+                } else {
+                    $urlFinal = is_array($url) ? \yii\helpers\Url::to($url) : $url;
+                    echo '<a href="' . Html::encode($urlFinal) . '" class="app-sidebar-link" data-menu-id="' . $item['id'] . '">';
+                    echo '<span class="material-symbols-outlined">' . Html::encode($icon) . '</span>';
+                    echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
+                    echo '</a>';
+                }
+            }
+            
+            if (!empty($menuTree)) {
+                foreach ($menuTree as $topMenu) {
+                    renderMenuItem($topMenu, $menuMap);
+                }
+            } else {
+                echo '<div style="color: #94a3b8; padding: 10px; text-align: center; font-size: 12px;">No active menus</div>';
+            }
+            ?>
+<?php endif; ?>
+            <!-- SYSTEM BUILDER - HARDCODED (di bawah menu dinamis) -->
+            <?php if ($sidebarVariant === 'full'): ?>
+                <div style="border-top: 1px solid rgba(148, 163, 184, 0.14); margin: 12px 0;"></div>
+                <div class="app-sidebar-system-builder" style="padding: 0 14px;">
+                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b;">System Builder</span>
+                </div>
+                <a href="<?= \yii\helpers\Url::to(['master-menu/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-menu' ? 'active' : '' ?>">
+                    <span class="material-symbols-outlined">list_alt</span>
+                    <span class="app-sidebar-link-text">Master Menu</span>
+                </a>
+                <a href="<?= \yii\helpers\Url::to(['master-page/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-page' ? 'active' : '' ?>">
+                    <span class="material-symbols-outlined">description</span>
+                    <span class="app-sidebar-link-text">Master Page</span>
+                </a>
+                <a href="<?= \yii\helpers\Url::to(['master-form/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-form' ? 'active' : '' ?>">
+                    <span class="material-symbols-outlined">dynamic_form</span>
+                    <span class="app-sidebar-link-text">Master Form</span>
+                </a>
+            <?php endif; ?>
     </nav>
 
-    <!-- Footer -->
-    <div class="app-sidebar-footer">
-        <?= Html::a(
-            '<span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">' . Html::encode($logoutLabel) . '</span>',
-            ['site/logout'],
-            [
-                'class' => 'app-sidebar-logout',
-                'data' => ['method' => 'post'],
-                'encode' => false
-            ]
-        ) ?>
+<!-- Footer -->
+    <div class="app-sidebar-footer <?= $sidebarVariant === 'minimal' ? 'mt-auto' : '' ?>">
+        <?php if ($sidebarVariant === 'minimal'): ?>
+            <!-- Minimal mode - Red logout button -->
+            <?= Html::beginForm(['/site/logout'], 'post') ?>
+                <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium">
+                    <span class="material-symbols-outlined">logout</span>
+                    <span><?= Html::encode($logoutLabel) ?></span>
+                </button>
+            <?= Html::endForm() ?>
+        <?php else: ?>
+            <?= Html::a(
+                '<span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">' . Html::encode($logoutLabel) . '</span>',
+                ['site/logout'],
+                [
+                    'class' => 'app-sidebar-logout',
+                    'data' => ['method' => 'post'],
+                    'encode' => false
+                ]
+            ) ?>
+        <?php endif; ?>
     </div>
 </aside>
 
@@ -648,5 +893,19 @@ if (!Yii::$app->user->isGuest) {
                 localStorage.setItem(storageKey, nextCollapsed ? '1' : '0');
             });
         }
+
+        sidebar.querySelectorAll('.app-sidebar-link.has-children').forEach((link) => {
+            link.addEventListener('click', (event) => {
+                event.preventDefault();
+
+                if (body.classList.contains('app-sidebar-collapsed')) {
+                    body.classList.remove('app-sidebar-collapsed');
+                    localStorage.setItem(storageKey, '0');
+                    applyCollapsedState(false);
+                }
+
+                link.classList.toggle('expanded');
+            });
+        });
     })();
 </script>

@@ -23,12 +23,12 @@ class AppAsset extends AssetBundle
     public $css = [
         'css/site.css',
         'css/modern.css',
+        'css/tailwind-custom.css',
     ];
     public $js = [
         'js/modern.js',
     ];
     public $depends = [
-        'yii\web\YiiAsset',
-        'yii\bootstrap5\BootstrapAsset'
+        'yii\web\YiiAsset'
     ];
 }

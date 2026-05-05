@@ -13,39 +13,39 @@ $this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); 
 $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 
 // Styles for dashboard layout
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
-?>
-
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    'on-surface': '#0b1c30',
-                    'on-surface-variant': '#464555',
-                    'surface': '#fafbfe',
-                    'surface-container-lowest': '#ffffff',
-                    'surface-container-low': '#f8fafd',
-                    'surface-container': '#f0f4f9',
-                    'surface-container-high': '#e8eef7',
-                    'primary-container': '#4f46e5',
-                    'primary': '#3525cd',
-                    'secondary': '#006c49',
-                    'tertiary': '#7e3000',
-                    'surface-tint': '#4d44e3',
-                    'outline-variant': '#c7c4d8',
-                    'outline': '#777587',
-                    'error': '#ba1a1a',
-                },
-                fontFamily: {
-                    'headline': ['Manrope'],
-                    'body': ['Inter'],
-                }
+// Register Tailwind config BEFORE CDN loads
+$this->registerJs("tailwind.config = {
+    theme: {
+        extend: {
+            colors: {
+                'on-surface': '#0b1c30',
+                'on-surface-variant': '#464555',
+                'surface': '#fafbfe',
+                'surface-container-lowest': '#ffffff',
+                'surface-container-low': '#f8fafd',
+                'surface-container': '#f0f4f9',
+                'surface-container-high': '#e8eef7',
+                'primary-container': '#4f46e5',
+                'primary': '#3525cd',
+                'secondary': '#006c49',
+                'tertiary': '#7e3000',
+                'surface-tint': '#4d44e3',
+                'outline-variant': '#c7c4d8',
+                'outline': '#777587',
+                'error': '#ba1a1a',
+            },
+            fontFamily: {
+                'headline': ['Manrope'],
+                'body': ['Inter'],
             }
         }
     }
-</script>
+};", \yii\web\View::POS_HEAD);
+$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+?>
 
 <style>
     .material-symbols-outlined {

@@ -1,5 +1,19 @@
 <?php
 
+/**
+ * Session MUST start di paling atas!
+ */
+
+// Kalau session belum ada, buat baru
+if (session_status() === PHP_SESSION_NONE) {
+    $sessionPath = __DIR__ . '/../runtime/session';
+    if (!is_dir($sessionPath)) {
+        @mkdir($sessionPath, 0777, true);
+    }
+    session_save_path($sessionPath);
+    session_start();
+}
+
 $appEnv = strtolower((string) (getenv('YII_ENV') ?: getenv('APP_ENV') ?: 'prod'));
 if (in_array($appEnv, ['dev', 'development', 'local'], true)) {
     $yiiEnv = 'dev';
@@ -10,11 +24,9 @@ if (in_array($appEnv, ['dev', 'development', 'local'], true)) {
 }
 
 $debugEnv = getenv('YII_DEBUG');
-if ($debugEnv === false || $debugEnv === '') {
-    $yiiDebug = ($yiiEnv === 'dev');
-} else {
-    $yiiDebug = filter_var($debugEnv, FILTER_VALIDATE_BOOLEAN);
-}
+$yiiDebug = ($debugEnv !== false && $debugEnv !== '') 
+    ? filter_var($debugEnv, FILTER_VALIDATE_BOOLEAN) 
+    : ($yiiEnv === 'dev');
 
 defined('YII_DEBUG') or define('YII_DEBUG', $yiiDebug);
 defined('YII_ENV') or define('YII_ENV', $yiiEnv);
@@ -25,9 +37,7 @@ defined('YII_ENV_TEST') or define('YII_ENV_TEST', YII_ENV === 'test');
 require __DIR__ . '/../vendor/autoload.php';
 require __DIR__ . '/../vendor/yiisoft/yii2/Yii.php';
 
-$config = require __DIR__ . '/../config/web.php';
-
-// Auto-create runtime directories if they don't exist
+// Auto-create runtime directories 
 $runtimeDirs = [
     __DIR__ . '/../runtime',
     __DIR__ . '/../runtime/cache',
@@ -41,5 +51,7 @@ foreach ($runtimeDirs as $dir) {
         mkdir($dir, 0777, true);
     }
 }
+
+$config = require __DIR__ . '/../config/web.php';
 
 (new yii\web\Application($config))->run();

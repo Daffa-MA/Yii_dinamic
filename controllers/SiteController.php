@@ -15,6 +15,17 @@ use app\components\ProjectSchema;
 
 class SiteController extends Controller
 {
+    public $layout = 'dashboard';
+    
+    public function beforeAction($action)
+    {
+        // Use clean layout (no sidebar) for login page
+        if ($action->id === 'login') {
+            $this->layout = 'clean';
+        }
+        return parent::beforeAction($action);
+    }
+    
     private function redirectAfterAuthentication()
     {
         // Always redirect to projects page first after login

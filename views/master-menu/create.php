@@ -36,6 +36,7 @@ $this->params['breadcrumbs'][] = $this->title;
             <div class="p-8">
                 <?= $this->render('_form', [
                     'model' => $model,
+                    'pages' => $pages ?? null,
                 ]) ?>
             </div>
         </div>

@@ -143,13 +143,20 @@ $toggleBaseUrl = Url::to(['toggle', 'id' => '']);
                     'class' => 'yii\grid\ActionColumn',
                     'contentOptions' => ['class' => 'whitespace-nowrap px-4 py-3 text-right'],
                     'headerOptions' => ['class' => 'px-4 py-3 text-right'],
-                    'template' => '{preview} {view} {update} {delete}',
+                    'template' => '{preview} {builder} {view} {update} {delete}',
                     'buttons' => [
                         'preview' => static function ($url, MasterPage $model) {
                             return Html::a(
                                 '<span class="material-symbols-outlined text-[18px]">open_in_new</span>',
                                 ['/page/view', 'id' => $model->id],
                                 ['class' => 'mr-1 inline-flex rounded-lg border border-slate-200 p-2 text-slate-600 no-underline hover:border-primary-container hover:text-primary-container', 'title' => 'Buka halaman dinamis', 'target' => '_blank']
+                            );
+                        },
+                        'builder' => static function ($url, MasterPage $model) {
+                            return Html::a(
+                                '<span class="material-symbols-outlined text-[18px]">dashboard_customize</span>',
+                                ['builder', 'id' => $model->id],
+                                ['class' => 'mr-1 inline-flex rounded-lg border border-slate-200 p-2 text-indigo-600 no-underline hover:border-indigo-600 hover:bg-indigo-50', 'title' => 'Page Builder']
                             );
                         },
                         'view' => static function ($url) {

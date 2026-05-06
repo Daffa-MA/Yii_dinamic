@@ -10,20 +10,23 @@ use yii\widgets\ActiveForm;
 /* @var $model app\models\MasterMenu */
 /* @var $form yii\widgets\ActiveForm */
 /* @var $menuItems app\models\MasterMenu[]|null */
+/* @var $pages app\models\MasterPage[] */
 
-$menuItems = $menuItems ?? MasterMenu::find()->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
+// Get menu items for parent dropdown
+$menuItems = $menuItems ?? MasterMenu::find()->where(['is_active' => 1])->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
 $parentList = ['' => 'Root / menu utama'];
 foreach ($menuItems as $menuItem) {
     $attrs = $menuItem instanceof \yii\db\ActiveRecord ? $menuItem->getAttributes() : (array) $menuItem;
-    $prefix = $attrs['parent_id'] ? 'Submenu - ' : '';
+    $prefix = isset($attrs['parent_id']) && $attrs['parent_id'] ? 'Submenu - ' : '';
     $parentList[(string) $attrs['id']] = $prefix . ($attrs['name'] ?? 'Menu');
 }
 
-$pages = MasterPage::find()->orderBy(['id' => SORT_ASC])->all();
+// Get active pages for page selection
+$pages = $pages ?? MasterPage::find()->where(['is_active' => 1])->orderBy(['id' => SORT_ASC])->all();
 $pageList = ['' => 'Pilih Halaman...'];
 foreach ($pages as $page) {
     $pageAttrs = $page instanceof \yii\db\ActiveRecord ? $page->getAttributes() : (array) $page;
-    $pageList[$pageAttrs['id']] = $pageAttrs['title'] ?? 'Page ' . $pageAttrs['id'];
+    $pageList[(int)$pageAttrs['id']] = $pageAttrs['title'] ?? $pageAttrs['name'] ?? 'Page ' . $pageAttrs['id'];
 }
 
 $typeList = [
@@ -89,15 +92,13 @@ $iconList = [
     'grade' => 'Grade',
 ];
 
-$iconJson = json_encode($iconList);
-
-// Default type
+// Ensure model has default type
 if ($model->isNewRecord && empty($model->type)) {
     $model->type = 'page';
 }
 ?>
 
-<?php $form = ActiveForm::begin(); ?>
+<?php $form = ActiveForm::begin(['enableClientValidation' => false]); ?>
 
 <div class="space-y-6">
     <?= $form->field($model, 'type')->dropDownList($typeList, [
@@ -125,7 +126,7 @@ if ($model->isNewRecord && empty($model->type)) {
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
         ])->label('Parent Menu (Submenu)', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
 
-        <?= $form->field($model, 'order')->textInput([
+        <?= $form->field($model, 'sort_order')->textInput([
             'type' => 'number',
             'min' => 0,
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
@@ -134,19 +135,41 @@ if ($model->isNewRecord && empty($model->type)) {
 
     <div class="field-mastermenu-icon">
         <label class="mb-1.5 block text-sm font-semibold text-slate-700">Icon</label>
+        <?= Html::activeHiddenInput($model, 'icon') ?>
+        
+        <!-- Custom Icon Picker -->
         <div class="relative">
-            <?= Html::activeHiddenInput($model, 'icon', ['id' => 'mastermenu-icon-value']) ?>
-
-            <div id="icon-selector-display" class="flex w-full cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-slate-300">
-                <span id="icon-preview-display" class="material-symbols-outlined text-xl text-slate-400"><?= isset($model['icon']) ? $model['icon'] : 'apps' ?></span>
-                <span id="icon-name-display" class="text-slate-400"><?= isset($model['icon']) ? ($iconList[$model['icon']] ?? $model['icon']) : 'Pilih icon menu' ?></span>
-            </div>
-
-            <div id="icon-picker-dropdown" class="absolute z-50 mt-1 hidden w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
-                <div class="border-b border-slate-100 p-3">
-                    <input type="text" id="icon-search" placeholder="Cari icon..." class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+            <!-- Icon Display Button -->
+            <button type="button" id="icon-picker-btn" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 transition hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+                <span id="icon-display" class="material-symbols-outlined text-2xl text-slate-600"><?= $model->icon && isset($iconList[$model->icon]) ? $model->icon : 'apps' ?></span>
+                <div class="flex-1 text-left">
+                    <span id="icon-name-display" class="block text-sm font-medium text-slate-700"><?= $model->icon && isset($iconList[$model->icon]) ? $iconList[$model->icon] : 'Pilih icon menu...' ?></span>
+                    <span class="block text-xs text-slate-500"><?= $model->icon ?: 'Klik untuk memilih' ?></span>
                 </div>
-                <div id="icon-grid" class="grid max-h-64 grid-cols-6 gap-1 overflow-y-auto p-3"></div>
+                <span class="material-symbols-outlined text-slate-400">expand_more</span>
+            </button>
+            
+            <!-- Icon Picker Dropdown -->
+            <div id="icon-picker-dropdown" class="absolute top-full left-0 right-0 mt-2 z-50 hidden bg-white rounded-2xl border border-slate-200 shadow-lg">
+                <!-- Search Bar -->
+                <div class="border-b border-slate-200 p-4">
+                    <div class="relative">
+                        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+                        <input type="text" id="icon-search" placeholder="Cari icon..." class="w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white" onkeyup="filterIconPicker(this.value)">
+                    </div>
+                </div>
+                
+                <!-- Icon Grid -->
+                <div class="max-h-96 overflow-y-auto p-4">
+                    <div id="icon-grid" class="grid grid-cols-4 gap-2">
+                        <?php foreach ($iconList as $key => $name): ?>
+                        <button type="button" onclick="selectIcon('<?= $key ?>', '<?= addslashes($name) ?>')" class="icon-option group flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-center transition hover:border-blue-500 hover:bg-blue-50" data-icon="<?= $key ?>" data-name="<?= strtolower($name) ?>" title="<?= $name ?>">
+                            <span class="material-symbols-outlined text-3xl text-slate-600 group-hover:text-blue-600"><?= $key ?></span>
+                            <span class="text-xs font-medium text-slate-700 group-hover:text-blue-700 line-clamp-2"><?= $name ?></span>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -240,6 +263,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const type = typeSelect.value;
         let isValid = true;
         
+        // Check if page dropdown has options (excluding the "choose" option)
+        const pageOptions = pageSelect ? pageSelect.querySelectorAll('option:not([value=""])') : [];
+        const hasPages = pageOptions.length > 0;
+        
+        // If type is page but no pages available, switch to route type
+        if (type === 'page' && !hasPages) {
+            typeSelect.value = 'route';
+            alert('Tidak ada halaman aktif. Menu type diubah menjadi Route.');
+            return true;
+        }
+        
         // Validate Name
         const nameInput = document.getElementById('mastermenu-name');
         if (!nameInput || !nameInput.value.trim()) {
@@ -279,66 +313,197 @@ document.addEventListener('DOMContentLoaded', function() {
         typeSelect.addEventListener('change', updateFields);
     }
     
-    // Icon picker
-    const iconDisplay = document.getElementById('icon-selector-display');
-    const iconDropdown = document.getElementById('icon-picker-dropdown');
-    const iconSearch = document.getElementById('icon-search');
-    const iconGrid = document.getElementById('icon-grid');
-    const iconValue = document.getElementById('mastermenu-icon-value');
-    const iconPreview = document.getElementById('icon-preview-display');
-    const iconName = document.getElementById('icon-name-display');
-    const icons = $iconJson;
-    
-    // Populate icon grid
-    Object.entries(icons).forEach(([key, value]) => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'flex aspect-square items-center justify-center rounded-lg p-2 text-xl transition hover:bg-slate-100';
-        btn.innerHTML = key;
-        btn.onclick = function() {
-            iconValue.value = key;
-            iconPreview.textContent = key;
-            iconName.textContent = value;
-            iconDropdown.classList.add('hidden');
-        };
-        iconGrid.appendChild(btn);
-    });
-    
-    if (iconDisplay && iconDropdown) {
-        iconDisplay.addEventListener('click', function() {
-            iconDropdown.classList.toggle('hidden');
-        });
-        
-        document.addEventListener('click', function(e) {
-            if (!iconDisplay.contains(e.target) && !iconDropdown.contains(e.target)) {
-                iconDropdown.classList.add('hidden');
-            }
-        });
-    }
-    
-    if (iconSearch) {
-        iconSearch.addEventListener('input', function() {
-            const search = this.value.toLowerCase();
-            Array.from(iconGrid.children).forEach(btn => {
-                btn.style.display = btn.textContent.includes(search) ? '' : 'none';
-            });
-        });
-    }
-    
-    // Form submission validation
-    const form = document.querySelector('form');
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            if (!validateForm()) {
-                e.preventDefault();
-                // Scroll to first error
-                const firstError = document.querySelector('.type-error-msg');
-                if (firstError) {
-                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }
-        });
-    }
+    // Form submission - allow default submission
 });
 JS;
 $this->registerJs($script);
+?>
+
+<?php
+// Icon Picker Inline Scripts
+$iconScript = <<<ICONJS
+window.toggleIconPicker = function(event) {
+    if (event) event.preventDefault();
+    const dropdown = document.getElementById('icon-picker-dropdown');
+    if (dropdown) {
+        dropdown.classList.toggle('hidden');
+        
+        // Auto-focus search on open
+        if (!dropdown.classList.contains('hidden')) {
+            setTimeout(() => {
+                const search = document.getElementById('icon-search');
+                if (search) search.focus();
+            }, 100);
+        }
+    }
+};
+
+window.selectIcon = function(iconKey, iconName) {
+    // Update hidden input
+    const input = document.getElementById('mastermenu-icon');
+    if (input) input.value = iconKey;
+    
+    // Update display
+    const display = document.getElementById('icon-display');
+    const nameDisplay = document.getElementById('icon-name-display');
+    if (display) display.textContent = iconKey;
+    if (nameDisplay) nameDisplay.textContent = iconName;
+    
+    // Close dropdown
+    const dropdown = document.getElementById('icon-picker-dropdown');
+    if (dropdown) dropdown.classList.add('hidden');
+    
+    // Clear search
+    const search = document.getElementById('icon-search');
+    if (search) {
+        search.value = '';
+        window.filterIconPicker('');
+    }
+};
+
+window.filterIconPicker = function(searchTerm) {
+    const search = (searchTerm || '').toLowerCase();
+    const buttons = document.querySelectorAll('#icon-grid .icon-option');
+    let visibleCount = 0;
+    
+    buttons.forEach(btn => {
+        const name = btn.dataset.name || '';
+        const icon = btn.dataset.icon || '';
+        const isMatch = name.includes(search) || icon.includes(search);
+        
+        btn.style.display = isMatch ? '' : 'none';
+        if (isMatch) visibleCount++;
+    });
+    
+    // Show no results message if needed
+    let noResults = document.getElementById('icon-no-results');
+    if (visibleCount === 0 && search) {
+        if (!noResults) {
+            noResults = document.createElement('div');
+            noResults.id = 'icon-no-results';
+            noResults.className = 'col-span-4 py-8 text-center text-slate-500';
+            noResults.textContent = 'Icon tidak ditemukan';
+            const grid = document.getElementById('icon-grid');
+            if (grid && grid.parentElement) {
+                grid.parentElement.appendChild(noResults);
+            }
+        }
+        if (noResults) noResults.style.display = 'block';
+    } else if (noResults) {
+        noResults.style.display = 'none';
+    }
+};
+
+// Initialize icon picker on DOM ready
+document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('icon-picker-btn');
+    const dropdown = document.getElementById('icon-picker-dropdown');
+    const search = document.getElementById('icon-search');
+    
+    // Add click handler to button
+    if (btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            window.toggleIconPicker();
+        });
+    }
+    
+    // Add input handler to search
+    if (search) {
+        search.addEventListener('keyup', function() {
+            window.filterIconPicker(this.value);
+        });
+    }
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.classList.add('hidden');
+            if (search) {
+                search.value = '';
+                window.filterIconPicker('');
+            }
+        }
+    });
+});
+ICONJS;
+$this->registerJs($iconScript);
+?>
+
+<?php
+// Add custom CSS for icon picker
+$css = <<<CSS
+#icon-picker-dropdown {
+    animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#icon-grid .icon-option {
+    transition: all 0.2s ease;
+}
+
+#icon-grid .icon-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+#icon-grid .icon-option.selected {
+    border-color: #3b82f6;
+    background-color: #eff6ff;
+}
+
+#icon-grid .icon-option .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
+.field-mastermenu-icon #icon-picker-btn {
+    cursor: pointer;
+    border-color: #e2e8f0;
+    background-color: #ffffff;
+}
+
+.field-mastermenu-icon #icon-picker-btn:hover {
+    border-color: #cbd5e1;
+    background-color: #f8fafc;
+}
+
+.field-mastermenu-icon #icon-picker-btn:focus {
+    border-color: #3b82f6;
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+#icon-search::placeholder {
+    color: #94a3b8;
+}
+
+#icon-search:focus {
+    background-color: #ffffff;
+}
+
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+}
+CSS;
+$this->registerCss($css);
+?>

@@ -73,7 +73,7 @@ class MasterMenu extends ActiveRecord
             
             ['route', 'required', 'when' => function($model) {
                 return $model->type === self::TYPE_ROUTE;
-            }, 'message' => 'Menu tipe Route wajib填写 URL'],
+            }, 'message' => 'Menu tipe Route wajib isi URL'],
             
             // Page type should NOT have route
             ['route', 'validateRouteForPage', 'when' => function($model) {

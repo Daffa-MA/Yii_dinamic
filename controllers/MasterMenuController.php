@@ -51,7 +51,7 @@ class MasterMenuController extends Controller
     public function actionIndex()
     {
         $dataProvider = new ActiveDataProvider([
-            'query' => MasterMenu::find()->with(['parent', 'page'])->orderBy(['order' => SORT_ASC, 'sort_order' => SORT_ASC]),
+            'query' => MasterMenu::find()->with(['parent', 'page'])->orderBy(['sort_order' => SORT_ASC]),
         ]);
 
         return $this->render('index', [
@@ -65,29 +65,44 @@ class MasterMenuController extends Controller
     public function actionCreate()
     {
         $model = new MasterMenu();
-        $maxOrder = MasterMenu::find()->max('[[sort_order]]');
-        $model->sort_order = ($maxOrder ?? 0) + 1;
-        $model->type = 'page'; // Default
+        
+        // Get current max sort order for new menu
+        $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
+        $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
+        $model->type = 'page'; // Default type
+        $model->is_active = 1; // Active by default
 
         if (Yii::$app->request->isPost) {
-            $postData = Yii::$app->request->post();
-
-            // Use service for validation and creation
-            $result = $this->menuService->createMenu($postData);
-
-            if ($result['success']) {
-                Yii::$app->session->setFlash('success', $result['message']);
-                return $this->redirect(['index']);
+            if ($model->load(Yii::$app->request->post())) {
+                // Ensure sort_order is set
+                if (empty($model->sort_order) || $model->sort_order <= 0) {
+                    $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
+                    $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
+                }
+                
+                if ($model->save()) {
+                    Yii::$app->session->setFlash('success', 'Menu berhasil dibuat!');
+                    return $this->redirect(['index']);
+                } else {
+                    $errors = $model->getErrors();
+                    $errorMsg = implode('; ', array_map(function($attr, $msgs) {
+                        return $attr . ': ' . implode(', ', $msgs);
+                    }, array_keys($errors), $errors));
+                    Yii::$app->session->setFlash('error', 'Gagal menyimpan menu: ' . $errorMsg);
+                }
             } else {
-                Yii::$app->session->setFlash('error', implode('<br>', $result['errors']));
-                $model->load($postData);
+                Yii::$app->session->setFlash('error', 'Data tidak valid - mohon periksa kembali form Anda');
             }
         }
 
+        // Get data for dropdowns - only active items
+        $menuItems = MasterMenu::find()->where(['is_active' => 1])->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
+        $pages = MasterPage::getActivePages();
+
         return $this->render('create', [
             'model' => $model,
-            'pages' => MasterPage::getActivePages(),
-            'menuItems' => MasterMenu::find()->all(),
+            'pages' => $pages,
+            'menuItems' => $menuItems,
         ]);
     }
 

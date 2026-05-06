@@ -7,12 +7,11 @@ use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 
 /**
- * This is the model class for table "master_page".
- *
  * @property int $id
  * @property string $title
  * @property string|null $slug
  * @property string|null $layout
+ * @property string|null $layout_json
  * @property string|null $description
  * @property string $layout_type
  * @property int $is_active
@@ -81,7 +80,7 @@ class MasterPage extends ActiveRecord
             [['title'], 'required'],
             [['description'], 'string'],
             [['title', 'slug'], 'string', 'max' => 255],
-            [['layout', 'layout_type'], 'string', 'max' => 50],
+            [['layout', 'layout_type', 'layout_json'], 'string', 'max' => 255],
             [['is_active'], 'integer'],
             ['formIds', 'safe'],
         ];

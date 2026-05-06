@@ -73,7 +73,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     'headerOptions' => ['class' => 'px-4 py-3'],
                     'value' => static function ($model) {
                         $indent = $model->parent_id ? '<span class="text-gray-300">&nbsp;&nbsp;&nbsp;&rdsh;</span> ' : '';
-                        $icon = isset($model['icon']) ? $model['icon'] : 'folder';
+                        $icon = $model->icon ? $model->icon : 'folder';
 
                         return $indent
                             . '<span class="material-symbols-outlined mr-2 align-middle text-base text-gray-400">' . Html::encode($icon) . '</span>'

@@ -38,9 +38,9 @@ class m260510_000001_add_project_id extends Migration
             $this->createIndex('idx_master_page_project', 'master_page', 'project_id');
         }
 
-        // Add project_id to page_forms
+        // Add project_id to page_forms (if table exists)
         $pfSchema = $this->db->getSchema()->getTableSchema('page_forms');
-        if (!isset($pfSchema->columns['project_id'])) {
+        if ($pfSchema !== null && !isset($pfSchema->columns['project_id'])) {
             $this->addColumn('page_forms', 'project_id', $this->integer()->null());
             $this->addForeignKey(
                 'fk_page_forms_project',

@@ -6,6 +6,19 @@ class m260509_000001_seed_default_sidebar_menus extends Migration
 {
     public function safeUp()
     {
+        $tableSchema = $this->db->getTableSchema('master_menu');
+        
+        $columnsToAdd = [];
+        if (!$tableSchema->getColumn('type')) {
+            $this->addColumn('master_menu', 'type', $this->string(20)->defaultValue('route'));
+        }
+        if (!$tableSchema->getColumn('route')) {
+            $this->addColumn('master_menu', 'route', $this->string(255)->defaultValue(null));
+        }
+        if (!$tableSchema->getColumn('menu_key')) {
+            $this->addColumn('master_menu', 'menu_key', $this->string(50)->defaultValue(null));
+        }
+        
         $now = date('Y-m-d H:i:s');
         
         $this->batchInsert('master_menu', 

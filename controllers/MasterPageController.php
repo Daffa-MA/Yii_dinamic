@@ -240,6 +240,70 @@ class MasterPageController extends Controller
     }
 
     /**
+     * Page Builder - Visual drag & drop layout builder
+     */
+    public function actionBuilder($id)
+    {
+        $page = $this->findModel($id);
+        $availableForms = $this->findAvailableForms();
+        
+        if (Yii::$app->request->isPost) {
+            $layoutJson = Yii::$app->request->post('layout_json');
+            $page->layout_json = $layoutJson;
+            
+            if ($page->save(false)) {
+                Yii::$app->session->setFlash('success', 'Layout halaman berhasil disimpan.');
+                return $this->redirect(['builder', 'id' => $id]);
+            } else {
+                Yii::$app->session->setFlash('error', 'Gagal menyimpan layout.');
+            }
+        }
+        
+        return $this->render('builder', [
+            'page' => $page,
+            'availableForms' => $availableForms,
+        ]);
+    }
+
+    /**
+     * Save layout (AJAX)
+     */
+    public function actionSaveLayout()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $pageId = Yii::$app->request->post('page_id');
+        $layoutJson = Yii::$app->request->post('layout_json');
+        
+        $page = MasterPage::findOne($pageId);
+        if (!$page) {
+            return ['success' => false, 'message' => 'Halaman tidak ditemukan'];
+        }
+        
+        $page->layout_json = $layoutJson;
+        
+        if ($page->save(false)) {
+            return ['success' => true, 'message' => 'Layout disimpan'];
+        }
+        
+        return ['success' => false, 'message' => 'Gagal menyimpan layout'];
+    }
+
+    /**
+     * Preview page layout (AJAX)
+     */
+    public function actionPreviewLayout()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $layoutJson = Yii::$app->request->post('layout_json', '{}');
+        
+        return ['success' => true, 'html' => $this->renderPartial('//page/_preview-layout', [
+            'layoutJson' => $layoutJson,
+        ])];
+    }
+
+    /**
      * Find available forms
      */
     private function findAvailableForms()

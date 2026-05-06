@@ -6,8 +6,14 @@ class m260509_000002_add_route_to_master_menu extends Migration
 {
     public function safeUp()
     {
-        $this->addColumn('master_menu', 'route', $this->string(255)->defaultValue(null));
-        $this->addColumn('master_menu', 'menu_key', $this->string(50)->defaultValue(null));
+        $tableSchema = $this->db->getTableSchema('master_menu');
+        
+        if (!$tableSchema->getColumn('route')) {
+            $this->addColumn('master_menu', 'route', $this->string(255)->defaultValue(null));
+        }
+        if (!$tableSchema->getColumn('menu_key')) {
+            $this->addColumn('master_menu', 'menu_key', $this->string(50)->defaultValue(null));
+        }
         
         $this->createIndex('idx-master_menu-route', 'master_menu', 'route');
         $this->createIndex('idx-master_menu-menu_key', 'master_menu', 'menu_key');

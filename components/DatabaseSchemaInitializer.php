@@ -123,6 +123,37 @@ class DatabaseSchemaInitializer
             'is_active' => $this->connection->schema->createColumnSchemaBuilder('integer', 1)->defaultValue(1),
             'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
             'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+            
+            // New flexible properties for UI/UX customization
+            'target' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('_self'),
+            'action_type' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('link'),
+            'button_text' => $this->connection->schema->createColumnSchemaBuilder('string', 100),
+            'button_style' => $this->connection->schema->createColumnSchemaBuilder('string', 30)->defaultValue('primary'),
+            'button_size' => $this->connection->schema->createColumnSchemaBuilder('string', 10)->defaultValue('md'),
+            'button_icon' => $this->connection->schema->createColumnSchemaBuilder('string', 50),
+            'button_full_width' => $this->connection->schema->createColumnSchemaBuilder('integer', 1)->defaultValue(0),
+            'css_class' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'css_style' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'custom_html' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'badge_text' => $this->connection->schema->createColumnSchemaBuilder('string', 100),
+            'badge_style' => $this->connection->schema->createColumnSchemaBuilder('string', 30)->defaultValue('primary'),
+            'show_tooltip' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'tooltip_position' => $this->connection->schema->createColumnSchemaBuilder('string', 10)->defaultValue('top'),
+            'animation_type' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('none'),
+            'animation_duration' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(300),
+            'icon_position' => $this->connection->schema->createColumnSchemaBuilder('string', 10)->defaultValue('left'),
+            'sort_priority' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
+            'visibility_roles' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'visibility_condition' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'metadata' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            
+            // Border properties
+            'border_style' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('none'),
+            'border_width' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('1px'),
+            'border_color' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('#000000'),
+            'border_position' => $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('all'),
+            'border_radius' => $this->connection->schema->createColumnSchemaBuilder('string', 10)->defaultValue('none'),
+            'border_radius_size' => $this->connection->schema->createColumnSchemaBuilder('string', 20),
         ])->execute();
 
         // Create indexes
@@ -206,39 +237,63 @@ class DatabaseSchemaInitializer
      */
     private function ensureColumnsExist(): void
     {
-        // Ensure icon column di master_menu
         $schema = $this->connection->getTableSchema('master_menu', true);
-        if ($schema !== null && !isset($schema->columns['icon'])) {
-            $this->connection->createCommand()->addColumn(
-                'master_menu',
-                'icon',
-                $this->connection->schema->createColumnSchemaBuilder('string', 50)->after('name')
-            )->execute();
+        if ($schema === null) {
+            return;
         }
 
-        // Ensure type column di master_menu
-        if ($schema !== null && !isset($schema->columns['type'])) {
-            $this->connection->createCommand()->addColumn(
-                'master_menu',
-                'type',
-                $this->connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('page')
-            )->execute();
-        }        // Ensure route column di master_menu
-        if ($schema !== null && !isset($schema->columns['route'])) {
-            $this->connection->createCommand()->addColumn(
-                'master_menu',
-                'route',
-                $this->connection->schema->createColumnSchemaBuilder('string', 255)
-            )->execute();
-        }
+        $columnsToAdd = [
+            'icon' => ['type' => 'string', 'length' => 50, 'after' => 'name'],
+            'type' => ['type' => 'string', 'length' => 20, 'default' => 'page'],
+            'route' => ['type' => 'string', 'length' => 255],
+            'menu_key' => ['type' => 'string', 'length' => 50],
+            
+            // New flexible properties for UI/UX customization
+            'target' => ['type' => 'string', 'length' => 20, 'default' => '_self'],
+            'action_type' => ['type' => 'string', 'length' => 20, 'default' => 'link'],
+            'button_text' => ['type' => 'string', 'length' => 100],
+            'button_style' => ['type' => 'string', 'length' => 30, 'default' => 'primary'],
+            'button_size' => ['type' => 'string', 'length' => 10, 'default' => 'md'],
+            'button_icon' => ['type' => 'string', 'length' => 50],
+            'button_full_width' => ['type' => 'integer', 'length' => 1, 'default' => 0],
+            'css_class' => ['type' => 'string', 'length' => 255],
+            'css_style' => ['type' => 'text'],
+            'custom_html' => ['type' => 'text'],
+            'badge_text' => ['type' => 'string', 'length' => 100],
+            'badge_style' => ['type' => 'string', 'length' => 30, 'default' => 'primary'],
+            'show_tooltip' => ['type' => 'string', 'length' => 255],
+            'tooltip_position' => ['type' => 'string', 'length' => 10, 'default' => 'top'],
+            'animation_type' => ['type' => 'string', 'length' => 20, 'default' => 'none'],
+            'animation_duration' => ['type' => 'integer', 'default' => 300],
+            'icon_position' => ['type' => 'string', 'length' => 10, 'default' => 'left'],
+            'sort_priority' => ['type' => 'integer', 'default' => 0],
+            'visibility_roles' => ['type' => 'string', 'length' => 255],
+            'visibility_condition' => ['type' => 'text'],
+            'metadata' => ['type' => 'text'],
+            
+            // Border properties
+            'border_style' => ['type' => 'string', 'length' => 20, 'default' => 'none'],
+            'border_width' => ['type' => 'string', 'length' => 20, 'default' => '1px'],
+            'border_color' => ['type' => 'string', 'length' => 20, 'default' => '#000000'],
+            'border_position' => ['type' => 'string', 'length' => 20, 'default' => 'all'],
+            'border_radius' => ['type' => 'string', 'length' => 10, 'default' => 'none'],
+            'border_radius_size' => ['type' => 'string', 'length' => 20],
+        ];
 
-        // Ensure menu_key column di master_menu
-        if ($schema !== null && !isset($schema->columns['menu_key'])) {
-            $this->connection->createCommand()->addColumn(
-                'master_menu',
-                'menu_key',
-                $this->connection->schema->createColumnSchemaBuilder('string', 50)
-            )->execute();
+        foreach ($columnsToAdd as $column => $config) {
+            if (!isset($schema->columns[$column])) {
+                $columnSchema = $this->connection->schema->createColumnSchemaBuilder($config['type'], $config['length'] ?? null);
+                
+                if (isset($config['default'])) {
+                    $columnSchema->defaultValue($config['default']);
+                }
+                
+                if (isset($config['after'])) {
+                    $columnSchema->after($config['after']);
+                }
+                
+                $this->connection->createCommand()->addColumn('master_menu', $column, $columnSchema)->execute();
+            }
         }
     }
 

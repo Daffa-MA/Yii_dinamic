@@ -53,6 +53,7 @@ class MasterPage extends ActiveRecord
             'slug',
             'layout',
             'description',
+            'layout_json',
             'is_active',
             'created_at',
             'updated_at',
@@ -64,14 +65,46 @@ class MasterPage extends ActiveRecord
         try {
             return parent::__get($name);
         } catch (\yii\base\UnknownPropertyException $e) {
-            if ($name === 'title') {
-                return $this->name;
+            switch ($name) {
+                case 'title':
+                    return $this->name;
+                case 'layout_type':
+                    return $this->layout;
+                case 'layout_json':
+                    return $this->layout_json;
+                default:
+                    return null;
             }
-            if ($name === 'layout_type') {
-                return $this->layout;
-            }
-            return null;
         }
+    }
+
+    public function __set($name, $value)
+    {
+        try {
+            parent::__set($name, $value);
+        } catch (\yii\base\UnknownPropertyException $e) {
+            switch ($name) {
+                case 'title':
+                    $this->name = $value;
+                    break;
+                case 'layout_type':
+                    $this->layout = $value;
+                    break;
+                case 'layout_json':
+                    $this->layout_json = $value;
+                    break;
+                default:
+                    throw $e;
+            }
+        }
+    }
+
+    public function __isset($name)
+    {
+        if (parent::__isset($name)) {
+            return true;
+        }
+        return in_array($name, ['title', 'layout_type']);
     }
 
     public function rules()

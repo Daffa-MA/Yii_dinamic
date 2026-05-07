@@ -7,7 +7,7 @@ use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\services\MenuService;
 use app\components\ActiveDatabaseContext;
-use app\helpers\MasterMenuTreeBuilder;
+use yii\data\ActiveDataProvider;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -44,26 +44,60 @@ class MasterMenuController extends Controller
             ],
         ];
     }
+
     /**
-     * List all menus dengan hierarchy tree view
+     * List all menus
      */
     public function actionIndex()
     {
-        // Get all menus dengan parent dan page relations
-        $allMenus = MasterMenu::find()
+        // Ensure columns exist
+        MasterMenu::ensureColumnsExist();
+        
+        // Get all menus for tree building
+        $menus = MasterMenu::find()
             ->with(['parent', 'page'])
             ->orderBy(['sort_order' => SORT_ASC])
             ->all();
-
-        // Build tree structure dari flat data
-        $tree = MasterMenuTreeBuilder::buildTree($allMenus);
-
-        // Flatten untuk rendering (bisa di-render secara iteratif)
-        $treeData = MasterMenuTreeBuilder::flattenTree($tree);
+        
+        // Build tree data
+        $treeData = $this->buildTreeData($menus);
+        
+        $dataProvider = new ActiveDataProvider([
+            'query' => MasterMenu::find()->with(['parent', 'page'])->orderBy(['sort_order' => SORT_ASC]),
+        ]);
 
         return $this->render('index', [
+            'dataProvider' => $dataProvider,
             'treeData' => $treeData,
         ]);
+    }
+    
+    private function buildTreeData($menus)
+    {
+        $tree = [];
+        $this->buildTreeRecursive($menus, null, 0, $tree);
+        return $tree;
+    }
+    
+    private function buildTreeRecursive($menus, $parentId, $level, &$tree)
+    {
+        foreach ($menus as $menu) {
+            if ($menu->parent_id == $parentId) {
+                $children = array_filter($menus, function($m) use ($menu) {
+                    return $m->parent_id == $menu->id;
+                });
+                
+                $tree[] = [
+                    'model' => $menu,
+                    'level' => $level,
+                    'isRoot' => $parentId === null,
+                    'hasChildren' => count($children) > 0,
+                    'childCount' => count($children),
+                ];
+                
+                $this->buildTreeRecursive($menus, $menu->id, $level + 1, $tree);
+            }
+        }
     }
 
     /**
@@ -72,7 +106,7 @@ class MasterMenuController extends Controller
     public function actionCreate()
     {
         $model = new MasterMenu();
-
+        
         // Get current max sort order for new menu
         $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
         $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
@@ -80,19 +114,22 @@ class MasterMenuController extends Controller
         $model->is_active = 1; // Active by default
 
         if (Yii::$app->request->isPost) {
+            // Ensure columns exist before loading
+            MasterMenu::ensureColumnsExist();
+            
             if ($model->load(Yii::$app->request->post())) {
                 // Ensure sort_order is set
                 if (empty($model->sort_order) || $model->sort_order <= 0) {
                     $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
                     $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
                 }
-
+                
                 if ($model->save()) {
                     Yii::$app->session->setFlash('success', 'Menu berhasil dibuat!');
                     return $this->redirect(['index']);
                 } else {
                     $errors = $model->getErrors();
-                    $errorMsg = implode('; ', array_map(function ($attr, $msgs) {
+                    $errorMsg = implode('; ', array_map(function($attr, $msgs) {
                         return $attr . ': ' . implode(', ', $msgs);
                     }, array_keys($errors), $errors));
                     Yii::$app->session->setFlash('error', 'Gagal menyimpan menu: ' . $errorMsg);

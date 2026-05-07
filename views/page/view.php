@@ -82,7 +82,75 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
         <?php endif; ?>
     </div>
 
-    <?php if (empty($forms)): ?>
+    <?php 
+    // Render layout_json from dynamic builder
+    $layoutJson = $page->layout_json ?? '[]';
+    $layoutData = json_decode($layoutJson, true);
+    $hasBuilderContent = !empty($layoutData) && is_array($layoutData);
+    ?>
+    
+    <?php if ($hasBuilderContent): ?>
+        <div class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+            <h2 class="mb-4 text-lg font-bold text-slate-900">Konten Halaman</h2>
+            <?php foreach ($layoutData as $item): ?>
+                <?php
+                $type = $item['type'] ?? '';
+                $props = $item['props'] ?? [];
+                
+                // Render based on type
+                switch ($type) {
+                    case 'heading':
+                        $level = $props['level'] ?? 'h1';
+                        $text = $props['text'] ?? '';
+                        $align = $props['alignment'] ?? 'left';
+                        $fontSize = $props['fontSize'] ?? '32px';
+                        $color = $props['color'] ?? '#1e293b';
+                        echo "<{$level} style='text-align:{$align};font-size:{$fontSize};color:{$color};margin:1rem 0;'>{$text}</{$level}>";
+                        break;
+                        
+                    case 'paragraph':
+                        $text = $props['text'] ?? '';
+                        $align = $props['alignment'] ?? 'left';
+                        echo "<p style='text-align:{$align};margin:0.5rem 0;'>{$text}</p>";
+                        break;
+                        
+                    case 'divider':
+                        echo '<hr style="border:none;border-top:1px solid #e2e8f0;margin:1rem 0;">';
+                        break;
+                        
+                    case 'spacer':
+                        $height = $props['height'] ?? '24px';
+                        echo "<div style='height:{$height};'></div>";
+                        break;
+                        
+                    case 'image':
+                        $src = $props['src'] ?? '';
+                        $alt = $props['alt'] ?? '';
+                        $width = $props['width'] ?? '100%';
+                        if ($src) {
+                            echo "<img src='{$src}' alt='{$alt}' style='max-width:{$width};height:auto;margin:1rem 0;' />";
+                        }
+                        break;
+                        
+                    case 'card':
+                        $title = $props['title'] ?? '';
+                        $content = $props['content'] ?? '';
+                        echo '<div class="rounded-lg border border-slate-200 p-4 my-2">';
+                        if ($title) echo "<h3 class='font-bold text-slate-900'>{$title}</h3>";
+                        if ($content) echo "<p class='text-slate-600'>{$content}</p>";
+                        echo '</div>';
+                        break;
+                        
+                    default:
+                        // Debug: show unknown type
+                        echo "<!-- Unknown type: {$type} -->";
+                }
+                ?>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
+    
+    <?php if (empty($forms) && !$hasBuilderContent): ?>
         <div class="rounded-[28px] border border-amber-200 bg-amber-50 px-6 py-10 text-center shadow-sm">
             <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-amber-600 shadow-sm">
                 <span class="material-symbols-outlined text-[30px]">inventory_2</span>
@@ -95,7 +163,7 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                 ]) ?>
             </div>
         </div>
-    <?php else: ?>
+    <?php elseif (count($forms) > 0): ?>
         <div class="<?= $layoutClasses ?>">
             <?php foreach ($forms as $index => $formModel): ?>
                 <?php

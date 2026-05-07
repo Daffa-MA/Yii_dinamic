@@ -1,0 +1,1949 @@
+<?php
+
+use yii\helpers\Html;
+use yii\helpers\Json;
+use app\models\Form;
+
+$this->title = $model->isNewRecord ? 'Buat Halaman Baru' : 'Edit Halaman: ' . $model->title;
+$this->params['breadcrumbs'][] = ['label' => 'Halaman', 'url' => ['index']];
+$this->params['breadcrumbs'][] = $this->title;
+
+$pageId = $model->isNewRecord ? null : $model->id;
+$initialState = !empty($model->layout_json) ? $model->layout_json : '[]';
+$availableForms = Form::find()->where(['user_id' => Yii::$app->user->id])->all();
+$formsList = [];
+foreach ($availableForms as $form) {
+    $formsList[$form->id] = ['id' => $form->id, 'name' => $form->name, 'storage' => $form->storage_type];
+}
+
+$fieldTypes = [
+    ['value' => 'input', 'label' => 'Input Text'],
+    ['value' => 'email', 'label' => 'Email'],
+    ['value' => 'textarea', 'label' => 'Textarea'],
+    ['value' => 'select', 'label' => 'Dropdown'],
+    ['value' => 'checkbox', 'label' => 'Checkbox'],
+    ['value' => 'radio', 'label' => 'Radio'],
+    ['value' => 'date', 'label' => 'Date'],
+    ['value' => 'number', 'label' => 'Number'],
+    ['value' => 'file', 'label' => 'File Upload']
+];
+
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_END]);
+?>
+
+<!-- TEMPLATE SELECTOR MODAL -->
+<?php if ($model->isNewRecord): ?>
+    <style>
+        .template-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .template-modal {
+            background: white;
+            border-radius: 16px;
+            max-width: 1200px;
+            width: 100%;
+            max-height: 90vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .template-header {
+            padding: 24px;
+            border-bottom: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .template-header h2 {
+            margin: 0 0 8px 0;
+            color: #1e293b;
+            font-size: 24px;
+        }
+
+        .template-header p {
+            margin: 0;
+            color: #64748b;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+            padding: 24px;
+            overflow-y: auto;
+        }
+
+        .template-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+
+        .template-card:hover {
+            border-color: #6366f1;
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .template-card.selected {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+
+        .template-preview {
+            height: 180px;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #e2e8f0;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .template-preview-content {
+            width: 100%;
+            height: 100%;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: #64748b;
+            text-align: center;
+        }
+
+        .template-preview-content .preview-heading {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            width: 80%;
+        }
+
+        .template-preview-content .preview-text {
+            font-size: 9px;
+            color: #64748b;
+            width: 70%;
+            line-height: 1.3;
+        }
+
+        .template-preview-content .preview-bar {
+            height: 6px;
+            background: #6366f1;
+            border-radius: 3px;
+            width: 50%;
+        }
+
+        .template-preview-content .preview-blocks {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        .template-preview-content .preview-block {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 8px;
+        }
+
+        .template-preview-content .preview-btn {
+            background: #6366f1;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 8px;
+            margin-top: 4px;
+        }
+
+        .template-preview-content .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            width: 80%;
+        }
+
+        .template-preview-content .preview-grid-item {
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 8px;
+            font-size: 7px;
+        }
+
+        .template-info {
+            padding: 16px;
+        }
+
+        .template-info h4 {
+            margin: 0 0 4px 0;
+            color: #1e293b;
+            font-size: 16px;
+        }
+
+        .template-info p {
+            margin: 0;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        .template-actions {
+            padding: 16px 24px;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+    </style>
+
+    <div id="templateModal" class="template-modal-overlay">
+        <div class="template-modal">
+            <div class="template-header">
+                <h2>Pilih Template Halaman</h2>
+                <p>Pilih template awal atau mulai dari halaman kosong</p>
+            </div>
+            <div class="template-grid" id="templateGrid">
+                <!-- Template cards will be rendered by JS -->
+            </div>
+            <div class="template-actions">
+                <button class="btn-preview" onclick="selectTemplate(null)">Mulai Kosong</button>
+                <button class="btn-save" onclick="event.preventDefault(); confirmTemplate()">Pakai Template</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const templates = [{
+                id: 'blank',
+                name: 'Halaman Kosong',
+                description: 'Mulai dari nol dengan canvas kosong',
+                previewHtml: '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#94a3b8;"><div><div style="font-size:40px;margin-bottom:8px">📄</div><div>Canvas Kosong</div></div></div>',
+                state: []
+            },
+            {
+                id: 'hero-landing',
+                name: 'Hero Landing Page',
+                description: 'Halaman landing dengan hero section',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Selamat Datang</div><div class="preview-text">Buat landing page yang menarik dengan mudah</div><div class="preview-btn">Mulai Sekarang</div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Selamat Datang',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Buat landing page yang menarik dengan mudah. Drag & drop komponen di bawah ini untuk menyesuaikan halaman Anda.'
+                        }
+                    },
+                    {
+                        id: 'b1',
+                        type: 'button',
+                        props: {
+                            text: 'Mulai Sekarang',
+                            url: '#',
+                            style: 'primary',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'xl'
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'about-us',
+                name: 'Tentang Kami',
+                description: 'Halaman profil perusahaan/organisasi',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Tentang Kami</div><div style="width:60px;height:40px;background:#e2e8f0;border-radius:4px;margin:4px auto;"></div><div class="preview-text">Kami adalah tim yang berdedikasi</div><div style="width:100%;height:2px;background:#e2e8f0;margin:8px 0"></div><div class="preview-blocks"><div class="preview-block">Kol 1</div><div class="preview-block">Kol 2</div><div class="preview-block">Kol 3</div></div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Tentang Kami',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 'i1',
+                        type: 'image',
+                        props: {
+                            src: '',
+                            alt: 'Team',
+                            size: 'full',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Kami adalah tim yang berdedikasi untuk memberikan layanan terbaik.'
+                        }
+                    },
+                    {
+                        id: 'd1',
+                        type: 'divider',
+                        props: {
+                            color: '#e2e8f0'
+                        }
+                    },
+                    {
+                        id: 'g1',
+                        type: 'grid',
+                        props: {
+                            columns: 3
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'lg'
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'contact-form',
+                name: 'Halaman Kontak + Form',
+                description: 'Halaman kontak dengan form',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Hubungi Kami</div><div class="preview-text">Silakan hubungi kami melalui form</div><div style="background:#e0f2fe;border:1px solid #bae6fd;border-radius:4px;padding:8px;width:80%;margin-top:8px"><div style="font-size:9px;color:#0369a1;font-weight:600">📝 Form Kontak</div><div style="height:4px;background:#bae6fd;margin:4px 0;border-radius:2px"></div><div style="height:4px;background:#bae6fd;margin:4px 0;border-radius:2px"></div><div style="height:4px;background:#bae6fd;width:60%;margin:4px 0;border-radius:2px"></div></div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Hubungi Kami',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Silakan hubungi kami melalui form di bawah ini atau melalui informasi kontak yang tersedia.'
+                        }
+                    },
+                    {
+                        id: 'f1',
+                        type: 'form',
+                        props: {
+                            formId: null,
+                            showTitle: true,
+                            fields: [{
+                                    id: 'f1',
+                                    type: 'input',
+                                    label: 'Nama',
+                                    name: 'name',
+                                    required: true
+                                },
+                                {
+                                    id: 'f2',
+                                    type: 'email',
+                                    label: 'Email',
+                                    name: 'email',
+                                    required: true
+                                },
+                                {
+                                    id: 'f3',
+                                    type: 'textarea',
+                                    label: 'Pesan',
+                                    name: 'message',
+                                    required: false
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'lg'
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'features',
+                name: 'Fitur / Layanan',
+                description: 'Halaman showcase fitur atau layanan',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Layanan Kami</div><div class="preview-text">Kami menawarkan berbagai layanan</div><div class="preview-blocks" style="margin-top:8px"><div class="preview-block" style="background:#f0fdf4;border-color:#86efac">Layanan 1</div><div class="preview-block" style="background:#f0fdf4;border-color:#86efac">Layanan 2</div><div class="preview-block" style="background:#f0fdf4;border-color:#86efac">Layanan 3</div></div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Layanan Kami',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Kami menawarkan berbagai layanan untuk memenuhi kebutuhan Anda.'
+                        }
+                    },
+                    {
+                        id: 'g1',
+                        type: 'grid',
+                        props: {
+                            columns: 3
+                        }
+                    },
+                    {
+                        id: 'c1',
+                        type: 'card',
+                        props: {
+                            title: 'Layanan 1',
+                            content: 'Deskripsi layanan pertama',
+                            showShadow: true
+                        }
+                    },
+                    {
+                        id: 'c2',
+                        type: 'card',
+                        props: {
+                            title: 'Layanan 2',
+                            content: 'Deskripsi layanan kedua',
+                            showShadow: true
+                        }
+                    },
+                    {
+                        id: 'c3',
+                        type: 'card',
+                        props: {
+                            title: 'Layanan 3',
+                            content: 'Deskripsi layanan ketiga',
+                            showShadow: true
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'lg'
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'blog',
+                name: 'Blog / Artikel',
+                description: 'Halaman list artikel atau blog',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Artikel Terbaru</div><div class="preview-text">Baca artikel terbaru dari kami</div><div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:6px;width:85%;margin:4px auto"><div style="font-size:8px;font-weight:600">Judul Artikel 1</div><div style="font-size:7px;color:#64748b">Cuplikan artikel...</div></div><div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:6px;width:85%;margin:2px auto"><div style="font-size:8px;font-weight:600">Judul Artikel 2</div></div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Artikel Terbaru',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Baca artikel terbaru dari kami.'
+                        }
+                    },
+                    {
+                        id: 'c1',
+                        type: 'card',
+                        props: {
+                            title: 'Judul Artikel 1',
+                            content: 'Cuplikan artikel pertama...',
+                            showShadow: true
+                        }
+                    },
+                    {
+                        id: 'c2',
+                        type: 'card',
+                        props: {
+                            title: 'Judul Artikel 2',
+                            content: 'Cuplikan artikel kedua...',
+                            showShadow: true
+                        }
+                    },
+                    {
+                        id: 'c3',
+                        type: 'card',
+                        props: {
+                            title: 'Judul Artikel 3',
+                            content: 'Cuplikan artikel ketiga...',
+                            showShadow: true
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'lg'
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'dashboard',
+                name: 'Dashboard Sederhana',
+                description: 'Halaman dashboard dengan cards',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Dashboard</div><div class="preview-blocks" style="margin-top:8px"><div class="preview-block" style="background:#fef3c7;border-color:#fcd34d">1,234</div><div class="preview-block" style="background:#dbeafe;border-color:#93c5fd">Rp 5JT</div><div class="preview-block" style="background:#dcfce7;border-color:#86efac">56</div><div class="preview-block" style="background:#f3e8ff;border-color:#d8b4fe">+12%</div></div><div style="background:white;border:1px solid #e2e8f0;border-radius:4px;padding:4px;width:90%;margin-top:4px"><div style="font-size:7px;color:#64748b">Aktivitas Terbaru</div></div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Dashboard',
+                            align: 'left'
+                        }
+                    },
+                    {
+                        id: 'g1',
+                        type: 'grid',
+                        props: {
+                            columns: 4
+                        }
+                    },
+                    {
+                        id: 'c1',
+                        type: 'card',
+                        props: {
+                            title: 'Total Users',
+                            content: '1,234',
+                            showShadow: false
+                        }
+                    },
+                    {
+                        id: 'c2',
+                        type: 'card',
+                        props: {
+                            title: 'Revenue',
+                            content: 'Rp 5.000.000',
+                            showShadow: false
+                        }
+                    },
+                    {
+                        id: 'c3',
+                        type: 'card',
+                        props: {
+                            title: 'Orders',
+                            content: '56',
+                            showShadow: false
+                        }
+                    },
+                    {
+                        id: 'c4',
+                        type: 'card',
+                        props: {
+                            title: 'Growth',
+                            content: '+12%',
+                            showShadow: false
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'md'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Recent Activity:'
+                        }
+                    },
+                    {
+                        id: 'c5',
+                        type: 'card',
+                        props: {
+                            title: 'Aktivitas Terbaru',
+                            content: 'Lorem ipsum dolor sit amet...',
+                            showShadow: true
+                        }
+                    }
+                ]
+            },
+            {
+                id: 'gallery',
+                name: 'Gallery / Portofolio',
+                description: 'Halaman galeri foto atau portofolio',
+                previewHtml: '<div class="template-preview-content"><div class="preview-heading">Galeri Kami</div><div class="preview-text">Berikut adalah beberapa karya terbaik kami</div><div class="preview-grid" style="margin-top:8px"><div style="background:#e2e8f0;border-radius:4px;height:30px"></div><div style="background:#e2e8f0;border-radius:4px;height:30px"></div><div style="background:#e2e8f0;border-radius:4px;height:30px"></div></div></div>',
+                state: [{
+                        id: 'h1',
+                        type: 'heading',
+                        props: {
+                            level: 'h1',
+                            text: 'Galeri Kami',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 't1',
+                        type: 'text',
+                        props: {
+                            content: 'Berikut adalah beberapa karya terbaik kami.'
+                        }
+                    },
+                    {
+                        id: 'g1',
+                        type: 'grid',
+                        props: {
+                            columns: 3
+                        }
+                    },
+                    {
+                        id: 'i1',
+                        type: 'image',
+                        props: {
+                            src: '',
+                            alt: 'Project 1',
+                            size: 'full',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 'i2',
+                        type: 'image',
+                        props: {
+                            src: '',
+                            alt: 'Project 2',
+                            size: 'full',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 'i3',
+                        type: 'image',
+                        props: {
+                            src: '',
+                            alt: 'Project 3',
+                            size: 'full',
+                            align: 'center'
+                        }
+                    },
+                    {
+                        id: 's1',
+                        type: 'spacer',
+                        props: {
+                            height: 'lg'
+                        }
+                    }
+                ]
+            }
+        ];
+
+        let selectedTemplateId = null;
+
+        function renderTemplates() {
+            const grid = document.getElementById('templateGrid');
+            grid.innerHTML = templates.map(t => `
+        <div class="template-card ${selectedTemplateId === t.id ? 'selected' : ''}" onclick="selectTemplate('${t.id}')">
+            <div class="template-preview">
+                ${t.previewHtml}
+            </div>
+            <div class="template-info">
+                <h4>${t.name}</h4>
+                <p>${t.description}</p>
+            </div>
+        </div>
+    `).join('');
+        }
+
+        function selectTemplate(id) {
+            selectedTemplateId = id;
+            renderTemplates();
+        }
+
+        function confirmTemplate() {
+            // Get template state
+            let newState = [];
+            if (selectedTemplateId && selectedTemplateId !== 'blank') {
+                const template = templates.find(t => t.id === selectedTemplateId);
+                if (template && template.state) {
+                    newState = JSON.parse(JSON.stringify(template.state));
+                }
+            }
+
+            // Update global pageState
+            window.pageState = newState;
+
+            // Remove modal completely
+            const modal = document.getElementById('templateModal');
+            if (modal && modal.parentNode) {
+                modal.parentNode.removeChild(modal);
+            }
+
+            // Show builder
+            const builder = document.getElementById('builderInterface');
+            if (builder) {
+                builder.style.display = 'flex';
+            }
+
+            // Render the builder with template state (renderBuilder will be called after DOMContentLoaded)
+            setTimeout(() => {
+                renderBuilder(window.pageState);
+            }, 0);
+
+            return false;
+        }
+    </script>
+<?php endif; ?>
+
+<style>
+    .page-builder {
+        height: calc(100vh - 56px);
+        display: flex;
+        background: #0f172a;
+        overflow: hidden;
+    }
+
+    .builder-sidebar-left {
+        width: 280px;
+        background: #1e293b;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        border-right: 1px solid #334155;
+    }
+
+    .builder-canvas {
+        flex: 1;
+        overflow-y: auto;
+        padding: 32px;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    }
+
+    .builder-properties {
+        width: 340px;
+        background: #1e293b;
+        border-left: 1px solid #334155;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+    }
+
+    .component-item {
+        padding: 14px 16px;
+        margin: 4px 8px;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        background: #1e293b;
+        cursor: grab;
+        transition: all 0.15s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #e2e8f0;
+    }
+
+    .component-item:hover {
+        background: #334155;
+        border-color: #6366f1;
+        transform: translateX(4px);
+    }
+
+    .component-item:active {
+        cursor: grabbing;
+    }
+
+    .component-item .material-symbols-outlined {
+        font-size: 22px;
+        color: #6366f1;
+    }
+
+    .component-item span:last-child {
+        font-size: 14px;
+        font-weight: 500;
+    }
+
+    .canvas-drop-zone {
+        min-height: calc(100vh - 120px);
+        padding: 24px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .builder-block {
+        position: relative;
+        margin-bottom: 8px;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        transition: all 0.15s;
+        background: white;
+    }
+
+    .builder-block:hover {
+        border-color: #6366f1;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+
+    .builder-block.selected {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+    }
+
+    .builder-block .block-actions {
+        position: absolute;
+        top: -12px;
+        right: -12px;
+        display: none;
+        gap: 6px;
+        z-index: 10;
+    }
+
+    .builder-block:hover .block-actions {
+        display: flex;
+    }
+
+    .block-action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #1e293b;
+        border: 2px solid #334155;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .block-action-btn:hover {
+        background: #334155;
+        border-color: #6366f1;
+    }
+
+    .block-action-btn.delete:hover {
+        background: #dc2626;
+        border-color: #dc2626;
+        color: white;
+    }
+
+    .prop-group {
+        padding: 16px;
+        border-bottom: 1px solid #334155;
+    }
+
+    .prop-group label {
+        display: block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .prop-group input,
+    .prop-group select,
+    .prop-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        font-size: 14px;
+        background: #0f172a;
+        color: #e2e8f0;
+    }
+
+    .prop-group input:focus,
+    .prop-group select:focus,
+    .prop-group textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .field-item {
+        padding: 12px;
+        margin-bottom: 8px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: #0f172a;
+    }
+
+    .field-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+    }
+
+    .field-actions {
+        display: flex;
+        gap: 4px;
+    }
+
+    .btn-add-field {
+        width: 100%;
+        padding: 12px;
+        border: 2px dashed #334155;
+        border-radius: 6px;
+        background: transparent;
+        color: #94a3b8;
+        cursor: pointer;
+        margin-top: 8px;
+        font-weight: 500;
+    }
+
+    .btn-add-field:hover {
+        border-color: #6366f1;
+        color: #6366f1;
+        background: rgba(99, 102, 241, 0.1);
+    }
+
+    .sidebar-header {
+        padding: 20px;
+        border-bottom: 1px solid #334155;
+        font-weight: 700;
+        color: #f8fafc;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .component-section-title {
+        padding: 16px 20px 8px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .no-selection {
+        padding: 40px 20px;
+        text-align: center;
+        color: #64748b;
+    }
+
+    .no-selection .material-symbols-outlined {
+        font-size: 48px;
+        margin-bottom: 12px;
+    }
+
+    .builder-toolbar {
+        height: 56px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+    }
+
+    .builder-toolbar-title {
+        font-weight: 700;
+        color: #f8fafc;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .builder-toolbar-title .material-symbols-outlined {
+        color: #6366f1;
+    }
+
+    .builder-toolbar-actions {
+        display: flex;
+        gap: 12px;
+    }
+
+    .btn-save {
+        padding: 10px 24px;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.15s;
+    }
+
+    .btn-save:hover {
+        background: #4f46e5;
+        transform: translateY(-1px);
+    }
+
+    .btn-preview {
+        padding: 10px 24px;
+        background: transparent;
+        color: #94a3b8;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-preview:hover {
+        background: #334155;
+        color: #e2e8f0;
+    }
+
+    .prop-panel-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid #334155;
+        font-weight: 600;
+        color: #f8fafc;
+        font-size: 13px;
+    }
+
+    .block-type-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        background: #6366f1;
+        color: white;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+</style>
+
+<!-- BUILDER INTERFACE -->
+<div class="page-builder" id="builderInterface" style="<?= ($model->isNewRecord && empty($model->layout_json)) ? 'display:none;' : '' ?>">
+    <!-- LEFT PANEL: Component Library -->
+    <div class="builder-sidebar-left">
+        <div class="sidebar-header">
+            <span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;margin-right:8px">widgets</span>
+            Components
+        </div>
+
+        <div class="component-section-title">Layout</div>
+        <div class="component-item" data-type="section">
+            <span class="material-symbols-outlined">view_stream</span>
+            <span>Section</span>
+        </div>
+        <div class="component-item" data-type="row">
+            <span class="material-symbols-outlined">view_column</span>
+            <span>Row</span>
+        </div>
+        <div class="component-item" data-type="grid">
+            <span class="material-symbols-outlined">grid_view</span>
+            <span>Grid (3 Kolom)</span>
+        </div>
+
+        <div class="component-section-title">Content</div>
+        <div class="component-item" data-type="heading">
+            <span class="material-symbols-outlined">title</span>
+            <span>Heading</span>
+        </div>
+        <div class="component-item" data-type="text">
+            <span class="material-symbols-outlined">notes</span>
+            <span>Text Block</span>
+        </div>
+        <div class="component-item" data-type="image">
+            <span class="material-symbols-outlined">image</span>
+            <span>Image</span>
+        </div>
+        <div class="component-item" data-type="button">
+            <span class="material-symbols-outlined">smart_button</span>
+            <span>Button</span>
+        </div>
+        <div class="component-item" data-type="divider">
+            <span class="material-symbols-outlined">horizontal_rule</span>
+            <span>Divider</span>
+        </div>
+
+        <div class="component-section-title">Advanced</div>
+        <div class="component-item" data-type="form">
+            <span class="material-symbols-outlined">dynamic_form</span>
+            <span>Form Builder</span>
+        </div>
+        <div class="component-item" data-type="card">
+            <span class="material-symbols-outlined">square</span>
+            <span>Card</span>
+        </div>
+        <div class="component-item" data-type="video">
+            <span class="material-symbols-outlined">videocam</span>
+            <span>Video</span>
+        </div>
+        <div class="component-item" data-type="spacer">
+            <span class="material-symbols-outlined">space_bar</span>
+            <span>Spacer</span>
+        </div>
+    </div>
+
+    <!-- CANVAS: Main Area -->
+    <div class="builder-canvas">
+        <div id="canvas" class="canvas-drop-zone">
+            <p style="text-align: center; color: #94a3b8; padding: 60px 20px;">
+                <span style="font-size:48px;display:block;margin-bottom:16px">🎨</span>
+                Drag komponen dari panel kiri ke sini<br>
+                atau klik untuk menambah komponen
+            </p>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL: Properties -->
+    <div class="builder-properties">
+        <div class="prop-panel-header">
+            <span class="material-symbols-outlined" style="font-size:18px;vertical-align:middle;margin-right:8px">settings</span>
+            Properties
+        </div>
+        <div id="properties-panel">
+            <div class="no-selection" style="color:#64748b">
+                <span class="material-symbols-outlined">touch_app</span>
+                <p style="font-size:14px">Pilih komponen untuk edit</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const COMPONENT_DEFAULTS = {
+        heading: {
+            level: 'h1',
+            text: 'Judul Heading',
+            align: 'left'
+        },
+        text: {
+            content: 'Teks paragraf Anda di sini. Anda bisa mengedit teks ini dengan mengklik komponen di canvas.'
+        },
+        image: {
+            src: '',
+            alt: 'Image',
+            size: 'full',
+            align: 'center'
+        },
+        button: {
+            text: 'Klik Saya',
+            url: '#',
+            style: 'primary',
+            align: 'center'
+        },
+        form: {
+            formId: null,
+            showTitle: true,
+            fields: []
+        },
+        card: {
+            title: 'Card Title',
+            content: 'Konten card Anda di sini. Klik untuk mengedit.',
+            showShadow: true
+        },
+        spacer: {
+            height: 'md'
+        },
+        divider: {
+            color: '#e2e8f0'
+        },
+        video: {
+            url: ''
+        },
+        grid: {
+            columns: 3
+        },
+        section: {
+            background: '#ffffff',
+            padding: 'lg'
+        },
+        row: {
+            gap: 'md'
+        }
+    };
+
+    // SINGLE SOURCE OF TRUTH - Page State
+    window.pageState = <?= $initialState ?>;
+    let selectedBlockId = null;
+
+    // Initialize will happen in main DOMContentLoaded below
+
+    function generateId() {
+        return 'block-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    // RENDER ENGINE
+    function renderBuilder(state) {
+        const canvas = document.getElementById('canvas');
+        canvas.innerHTML = '';
+
+        if (state.length === 0) {
+            canvas.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 60px 20px;"><span style="font-size:48px;display:block;margin-bottom:16px">🎨</span>Drag komponen dari panel kiri ke sini<br>atau klik untuk menambah komponen</p>';
+            return;
+        }
+
+        state.forEach((block, index) => {
+            const el = createBlockElement(block, index);
+            canvas.appendChild(el);
+        });
+
+        // Initialize Sortable
+        if (window.sortableInstance) {
+            window.sortableInstance.destroy();
+        }
+        window.sortableInstance = new Sortable(canvas, {
+            animation: 150,
+            handle: '.block-action-btn.move',
+            ghostClass: 'sortable-ghost',
+            onEnd: function(evt) {
+                const item = window.pageState.splice(evt.oldIndex, 1)[0];
+                window.pageState.splice(evt.newIndex, 0, item);
+                renderBuilder(window.pageState);
+            }
+        });
+    }
+
+    function createBlockElement(block, index) {
+        const div = document.createElement('div');
+        div.className = 'builder-block';
+        div.dataset.id = block.id;
+        div.dataset.type = block.type;
+
+        if (block.id === selectedBlockId) {
+            div.classList.add('selected');
+        }
+
+        div.innerHTML = `
+        <div class="block-actions">
+            <button class="block-action-btn move" title="Move"><span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">drag_indicator</span></button>
+            <button class="block-action-btn duplicate" title="Duplicate"><span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">content_copy</span></button>
+            <button class="block-action-btn delete" title="Delete"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
+        </div>
+        <div class="block-content" onclick="selectBlock('${block.id}')">
+            ${renderBlockContent(block)}
+        </div>
+    `;
+
+        div.querySelector('.delete').addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteBlock(block.id);
+        });
+
+        div.querySelector('.duplicate').addEventListener('click', (e) => {
+            e.stopPropagation();
+            duplicateBlock(block);
+        });
+
+        return div;
+    }
+
+    function renderBlockContent(block) {
+        const props = block.props || {};
+
+        switch (block.type) {
+            case 'heading':
+                const tag = props.level || 'h2';
+                const align = props.align || 'left';
+                const sizes = {
+                    h1: '32px',
+                    h2: '24px',
+                    h3: '20px',
+                    h4: '18px',
+                    h5: '16px',
+                    h6: '14px'
+                };
+                return `<${tag} style="text-align:${align};margin:0;padding:12px;font-size:${sizes[tag]};font-weight:700;color:#1e293b">${props.text || 'Heading'}</${tag}>`;
+
+            case 'text':
+                return `<div style="color:#475569;line-height:1.8;padding:12px;font-size:15px;">${props.content || 'Text block'}</div>`;
+
+            case 'image':
+                if (props.src) {
+                    const widthMap = {
+                        sm: '200px',
+                        md: '350px',
+                        lg: '500px',
+                        full: '100%'
+                    };
+                    const width = widthMap[props.size] || '100%';
+                    return `<div style="padding:12px;text-align:${props.align || 'center'}"><img src="${props.src}" alt="${props.alt || ''}" style="width:${width};border-radius:8px;max-width:100%"></div>`;
+                }
+                return `<div style="padding:30px;background:#f1f5f9;border-radius:8px;text-align:center;color:#94a3b8;border:2px dashed #cbd5e1;"><span style="font-size:32px">🖼️</span><br>Gambar belum dipilih</div>`;
+
+            case 'button':
+                const colors = {
+                    primary: 'background:#6366f1;color:white;border:none',
+                    secondary: 'background:#64748b;color:white;border:none',
+                    outline: 'border:2px solid #6366f1;color:#6366f1;background:transparent',
+                    ghost: 'color:#6366f1;background:transparent;border:none'
+                };
+                const btnStyle = props.style || 'primary';
+                return `<div style="text-align:${props.align || 'center'};padding:12px"><button style="${colors[btnStyle]};border-radius:8px;padding:12px 24px;cursor:pointer;font-weight:600;font-size:14px">${props.text || 'Button'}</button></div>`;
+
+            case 'form':
+                const fieldCount = (props.fields || []).length;
+                return `<div style="padding:20px;background:linear-gradient(135deg,#f0f9ff,#e0f2fe);border:1px solid #bae6fd;border-radius:8px;"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><span class="material-symbols-outlined" style="color:#0284c7">dynamic_form</span><strong style="color:#0369a1">${props.formId ? 'Form #' + props.formId : 'Form Builder'}</strong></div>${fieldCount > 0 ? `<div style="font-size:12px;color:#0c4a6e;">📝 ${fieldCount} field(s) dikonfigurasi</div>` : '<div style="font-size:12px;color:#0369a1;">+ Klik untuk tambah field</div>'}</div>`;
+
+            case 'card':
+                const shadow = props.showShadow ? 'box-shadow:0 10px 15px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05)' : 'border:1px solid #e2e8f0';
+                return `<div style="border-radius:12px;padding:20px;${shadow};background:white;"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card Title'}</h4><p style="margin:0;color:#64748b;font-size:14px;line-height:1.6">${props.content || 'Card content'}</p></div>`;
+
+            case 'spacer':
+                const heightMap = {
+                    sm: '16px',
+                    md: '32px',
+                    lg: '48px',
+                    xl: '64px'
+                };
+                const height = heightMap[props.height] || '32px';
+                return `<div style="height:${height};background:#f8fafc;border-radius:4px;display:flex;align-items:center;justify-content:center;border:1px dashed #cbd5e1;"><span style="font-size:10px;color:#94a3b8">Spacer: ${height}</span></div>`;
+
+            case 'divider':
+                return `<hr style="border:none;border-top:2px solid ${props.color || '#e2e8f0'};margin:16px 0;">`;
+
+            case 'video':
+                if (props.url) {
+                    return `<div style="aspect-ratio:16/9;background:linear-gradient(135deg,#1e293b,#0f172a);border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;"><span style="font-size:48px">🎬</span><span style="margin-left:12px">${props.url}</span></div>`;
+                }
+                return `<div style="padding:50px;background:#f1f5f9;border-radius:12px;text-align:center;color:#94a3b8;border:2px dashed #cbd5e1;"><span style="font-size:48px">🎬</span><br>Masukkan URL video</div>`;
+
+            case 'grid':
+                return `<div style="display:grid;grid-template-columns:repeat(${props.columns || 3},1fr);gap:16px;padding:20px;background:#f8fafc;border-radius:8px;">${[1,2,3].map(i => `<div style="padding:30px;background:white;border:2px dashed #e2e8f0;border-radius:8px;text-align:center;color:#94a3b8;">Kolom ${i}</div>`).join('')}</div>`;
+
+            case 'section':
+                return `<div style="padding:40px;background:${props.background || '#fff'};border-radius:8px;border:1px dashed #cbd5e1;"><div style="color:#94a3b8;text-align:center;font-size:12px;">📦 Section</div></div>`;
+
+            case 'row':
+                return `<div style="display:flex;gap:16px;padding:20px;background:#f8fafc;border-radius:8px;"><div style="flex:1;padding:30px;background:white;border:2px dashed #e2e8f0;border-radius:8px;text-align:center;color:#94a3b8;">Kolom</div></div>`;
+
+            default:
+                return `<div style="padding:16px;background:#fef3c7;border-radius:8px;color:#92400e;">Unknown: ${block.type}</div>`;
+        }
+    }
+
+    // Prevent rapid consecutive calls
+    let isAddingBlock = false;
+
+    function addBlock(type) {
+        // Guard against rapid consecutive calls
+        if (isAddingBlock) {
+            console.log('Blocked: addBlock already in progress');
+            return;
+        }
+
+        isAddingBlock = true;
+        console.log('addBlock called:', type);
+
+        const newBlock = {
+            id: generateId(),
+            type: type,
+            props: JSON.parse(JSON.stringify(COMPONENT_DEFAULTS[type] || {}))
+        };
+
+        if (type === 'form') {
+            newBlock.props.fields = [];
+        }
+
+        window.pageState.push(newBlock);
+        selectedBlockId = newBlock.id;
+        console.log('About to render, pageState length:', window.pageState.length);
+        renderBuilder(window.pageState);
+        renderProperties(newBlock.id);
+
+        // Reset guard after a short delay
+        setTimeout(() => {
+            isAddingBlock = false;
+        }, 100);
+    }
+
+    function selectBlock(blockId) {
+        selectedBlockId = blockId;
+        // Highlight selected block
+        document.querySelectorAll('.builder-block').forEach(el => {
+            if (el.dataset.id === blockId) {
+                el.classList.add('selected');
+            } else {
+                el.classList.remove('selected');
+            }
+        });
+        renderProperties(blockId);
+    }
+
+    function deleteBlock(blockId) {
+        window.pageState = window.pageState.filter(b => b.id !== blockId);
+        if (selectedBlockId === blockId) {
+            selectedBlockId = null;
+            document.getElementById('properties-panel').innerHTML = '<div class="no-selection" style="color:#64748b"><span class="material-symbols-outlined">touch_app</span><p style="font-size:14px">Pilih komponen untuk edit</p></div>';
+        }
+        renderBuilder(window.pageState);
+    }
+
+    function duplicateBlock(block) {
+        const newBlock = {
+            id: generateId(),
+            type: block.type,
+            props: JSON.parse(JSON.stringify(block.props || {}))
+        };
+
+        if (block.type === 'form' && block.props && block.props.fields) {
+            newBlock.props.fields = JSON.parse(JSON.stringify(block.props.fields));
+        }
+
+        const index = window.pageState.findIndex(b => b.id === block.id);
+        window.pageState.splice(index + 1, 0, newBlock);
+        renderBuilder(window.pageState);
+    }
+
+    // RENDER PROPERTIES
+    function renderProperties(blockId) {
+        const panel = document.getElementById('properties-panel');
+        const block = window.pageState.find(b => b.id === blockId);
+
+        if (!block) return;
+
+        const typeIcons = {
+            heading: 'title',
+            text: 'notes',
+            image: 'image',
+            button: 'smart_button',
+            form: 'dynamic_form',
+            card: 'square',
+            spacer: 'space_bar',
+            divider: 'horizontal_rule',
+            video: 'videocam',
+            grid: 'grid_view',
+            section: 'view_stream',
+            row: 'view_column'
+        };
+
+        let html = `<div class="prop-group"><div class="block-type-badge"><span class="material-symbols-outlined" style="font-size:14px">${typeIcons[block.type] || 'category'}</span>${block.type}</div></div>`;
+
+        const props = block.props || {};
+
+        switch (block.type) {
+            case 'heading':
+                html += renderSelect('Level', 'props[level]', props.level || 'h1', {
+                    h1: 'H1 - Judul Utama',
+                    h2: 'H2 - Sub Judul',
+                    h3: 'H3 - Heading 3',
+                    h4: 'H4 - Heading 4',
+                    h5: 'H5 - Heading 5',
+                    h6: 'H6 - Heading 6'
+                });
+                html += renderInput('Text', 'props[text]', props.text || '');
+                html += renderSelect('Alignment', 'props[align]', props.align || 'left', {
+                    left: 'Left (Kiri)',
+                    center: 'Center (Tengah)',
+                    right: 'Right (Kanan)'
+                });
+                break;
+
+            case 'text':
+                html += renderTextarea('Content', 'props[content]', props.content || '');
+                break;
+
+            case 'image':
+                html += renderInput('Image URL', 'props[src]', props.src || '');
+                html += renderInput('Alt Text', 'props[alt]', props.alt || '');
+                html += renderSelect('Size', 'props[size]', props.size || 'full', {
+                    sm: 'Small (200px)',
+                    md: 'Medium (350px)',
+                    lg: 'Large (500px)',
+                    full: 'Full Width'
+                });
+                html += renderSelect('Alignment', 'props[align]', props.align || 'center', {
+                    left: 'Left',
+                    center: 'Center',
+                    right: 'Right'
+                });
+                break;
+
+            case 'button':
+                html += renderInput('Text', 'props[text]', props.text || '');
+                html += renderInput('URL (Link)', 'props[url]', props.url || '#');
+                html += renderSelect('Style', 'props[style]', props.style || 'primary', {
+                    primary: 'Primary (Ungu)',
+                    secondary: 'Secondary (Abu)',
+                    outline: 'Outline (Bordir)',
+                    ghost: 'Ghost (Transparan)'
+                });
+                html += renderSelect('Alignment', 'props[align]', props.align || 'center', {
+                    left: 'Left',
+                    center: 'Center',
+                    right: 'Right'
+                });
+                break;
+
+            case 'form':
+                html += renderFormBuilder(props);
+                break;
+
+            case 'card':
+                html += renderInput('Title', 'props[title]', props.title || '');
+                html += renderTextarea('Content', 'props[content]', props.content || '');
+                html += renderCheckbox('Show Shadow', 'props[showShadow]', props.showShadow !== false);
+                break;
+
+            case 'spacer':
+                html += renderSelect('Height', 'props[height]', props.height || 'md', {
+                    sm: 'Small (16px)',
+                    md: 'Medium (32px)',
+                    lg: 'Large (48px)',
+                    xl: 'Extra Large (64px)'
+                });
+                break;
+
+            case 'divider':
+                html += renderInput('Color', 'props[color]', props.color || '#e2e8f0');
+                break;
+
+            case 'video':
+                html += renderInput('Video URL (YouTube/Vimeo/MP4)', 'props[url]', props.url || '');
+                break;
+
+            case 'grid':
+                html += renderSelect('Columns', 'props[columns]', props.columns || 3, {
+                    2: '2 Columns',
+                    3: '3 Columns',
+                    4: '4 Columns'
+                });
+                break;
+
+            case 'section':
+                html += renderInput('Background Color', 'props[background]', props.background || '#ffffff');
+                html += renderSelect('Padding', 'props[padding]', props.padding || 'lg', {
+                    sm: 'Small',
+                    md: 'Medium',
+                    lg: 'Large'
+                });
+                break;
+        }
+
+        panel.innerHTML = html;
+
+        panel.querySelectorAll('input, select, textarea').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const propKey = e.target.name.replace('props[', '').replace(']', '');
+                const block = window.pageState.find(b => b.id === selectedBlockId);
+                if (block) {
+                    if (e.target.type === 'checkbox') {
+                        block.props[propKey] = e.target.checked;
+                    } else {
+                        block.props[propKey] = e.target.value;
+                    }
+                    renderBuilder(window.pageState);
+                }
+            });
+        });
+    }
+
+    function renderFormBuilder(props) {
+        const availableForms = <?= Json::encode($formsList) ?>;
+        let html = '<div class="prop-group"><label>Select Existing Form</label><select name="props[formId]">';
+        html += '<option value="">-- Pilih Form yang Sudah Ada --</option>';
+        availableForms.forEach(f => {
+            html += '<option value="' + f.id + '"' + (props.formId == f.id ? ' selected' : '') + '>' + f.name + '</option>';
+        });
+        html += '</select></div>';
+
+        html += renderCheckbox('Show Title', 'props[showTitle]', props.showTitle !== false);
+
+        html += '<div class="prop-group"><label>Custom Form Fields</label>';
+        const fields = props.fields || [];
+
+        if (fields.length === 0) {
+            html += '<p style="color:#94a3b8;font-size:12px;margin-bottom:12px;">Belum ada field. Klik tombol di bawah untuk membuat form dari nol.</p>';
+        } else {
+            fields.forEach((field, idx) => {
+                const iconMap = {
+                    input: 'text_fields',
+                    email: 'email',
+                    textarea: 'notes',
+                    select: 'arrow_drop_down',
+                    checkbox: 'check_box',
+                    radio: 'radio_button_checked',
+                    date: 'calendar_today',
+                    number: 'pin',
+                    file: 'upload_file'
+                };
+                html += `
+            <div class="field-item">
+                <div class="field-header">
+                    <strong style="color:#e2e8f0"><span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;color:#6366f1">${iconMap[field.type] || 'text_fields'}</span> ${field.label || 'Field ' + (idx+1)}</strong>
+                    <div class="field-actions">
+                        <button type="button" onclick="editField(${idx})" style="padding:4px 8px;background:#334155;border:none;border-radius:4px;color:#e2e8f0;cursor:pointer;">✏️</button>
+                        <button type="button" onclick="deleteField(${idx})" style="padding:4px 8px;background:#334155;border:none;border-radius:4px;color:#e2e8f0;cursor:pointer;">🗑️</button>
+                    </div>
+                </div>
+                <div style="font-size:11px;color:#64748b;margin-top:4px;">Type: ${field.type} | Name: ${field.name} | Required: ${field.required ? '✓' : '✗'}</div>
+            </div>`;
+            });
+        }
+
+        html += '<button type="button" class="btn-add-field" onclick="addField()">+ Tambah Custom Field</button>';
+        html += '</div>';
+
+        return html;
+    }
+
+    function addField() {
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block || block.type !== 'form') return;
+
+        if (!block.props.fields) block.props.fields = [];
+
+        const fieldTypesList = <?= Json::encode($fieldTypes) ?>;
+        const newField = {
+            id: 'field-' + Date.now(),
+            type: 'input',
+            label: 'Field Baru ' + (block.props.fields.length + 1),
+            name: 'field_' + (block.props.fields.length + 1),
+            required: false,
+            options: []
+        };
+
+        block.props.fields.push(newField);
+        renderBuilder(window.pageState);
+        renderProperties(selectedBlockId);
+    }
+
+    function deleteField(index) {
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block || block.type !== 'form' || !block.props.fields) return;
+
+        block.props.fields.splice(index, 1);
+        renderBuilder(window.pageState);
+        renderProperties(selectedBlockId);
+    }
+
+    function editField(index) {
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block || block.type !== 'form' || !block.props.fields) return;
+
+        const field = block.props.fields[index];
+        const fieldTypesList = <?= Json::encode($fieldTypes) ?>;
+
+        let optionsHtml = '';
+        if (field.type === 'select' || field.type === 'radio') {
+            optionsHtml = `<div style="margin-top:12px;">
+            <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;">Options (pisahkan dengan koma)</label>
+            <input type="text" id="field-options" value="${(field.options || []).join(',')}" placeholder="Option 1, Option 2, Option 3" style="width:100%;padding:10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;">
+        </div>`;
+        }
+
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
+        modal.innerHTML = `
+        <div style="background:#1e293b;padding:24px;border-radius:16px;width:450px;max-width:90%;border:1px solid #334155;">
+            <h3 style="margin:0 0 20px 0;color:#f8fafc;">Edit Field</h3>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">Label</label>
+                <input type="text" id="field-label" value="${field.label || ''}" style="width:100%;padding:10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">Field Name (variable)</label>
+                <input type="text" id="field-name" value="${field.name || ''}" style="width:100%;padding:10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;">
+            </div>
+            <div style="margin-bottom:16px;">
+                <label style="display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;">Type</label>
+                <select id="field-type" style="width:100%;padding:10px;border:1px solid #334155;border-radius:6px;background:#0f172a;color:#e2e8f0;">
+                    ${fieldTypesList.map(t => `<option value="${t.value}" ${field.type === t.value ? 'selected' : ''}>${t.label}</option>`).join('')}
+                </select>
+            </div>
+            ${optionsHtml}
+            <div style="margin-bottom:20px;">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                    <input type="checkbox" id="field-required" ${field.required ? 'checked' : ''} style="width:18px;height:18px;">
+                    <span style="color:#e2e8f0">Required (Wajib diisi)</span>
+                </label>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+                <button onclick="this.closest('[style*=\\"position:fixed\\"]').remove()" style="padding:10px 20px;background:transparent;border:1px solid #334155;border-radius:8px;color:#e2e8f0;cursor:pointer;">Batal</button>
+                <button onclick="saveField(${index})" style="padding:10px 20px;background:#6366f1;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:600;">Simpan</button>
+            </div>
+        </div>
+    `;
+        document.body.appendChild(modal);
+    }
+
+    function saveField(index) {
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block || block.type !== 'form' || !block.props.fields) return;
+
+        const field = block.props.fields[index];
+        field.label = document.getElementById('field-label').value;
+        field.name = document.getElementById('field-name').value;
+        field.type = document.getElementById('field-type').value;
+        field.required = document.getElementById('field-required').checked;
+
+        const optionsInput = document.getElementById('field-options');
+        if (optionsInput) {
+            field.options = optionsInput.value.split(',').map(o => o.trim()).filter(o => o);
+        }
+
+        document.querySelector('[style*="position:fixed"]').remove();
+        renderBuilder(window.pageState);
+        renderProperties(selectedBlockId);
+    }
+
+    function renderInput(label, name, value) {
+        return `<div class="prop-group"><label>${label}</label><input type="text" name="${name}" value="${value}"></div>`;
+    }
+
+    function renderTextarea(label, name, value) {
+        return `<div class="prop-group"><label>${label}</label><textarea name="${name}" rows="4">${value}</textarea></div>`;
+    }
+
+    function renderSelect(label, name, value, options) {
+        let html = `<div class="prop-group"><label>${label}</label><select name="${name}">`;
+        for (const [k, v] of Object.entries(options)) {
+            html += `<option value="${k}" ${value === k ? 'selected' : ''}>${v}</option>`;
+        }
+        html += '</select></div>';
+        return html;
+    }
+
+    function renderCheckbox(label, name, checked) {
+        return `<div class="prop-group"><label style="display:flex;align-items:center;gap:10px;"><input type="checkbox" name="${name}" ${checked ? 'checked' : ''}> ${label}</label></div>`;
+    }
+
+    // DRAG & DROP - Initialize component items
+    document.addEventListener('DOMContentLoaded', function() {
+        let isCanvasInitialized = false;
+
+        // First, check if we need to show template modal or initialize builder
+        const hasExistingState = <?= !empty($model->layout_json) ? 'true' : 'false' ?>;
+        const isNewRecord = <?= $model->isNewRecord ? 'true' : 'false' ?>;
+
+        if (isNewRecord && !hasExistingState) {
+            // Show template modal
+            renderTemplates();
+        } else {
+            // Hide template modal and show builder
+            const modal = document.getElementById('templateModal');
+            if (modal) modal.remove();
+            const builder = document.getElementById('builderInterface');
+            if (builder) builder.style.display = 'flex';
+            // Initialize builder with existing state
+            renderBuilder(window.pageState);
+        }
+
+        // Setup draggable component items
+        const setupComponentItems = () => {
+            document.querySelectorAll('.component-item').forEach(item => {
+                item.draggable = true;
+
+                // Drag start
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('component-type', item.dataset.type);
+                    e.dataTransfer.effectAllowed = 'copy';
+                    item.style.opacity = '0.5';
+                });
+
+                // Drag end
+                item.addEventListener('dragend', (e) => {
+                    item.style.opacity = '1';
+                });
+            });
+        };
+
+        // Setup canvas drop zone (only once)
+        const setupCanvasDrop = () => {
+            if (isCanvasInitialized) return;
+
+            const canvas = document.getElementById('canvas');
+            if (!canvas) return;
+
+            canvas.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'copy';
+                canvas.style.borderColor = '#6366f1';
+                canvas.style.backgroundColor = 'rgba(99, 102, 241, 0.05)';
+            });
+
+            canvas.addEventListener('dragleave', () => {
+                canvas.style.borderColor = 'transparent';
+                canvas.style.backgroundColor = 'transparent';
+            });
+
+            canvas.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                canvas.style.borderColor = 'transparent';
+                canvas.style.backgroundColor = 'transparent';
+
+                const type = e.dataTransfer.getData('component-type');
+                console.log('Canvas drop event, type:', type);
+                if (type) {
+                    addBlock(type);
+                }
+            });
+
+            isCanvasInitialized = true;
+        };
+
+        setupComponentItems();
+        setupCanvasDrop();
+    });
+
+    // SAVE
+    function savePage() {
+        const title = prompt('Judul Halaman:', '<?= Html::encode($model->title ?? '') ?>');
+        if (!title) return;
+
+        const payload = JSON.stringify(pageState);
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '<?= $model->isNewRecord ? \yii\helpers\Url::to(['dynamic-create']) : \yii\helpers\Url::to(['dynamic-update', 'id' => $model->id]) ?>';
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]');
+        if (csrfToken) {
+            const csrfInput = document.createElement('input');
+            csrfInput.name = '_csrf-frontend';
+            csrfInput.value = csrfToken.getAttribute('content');
+            form.appendChild(csrfInput);
+        }
+
+        const titleInput = document.createElement('input');
+        titleInput.name = 'MasterPage[title]';
+        titleInput.value = title;
+        form.appendChild(titleInput);
+
+        const contentInput = document.createElement('input');
+        contentInput.name = 'MasterPage[layout_json]';
+        contentInput.value = payload;
+        form.appendChild(contentInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    // PREVIEW
+    function previewPage() {
+        const previewWindow = window.open('', '_blank');
+        const html = renderFrontend(pageState);
+        previewWindow.document.write(html);
+        previewWindow.document.close();
+    }
+
+    function renderFrontend(state) {
+        let html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Preview</title><script src="https://cdn.tailwindcss.com"><\/script><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></head><body style="font-family:Inter">';
+
+        state.forEach(block => {
+            html += renderFrontendBlock(block);
+        });
+
+        html += '</body></html>';
+        return html;
+    }
+
+    function renderFrontendBlock(block) {
+        const props = block.props || {};
+
+        switch (block.type) {
+            case 'heading':
+                const sizes = {
+                    h1: 'text-4xl font-bold',
+                    h2: 'text-3xl font-bold',
+                    h3: 'text-2xl font-semibold',
+                    h4: 'text-xl font-semibold',
+                    h5: 'text-lg font-medium',
+                    h6: 'text-base font-medium'
+                };
+                return `<${props.level || 'h2'} class="${sizes[props.level]} mb-4 text-gray-900" style="text-align:${props.align || 'left'}">${props.text || ''}</${props.level || 'h2'}>`;
+
+            case 'text':
+                return `<div class="mb-4 text-gray-700 leading-relaxed">${props.content || ''}</div>`;
+
+            case 'image':
+                if (!props.src) return '';
+                const alignClass = props.align === 'center' ? 'mx-auto' : props.align === 'right' ? 'ml-auto' : '';
+                return `<img src="${props.src}" alt="${props.alt || ''}" class="mb-4 rounded-lg ${alignClass}" style="max-width:100%">`;
+
+            case 'button':
+                const btnClass = {
+                    primary: 'bg-indigo-600 text-white hover:bg-indigo-700',
+                    secondary: 'bg-gray-600 text-white hover:bg-gray-700',
+                    outline: 'border-2 border-indigo-600 text-indigo-600 hover:bg-indigo-50',
+                    ghost: 'text-indigo-600 hover:bg-indigo-50'
+                } [props.style] || 'bg-indigo-600 text-white';
+                return `<div class="mb-4" style="text-align:${props.align || 'center'}"><a href="${props.url || '#'}" class="inline-block px-6 py-3 rounded-lg font-medium ${btnClass}">${props.text || ''}</a></div>`;
+
+            case 'form':
+                return `<div class="mb-4 p-6 bg-blue-50 rounded-lg border border-blue-200"><h3 class="font-bold text-blue-900 mb-2">Form</h3><p class="text-blue-700">Form ID: ${props.formId || 'Belum dipilih'}</p></div>`;
+
+            case 'card':
+                const shadowClass = props.showShadow ? 'shadow-lg' : 'border';
+                return `<div class="mb-4 p-6 bg-white rounded-xl ${shadowClass} border-gray-200"><h4 class="font-bold text-gray-900 mb-2">${props.title || ''}</h4><p class="text-gray-600">${props.content || ''}</p></div>`;
+
+            case 'spacer':
+                const heightMap = {
+                    sm: '16px',
+                    md: '32px',
+                    lg: '48px',
+                    xl: '64px'
+                };
+                return `<div style="height:${heightMap[props.height] || '32px'}"></div>`;
+
+            case 'divider':
+                return `<hr class="my-6 border-gray-200">`;
+
+            case 'video':
+                if (!props.url) return '';
+                return `<div class="mb-4 aspect-video bg-gray-900 rounded-lg flex items-center justify-center text-white">Video: ${props.url}</div>`;
+
+            case 'grid':
+                return `<div class="grid grid-cols-${props.columns || 3} gap-4 mb-4"><div class="p-4 bg-gray-50 rounded-lg">Kolom 1</div><div class="p-4 bg-gray-50 rounded-lg">Kolom 2</div><div class="p-4 bg-gray-50 rounded-lg">Kolom 3</div></div>`;
+
+            case 'section':
+                return `<section class="mb-4 p-8 rounded-lg" style="background:${props.background || '#fff'}"></section>`;
+
+            case 'row':
+                return `<div class="flex gap-4 mb-4"><div class="flex-1 p-4 bg-gray-50 rounded">Kolom</div></div>`;
+
+            default:
+                return '';
+        }
+    }
+</script>
+
+<!-- Builder Toolbar -->
+<div class="builder-toolbar">
+    <div class="builder-toolbar-title">
+        <span class="material-symbols-outlined" style="font-size:24px">dashboard</span>
+        <?= $model->isNewRecord ? 'Buat Halaman Baru' : 'Edit: ' . Html::encode($model->title ?? '') ?>
+    </div>
+    <div class="builder-toolbar-actions">
+        <button class="btn-preview" onclick="previewPage()">
+            <span class="material-symbols-outlined" style="font-size:18px">visibility</span>
+            Preview
+        </button>
+        <button class="btn-save" onclick="savePage()">
+            <span class="material-symbols-outlined" style="font-size:18px">save</span>
+            Simpan Halaman
+        </button>
+    </div>
+</div>

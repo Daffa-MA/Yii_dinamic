@@ -14,6 +14,7 @@ use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
+use app\components\DatabaseSchemaInitializer;
 
 class ProjectController extends Controller
 {
@@ -95,104 +96,14 @@ class ProjectController extends Controller
 
         if ($mustBeNew && $databaseContext->databaseExistsOnCurrentServer($databaseName)) {
             throw new \RuntimeException("Nama database '{$databaseName}' sudah ada. Gunakan nama project lain yang unik.");
-        }
-
-        $databaseContext->createDatabase($databaseName);
+        }        $databaseContext->createDatabase($databaseName);
         
-        // Create master_menu and master_page tables in the new database
-        $this->createProjectSchemaTables($databaseName);
+        // Initialize database schema with all required tables
+        DatabaseSchemaInitializer::initializeProjectDatabase($databaseName);
         
         return $databaseName;
-    }
-    
-private function createProjectSchemaTables(string $databaseName): void
-    {
-        $config = Yii::$app->db->dsn;
-        $username = Yii::$app->db->username;
-        $password = Yii::$app->db->password;
-        
-        $newDb = new \yii\db\Connection([
-            'dsn' => "mysql:host=127.0.0.1;dbname={$databaseName}",
-            'username' => $username,
-            'password' => $password,
-        ]);
-        
-        $pagesTableExists = $newDb->getTableSchema('master_page', true) !== null;
-        $menusTableExists = $newDb->getTableSchema('master_menu', true) !== null;
-        $pageFormsTableExists = $newDb->getTableSchema('page_forms', true) !== null;
-        
-        if (!$pagesTableExists) {
-            $newDb->createCommand()->createTable('master_page', [
-                'id' => $newDb->schema->createColumnSchemaBuilder('pk'),
-                'name' => $newDb->schema->createColumnSchemaBuilder('string', 255)->notNull(),
-                'slug' => $newDb->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
-                'layout' => $newDb->schema->createColumnSchemaBuilder('string', 50)->defaultValue('default'),
-                'description' => $newDb->schema->createColumnSchemaBuilder('text'),
-                'is_active' => $newDb->schema->createColumnSchemaBuilder('integer', 1)->defaultValue(1),
-                'created_at' => $newDb->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
-                'updated_at' => $newDb->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
-            ])->execute();
-            
-            $newDb->createCommand()->createIndex('idx-master_page-slug', 'master_page', 'slug', true)->execute();
-            $newDb->createCommand()->createIndex('idx-master_page-is_active', 'master_page', 'is_active')->execute();
-        }
-        
-        if (!$menusTableExists) {
-            $newDb->createCommand()->createTable('master_menu', [
-                'id' => $newDb->schema->createColumnSchemaBuilder('pk'),
-                'name' => $newDb->schema->createColumnSchemaBuilder('string', 100)->notNull(),
-                'parent_id' => $newDb->schema->createColumnSchemaBuilder('integer'),
-                'type' => $newDb->schema->createColumnSchemaBuilder('string', 20)->defaultValue('page'),
-                'page_id' => $newDb->schema->createColumnSchemaBuilder('integer'),
-                'route' => $newDb->schema->createColumnSchemaBuilder('string', 255),
-                'sort_order' => $newDb->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
-                'order' => $newDb->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
-                'is_active' => $newDb->schema->createColumnSchemaBuilder('integer', 1)->defaultValue(1),
-                'created_at' => $newDb->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
-                'updated_at' => $newDb->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
-            ])->execute();
-            
-            $newDb->createCommand()->createIndex('idx-master_menu-parent_id', 'master_menu', 'parent_id')->execute();
-            $newDb->createCommand()->createIndex('idx-master_menu-type', 'master_menu', 'type')->execute();
-            $newDb->createCommand()->createIndex('idx-master_menu-page_id', 'master_menu', 'page_id')->execute();
-            $newDb->createCommand()->createIndex('idx-master_menu-is_active', 'master_menu', 'is_active')->execute();
-            $newDb->createCommand()->createIndex('idx-master_menu-sort_order', 'master_menu', 'sort_order')->execute();
-            $newDb->createCommand()->createIndex('idx-master_menu-order', 'master_menu', 'order')->execute();
-            
-            try {
-                $newDb->createCommand()->addForeignKey('fk-master_menu-parent', 'master_menu', 'parent_id', 'master_menu', 'id', 'SET NULL', 'CASCADE')->execute();
-            } catch (\Exception $e) {}
-            try {
-                $newDb->createCommand()->addForeignKey('fk-master_menu-page', 'master_menu', 'page_id', 'master_page', 'id', 'SET NULL', 'CASCADE')->execute();
-            } catch (\Exception $e) {}
-        }
-        
-        if (!$pageFormsTableExists) {
-            $newDb->createCommand()->createTable('page_forms', [
-                'id' => $newDb->schema->createColumnSchemaBuilder('pk'),
-                'page_id' => $newDb->schema->createColumnSchemaBuilder('integer')->notNull(),
-                'form_id' => $newDb->schema->createColumnSchemaBuilder('integer')->notNull(),
-                'order' => $newDb->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
-                'created_at' => $newDb->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
-                'updated_at' => $newDb->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
-            ])->execute();
-            
-            $newDb->createCommand()->createIndex('idx-page_forms-page_id', 'page_forms', 'page_id')->execute();
-            $newDb->createCommand()->createIndex('idx-page_forms-form_id', 'page_forms', 'form_id')->execute();
-            $newDb->createCommand()->createIndex('idx-page_forms-order', 'page_forms', 'order')->execute();
-            
-            try {
-                $newDb->createCommand()->addForeignKey('fk-page_forms-page', 'page_forms', 'page_id', 'master_page', 'id', 'CASCADE', 'CASCADE')->execute();
-            } catch (\Exception $e) {}
-            try {
-                $newDb->createCommand()->addForeignKey('fk-page_forms-form', 'page_forms', 'form_id', 'forms', 'id', 'CASCADE', 'CASCADE')->execute();
-            } catch (\Exception $e) {}
-        }
-        
-        $this->insertDefaultCmsData($newDb);
-    }
-    
-    private function insertDefaultCmsData($newDb): void
+    }    
+private function insertDefaultCmsData($newDb): void
     {
         $pagesTable = $newDb->getTableSchema('master_page', true);
         $menusTable = $newDb->getTableSchema('master_menu', true);
@@ -214,22 +125,22 @@ private function createProjectSchemaTables(string $databaseName): void
         
         $hasMenus = (new \yii\db\Query())->from('master_menu')->exists($newDb);
         if (!$hasMenus) {
-            $newDb->createCommand()->batchInsert('master_menu', ['name', 'type', 'page_id', 'sort_order', 'order', 'is_active'], [
-                ['Dashboard', 'page', 1, 1, 1, 1],
-                ['Profil', 'page', 2, 2, 2, 1],
-                ['Layanan', 'page', 3, 3, 3, 1],
-                ['Kontak', 'page', 4, 4, 4, 1],
-                ['Artikel', 'page', 5, 5, 5, 1],
+            $newDb->createCommand()->batchInsert('master_menu', ['name', 'icon', 'type', 'page_id', 'sort_order', 'order', 'is_active'], [
+                ['Dashboard', 'dashboard', 'page', 1, 1, 1, 1],
+                ['Profil', 'person', 'page', 2, 2, 2, 1],
+                ['Layanan', 'shopping_cart', 'page', 3, 3, 3, 1],
+                ['Kontak', 'mail', 'page', 4, 4, 4, 1],
+                ['Artikel', 'article', 'page', 5, 5, 5, 1],
             ])->execute();
             
-            $newDb->createCommand()->batchInsert('master_menu', ['name', 'type', 'parent_id', 'sort_order', 'order', 'is_active'], [
-                ['Pengaturan', 'group', null, 10, 10, 1],
+            $newDb->createCommand()->batchInsert('master_menu', ['name', 'icon', 'type', 'parent_id', 'sort_order', 'order', 'is_active'], [
+                ['Pengaturan', 'settings', 'group', null, 10, 10, 1],
             ])->execute();
             
-            $newDb->createCommand()->batchInsert('master_menu', ['name', 'type', 'parent_id', 'route', 'sort_order', 'order', 'is_active'], [
-                ['General', 'route', 6, '/settings/general', 1, 1, 1],
-                ['Akun', 'route', 6, '/settings/account', 2, 2, 1],
-                ['Notifikasi', 'route', 6, '/settings/notifications', 3, 3, 1],
+            $newDb->createCommand()->batchInsert('master_menu', ['name', 'icon', 'type', 'parent_id', 'route', 'sort_order', 'order', 'is_active'], [
+                ['General', 'tune', 'route', 6, '/settings/general', 1, 1, 1],
+                ['Akun', 'account_circle', 'route', 6, '/settings/account', 2, 2, 1],
+                ['Notifikasi', 'notifications', 'route', 6, '/settings/notifications', 3, 3, 1],
             ])->execute();
         }
     }
@@ -374,7 +285,7 @@ private function createProjectSchemaTables(string $databaseName): void
         $activeContext = new ActiveProjectContext();
         $activeProjectId = $activeContext->getActiveProjectId();
         if ($activeProjectId == (int)$id) {
-            $activeContext->clearActiveProject();
+            $activeContext->clear();
         }
 
         Yii::$app->session->setFlash('success', "Project '{$projectName}' dan database-nya telah dihapus.");

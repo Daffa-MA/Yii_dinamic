@@ -7,7 +7,7 @@ use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\services\MenuService;
 use app\components\ActiveDatabaseContext;
-use yii\data\ActiveDataProvider;
+use app\helpers\MasterMenuTreeBuilder;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -44,18 +44,25 @@ class MasterMenuController extends Controller
             ],
         ];
     }
-
     /**
-     * List all menus
+     * List all menus dengan hierarchy tree view
      */
     public function actionIndex()
     {
-        $dataProvider = new ActiveDataProvider([
-            'query' => MasterMenu::find()->with(['parent', 'page'])->orderBy(['sort_order' => SORT_ASC]),
-        ]);
+        // Get all menus dengan parent dan page relations
+        $allMenus = MasterMenu::find()
+            ->with(['parent', 'page'])
+            ->orderBy(['sort_order' => SORT_ASC])
+            ->all();
+
+        // Build tree structure dari flat data
+        $tree = MasterMenuTreeBuilder::buildTree($allMenus);
+
+        // Flatten untuk rendering (bisa di-render secara iteratif)
+        $treeData = MasterMenuTreeBuilder::flattenTree($tree);
 
         return $this->render('index', [
-            'dataProvider' => $dataProvider,
+            'treeData' => $treeData,
         ]);
     }
 
@@ -65,7 +72,7 @@ class MasterMenuController extends Controller
     public function actionCreate()
     {
         $model = new MasterMenu();
-        
+
         // Get current max sort order for new menu
         $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
         $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
@@ -79,13 +86,13 @@ class MasterMenuController extends Controller
                     $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
                     $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
                 }
-                
+
                 if ($model->save()) {
                     Yii::$app->session->setFlash('success', 'Menu berhasil dibuat!');
                     return $this->redirect(['index']);
                 } else {
                     $errors = $model->getErrors();
-                    $errorMsg = implode('; ', array_map(function($attr, $msgs) {
+                    $errorMsg = implode('; ', array_map(function ($attr, $msgs) {
                         return $attr . ': ' . implode(', ', $msgs);
                     }, array_keys($errors), $errors));
                     Yii::$app->session->setFlash('error', 'Gagal menyimpan menu: ' . $errorMsg);

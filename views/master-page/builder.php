@@ -1,14 +1,23 @@
 <?php
 
-use app\models\Form;
 use yii\helpers\Html;
 use yii\helpers\Json;
 
-/* @var $this yii\web\View */
-/* @var $page app\models\MasterPage */
-/* @var $availableForms Form[] */
+/**
+ * Page Builder View
+ * 
+ * @var yii\web\View $this
+ * @var app\models\MasterPage $page
+ * @var array $availableForms
+ */
 
-$this->title = 'Page Builder - ' . $page->title;
+// Check if $page is defined, fallback to empty values if not
+if (!isset($page)) {
+    $page = null;
+}
+if (!isset($availableForms)) {
+    $availableForms = [];
+}
 $this->params['breadcrumbs'][] = ['label' => 'Master Pages', 'url' => ['index']];
 $this->params['breadcrumbs'][] = ['label' => $page->title, 'url' => ['view', 'id' => $page->id]];
 $this->params['breadcrumbs'][] = 'Builder';
@@ -51,381 +60,391 @@ $styleOptions = ['primary' => 'Primary', 'secondary' => 'Secondary', 'outline' =
 ?>
 
 <style>
-.page-builder {
-    height: calc(100vh - 60px);
-    display: flex;
-    flex-direction: column;
-    background: #f8fafc;
-}
+    .page-builder {
+        height: calc(100vh - 60px);
+        display: flex;
+        flex-direction: column;
+        background: #f8fafc;
+    }
 
-.builder-toolbar {
-    height: 56px;
-    background: white;
-    border-bottom: 1px solid #e2e8f0;
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 12px;
-    flex-shrink: 0;
-}
+    .builder-toolbar {
+        height: 56px;
+        background: white;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        gap: 12px;
+        flex-shrink: 0;
+    }
 
-.builder-main {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-}
+    .builder-main {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+    }
 
-.builder-sidebar-left {
-    width: 260px;
-    background: white;
-    border-right: 1px solid #e2e8f0;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
+    .builder-sidebar-left {
+        width: 260px;
+        background: white;
+        border-right: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+    }
 
-.builder-canvas {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    background: #f1f5f9;
-}
+    .builder-canvas {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+        background: #f1f5f9;
+    }
 
-.builder-sidebar-right {
-    width: 300px;
-    background: white;
-    border-left: 1px solid #e2e8f0;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-    overflow-y: auto;
-}
+    .builder-sidebar-right {
+        width: 300px;
+        background: white;
+        border-left: 1px solid #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        overflow-y: auto;
+    }
 
-.component-palette {
-    padding: 16px;
-}
+    .component-palette {
+        padding: 16px;
+    }
 
-.component-palette h3 {
-    font-size: 12px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    margin-bottom: 12px;
-    letter-spacing: 0.5px;
-}
+    .component-palette h3 {
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+        letter-spacing: 0.5px;
+    }
 
-.component-list {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-}
+    .component-list {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
 
-.component-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 12px 8px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    cursor: grab;
-    transition: all 0.15s ease;
-}
+    .component-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 8px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        cursor: grab;
+        transition: all 0.15s ease;
+    }
 
-.component-item:hover {
-    border-color: #6366f1;
-    background: #eef2ff;
-    transform: translateY(-1px);
-}
+    .component-item:hover {
+        border-color: #6366f1;
+        background: #eef2ff;
+        transform: translateY(-1px);
+    }
 
-.component-item:active {
-    cursor: grabbing;
-}
+    .component-item:active {
+        cursor: grabbing;
+    }
 
-.component-item .material-symbols-outlined {
-    font-size: 24px;
-    color: #64748b;
-    margin-bottom: 4px;
-}
+    .component-item .material-symbols-outlined {
+        font-size: 24px;
+        color: #64748b;
+        margin-bottom: 4px;
+    }
 
-.component-item span {
-    font-size: 11px;
-    color: #64748b;
-    text-align: center;
-}
+    .component-item span {
+        font-size: 11px;
+        color: #64748b;
+        text-align: center;
+    }
 
-.canvas-area {
-    max-width: 900px;
-    margin: 0 auto;
-    min-height: 500px;
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    padding: 24px;
-    position: relative;
-}
+    .canvas-area {
+        max-width: 900px;
+        margin: 0 auto;
+        min-height: 500px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        padding: 24px;
+        position: relative;
+    }
 
-.canvas-drop-zone {
-    min-height: 400px;
-    border: 2px dashed #e2e8f0;
-    border-radius: 8px;
-    transition: all 0.2s ease;
-}
+    .canvas-drop-zone {
+        min-height: 400px;
+        border: 2px dashed #e2e8f0;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
 
-.canvas-drop-zone.drag-over {
-    border-color: #6366f1;
-    background: #eef2ff;
-}
+    .canvas-drop-zone.drag-over {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
 
-.canvas-drop-zone.empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-direction: column;
-    color: #94a3b8;
-}
+    .canvas-drop-zone.empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        color: #94a3b8;
+    }
 
-.canvas-drop-zone.empty .material-symbols-outlined {
-    font-size: 48px;
-    margin-bottom: 8px;
-}
+    .canvas-drop-zone.empty .material-symbols-outlined {
+        font-size: 48px;
+        margin-bottom: 8px;
+    }
 
-.canvas-block {
-    position: relative;
-    padding: 16px;
-    margin-bottom: 12px;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    transition: all 0.15s ease;
-    cursor: pointer;
-}
+    .canvas-block {
+        position: relative;
+        padding: 16px;
+        margin-bottom: 12px;
+        border: 2px solid transparent;
+        border-radius: 8px;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
 
-.canvas-block:hover {
-    border-color: #cbd5e1;
-}
+    .canvas-block:hover {
+        border-color: #cbd5e1;
+    }
 
-.canvas-block.selected {
-    border-color: #6366f1;
-    background: #eef2ff;
-}
+    .canvas-block.selected {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
 
-.canvas-block-handle {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-}
+    .canvas-block-handle {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
 
-.canvas-block:hover .canvas-block-handle {
-    opacity: 1;
-}
+    .canvas-block:hover .canvas-block-handle {
+        opacity: 1;
+    }
 
-.canvas-block-handle button {
-    width: 28px;
-    height: 28px;
-    border: none;
-    background: white;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    transition: background 0.15s ease;
-}
+    .canvas-block-handle button {
+        width: 28px;
+        height: 28px;
+        border: none;
+        background: white;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        transition: background 0.15s ease;
+    }
 
-.canvas-block-handle button:hover {
-    background: #f1f5f9;
-}
+    .canvas-block-handle button:hover {
+        background: #f1f5f9;
+    }
 
-.canvas-block-handle button.delete-btn:hover {
-    background: #fee2e2;
-    color: #ef4444;
-}
+    .canvas-block-handle button.delete-btn:hover {
+        background: #fee2e2;
+        color: #ef4444;
+    }
 
-.block-content {
-    pointer-events: none;
-}
+    .block-content {
+        pointer-events: none;
+    }
 
-.block-content > * {
-    pointer-events: auto;
-}
+    .block-content>* {
+        pointer-events: auto;
+    }
 
-.properties-panel {
-    padding: 16px;
-}
+    .properties-panel {
+        padding: 16px;
+    }
 
-.properties-panel h3 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #1e293b;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #e2e8f0;
-}
+    .properties-panel h3 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #e2e8f0;
+    }
 
-.property-group {
-    margin-bottom: 16px;
-}
+    .property-group {
+        margin-bottom: 16px;
+    }
 
-.property-group label {
-    display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: #64748b;
-    margin-bottom: 6px;
-}
+    .property-group label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 6px;
+    }
 
-.property-group input,
-.property-group select,
-.property-group textarea {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 13px;
-    transition: border-color 0.15s ease;
-}
+    .property-group input,
+    .property-group select,
+    .property-group textarea {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        font-size: 13px;
+        transition: border-color 0.15s ease;
+    }
 
-.property-group input:focus,
-.property-group select:focus,
-.property-group textarea:focus {
-    outline: none;
-    border-color: #6366f1;
-}
+    .property-group input:focus,
+    .property-group select:focus,
+    .property-group textarea:focus {
+        outline: none;
+        border-color: #6366f1;
+    }
 
-.property-row {
-    display: flex;
-    gap: 8px;
-}
+    .property-row {
+        display: flex;
+        gap: 8px;
+    }
 
-.device-buttons {
-    display: flex;
-    background: #f1f5f9;
-    border-radius: 8px;
-    padding: 4px;
-}
+    .device-buttons {
+        display: flex;
+        background: #f1f5f9;
+        border-radius: 8px;
+        padding: 4px;
+    }
 
-.device-btn {
-    padding: 8px 16px;
-    border: none;
-    background: transparent;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-    color: #64748b;
-    transition: all 0.15s ease;
-}
+    .device-btn {
+        padding: 8px 16px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        color: #64748b;
+        transition: all 0.15s ease;
+    }
 
-.device-btn.active {
-    background: white;
-    color: #1e293b;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
+    .device-btn.active {
+        background: white;
+        color: #1e293b;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
 
-.device-btn:hover:not(.active) {
-    color: #1e293b;
-}
+    .device-btn:hover:not(.active) {
+        color: #1e293b;
+    }
 
-.canvas-desktop { max-width: 100%; }
-.canvas-tablet { max-width: 768px; margin: 0 auto; }
-.canvas-mobile { max-width: 375px; margin: 0 auto; }
+    .canvas-desktop {
+        max-width: 100%;
+    }
 
-.no-selection {
-    padding: 24px;
-    text-align: center;
-    color: #94a3b8;
-}
+    .canvas-tablet {
+        max-width: 768px;
+        margin: 0 auto;
+    }
 
-.no-selection .material-symbols-outlined {
-    font-size: 48px;
-    margin-bottom: 8px;
-}
+    .canvas-mobile {
+        max-width: 375px;
+        margin: 0 auto;
+    }
 
-.form-select-list {
-    max-height: 200px;
-    overflow-y: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-}
+    .no-selection {
+        padding: 24px;
+        text-align: center;
+        color: #94a3b8;
+    }
 
-.form-select-item {
-    padding: 10px 12px;
-    border-bottom: 1px solid #f1f5f9;
-    cursor: pointer;
-    transition: background 0.15s ease;
-}
+    .no-selection .material-symbols-outlined {
+        font-size: 48px;
+        margin-bottom: 8px;
+    }
 
-.form-select-item:hover {
-    background: #f8fafc;
-}
+    .form-select-list {
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
 
-.form-select-item.selected {
-    background: #eef2ff;
-    border-color: #6366f1;
-}
+    .form-select-item {
+        padding: 10px 12px;
+        border-bottom: 1px solid #f1f5f9;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
 
-.form-select-item:last-child {
-    border-bottom: none;
-}
+    .form-select-item:hover {
+        background: #f8fafc;
+    }
 
-.sortable-ghost {
-    opacity: 0.4;
-    background: #eef2ff;
-}
+    .form-select-item.selected {
+        background: #eef2ff;
+        border-color: #6366f1;
+    }
 
-.sortable-drag {
-    background: white;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
-}
+    .form-select-item:last-child {
+        border-bottom: none;
+    }
+
+    .sortable-ghost {
+        opacity: 0.4;
+        background: #eef2ff;
+    }
+
+    .sortable-drag {
+        background: white;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    }
 </style>
 
 <div class="page-builder">
     <div class="builder-toolbar">
         <?= Html::a('<span class="material-symbols-outlined">arrow_back</span>', ['view', 'id' => $pageId], ['class' => 'btn-toolbar', 'title' => 'Back to Page']) ?>
-        
+
         <div class="flex-1">
             <span class="font-semibold text-slate-800"><?= Html::encode($page->title) ?></span>
             <span class="text-slate-400 mx-2">|</span>
             <span class="text-sm text-slate-500">Page Builder</span>
         </div>
-        
+
         <div class="device-buttons">
             <button class="device-btn active" data-device="desktop">Desktop</button>
             <button class="device-btn" data-device="tablet">Tablet</button>
             <button class="device-btn" data-device="mobile">Mobile</button>
         </div>
-        
+
         <?= Html::button('<span class="material-symbols-outlined text-sm mr-1">visibility</span> Preview', [
             'class' => 'px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium flex items-center gap-1',
             'id' => 'preview-btn',
         ]) ?>
-        
+
         <?= Html::button('<span class="material-symbols-outlined text-sm mr-1">save</span> Save', [
             'class' => 'px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center gap-1',
             'id' => 'save-btn',
         ]) ?>
     </div>
-    
+
     <div class="builder-main">
         <div class="builder-sidebar-left">
             <div class="component-palette">
                 <h3>Components</h3>
                 <div class="component-list" id="component-list">
                     <?php foreach ($componentTypes as $comp): ?>
-                    <div class="component-item" draggable="true" data-type="<?= $comp['type'] ?>">
-                        <span class="material-symbols-outlined"><?= $comp['icon'] ?></span>
-                        <span><?= $comp['label'] ?></span>
-                    </div>
+                        <div class="component-item" draggable="true" data-type="<?= $comp['type'] ?>">
+                            <span class="material-symbols-outlined"><?= $comp['icon'] ?></span>
+                            <span><?= $comp['label'] ?></span>
+                        </div>
                     <?php endforeach; ?>
                 </div>
             </div>
         </div>
-        
+
         <div class="builder-canvas">
             <div class="canvas-area canvas-desktop" id="canvas-area">
                 <div class="canvas-drop-zone" id="canvas-drop-zone">
@@ -437,7 +456,7 @@ $styleOptions = ['primary' => 'Primary', 'secondary' => 'Secondary', 'outline' =
                 </div>
             </div>
         </div>
-        
+
         <div class="builder-sidebar-right">
             <div class="properties-panel" id="properties-panel">
                 <div class="no-selection" id="no-selection">
@@ -874,13 +893,3 @@ previewBtn.addEventListener('click', function() {
 renderCanvas();
 JS;
 $this->registerJs($script);
-</script>
-
-<?php
-$iconFixScript = <<<JS
-document.getElementById('prop-level') && (document.getElementById('prop-level').value = layout.components.find(c => c.id === selectedBlockId)?.props?.level || 'h2');
-document.getElementById('prop-size') && (document.getElementById('prop-size').value = layout.components.find(c => c.id === selectedBlockId)?.props?.size || 'md');
-document.getElementById('prop-style') && (document.getElementById('prop-style').value = layout.components.find(c => c.id === selectedBlockId)?.props?.style || 'primary');
-document.getElementById('prop-height') && (document.getElementById('prop-height').value = layout.components.find(c => c.id === selectedBlockId)?.props?.height || 'md');
-document.getElementById('prop-align') && (document.getElementById('prop-align').value = layout.components.find(c => c.id === selectedBlockId)?.props?.align || 'left');
-JS;

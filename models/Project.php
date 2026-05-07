@@ -7,6 +7,13 @@ use yii\db\ActiveRecord;
 
 /**
  * Project model.
+ * 
+ * @property int $id
+ * @property int $user_id
+ * @property string $name
+ * @property string|null $description
+ * @property string $created_at
+ * @property string $updated_at
  */
 class Project extends ActiveRecord
 {

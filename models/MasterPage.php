@@ -80,7 +80,8 @@ class MasterPage extends ActiveRecord
             [['title'], 'required'],
             [['description'], 'string'],
             [['title', 'slug'], 'string', 'max' => 255],
-            [['layout', 'layout_type', 'layout_json'], 'string', 'max' => 255],
+            [['layout', 'layout_type'], 'string', 'max' => 255],
+            [['layout_json'], 'string'],
             [['is_active'], 'integer'],
             ['formIds', 'safe'],
         ];

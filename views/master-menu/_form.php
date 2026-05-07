@@ -136,37 +136,36 @@ if ($model->isNewRecord && empty($model->type)) {
     <div class="field-mastermenu-icon">
         <label class="mb-1.5 block text-sm font-semibold text-slate-700">Icon</label>
         <?= Html::activeHiddenInput($model, 'icon') ?>
-        
+
         <!-- Custom Icon Picker -->
-        <div class="relative">
+        <div class="relative" id="icon-picker-container">
             <!-- Icon Display Button -->
-            <button type="button" id="icon-picker-btn" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 transition hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10">
+            <button type="button" id="icon-picker-btn" class="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-slate-900 transition hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10" style="cursor: pointer;">
                 <span id="icon-display" class="material-symbols-outlined text-2xl text-slate-600"><?= $model->icon && isset($iconList[$model->icon]) ? $model->icon : 'apps' ?></span>
                 <div class="flex-1 text-left">
                     <span id="icon-name-display" class="block text-sm font-medium text-slate-700"><?= $model->icon && isset($iconList[$model->icon]) ? $iconList[$model->icon] : 'Pilih icon menu...' ?></span>
                     <span class="block text-xs text-slate-500"><?= $model->icon ?: 'Klik untuk memilih' ?></span>
                 </div>
-                <span class="material-symbols-outlined text-slate-400">expand_more</span>
+                <span class="material-symbols-outlined text-slate-400" style="transition: transform 0.3s ease;">expand_more</span>
             </button>
-            
+
             <!-- Icon Picker Dropdown -->
-            <div id="icon-picker-dropdown" class="absolute top-full left-0 right-0 mt-2 z-50 hidden bg-white rounded-2xl border border-slate-200 shadow-lg">
-                <!-- Search Bar -->
+            <div id="icon-picker-dropdown" class="absolute top-full left-0 right-0 mt-2 z-50 hidden bg-white rounded-2xl border border-slate-200 shadow-lg">                <!-- Search Bar -->
                 <div class="border-b border-slate-200 p-4">
                     <div class="relative">
                         <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                        <input type="text" id="icon-search" placeholder="Cari icon..." class="w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white" onkeyup="filterIconPicker(this.value)">
+                        <input type="text" id="icon-search" placeholder="Cari icon..." class="w-full rounded-lg border border-slate-200 bg-slate-50 pl-10 pr-4 py-2.5 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white">
                     </div>
                 </div>
-                
+
                 <!-- Icon Grid -->
                 <div class="max-h-96 overflow-y-auto p-4">
                     <div id="icon-grid" class="grid grid-cols-4 gap-2">
                         <?php foreach ($iconList as $key => $name): ?>
-                        <button type="button" onclick="selectIcon('<?= $key ?>', '<?= addslashes($name) ?>')" class="icon-option group flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-center transition hover:border-blue-500 hover:bg-blue-50" data-icon="<?= $key ?>" data-name="<?= strtolower($name) ?>" title="<?= $name ?>">
-                            <span class="material-symbols-outlined text-3xl text-slate-600 group-hover:text-blue-600"><?= $key ?></span>
-                            <span class="text-xs font-medium text-slate-700 group-hover:text-blue-700 line-clamp-2"><?= $name ?></span>
-                        </button>
+                            <button type="button" onclick="selectIcon('<?= $key ?>', '<?= addslashes($name) ?>')" class="icon-option group flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-center transition hover:border-blue-500 hover:bg-blue-50" data-icon="<?= $key ?>" data-name="<?= strtolower($name) ?>" title="<?= $name ?>">
+                                <span class="material-symbols-outlined text-3xl text-slate-600 group-hover:text-blue-600"><?= $key ?></span>
+                                <span class="text-xs font-medium text-slate-700 group-hover:text-blue-700 line-clamp-2"><?= $name ?></span>
+                            </button>
                         <?php endforeach; ?>
                     </div>
                 </div>
@@ -322,110 +321,139 @@ $this->registerJs($script);
 <?php
 // Icon Picker Inline Scripts
 $iconScript = <<<ICONJS
-window.toggleIconPicker = function(event) {
-    if (event) event.preventDefault();
-    const dropdown = document.getElementById('icon-picker-dropdown');
-    if (dropdown) {
-        dropdown.classList.toggle('hidden');
+(function() {
+    let isPickerOpen = false;
+
+    // Toggle dropdown visibility
+    function toggleDropdown() {
+        const dropdown = document.getElementById('icon-picker-dropdown');
+        if (!dropdown) return;
         
-        // Auto-focus search on open
-        if (!dropdown.classList.contains('hidden')) {
+        isPickerOpen = !isPickerOpen;
+        if (isPickerOpen) {
+            dropdown.classList.remove('hidden');
             setTimeout(() => {
                 const search = document.getElementById('icon-search');
                 if (search) search.focus();
-            }, 100);
-        }
-    }
-};
-
-window.selectIcon = function(iconKey, iconName) {
-    // Update hidden input
-    const input = document.getElementById('mastermenu-icon');
-    if (input) input.value = iconKey;
-    
-    // Update display
-    const display = document.getElementById('icon-display');
-    const nameDisplay = document.getElementById('icon-name-display');
-    if (display) display.textContent = iconKey;
-    if (nameDisplay) nameDisplay.textContent = iconName;
-    
-    // Close dropdown
-    const dropdown = document.getElementById('icon-picker-dropdown');
-    if (dropdown) dropdown.classList.add('hidden');
-    
-    // Clear search
-    const search = document.getElementById('icon-search');
-    if (search) {
-        search.value = '';
-        window.filterIconPicker('');
-    }
-};
-
-window.filterIconPicker = function(searchTerm) {
-    const search = (searchTerm || '').toLowerCase();
-    const buttons = document.querySelectorAll('#icon-grid .icon-option');
-    let visibleCount = 0;
-    
-    buttons.forEach(btn => {
-        const name = btn.dataset.name || '';
-        const icon = btn.dataset.icon || '';
-        const isMatch = name.includes(search) || icon.includes(search);
-        
-        btn.style.display = isMatch ? '' : 'none';
-        if (isMatch) visibleCount++;
-    });
-    
-    // Show no results message if needed
-    let noResults = document.getElementById('icon-no-results');
-    if (visibleCount === 0 && search) {
-        if (!noResults) {
-            noResults = document.createElement('div');
-            noResults.id = 'icon-no-results';
-            noResults.className = 'col-span-4 py-8 text-center text-slate-500';
-            noResults.textContent = 'Icon tidak ditemukan';
-            const grid = document.getElementById('icon-grid');
-            if (grid && grid.parentElement) {
-                grid.parentElement.appendChild(noResults);
-            }
-        }
-        if (noResults) noResults.style.display = 'block';
-    } else if (noResults) {
-        noResults.style.display = 'none';
-    }
-};
-
-// Initialize icon picker on DOM ready
-document.addEventListener('DOMContentLoaded', function() {
-    const btn = document.getElementById('icon-picker-btn');
-    const dropdown = document.getElementById('icon-picker-dropdown');
-    const search = document.getElementById('icon-search');
-    
-    // Add click handler to button
-    if (btn) {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            window.toggleIconPicker();
-        });
-    }
-    
-    // Add input handler to search
-    if (search) {
-        search.addEventListener('keyup', function() {
-            window.filterIconPicker(this.value);
-        });
-    }
-    
-    // Close dropdown when clicking outside
-    document.addEventListener('click', function(e) {
-        if (btn && dropdown && !btn.contains(e.target) && !dropdown.contains(e.target)) {
+            }, 50);
+        } else {
             dropdown.classList.add('hidden');
-            if (search) {
-                search.value = '';
-                window.filterIconPicker('');
-            }
         }
-    });
-});
+    }
+
+    // Filter icons based on search
+    function filterIcons(searchTerm) {
+        const search = (searchTerm || '').toLowerCase();
+        const options = document.querySelectorAll('#icon-grid .icon-option');
+        let visibleCount = 0;
+
+        options.forEach(opt => {
+            const name = opt.dataset.name || '';
+            const icon = opt.dataset.icon || '';
+            const match = name.includes(search) || icon.includes(search);
+            
+            opt.style.display = match ? '' : 'none';
+            if (match) visibleCount++;
+        });
+    }
+
+    // Select icon
+    function selectIconFn(iconKey, iconName) {
+        // Update hidden input
+        const input = document.getElementById('mastermenu-icon');
+        if (input) input.value = iconKey;
+
+        // Update display
+        const display = document.getElementById('icon-display');
+        if (display) display.textContent = iconKey;
+
+        const nameDisplay = document.getElementById('icon-name-display');
+        if (nameDisplay) nameDisplay.textContent = iconName;
+
+        // Close dropdown
+        const dropdown = document.getElementById('icon-picker-dropdown');
+        if (dropdown) dropdown.classList.add('hidden');
+        
+        isPickerOpen = false;
+
+        // Clear search
+        const search = document.getElementById('icon-search');
+        if (search) {
+            search.value = '';
+            filterIcons('');
+        }
+    }
+
+    // Wait for DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    function init() {
+        const btn = document.getElementById('icon-picker-btn');
+        const dropdown = document.getElementById('icon-picker-dropdown');
+        const search = document.getElementById('icon-search');
+        const container = document.getElementById('icon-picker-container');
+
+        if (!btn || !dropdown || !container) return;
+
+        // Button click handler
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleDropdown();
+        });
+
+        // Search input handler
+        if (search) {
+            search.addEventListener('keyup', (e) => {
+                e.stopPropagation();
+                filterIcons(this.value);
+            });
+
+            search.addEventListener('input', (e) => {
+                e.stopPropagation();
+                filterIcons(e.target.value);
+            });
+        }
+
+        // Prevent dropdown close on inside click
+        dropdown.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!container.contains(e.target) && isPickerOpen) {
+                dropdown.classList.add('hidden');
+                if (search) {
+                    search.value = '';
+                    filterIcons('');
+                }
+                isPickerOpen = false;
+            }
+        });
+
+        // Make icon option buttons clickable
+        const iconButtons = document.querySelectorAll('#icon-grid .icon-option');
+        iconButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const iconKey = btn.dataset.icon;
+                const iconName = btn.dataset.name.charAt(0).toUpperCase() + btn.dataset.name.slice(1);
+                selectIconFn(iconKey, iconName);
+            });
+        });
+    }
+
+    // Expose global function for onclick handlers
+    window.selectIcon = function(iconKey, iconName) {
+        selectIconFn(iconKey, iconName);
+    };
+})();
 ICONJS;
 $this->registerJs($iconScript);
 ?>
@@ -450,11 +478,16 @@ $css = <<<CSS
 
 #icon-grid .icon-option {
     transition: all 0.2s ease;
+    cursor: pointer;
 }
 
 #icon-grid .icon-option:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+#icon-grid .icon-option:active {
+    transform: translateY(0);
 }
 
 #icon-grid .icon-option.selected {
@@ -466,21 +499,28 @@ $css = <<<CSS
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
-.field-mastermenu-icon #icon-picker-btn {
-    cursor: pointer;
-    border-color: #e2e8f0;
-    background-color: #ffffff;
+#icon-picker-btn {
+    cursor: pointer !important;
+    user-select: none;
 }
 
-.field-mastermenu-icon #icon-picker-btn:hover {
-    border-color: #cbd5e1;
-    background-color: #f8fafc;
+#icon-picker-btn:hover {
+    border-color: #cbd5e1 !important;
+    background-color: #f8fafc !important;
 }
 
-.field-mastermenu-icon #icon-picker-btn:focus {
-    border-color: #3b82f6;
-    outline: none;
-    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+#icon-picker-btn:active {
+    background-color: #f1f5f9 !important;
+}
+
+#icon-picker-btn:focus {
+    border-color: #3b82f6 !important;
+    outline: none !important;
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1) !important;
+}
+
+#icon-search {
+    cursor: text;
 }
 
 #icon-search::placeholder {

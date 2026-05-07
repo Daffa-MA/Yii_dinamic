@@ -260,7 +260,9 @@ CSS
                     <?php endif; ?>
                 </tbody>
             </table>
-        </div> <!-- Footer Summary -->
+        </div>
+
+        <!-- Footer Summary -->
         <?php if (!empty($treeData)): ?>
             <div class="flex items-center justify-between border-t border-gray-100 px-4 py-3 text-xs text-gray-500">
                 <span>
@@ -271,24 +273,18 @@ CSS
                     menu
                     (
                     <strong class="text-gray-900">
-                        <?php echo count(array_filter($treeData, function ($item) {
-                            return $item['isRoot'];
-                        })); ?>
+                        <?= count(array_filter($treeData, function($item) { return $item['isRoot']; })) ?>
                     </strong>
                     root,
                     <strong class="text-gray-900">
-                        <?php echo count(array_filter($treeData, function ($item) {
-                            return !$item['isRoot'];
-                        })); ?>
+                        <?= count(array_filter($treeData, function($item) { return !$item['isRoot']; })) ?>
                     </strong>
                     submenu
                     )
                 </span>
                 <span class="text-gray-400">Aktif:
                     <strong class="text-gray-900">
-                        <?php echo count(array_filter($treeData, function ($item) {
-                            return $item['model']->is_active;
-                        })); ?>
+                        <?= count(array_filter($treeData, function($item) { return $item['model']->is_active; })) ?>
                     </strong>
                 </span>
             </div>

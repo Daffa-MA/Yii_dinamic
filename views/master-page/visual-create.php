@@ -36,25 +36,76 @@ $this->registerJs($js, \yii\web\View::POS_END);
 
 <div class="master-page-visual-create">
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         .visual-builder-header {
-            background: white;
-            border-bottom: 1px solid #e2e8f0;
-            padding: 16px;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border-bottom: 1px solid #334155;
+            padding: 20px 24px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 16px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
         }
 
         .visual-builder-header h1 {
             margin: 0;
-            font-size: 24px;
-            font-weight: 700;
+            font-size: 28px;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+
+        .visual-builder-header p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+            margin: 6px 0 0 0;
         }
 
         .visual-builder-actions {
             display: flex;
-            gap: 8px;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .visual-builder-actions .btn {
+            font-size: 13px;
+            padding: 8px 16px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .visual-builder-actions .btn-outline-secondary {
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: white;
+        }
+
+        .visual-builder-actions .btn-outline-secondary:hover {
+            background: rgba(255, 255, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+
+        .visual-builder-actions .btn-success {
+            background: #10b981;
+            border: none;
+            color: white;
+        }
+
+        .visual-builder-actions .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
 
         .page-builder-container {
@@ -62,21 +113,48 @@ $this->registerJs($js, \yii\web\View::POS_END);
             grid-template-columns: 280px 1fr 320px;
             gap: 0;
             height: calc(100vh - 100px);
-            background: #f8fafc;
+            background: #ffffff;
         }
 
         .builder-left-panel,
         .builder-right-panel {
-            background: white;
-            border-right: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-right: 1px solid #e5e7eb;
             overflow-y: auto;
-            padding: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .builder-left-panel h5,
+        .builder-right-panel h5 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0 0 16px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         .builder-center-panel {
-            background: #f1f5f9;
+            background: #ffffff;
             overflow-y: auto;
-            padding: 24px;
+            padding: 32px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 100px);
+        }
+
+        .builder-center-panel .text-center {
+            color: #9ca3af;
+            font-size: 16px;
+        }
+
+        .builder-center-panel .text-muted {
+            color: #d1d5db;
         }
 
         @media (max-width: 1024px) {
@@ -90,8 +168,41 @@ $this->registerJs($js, \yii\web\View::POS_END);
             .builder-center-panel,
             .builder-right-panel {
                 border-right: none;
-                border-bottom: 1px solid #e2e8f0;
+                border-bottom: 1px solid #334155;
                 min-height: 400px;
+            }
+
+            .visual-builder-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .visual-builder-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .visual-builder-header {
+                padding: 16px;
+            }
+
+            .visual-builder-header h1 {
+                font-size: 22px;
+            }
+
+            .page-builder-container {
+                height: auto;
+            }
+
+            .builder-left-panel,
+            .builder-right-panel {
+                display: none;
+            }
+
+            .builder-center-panel {
+                padding: 20px;
             }
         }
     </style>

@@ -26,6 +26,11 @@ class MasterPageController extends Controller
 
     public function beforeAction($action)
     {
+        // Disable CSRF for specific actions
+        if (in_array($action->id, ['preview-layout', 'dynamic-create', 'dynamic-update'])) {
+            $this->enableCsrfValidation = false;
+        }
+        
         $dbContext = new ActiveDatabaseContext();
         $dbContext->resolveAndApply();
         return parent::beforeAction($action);
@@ -313,9 +318,15 @@ class MasterPageController extends Controller
 
         $layoutJson = Yii::$app->request->post('layout_json', '{}');
 
-        return ['success' => true, 'html' => $this->renderPartial('//page/_preview-layout', [
-            'layoutJson' => $layoutJson,
-        ])];
+        try {
+            $html = $this->renderPartial('//page/_preview-layout', [
+                'layoutJson' => $layoutJson,
+            ]);
+            return ['success' => true, 'html' => $html];
+        } catch (\Exception $e) {
+            Yii::error('Preview layout error: ' . $e->getMessage());
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
 
     /**
@@ -350,8 +361,10 @@ class MasterPageController extends Controller
         if (Yii::$app->request->isPost) {
             $postData = Yii::$app->request->post();
 
-            $model->title = $postData['MasterPage']['title'] ?? 'Untitled Page';
-            $model->slug = $this->generateSlug($model->title);
+            // Handle title -> name mapping
+            $title = $postData['MasterPage']['title'] ?? 'Untitled Page';
+            $model->name = $title;
+            $model->slug = $this->generateSlug($title);
             $model->layout_json = $postData['MasterPage']['layout_json'] ?? '[]';
             $model->layout = 'dynamic';
             $model->is_active = 1;
@@ -360,7 +373,7 @@ class MasterPageController extends Controller
                 Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                 return $this->redirect(['index']);
             } else {
-                Yii::$app->session->setFlash('error', 'Gagal membuat halaman.');
+                Yii::$app->session->setFlash('error', 'Gagal membuat halaman. Errors: ' . json_encode($model->getErrors()));
             }
         }
 
@@ -379,14 +392,21 @@ class MasterPageController extends Controller
         if (Yii::$app->request->isPost) {
             $postData = Yii::$app->request->post();
 
-            $model->title = $postData['MasterPage']['title'] ?? $model->title;
-            $model->layout_json = $postData['MasterPage']['layout_json'] ?? $model->layout_json;
+            // Handle title -> name mapping
+            if (isset($postData['MasterPage']['title'])) {
+                $model->name = $postData['MasterPage']['title'];
+            }
+            
+            // Handle layout_json
+            if (isset($postData['MasterPage']['layout_json'])) {
+                $model->layout_json = $postData['MasterPage']['layout_json'];
+            }
 
             if ($model->save(false)) {
                 Yii::$app->session->setFlash('success', 'Halaman berhasil disimpan!');
                 return $this->redirect(['index']);
             } else {
-                Yii::$app->session->setFlash('error', 'Gagal menyimpan halaman.');
+                Yii::$app->session->setFlash('error', 'Gagal menyimpan halaman. Errors: ' . json_encode($model->getErrors()));
             }
         }
 

@@ -45,6 +45,21 @@ class MasterPage extends ActiveRecord
         return Yii::$app->db;
     }
 
+    public function attributes()
+    {
+        return [
+            'id',
+            'name',
+            'slug',
+            'layout',
+            'layout_json',
+            'description',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ];
+    }
+
     public function fields()
     {
         return [
@@ -71,7 +86,12 @@ class MasterPage extends ActiveRecord
                 case 'layout_type':
                     return $this->layout;
                 case 'layout_json':
-                    return $this->layout_json;
+                    // Use parent __get directly via getAttribute to avoid recursion
+                    try {
+                        return parent::getAttribute('layout_json');
+                    } catch (\Exception $ex) {
+                        return null;
+                    }
                 default:
                     return null;
             }
@@ -91,7 +111,12 @@ class MasterPage extends ActiveRecord
                     $this->layout = $value;
                     break;
                 case 'layout_json':
-                    $this->layout_json = $value;
+                    // Use parent __set via setAttribute to avoid recursion
+                    try {
+                        parent::setAttribute('layout_json', $value);
+                    } catch (\Exception $ex) {
+                        // Silently fail
+                    }
                     break;
                 default:
                     throw $e;

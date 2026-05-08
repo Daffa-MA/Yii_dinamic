@@ -35,7 +35,7 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                     Dynamic Page
                 </div>
                 <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl"><?= Html::encode($page->title) ?></h1>
-                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600"><?= $page->description !== null && $page->description !== '' ? Html::encode($page->description) : 'Halaman ini menampilkan form dinamis yang sudah dipilih admin dari project aktif.' ?></p>
+                <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600"><?= $page->description !== null && $page->description !== '' ? Html::encode($page->description) : 'Halaman dinamis yang dibangun menggunakan page builder.' ?></p>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
@@ -97,52 +97,128 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                 $type = $item['type'] ?? '';
                 $props = $item['props'] ?? [];
                 
-                // Render based on type
+                // Render based on type - matching dynamic builder
                 switch ($type) {
                     case 'heading':
-                        $level = $props['level'] ?? 'h1';
+                        $level = $props['level'] ?? 'h2';
                         $text = $props['text'] ?? '';
-                        $align = $props['alignment'] ?? 'left';
-                        $fontSize = $props['fontSize'] ?? '32px';
+                        $align = $props['align'] ?? 'left';
+                        $fontSize = $props['fontSize'] ?? '24';
                         $color = $props['color'] ?? '#1e293b';
-                        echo "<{$level} style='text-align:{$align};font-size:{$fontSize};color:{$color};margin:1rem 0;'>{$text}</{$level}>";
+                        echo "<{$level} style='text-align:{$align};font-size:{$fontSize}px;font-weight:700;color:{$color};margin:1rem 0;'>{$text}</{$level}>";
                         break;
                         
-                    case 'paragraph':
-                        $text = $props['text'] ?? '';
-                        $align = $props['alignment'] ?? 'left';
-                        echo "<p style='text-align:{$align};margin:0.5rem 0;'>{$text}</p>";
+                    case 'text':
+                        $content = $props['content'] ?? '';
+                        $align = $props['align'] ?? 'left';
+                        $fontSize = $props['fontSize'] ?? '15';
+                        $lineHeight = $props['lineHeight'] ?? '1.6';
+                        $color = $props['color'] ?? '#475569';
+                        echo "<div style='font-size:{$fontSize}px;line-height:{$lineHeight};color:{$color};text-align:{$align};margin:0.5rem 0;'>{$content}</div>";
                         break;
                         
-                    case 'divider':
-                        echo '<hr style="border:none;border-top:1px solid #e2e8f0;margin:1rem 0;">';
-                        break;
-                        
-                    case 'spacer':
-                        $height = $props['height'] ?? '24px';
-                        echo "<div style='height:{$height};'></div>";
+                    case 'button':
+                        $text = $props['text'] ?? 'Button';
+                        $url = $props['url'] ?? '#';
+                        $style = $props['style'] ?? 'primary';
+                        $size = $props['size'] ?? 'md';
+                        $align = $props['align'] ?? 'center';
+                        $colors = ['primary' => '#4f46e5', 'secondary' => '#4b5563', 'outline' => '#4f46e5', 'ghost' => '#4f46e5'];
+                        $bgColor = isset($colors[$style]) ? $colors[$style] : '#4f46e5';
+                        $isOutline = ($style === 'outline');
+                        $padding = $size === 'lg' ? '12px 32px' : ($size === 'sm' ? '8px 16px' : '10px 24px');
+                        echo "<div style='text-align:{$align};margin:1rem 0;'>";
+                        echo "<a href='{$url}' style='display:inline-block;padding:{$padding};border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;";
+                        if ($isOutline) {
+                            echo "border:2px solid {$bgColor};color:{$bgColor};background:transparent;";
+                        } else {
+                            echo "background-color:{$bgColor};color:white;";
+                        }
+                        echo "'>{$text}</a>";
+                        echo "</div>";
                         break;
                         
                     case 'image':
                         $src = $props['src'] ?? '';
                         $alt = $props['alt'] ?? '';
-                        $width = $props['width'] ?? '100%';
+                        $width = $props['width'] ?? '100';
+                        $borderRadius = $props['borderRadius'] ?? '8';
+                        $align = $props['align'] ?? 'center';
                         if ($src) {
-                            echo "<img src='{$src}' alt='{$alt}' style='max-width:{$width};height:auto;margin:1rem 0;' />";
+                            echo "<div style='text-align:{$align};margin:1rem 0;'>";
+                            echo "<img src='{$src}' alt='{$alt}' style='width:{$width}%;border-radius:{$borderRadius}px;max-width:100%;height:auto;' />";
+                            echo "</div>";
                         }
+                        break;
+                        
+                    case 'spacer':
+                        $height = $props['height'] ?? '32';
+                        echo "<div style='height:{$height}px;'></div>";
+                        break;
+                        
+                    case 'divider':
+                        $color = $props['color'] ?? '#e2e8f0';
+                        $thickness = $props['thickness'] ?? '2';
+                        $margin = $props['margin'] ?? '16';
+                        echo "<hr style='border:none;border-top:{$thickness}px solid {$color};margin:{$margin}px 0;' />";
                         break;
                         
                     case 'card':
                         $title = $props['title'] ?? '';
                         $content = $props['content'] ?? '';
-                        echo '<div class="rounded-lg border border-slate-200 p-4 my-2">';
-                        if ($title) echo "<h3 class='font-bold text-slate-900'>{$title}</h3>";
-                        if ($content) echo "<p class='text-slate-600'>{$content}</p>";
-                        echo '</div>';
+                        $bgColor = $props['bgColor'] ?? '#ffffff';
+                        $padding = $props['padding'] ?? '20';
+                        $showShadow = $props['showShadow'] ?? true;
+                        $shadow = $showShadow ? 'box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);' : '';
+                        echo "<div style='border-radius:12px;padding:{$padding}px;background:{$bgColor};border:1px solid #e2e8f0;{$shadow}margin:0.5rem 0;'>";
+                        if ($title) echo "<h4 style='margin:0 0 8px;font-weight:700;font-size:16px;color:#1e293b;'>{$title}</h4>";
+                        if ($content) echo "<p style='margin:0;color:#64748b;font-size:14px;'>{$content}</p>";
+                        echo "</div>";
+                        break;
+                        
+                    case 'form':
+                        $formId = $props['formId'] ?? null;
+                        if ($formId) {
+                            echo "<div style='background:#eff6ff;border-radius:8px;padding:20px;margin:1rem 0;text-align:center;'>";
+                            echo "<span style='color:#1e40af;font-weight:600;'>Form ID: {$formId}</span>";
+                            echo "</div>";
+                        }
+                        break;
+                        
+                    case 'video':
+                        $url = $props['url'] ?? '';
+                        $width = $props['width'] ?? '100';
+                        $aspectRatio = $props['aspectRatio'] ?? '16/9';
+                        echo "<div style='width:{$width}%;aspect-ratio:{$aspectRatio};background:#000;border-radius:12px;margin:1rem 0;display:flex;align-items:center;justify-content:center;color:white;'>";
+                        if ($url) {
+                            echo "▶ Video: {$url}";
+                        } else {
+                            echo "Masukkan URL video";
+                        }
+                        echo "</div>";
+                        break;
+                        
+                    case 'grid':
+                        $columns = $props['columns'] ?? 3;
+                        $gap = $props['gap'] ?? '16';
+                        $padding = $props['padding'] ?? '20';
+                        echo "<div style='display:grid;grid-template-columns:repeat({$columns},1fr);gap:{$gap}px;padding:{$padding}px;background:#f8fafc;border-radius:8px;margin:1rem 0;'>";
+                        for ($i = 0; $i < $columns; $i++) {
+                            echo "<div style='padding:30px;background:white;border:2px dashed #e2e8f0;border-radius:8px;text-align:center;color:#94a3b8;'>Kolom " . ($i + 1) . "</div>";
+                        }
+                        echo "</div>";
+                        break;
+                        
+                    case 'section':
+                        $background = $props['background'] ?? '#ffffff';
+                        $padding = $props['padding'] ?? '40';
+                        $margin = $props['margin'] ?? '0';
+                        echo "<div style='padding:{$padding}px;margin:{$margin}px;background:{$background};border-radius:8px;border:1px dashed #cbd5e1;margin:1rem 0;'>";
+                        echo "<span style='color:#94a3b8;'>📦 Section</span>";
+                        echo "</div>";
                         break;
                         
                     default:
-                        // Debug: show unknown type
                         echo "<!-- Unknown type: {$type} -->";
                 }
                 ?>

@@ -13,7 +13,66 @@ $this->title = $model->isNewRecord ? 'Buat Halaman Baru' : 'Edit Halaman: ' . $m
 $this->params['breadcrumbs'][] = ['label' => 'Halaman', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
-$initialState = !empty($model->layout_json) ? json_decode($model->layout_json, true) : [];
+// Parse layout_json from model - handle both array and JSON string formats
+// CRITICAL: Use ONLY direct DB query to avoid MasterPage __get() infinite recursion bug
+$initialState = [];
+$rawJson = null;
+
+try {
+    // Direct DB query to get raw layout_json value (bypasses ActiveRecord __get/__set issues)
+    $db = \Yii::$app->db;
+    $tableName = $model::tableName();
+    $modelId = (int)$model->id;
+
+    $sql = "SELECT layout_json FROM {$tableName} WHERE id = :id";
+    $cmd = $db->createCommand($sql, [':id' => $modelId]);
+    $rawJson = $cmd->queryScalar();
+    $debugInfo['rawJsonFromDb'] = $rawJson;
+    $debugInfo['rawJsonLength'] = is_string($rawJson) ? strlen($rawJson) : (is_null($rawJson) ? -1 : 9999);
+} catch (\Exception $e) {
+    $rawJson = null;
+    $debugInfo['error'] = $e->getMessage();
+}
+
+if ($rawJson !== null && $rawJson !== '') {
+    if (is_array($rawJson)) {
+        $initialState = $rawJson;
+    } elseif (is_string($rawJson)) {
+        // html_entity_decode first because the value might have been HTML-encoded through json_encode
+        $decodedRaw = html_entity_decode($rawJson, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Try direct decode first
+        $decoded = json_decode($decodedRaw, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $initialState = $decoded;
+        } else {
+            // Try double-decode (JSON was double-encoded)
+            $doubleDecoded = json_decode($decodedRaw, true);
+            if (is_array($doubleDecoded)) {
+                $initialState = $doubleDecoded;
+            } else {
+                // Try stripping slashes then decode
+                $stripped = stripslashes($decodedRaw);
+                $third = @json_decode($stripped, true);
+                if (is_array($third)) {
+                    $initialState = $third;
+                } else {
+                    // Final fallback: try decoding the original raw value
+                    $fourth = @json_decode($rawJson, true);
+                    if (is_array($fourth)) {
+                        $initialState = $fourth;
+                    }
+                }
+            }
+        }
+    }
+}
+// Normalize: ensure state is always an array of blocks
+if (!is_array($initialState)) {
+    $initialState = [];
+}
+// Guarantee array of blocks (re-index)
+$initialState = array_values($initialState);
 $availableForms = Form::find()->where(['user_id' => Yii::$app->user->id])->all();
 $formsList = [];
 foreach ($availableForms as $form) {
@@ -1268,13 +1327,13 @@ $fieldTypes = [
         overflow-wrap: break-word;
     }
 
-    #properties-panel > * {
+    #properties-panel>* {
         flex-shrink: 0;
     }
 </style>
 
 <!-- BUILDER INTERFACE -->
-<div class="page-builder" id="builderInterface" style="<?= ($model->isNewRecord && empty($model->layout_json)) ? 'display:none;' : '' ?>">
+<div class="page-builder" id="builderInterface" style="<?= ($model->isNewRecord && empty($initialState)) ? 'display:none;' : '' ?>">
     <!-- LEFT PANEL: Component Library -->
     <div class="builder-sidebar-left">
         <div class="sidebar-header">
@@ -3873,14 +3932,29 @@ $fieldTypes = [
 
     // Initialize on load
     document.addEventListener('DOMContentLoaded', () => {
-        const hasExisting = <?= json_encode(!empty($model->layout_json)) ?>;
-        if (!hasExisting) {
+        const hasExisting = <?= json_encode(!empty($initialState)) ?>;
+        const isNewRecord = <?= json_encode($model->isNewRecord) ?>;
+
+        // For existing pages (update mode), always show builder with saved state
+        // For new pages, show template selector first
+        if (isNewRecord && !hasExisting) {
             renderTemplates();
-        } else {
+        } else if (!isNewRecord) {
+            // Update mode: remove template modal if present, show builder
             const modal = document.getElementById('templateModal');
             if (modal) modal.remove();
-            document.getElementById('builderInterface').style.display = 'flex';
+            const builder = document.getElementById('builderInterface');
+            if (builder) builder.style.display = 'flex';
+            // Render builder with saved state from PHP
+            console.log('UPDATE MODE - pageState blocks:', window.pageState ? window.pageState.length : 0);
             renderBuilder(window.pageState);
+            // Select first block if any exist
+            if (window.pageState && window.pageState.length > 0) {
+                selectBlock(window.pageState[0].id);
+            }
+        } else {
+            // New record with no existing data - show template selector
+            renderTemplates();
         }
 
         // Setup drag & drop
@@ -3927,7 +4001,7 @@ $fieldTypes = [
         // Send AJAX request to generate preview
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const previewUrl = '<?= Url::to(['preview-layout']) ?>';
-        
+
         fetch(previewUrl, {
                 method: 'POST',
                 headers: {

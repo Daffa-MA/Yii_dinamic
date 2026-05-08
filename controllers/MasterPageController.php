@@ -207,14 +207,38 @@ class MasterPageController extends Controller
     }
 
     /**
-     * View page with forms
+     * Duplicate page (AJAX)
+     */
+    public function actionDuplicate($id)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $sourcePage = $this->findModel($id);
+
+        $newPage = new MasterPage();
+        $newPage->name = $sourcePage->name . ' (Copy)';
+        $newPage->slug = $this->generateSlug($sourcePage->name) . '-copy-' . time();
+        $newPage->layout = $sourcePage->layout;
+        $newPage->layout_json = $sourcePage->layout_json;
+        $newPage->description = $sourcePage->description;
+        $newPage->is_active = 0;
+
+        if ($newPage->save(false)) {
+            return ['success' => true, 'message' => 'Page duplicated successfully', 'newId' => $newPage->id];
+        }
+
+        return ['success' => false, 'message' => 'Failed to duplicate page'];
+    }
+
+    /**
+     * View page - Page Inspector/Control Panel
      */
     public function actionView($id)
     {
         $page = $this->findModel($id);
+        
+        // Get attached forms
         $pageForms = $this->pageService->getPageForms($id);
-
-        // Get form models
         $forms = [];
         foreach ($pageForms as $pf) {
             $form = Form::findOne($pf->form_id);
@@ -223,9 +247,32 @@ class MasterPageController extends Controller
             }
         }
 
-        return $this->render('view', [
+        // Parse layout_json to get components
+        $components = [];
+        $layoutJson = $page->layout_json;
+        if (!empty($layoutJson)) {
+            $decoded = json_decode($layoutJson, true);
+            if (is_array($decoded)) {
+                $components = $decoded;
+            }
+        }
+
+        // Get related menus
+        $menus = MasterMenu::find()->where(['page_id' => $id])->all();
+
+        // Preview URL
+        $previewUrl = '/page/' . $page->slug;
+        $editUrl = ['dynamic-update', 'id' => $page->id];
+        $liveUrl = $previewUrl;
+
+        return $this->render('view-inspector', [
             'page' => $page,
             'forms' => $forms,
+            'components' => $components,
+            'menus' => $menus,
+            'previewUrl' => $previewUrl,
+            'editUrl' => $editUrl,
+            'liveUrl' => $liveUrl,
         ]);
     }
 
@@ -260,29 +307,11 @@ class MasterPageController extends Controller
     }
 
     /**
-     * Page Builder - Visual drag & drop layout builder
+     * Page Builder - Redirect to dynamic builder
      */
     public function actionBuilder($id)
     {
-        $page = $this->findModel($id);
-        $availableForms = $this->findAvailableForms();
-
-        if (Yii::$app->request->isPost) {
-            $layoutJson = Yii::$app->request->post('layout_json');
-            $page->layout_json = $layoutJson;
-
-            if ($page->save(false)) {
-                Yii::$app->session->setFlash('success', 'Layout halaman berhasil disimpan.');
-                return $this->redirect(['builder', 'id' => $id]);
-            } else {
-                Yii::$app->session->setFlash('error', 'Gagal menyimpan layout.');
-            }
-        }
-
-        return $this->render('builder', [
-            'page' => $page,
-            'availableForms' => $availableForms,
-        ]);
+        return $this->redirect(['dynamic-update', 'id' => $id]);
     }
 
     /**
@@ -361,19 +390,47 @@ class MasterPageController extends Controller
         if (Yii::$app->request->isPost) {
             $postData = Yii::$app->request->post();
 
-            // Handle title -> name mapping
-            $title = $postData['MasterPage']['title'] ?? 'Untitled Page';
-            $model->name = $title;
-            $model->slug = $this->generateSlug($title);
-            $model->layout_json = $postData['MasterPage']['layout_json'] ?? '[]';
-            $model->layout = 'dynamic';
-            $model->is_active = 1;
+            // Load data using Yii's model loading mechanism
+            if ($model->load($postData)) {
+                // title is mapped to name via __set in model
+                if (empty($model->name)) {
+                    $model->name = 'Untitled Page';
+                }
+                $model->slug = $this->generateSlug($model->name);
+                $model->layout = 'dynamic';
+                $model->is_active = 1;
 
-            if ($model->save(false)) {
-                Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
-                return $this->redirect(['index']);
+                // Ensure layout_json is saved properly
+                if (isset($postData['MasterPage']['layout_json'])) {
+                    $model->layout_json = $postData['MasterPage']['layout_json'];
+                }
+
+                if ($model->save(false)) {
+                    Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
+                    return $this->redirect(['index']);
+                } else {
+                    Yii::$app->session->setFlash('error', 'Gagal membuat halaman. Errors: ' . json_encode($model->getErrors()));
+                }
             } else {
-                Yii::$app->session->setFlash('error', 'Gagal membuat halaman. Errors: ' . json_encode($model->getErrors()));
+                // Fallback: manual assignment if load fails
+                $title = $postData['MasterPage']['title'] ?? 'Untitled Page';
+                $model->name = $title;
+                $model->slug = $this->generateSlug($title);
+                $model->layout = 'dynamic';
+                $model->is_active = 1;
+
+                if (isset($postData['MasterPage']['layout_json'])) {
+                    $model->layout_json = $postData['MasterPage']['layout_json'];
+                } else {
+                    $model->layout_json = '[]';
+                }
+
+                if ($model->save(false)) {
+                    Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
+                    return $this->redirect(['index']);
+                } else {
+                    Yii::$app->session->setFlash('error', 'Gagal membuat halaman. Errors: ' . json_encode($model->getErrors()));
+                }
             }
         }
 
@@ -396,7 +453,7 @@ class MasterPageController extends Controller
             if (isset($postData['MasterPage']['title'])) {
                 $model->name = $postData['MasterPage']['title'];
             }
-            
+
             // Handle layout_json
             if (isset($postData['MasterPage']['layout_json'])) {
                 $model->layout_json = $postData['MasterPage']['layout_json'];
@@ -428,131 +485,10 @@ class MasterPageController extends Controller
 
         $layoutJson = !empty($page->layout_json) ? $page->layout_json : '[]';
 
-        return $this->renderDynamicPage($layoutJson);
-    }
-
-    /**
-     * Render JSON content as HTML (for preview/render)
-     */
-    private function renderDynamicPage($layoutJson)
-    {
         $this->layout = 'main';
-
-        // Decode & validate to avoid breaking JS when $layoutJson is not valid JSON
-        $state = json_decode($layoutJson, true);
-        if (!is_array($state)) {
-            $state = [];
-        }
-
-        $this->registerJs("
-            // dynamicPageState is injected as JSON (safe for JS parsing)
-            window.dynamicPageState = " . \yii\helpers\Json::htmlEncode($state) . ";
-
-            function renderBlockSafe(block) {
-                const props = (block && block.props) ? block.props : {};
-                const type = block ? block.type : null;
-
-                // Build DOM nodes instead of huge template strings to prevent JS parse issues
-                switch (type) {
-                    case \"heading\": {
-                        const el = document.createElement(props.level || \"h2\");
-                        el.className = \"mb-4\";
-                        el.textContent = props.text || \"\";
-                        return el;
-                    }
-                    case \"text\": {
-                        const el = document.createElement(\"div\");
-                        el.className = \"mb-4 text-gray-700\";
-                        el.textContent = props.content || \"\";
-                        return el;
-                    }
-                    case \"image\": {
-                        if (!props.src) return document.createTextNode(\"\");
-                        const el = document.createElement(\"img\");
-                        el.src = props.src;
-                        el.alt = props.alt || \"\";
-                        el.className = \"mb-4 mx-auto\";
-                        return el;
-                    }
-                    case \"button\": {
-                        const wrap = document.createElement(\"div\");
-                        wrap.className = \"mb-4 text-center\";
-
-                        const a = document.createElement(\"a\");
-                        a.href = props.url || \"#\";
-                        const colors = {
-                            primary: \"bg-indigo-600 text-white\",
-                            secondary: \"bg-gray-600 text-white\",
-                            outline: \"border border-indigo-600 text-indigo-600\"
-                        };
-                        a.className = \"inline-block px-6 py-2 rounded \" + (colors[props.style] || colors.primary);
-                        a.textContent = props.text || \"\";
-                        wrap.appendChild(a);
-                        return wrap;
-                    }
-                    case \"form\": {
-                        const el = document.createElement(\"div\");
-                        el.className = \"mb-4 p-4 bg-blue-50 rounded\";
-                        el.textContent = \"Form: #\" + (props.formId || \"Belum pilih\");
-                        return el;
-                    }
-                    case \"card\": {
-                        const el = document.createElement(\"div\");
-                        el.className = \"mb-4 p-4 border rounded shadow-sm\";
-
-                        const h4 = document.createElement(\"h4\");
-                        h4.className = \"font-bold\";
-                        h4.textContent = props.title || \"\";
-
-                        const p = document.createElement(\"p\");
-                        p.textContent = props.content || \"\";
-
-                        el.appendChild(h4);
-                        el.appendChild(p);
-                        return el;
-                    }
-                    case \"spacer\": {
-                        const el = document.createElement(\"div\");
-                        el.style.height = \"32px\";
-                        return el;
-                    }
-                    case \"divider\": {
-                        const el = document.createElement(\"hr\");
-                        el.className = \"my-4\";
-                        return el;
-                    }
-                    case \"grid\": {
-                        const wrap = document.createElement(\"div\");
-                        wrap.className = \"grid grid-cols-2 gap-4 mb-4\";
-
-                        const c1 = document.createElement(\"div\");
-                        c1.className = \"bg-gray-50 p-4 rounded\";
-                        c1.textContent = \"Kolom 1\";
-
-                        const c2 = document.createElement(\"div\");
-                        c2.className = \"bg-gray-50 p-4 rounded\";
-                        c2.textContent = \"Kolom 2\";
-
-                        wrap.appendChild(c1);
-                        wrap.appendChild(c2);
-                        return wrap;
-                    }
-                    default:
-                        return document.createTextNode(\"\");
-                }
-            }
-
-            document.addEventListener(\"DOMContentLoaded\", function() {
-                const container = document.getElementById(\"dynamic-content\");
-                if (!container || !window.dynamicPageState || !Array.isArray(window.dynamicPageState)) return;
-
-                container.innerHTML = \"\";
-                for (const block of window.dynamicPageState) {
-                    container.appendChild(renderBlockSafe(block));
-                }
-            });
-        ", \yii\web\View::POS_END);
-
-        return $this->render('@app/views/master-page/_dynamic_render');
+        
+        return $this->render('@app/views/master-page/_dynamic_render', [
+            'layoutJson' => $layoutJson,
+        ]);
     }
 }

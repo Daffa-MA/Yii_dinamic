@@ -125,8 +125,9 @@ $config = [
                 'master-menu/delete/<id:\d+>' => 'master-menu/delete',
                 'master-menu/toggle/<id:\d+>' => 'master-menu/toggle',
 
-                // Dynamic Page route
+                // Dynamic Page routes
                 'page/view/<id:\d+>' => 'page/view',
+                'page/<slug:[a-zA-Z0-9-_]+>' => 'master-page/view-dynamic',
             ],
         ],
     ],

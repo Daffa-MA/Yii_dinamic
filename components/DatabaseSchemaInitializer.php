@@ -74,6 +74,7 @@ class DatabaseSchemaInitializer
         $this->createMasterMenuTable();
         $this->createPageFormsTable();
         $this->ensureColumnsExist();
+        $this->ensureMasterPageColumnsExist();
     }
 
     /**
@@ -90,6 +91,7 @@ class DatabaseSchemaInitializer
             'name' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull(),
             'slug' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
             'layout' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('default'),
+            'layout_json' => $this->connection->schema->createColumnSchemaBuilder('longtext'),
             'description' => $this->connection->schema->createColumnSchemaBuilder('text'),
             'is_active' => $this->connection->schema->createColumnSchemaBuilder('integer', 1)->defaultValue(1),
             'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
@@ -294,6 +296,24 @@ class DatabaseSchemaInitializer
                 
                 $this->connection->createCommand()->addColumn('master_menu', $column, $columnSchema)->execute();
             }
+        }
+    }
+
+    /**
+     * Pastikan kolom layout_json ada di master_page
+     * Ditambahkan untuk Dynamic Page Builder support
+     */
+    private function ensureMasterPageColumnsExist(): void
+    {
+        $schema = $this->connection->getTableSchema('master_page', true);
+        if ($schema === null) {
+            return;
+        }
+
+        // Add layout_json column if missing (for Dynamic Page Builder)
+        if (!isset($schema->columns['layout_json'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('longtext');
+            $this->connection->createCommand()->addColumn('master_page', 'layout_json', $columnSchema)->execute();
         }
     }
 

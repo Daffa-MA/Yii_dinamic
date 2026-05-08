@@ -15,6 +15,8 @@ use app\components\ProjectSchema;
 
 class TableBuilderController extends Controller
 {
+    public $layout = 'dashboard';
+    
     private const IDENTIFIER_PATTERN = '/^[a-z][a-z0-9_]*$/';
     private const DB_TABLE_COLUMNS_TABLE = 'db_table_columns';
 

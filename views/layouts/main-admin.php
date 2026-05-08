@@ -89,6 +89,24 @@ function isActive($route) {
             <span class="material-symbols-outlined" style="font-size: 20px;">dynamic_form</span>
             <span>Master Form</span>
         </a>
+
+        <!-- MASTER TABLE -->
+        <a href="<?= Url::to(['table-builder/index']) ?>" 
+           style="
+               display: flex;
+               align-items: center;
+               gap: 12px;
+               padding: 12px 16px;
+               color: <?= isActive('table-builder') ? 'white' : '#cbd5e1' ?>;
+               text-decoration: none;
+               border-radius: 8px;
+               margin-bottom: 4px;
+               background: <?= isActive('table-builder') ? '#4f46e5' : 'transparent' ?>;
+               transition: all 0.2s;
+           ">
+            <span class="material-symbols-outlined" style="font-size: 20px;">table_chart</span>
+            <span>Master Table</span>
+        </a>
     </nav>
 
     <!-- Logout -->

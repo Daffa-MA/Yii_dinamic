@@ -74,6 +74,12 @@ class MasterFormController extends Controller
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
             }
+            
+            // Auto-generate slug from form_name if not provided
+            if (empty($model->slug) && !empty($model->form_name)) {
+                $model->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $model->form_name)));
+            }
+            
             if ($model->save()) {
                 return $this->redirect(['view', 'id' => $model->id]);
             }
@@ -99,6 +105,9 @@ class MasterFormController extends Controller
         if ($model->load(Yii::$app->request->post())) {
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
+            }
+            if (empty($model->slug) && !empty($model->form_name)) {
+                $model->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $model->form_name)));
             }
             if ($model->save()) {
                 return $this->redirect(['view', 'id' => $model->id]);

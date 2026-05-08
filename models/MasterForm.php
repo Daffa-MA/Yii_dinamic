@@ -32,16 +32,14 @@ class MasterForm extends ActiveRecord
         return Yii::$app->get('metadataDb', false) ?: parent::getDb();
     }
 
-    public function rules()
+public function rules()
     {
         return [
-            [['form_name', 'form_data', 'slug'], 'required'],
-            [['page_id'], 'integer'],
+            [['form_name', 'form_data'], 'required'],
             [['form_data'], 'safe'],
             [['form_name'], 'string', 'max' => 255],
             [['slug'], 'string', 'max' => 100],
-            [['slug'], 'unique'],
-            [['page_id'], 'exist', 'skipOnError' => true, 'targetClass' => MasterPage::class, 'targetAttribute' => ['page_id' => 'id']],
+            [['page_id'], 'integer', 'skipOnEmpty' => true],
         ];
     }
 
@@ -66,6 +64,12 @@ class MasterForm extends ActiveRecord
             $this->is_active = $this->is_active ?? 1;
         }
         $this->updated_at = date('Y-m-d H:i:s');
+        
+        // Auto-generate slug if not provided
+        if (empty($this->slug) && !empty($this->form_name)) {
+            $this->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $this->form_name)));
+        }
+        
         return parent::beforeSave($insert);
     }
 

@@ -7,11 +7,27 @@ use app\models\MasterPage;
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $activeMenu = $activeMenu ?? '';
+$currentRoute = Yii::$app->controller->route;
+
+// Auto-detect active menu untuk System Builder routes
+$systemBuilderRoutes = [
+    'master-menu' => 'master-menu',
+    'master-page' => 'master-page', 
+    'master-form' => 'master-form',
+    'table-builder' => 'table-builder'
+];
+
+foreach ($systemBuilderRoutes as $prefix => $menuKey) {
+    if (strpos($currentRoute, $prefix) === 0) {
+        $activeMenu = $menuKey;
+        break;
+    }
+}
+
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
 
 // Detect if we're on project-list page (minimal sidebar)
-$currentRoute = Yii::$app->controller->route;
 $isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
 $sidebarVariant = $isProjectListPage ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
@@ -762,13 +778,13 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                 }
             }
             
-            function renderMenuItem($item, &$menuMap) {
+            // Use closure instead of nested function to avoid PHP issues
+            $renderMenuItem = function($item, &$menuMap) use (&$renderMenuItem, &$html) {
                 $icon = $item['icon'] ?: 'folder';
                 $type = $item['type'] ?? 'page';
                 $route = $item['route'] ?? '';
                 $pageId = $item['page_id'] ?? null;
                 
-                // Determine URL based on type
                 $url = '#';
                 if ($type === 'route' && !empty($route)) {
                     $url = $route[0] === '/' ? $route : '/' . ltrim($route, '/');
@@ -787,7 +803,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     echo '<div class="sub-menu">';
                     if (!empty($item['children'])) {
                         foreach ($item['children'] as $child) {
-                            renderMenuItem($child, $menuMap);
+                            $renderMenuItem($child, $menuMap);
                         }
                     }
                     echo '</div>';
@@ -798,11 +814,11 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
                     echo '</a>';
                 }
-            }
+            };
             
             if (!empty($menuTree)) {
                 foreach ($menuTree as $topMenu) {
-                    renderMenuItem($topMenu, $menuMap);
+                    $renderMenuItem($topMenu, $menuMap);
                 }
             } else {
                 echo '<div style="color: #94a3b8; padding: 10px; text-align: center; font-size: 12px;">No active menus</div>';
@@ -826,6 +842,10 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                 <a href="<?= \yii\helpers\Url::to(['master-form/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-form' ? 'active' : '' ?>">
                     <span class="material-symbols-outlined">dynamic_form</span>
                     <span class="app-sidebar-link-text">Master Form</span>
+                </a>
+                <a href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'table-builder' ? 'active' : '' ?>">
+                    <span class="material-symbols-outlined">table_chart</span>
+                    <span class="app-sidebar-link-text">Master Table</span>
                 </a>
             <?php endif; ?>
     </nav>

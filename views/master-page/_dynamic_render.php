@@ -1,8 +1,36 @@
 <?php
 /**
  * @var string $layoutJson
+ * @var string|null $customHtml
+ * @var string|null $customCss
+ * @var string|null $customJs
+ * @var string $pageType
  */
 
+$isCustomCode = ($pageType ?? 'builder') === 'custom_code';
+
+// Prioritize persisted full-page custom source when available.
+if (!empty(trim((string) $customHtml))) {
+    // Check if it looks like a complete HTML document
+    $isCompleteDoc = strpos(trim($customHtml), '<!DOCTYPE') === 0 || 
+                     strpos(trim($customHtml), '<html') === 0;
+
+    if ($isCompleteDoc) {
+        echo $customHtml;
+    } else {
+        ?>
+        <style><?= $customCss ?? '' ?></style>
+        <div id="modern-page-content">
+            <?= $customHtml ?>
+        </div>
+        <?php if (!empty($customJs)): ?>
+        <script><?= $customJs ?></script>
+        <?php endif;
+    }
+    return;
+}
+
+// Fallback to legacy JSON-based renderer
 $state = json_decode($layoutJson, true);
 if (!is_array($state)) {
     $state = [];
@@ -15,25 +43,30 @@ if (!is_array($state)) {
         padding: 40px 20px;
     }
     .dynamic-page-container .mb-4 { margin-bottom: 1rem; }
+    .dynamic-page-container .mb-8 { margin-bottom: 2rem; }
     .dynamic-page-container .text-center { text-align: center; }
     .dynamic-page-container .text-gray-700 { color: #374151; }
     .dynamic-page-container .mx-auto { margin-left: auto; margin-right: auto; }
     .dynamic-page-container .rounded { border-radius: 0.5rem; }
+    .dynamic-page-container .rounded-xl { border-radius: 0.75rem; }
+    .dynamic-page-container .rounded-2xl { border-radius: 1rem; }
     .dynamic-page-container .px-6 { padding-left: 1.5rem; padding-right: 1.5rem; }
     .dynamic-page-container .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-    .dynamic-page-container .inline-block { display: inline-block; }
     .dynamic-page-container .p-4 { padding: 1rem; }
+    .dynamic-page-container .p-6 { padding: 1.5rem; }
+    .dynamic-page-container .inline-block { display: inline-block; }
+    .dynamic-page-container .block { display: block; }
     .dynamic-page-container .bg-blue-50 { background-color: #eff6ff; }
     .dynamic-page-container .bg-indigo-600 { background-color: #4f46e5; }
+    .dynamic-page-container .bg-white { background-color: white; }
     .dynamic-page-container .text-white { color: white; }
     .dynamic-page-container .border { border-width: 1px; }
+    .dynamic-page-container .border-gray-200 { border-color: #e5e7eb; }
     .dynamic-page-container .border-indigo-600 { border-color: #4f46e5; }
     .dynamic-page-container .text-indigo-600 { color: #4f46e5; }
     .dynamic-page-container .bg-gray-600 { background-color: #4b5563; }
     .dynamic-page-container .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
-    .dynamic-page-container .border-rounded { border-radius: 0.5rem; }
     .dynamic-page-container .font-bold { font-weight: 700; }
-    .dynamic-page-container .bg-white { background-color: white; }
 </style>
 
 <div class="dynamic-page-container" id="dynamic-content"></div>
@@ -45,6 +78,55 @@ window.dynamicPageState = " . \yii\helpers\Json::htmlEncode($state) . ";
 function renderBlockSafe(block) {
     const props = (block && block.props) ? block.props : {};
     const type = block ? block.type : null;
+
+    // Handle Block-level Custom Code
+    if (props.customHtml || props.customCss || props.customJs) {
+        const wrap = document.createElement('div');
+        wrap.className = 'mb-8 custom-block-wrap';
+        
+        const srcDoc = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; }
+                    \${props.customCss || ''}
+                </style>
+            </head>
+            <body>
+                <div id=\"root\">\${props.customHtml || ''}</div>
+                <script>
+                    (function() {
+                        try {
+                            \${props.customJs || ''}
+                        } catch (e) { console.error(e); }
+                    })();
+                    function updateHeight() {
+                        window.parent.postMessage({
+                            type: 'resize',
+                            blockId: '\${block.id}',
+                            height: document.documentElement.scrollHeight
+                        }, '*');
+                    }
+                    window.onload = updateHeight;
+                    new ResizeObserver(updateHeight).observe(document.body);
+                </` + `script>
+            </body>
+            </html>
+        `;
+        
+        const iframe = document.createElement('iframe');
+        iframe.id = `iframe-\${block.id}`;
+        iframe.srcdoc = srcDoc;
+        iframe.style.width = '100%';
+        iframe.style.border = 'none';
+        iframe.style.overflow = 'hidden';
+        iframe.style.display = 'block';
+        iframe.setAttribute('sandbox', 'allow-scripts');
+        
+        wrap.appendChild(iframe);
+        return wrap;
+    }
 
     switch (type) {
         case 'heading': {
@@ -63,6 +145,8 @@ function renderBlockSafe(block) {
             el.style.fontSize = (props.fontSize || '15') + 'px';
             el.style.lineHeight = props.lineHeight || '1.6';
             el.style.color = props.color || '#475569';
+            el.style.textAlign = props.align || 'left';
+            el.style.whiteSpace = 'pre-wrap';
             el.textContent = props.content || '';
             return el;
         }
@@ -74,35 +158,34 @@ function renderBlockSafe(block) {
             el.className = 'mb-4 mx-auto';
             el.style.width = (props.width || '100') + '%';
             el.style.borderRadius = (props.borderRadius || '8') + 'px';
+            el.style.display = 'block';
+            if (props.align === 'center') el.style.margin = '0 auto 1rem';
+            else if (props.align === 'right') el.style.margin = '0 0 1rem auto';
             return el;
         }
         case 'button': {
             const wrap = document.createElement('div');
-            wrap.className = 'mb-4 text-center';
+            wrap.className = 'mb-4';
+            wrap.style.textAlign = props.align || 'center';
             
             const a = document.createElement('a');
             a.href = props.url || '#';
-            const colors = {
-                primary: 'bg-indigo-600 text-white',
-                secondary: 'bg-gray-600 text-white',
-                outline: 'border border-indigo-600 text-indigo-600',
-                ghost: 'text-indigo-600'
-            };
-            const colorClass = colors[props.style] || colors.primary;
-            a.style.display = 'inline-block';
+            const style = props.style || 'primary';
+            
+            a.style.display = props.fullWidth ? 'block' : 'inline-block';
             a.style.padding = props.size === 'lg' ? '12px 32px' : (props.size === 'sm' ? '8px 16px' : '10px 24px');
             a.style.borderRadius = '8px';
             a.style.textDecoration = 'none';
             a.style.fontWeight = '600';
             a.style.fontSize = '14px';
             
-            if (colorClass === 'bg-indigo-600 text-white') {
+            if (style === 'primary') {
                 a.style.backgroundColor = '#4f46e5';
                 a.style.color = 'white';
-            } else if (colorClass === 'bg-gray-600 text-white') {
+            } else if (style === 'secondary') {
                 a.style.backgroundColor = '#4b5563';
                 a.style.color = 'white';
-            } else if (colorClass === 'border border-indigo-600 text-indigo-600') {
+            } else if (style === 'outline') {
                 a.style.border = '2px solid #4f46e5';
                 a.style.color = '#4f46e5';
             } else {
@@ -115,26 +198,33 @@ function renderBlockSafe(block) {
         }
         case 'form': {
             const el = document.createElement('div');
-            el.className = 'mb-4 p-4 bg-blue-50 rounded';
-            el.innerHTML = '<div style=\"color:#1e40af;font-weight:600;\">Form: #' + (props.formId || 'Belum pilih') + '</div>';
+            el.className = 'mb-4 p-6 bg-white border border-gray-200 rounded-xl shadow-sm';
+            el.style.maxWidth = '600px';
+            el.style.margin = '0 auto 1.5rem';
+            el.innerHTML = `
+                <div style=\"text-align:center;\">
+                    <div style=\"font-size:24px;margin-bottom:8px\">📝</div>
+                    <div style=\"font-weight:600;color:#1e40af;\">Formulir #\${props.formId || 'Belum dipilih'}</div>
+                    <div style=\"font-size:12px;color:#6b7280;margin-top:4px\">[Renderer akan memuat form dinamis di sini]</div>
+                </div>
+            `;
             return el;
         }
         case 'card': {
             const el = document.createElement('div');
-            el.className = 'mb-4 p-4 bg-white border rounded shadow-sm';
-            el.style.borderRadius = '12px';
+            el.className = 'mb-4 p-6 bg-white border rounded-xl shadow-sm';
             el.style.backgroundColor = props.bgColor || '#ffffff';
             el.style.padding = (props.padding || '20') + 'px';
             
             const h4 = document.createElement('h4');
             h4.className = 'font-bold mb-2';
             h4.style.color = '#1e293b';
-            h4.style.fontSize = '16px';
+            h4.style.fontSize = '18px';
             h4.textContent = props.title || '';
             
             const p = document.createElement('p');
             p.style.color = '#64748b';
-            p.style.fontSize = '14px';
+            p.style.fontSize = '15px';
             p.style.margin = '0';
             p.textContent = props.content || '';
             
@@ -149,7 +239,6 @@ function renderBlockSafe(block) {
         }
         case 'divider': {
             const el = document.createElement('hr');
-            el.className = 'my-4';
             el.style.border = 'none';
             el.style.borderTop = (props.thickness || '2') + 'px solid ' + (props.color || '#e2e8f0');
             el.style.margin = (props.margin || '16') + 'px 0';
@@ -161,17 +250,14 @@ function renderBlockSafe(block) {
             wrap.style.display = 'grid';
             wrap.style.gridTemplateColumns = 'repeat(' + (props.columns || 3) + ', 1fr)';
             wrap.style.gap = (props.gap || '16') + 'px';
-            wrap.style.padding = (props.padding || '20') + 'px';
             
             for (let i = 0; i < (props.columns || 3); i++) {
                 const col = document.createElement('div');
-                col.style.padding = '30px';
+                col.style.padding = '20px';
                 col.style.backgroundColor = '#f8fafc';
-                col.style.border = '2px dashed #e2e8f0';
+                col.style.border = '1px solid #e2e8f0';
                 col.style.borderRadius = '8px';
-                col.style.textAlign = 'center';
-                col.style.color = '#94a3b8';
-                col.textContent = 'Kolom ' + (i + 1);
+                col.style.minHeight = '60px';
                 wrap.appendChild(col);
             }
             return wrap;
@@ -182,28 +268,40 @@ function renderBlockSafe(block) {
             el.style.padding = (props.padding || '40') + 'px';
             el.style.margin = (props.margin || '0') + 'px';
             el.style.backgroundColor = props.background || '#ffffff';
-            el.style.borderRadius = '8px';
-            el.innerHTML = '<div style=\"color:#94a3b8;text-align:center;\">📦 Section</div>';
+            el.style.borderRadius = '12px';
             return el;
         }
         case 'video': {
-            const el = document.createElement('div');
-            el.className = 'mb-4';
-            el.style.width = (props.width || '100') + '%';
-            el.style.aspectRatio = props.aspectRatio || '16/9';
-            el.style.backgroundColor = '#000';
-            el.style.borderRadius = '12px';
-            el.style.display = 'flex';
-            el.style.alignItems = 'center';
-            el.style.justifyContent = 'center';
-            el.style.color = 'white';
+            const wrap = document.createElement('div');
+            wrap.className = 'mb-4';
+            wrap.style.width = (props.width || '100') + '%';
             
-            if (!props.url) {
-                el.innerHTML = '<div style=\"text-align:center;\">🎬 Masukkan URL video</div>';
-            } else {
-                el.innerHTML = '<div style=\"text-align:center;\">▶️ Video</div>';
+            const container = document.createElement('div');
+            container.style.position = 'relative';
+            container.style.paddingTop = (props.aspectRatio === '4/3' ? '75%' : '56.25%') + '%';
+            container.style.backgroundColor = '#000';
+            container.style.borderRadius = '12px';
+            container.style.overflow = 'hidden';
+            
+            if (props.url) {
+                const iframe = document.createElement('iframe');
+                iframe.style.position = 'absolute';
+                iframe.style.top = '0';
+                iframe.style.left = '0';
+                iframe.style.width = '100%';
+                iframe.style.height = '100%';
+                iframe.style.border = '0';
+                
+                let videoUrl = props.url;
+                if (videoUrl.includes('youtube.com/watch?v=')) videoUrl = videoUrl.replace('watch?v=', 'embed/');
+                else if (videoUrl.includes('youtu.be/')) videoUrl = videoUrl.replace('youtu.be/', 'youtube.com/embed/');
+                
+                iframe.src = videoUrl;
+                container.appendChild(iframe);
             }
-            return el;
+            
+            wrap.appendChild(container);
+            return wrap;
         }
         default:
             return document.createTextNode('');
@@ -213,13 +311,22 @@ function renderBlockSafe(block) {
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('dynamic-content');
     if (!container || !window.dynamicPageState || !Array.isArray(window.dynamicPageState)) {
-        container.innerHTML = '<p style=\"text-align:center;color:#94a3b8;\">Belum ada konten</p>';
         return;
     }
 
     container.innerHTML = '';
     for (const block of window.dynamicPageState) {
         container.appendChild(renderBlockSafe(block));
+    }
+});
+
+// Global Message Handler for Iframe Resizing
+window.addEventListener('message', (e) => {
+    if (e.data && e.type === 'resize' && e.data.blockId) {
+        const iframe = document.getElementById(`iframe-\${e.data.blockId}`);
+        if (iframe) {
+            iframe.style.height = e.data.height + 'px';
+        }
     }
 });
 ";

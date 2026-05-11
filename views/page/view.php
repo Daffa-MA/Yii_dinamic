@@ -82,14 +82,44 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
         <?php endif; ?>
     </div>
 
-    <?php 
-    // Render layout_json from dynamic builder
+    <?php
+    // Render priority:
+    // 1) Full custom page source (custom_html/custom_css/custom_js)
+    // 2) Builder layout_json
+    // 3) Forms / empty-state
+    $customHtml = trim((string) ($page->custom_html ?? ''));
+    $customCss = (string) ($page->custom_css ?? '');
+    $customJs = (string) ($page->custom_js ?? '');
+    $hasCustomPageSource = $customHtml !== '';
+    $customSourceDoc = '';
+
+    if ($hasCustomPageSource) {
+        $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
+        if ($startsWithHtmlDoc) {
+            $customSourceDoc = $customHtml;
+        } else {
+            $customSourceDoc = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<style>{$customCss}</style>\n</head>\n<body>\n{$customHtml}\n<script>{$customJs}</script>\n</body>\n</html>";
+        }
+    }
+
     $layoutJson = $page->layout_json ?? '[]';
     $layoutData = json_decode($layoutJson, true);
     $hasBuilderContent = !empty($layoutData) && is_array($layoutData);
     ?>
+
+    <?php if ($hasCustomPageSource): ?>
+        <div class="rounded-[28px] border border-slate-200 bg-white p-2 shadow-sm overflow-hidden">
+            <iframe
+                srcdoc="<?= Html::encode($customSourceDoc) ?>"
+                class="block w-full border-0 bg-white"
+                title="Custom Page Source"
+                style="min-height: 780px;"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            ></iframe>
+        </div>
+    <?php endif; ?>
     
-    <?php if ($hasBuilderContent): ?>
+    <?php if (!$hasCustomPageSource && $hasBuilderContent): ?>
         <div class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="mb-4 text-lg font-bold text-slate-900">Konten Halaman</h2>
             <?php foreach ($layoutData as $item): ?>
@@ -226,13 +256,13 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
         </div>
     <?php endif; ?>
     
-    <?php if (empty($forms) && !$hasBuilderContent): ?>
+    <?php if (empty($forms) && !$hasCustomPageSource && !$hasBuilderContent): ?>
         <div class="rounded-[28px] border border-amber-200 bg-amber-50 px-6 py-10 text-center shadow-sm">
             <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-amber-600 shadow-sm">
                 <span class="material-symbols-outlined text-[30px]">inventory_2</span>
             </div>
-            <h2 class="mt-5 text-xl font-bold text-slate-900">Belum ada form yang dipasang</h2>
-            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Halaman ini sudah siap dipakai, tetapi admin belum memilih form yang ingin ditampilkan. Buka Master Halaman untuk menambahkan form asli ke halaman ini.</p>
+            <h2 class="mt-5 text-xl font-bold text-slate-900">Belum ada konten</h2>
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Halaman ini sudah siap dipakai, tetapi belum ada konten yang ditambahkan. Buka Master Halaman untuk menambahkan konten ke halaman ini.</p>
             <div class="mt-5">
                 <?= Html::a('Buka Master Halaman', ['/master-page/update', 'id' => $page->id], [
                     'class' => 'inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white no-underline transition hover:bg-slate-800',

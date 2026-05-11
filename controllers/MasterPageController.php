@@ -18,7 +18,7 @@ class MasterPageController extends Controller
     public $layout = 'dashboard';
     private $pageService;
 
-    public function __construct($id, $module, $config = [])
+    public function __construct(string $id, \yii\base\Module $module, array $config = [])
     {
         parent::__construct($id, $module, $config);
         $this->pageService = new PageService();
@@ -30,10 +30,40 @@ class MasterPageController extends Controller
         if (in_array($action->id, ['preview-layout', 'dynamic-create', 'dynamic-update'])) {
             $this->enableCsrfValidation = false;
         }
-        
+
         $dbContext = new ActiveDatabaseContext();
         $dbContext->resolveAndApply();
+
+        if (in_array($action->id, ['dynamic-create', 'dynamic-update', 'view-dynamic', 'ajax-save'], true)) {
+            $this->ensureMasterPageAdvancedColumnsExist();
+        }
+
         return parent::beforeAction($action);
+    }
+
+    private function ensureMasterPageAdvancedColumnsExist(): void
+    {
+        $db = Yii::$app->db;
+        $table = '{{%master_page}}';
+        $schema = $db->schema->getTableSchema($table, true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columns = [
+            'page_type' => $db->schema->createColumnSchemaBuilder('string', 50)->defaultValue(MasterPage::PAGE_TYPE_BUILDER),
+            'custom_html' => $db->schema->createColumnSchemaBuilder('text'),
+            'custom_css' => $db->schema->createColumnSchemaBuilder('text'),
+            'custom_js' => $db->schema->createColumnSchemaBuilder('text'),
+        ];
+
+        foreach ($columns as $name => $definition) {
+            if (!isset($schema->columns[$name])) {
+                $db->createCommand()->addColumn($table, $name, $definition)->execute();
+                $db->schema->refreshTableSchema($table);
+                $schema = $db->schema->getTableSchema($table, true);
+            }
+        }
     }
 
     public function behaviors()
@@ -339,6 +369,33 @@ class MasterPageController extends Controller
     }
 
     /**
+     * AJAX Save for Modern Builder
+     */
+    public function actionAjaxSave()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $pageId = Yii::$app->request->post('page_id');
+        $page = MasterPage::findOne($pageId);
+        
+        if (!$page) {
+            return ['success' => false, 'message' => 'Page not found'];
+        }
+
+        $page->layout_json = Yii::$app->request->post('layout_json');
+        $page->custom_html = Yii::$app->request->post('custom_html');
+        $page->custom_css = Yii::$app->request->post('custom_css');
+        $page->custom_js = Yii::$app->request->post('custom_js');
+        $page->page_type = Yii::$app->request->post('page_type', 'builder');
+
+        if ($page->save(false)) {
+            return ['success' => true, 'message' => 'Page published successfully'];
+        }
+
+        return ['success' => false, 'message' => 'Failed to save page'];
+    }
+
+    /**
      * Preview page layout (AJAX)
      */
     public function actionPreviewLayout()
@@ -363,9 +420,32 @@ class MasterPageController extends Controller
      */
     private function findAvailableForms()
     {
-        return Form::find()
+        $rows = Form::find()
             ->orderBy(['id' => SORT_ASC])
             ->all();
+
+        $forms = [];
+        foreach ($rows as $row) {
+            $id = (int) ($row->id ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+
+            $name = trim((string) ($row->name ?? ''));
+            if ($name === '' && isset($row->form_name)) {
+                $name = trim((string) $row->form_name);
+            }
+            if ($name === '') {
+                $name = 'Form #' . $id;
+            }
+
+            $forms[] = [
+                'id' => $id,
+                'name' => $name,
+            ];
+        }
+
+        return $forms;
     }
 
     /**
@@ -405,6 +485,23 @@ class MasterPageController extends Controller
                     $model->layout_json = $postData['MasterPage']['layout_json'];
                 }
 
+                // Handle page_type and custom code
+                if (isset($postData['MasterPage']['page_type'])) {
+                    $model->page_type = $postData['MasterPage']['page_type'];
+                }
+
+                if (isset($postData['MasterPage']['custom_html'])) {
+                    $model->custom_html = $postData['MasterPage']['custom_html'];
+                }
+
+                if (isset($postData['MasterPage']['custom_css'])) {
+                    $model->custom_css = $postData['MasterPage']['custom_css'];
+                }
+
+                if (isset($postData['MasterPage']['custom_js'])) {
+                    $model->custom_js = $postData['MasterPage']['custom_js'];
+                }
+
                 if ($model->save(false)) {
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                     return $this->redirect(['index']);
@@ -425,6 +522,22 @@ class MasterPageController extends Controller
                     $model->layout_json = '[]';
                 }
 
+                if (isset($postData['MasterPage']['page_type'])) {
+                    $model->page_type = $postData['MasterPage']['page_type'];
+                }
+
+                if (isset($postData['MasterPage']['custom_html'])) {
+                    $model->custom_html = $postData['MasterPage']['custom_html'];
+                }
+
+                if (isset($postData['MasterPage']['custom_css'])) {
+                    $model->custom_css = $postData['MasterPage']['custom_css'];
+                }
+
+                if (isset($postData['MasterPage']['custom_js'])) {
+                    $model->custom_js = $postData['MasterPage']['custom_js'];
+                }
+
                 if ($model->save(false)) {
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                     return $this->redirect(['index']);
@@ -436,6 +549,8 @@ class MasterPageController extends Controller
 
         return $this->render('dynamic-builder', [
             'model' => $model,
+            'initialState' => !empty($model->layout_json) ? json_decode($model->layout_json, true) : [],
+            'forms' => $this->findAvailableForms(),
         ]);
     }
 
@@ -459,6 +574,22 @@ class MasterPageController extends Controller
                 $model->layout_json = $postData['MasterPage']['layout_json'];
             }
 
+            if (isset($postData['MasterPage']['page_type'])) {
+                $model->page_type = $postData['MasterPage']['page_type'];
+            }
+
+            if (isset($postData['MasterPage']['custom_html'])) {
+                $model->custom_html = $postData['MasterPage']['custom_html'];
+            }
+
+            if (isset($postData['MasterPage']['custom_css'])) {
+                $model->custom_css = $postData['MasterPage']['custom_css'];
+            }
+
+            if (isset($postData['MasterPage']['custom_js'])) {
+                $model->custom_js = $postData['MasterPage']['custom_js'];
+            }
+
             if ($model->save(false)) {
                 Yii::$app->session->setFlash('success', 'Halaman berhasil disimpan!');
                 return $this->redirect(['index']);
@@ -469,6 +600,8 @@ class MasterPageController extends Controller
 
         return $this->render('dynamic-builder', [
             'model' => $model,
+            'initialState' => !empty($model->layout_json) ? json_decode($model->layout_json, true) : [],
+            'forms' => $this->findAvailableForms(),
         ]);
     }
 
@@ -489,6 +622,10 @@ class MasterPageController extends Controller
         
         return $this->render('@app/views/master-page/_dynamic_render', [
             'layoutJson' => $layoutJson,
+            'customHtml' => $page->custom_html ?? null,
+            'customCss' => $page->custom_css ?? null,
+            'customJs' => $page->custom_js ?? null,
+            'pageType' => $page->page_type ?? 'builder',
         ]);
     }
 }

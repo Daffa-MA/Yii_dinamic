@@ -112,7 +112,7 @@ private function insertDefaultCmsData($newDb): void
             return;
         }
         
-        $hasPages = (new \yii\db\Query())->from('master_page')->exists($newDb);
+        $hasPages = (new Query())->from('master_page')->exists($newDb);
         if (!$hasPages) {
             $newDb->createCommand()->batchInsert('master_page', ['name', 'slug', 'layout', 'description', 'is_active'], [
                 ['Dashboard', 'dashboard', 'single_column', 'Halaman utama dashboard', 1],
@@ -123,7 +123,7 @@ private function insertDefaultCmsData($newDb): void
             ])->execute();
         }
         
-        $hasMenus = (new \yii\db\Query())->from('master_menu')->exists($newDb);
+        $hasMenus = (new Query())->from('master_menu')->exists($newDb);
         if (!$hasMenus) {
             $newDb->createCommand()->batchInsert('master_menu', ['name', 'icon', 'type', 'page_id', 'sort_order', 'order', 'is_active'], [
                 ['Dashboard', 'dashboard', 'page', 1, 1, 1, 1],
@@ -211,7 +211,7 @@ private function insertDefaultCmsData($newDb): void
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC]);
         
         $totalCount = $query->count();
-        $pagination = new \yii\data\Pagination([
+        $pagination = new Pagination([
             'totalCount' => $totalCount,
             'pageSize' => $pageSize,
         ]);

@@ -32,6 +32,9 @@ class MasterPage extends ActiveRecord
     const LAYOUT_BLANK = 'blank';
     const LAYOUT_TWO_COLUMN = 'two_column';
 
+    const PAGE_TYPE_BUILDER = 'builder';
+    const PAGE_TYPE_CUSTOM_CODE = 'custom_code';
+
     /** @var int[] */
     public array $formIds = [];
 
@@ -55,6 +58,10 @@ class MasterPage extends ActiveRecord
             'layout_json',
             'description',
             'is_active',
+            'page_type',
+            'custom_html',
+            'custom_css',
+            'custom_js',
             'created_at',
             'updated_at',
         ];
@@ -70,6 +77,10 @@ class MasterPage extends ActiveRecord
             'description',
             'layout_json',
             'is_active',
+            'page_type',
+            'custom_html',
+            'custom_css',
+            'custom_js',
             'created_at',
             'updated_at',
         ];
@@ -138,8 +149,8 @@ class MasterPage extends ActiveRecord
             [['title'], 'required'],
             [['description'], 'string'],
             [['title', 'slug'], 'string', 'max' => 255],
-            [['layout', 'layout_type'], 'string', 'max' => 255],
-            [['layout_json'], 'string'],
+            [['layout', 'layout_type', 'page_type'], 'string', 'max' => 255],
+            [['layout_json', 'custom_html', 'custom_css', 'custom_js'], 'string'],
             [['is_active'], 'integer'],
             ['formIds', 'safe'],
         ];
@@ -154,6 +165,10 @@ class MasterPage extends ActiveRecord
             'layout' => 'Layout',
             'description' => 'Deskripsi',
             'is_active' => 'Status Aktif',
+            'page_type' => 'Tipe Halaman',
+            'custom_html' => 'HTML',
+            'custom_css' => 'CSS',
+            'custom_js' => 'JavaScript',
             'created_at' => 'Dibuat',
             'updated_at' => 'Diupdate',
         ];
@@ -210,6 +225,24 @@ class MasterPage extends ActiveRecord
             self::LAYOUT_TWO_COLUMN => 'Two Column',
             self::LAYOUT_BLANK => 'Blank',
         ];
+    }
+
+    public static function getPageTypeOptions()
+    {
+        return [
+            self::PAGE_TYPE_BUILDER => 'Visual Builder',
+            self::PAGE_TYPE_CUSTOM_CODE => 'Custom Code',
+        ];
+    }
+
+    public function isBuilderMode()
+    {
+        return $this->page_type !== self::PAGE_TYPE_CUSTOM_CODE;
+    }
+
+    public function isCustomCodeMode()
+    {
+        return $this->page_type === self::PAGE_TYPE_CUSTOM_CODE;
     }
 
     public static function getActivePages()

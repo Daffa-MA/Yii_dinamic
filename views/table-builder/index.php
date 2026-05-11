@@ -466,7 +466,7 @@ main#main > .container > .alert {
     </div>
 </nav>
 
-<?= $this->render('../layouts/_sidebar', ['activeMenu' => 'tables']) ?>
+
 
 <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
     <div class="max-w-[1400px] mx-auto px-8 py-8">

@@ -314,6 +314,30 @@ class DatabaseSchemaInitializer
         if (!isset($schema->columns['layout_json'])) {
             $columnSchema = $this->connection->schema->createColumnSchemaBuilder('longtext');
             $this->connection->createCommand()->addColumn('master_page', 'layout_json', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['page_type'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('builder');
+            $this->connection->createCommand()->addColumn('master_page', 'page_type', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['custom_html'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
+            $this->connection->createCommand()->addColumn('master_page', 'custom_html', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['custom_css'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
+            $this->connection->createCommand()->addColumn('master_page', 'custom_css', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['custom_js'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
+            $this->connection->createCommand()->addColumn('master_page', 'custom_js', $columnSchema)->execute();
         }
     }
 

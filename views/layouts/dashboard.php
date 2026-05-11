@@ -12,6 +12,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);
 
 $currentRoute = Yii::$app->controller->route;
+$skipTailwindCdn = in_array($currentRoute, ['master-page/dynamic-create', 'master-page/dynamic-update'], true);
 $activeMenu = 'dashboard';
 if ($currentRoute === 'site/dashboard') {
     $activeMenu = 'dashboard';
@@ -31,36 +32,38 @@ if ($currentRoute === 'site/dashboard') {
     <?= Html::csrfMetaTags() ?>
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
-    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'on-surface': '#0b1c30',
-                        'on-surface-variant': '#464555',
-                        'surface': '#fafbfe',
-                        'surface-container-lowest': '#ffffff',
-                        'surface-container-low': '#f8fafd',
-                        'surface-container': '#f0f4f9',
-                        'surface-container-high': '#e8eef7',
-                        'primary-container': '#4f46e5',
-                        'primary': '#3525cd',
-                        'secondary': '#006c49',
-                        'tertiary': '#7e3000',
-                        'surface-tint': '#4d44e3',
-                        'outline-variant': '#c7c4d8',
-                        'outline': '#777587',
-                        'error': '#ba1a1a',
-                    },
-                    fontFamily: {
-                        headline: ['Manrope', 'sans-serif'],
-                        body: ['Inter', 'sans-serif'],
+    <?php if (!$skipTailwindCdn): ?>
+        <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        colors: {
+                            'on-surface': '#0b1c30',
+                            'on-surface-variant': '#464555',
+                            'surface': '#fafbfe',
+                            'surface-container-lowest': '#ffffff',
+                            'surface-container-low': '#f8fafd',
+                            'surface-container': '#f0f4f9',
+                            'surface-container-high': '#e8eef7',
+                            'primary-container': '#4f46e5',
+                            'primary': '#3525cd',
+                            'secondary': '#006c49',
+                            'tertiary': '#7e3000',
+                            'surface-tint': '#4d44e3',
+                            'outline-variant': '#c7c4d8',
+                            'outline': '#777587',
+                            'error': '#ba1a1a',
+                        },
+                        fontFamily: {
+                            headline: ['Manrope', 'sans-serif'],
+                            body: ['Inter', 'sans-serif'],
+                        }
                     }
                 }
-            }
-        };
-    </script>
+            };
+        </script>
+    <?php endif; ?>
     <style>
         .material-symbols-outlined {
             font-family: 'Material Symbols Outlined';
@@ -71,15 +74,29 @@ if ($currentRoute === 'site/dashboard') {
             line-height: 1;
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
+
+        .dashboard-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .dashboard-main {
+            min-width: 0;
+            flex: 1 1 auto;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            padding-left: var(--app-sidebar-width, 16rem);
+            transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
     </style>
 </head>
 <body class="dashboard-main-page font-body text-on-surface antialiased min-h-full bg-[#f9fafb]">
 <?php $this->beginBody() ?>
 
-<div class="dashboard-layout flex min-h-screen">
+<div class="dashboard-layout">
     <?= $this->render('_sidebar', ['activeMenu' => $activeMenu, 'sidebarVariant' => 'full']) ?>
 
-    <main class="dashboard-main min-w-0 flex-1 py-4 pl-[var(--app-sidebar-width,16rem)] transition-[padding-left] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]" id="main">
+    <main class="dashboard-main" id="main">
         <div class="container-fluid">
             <?= $content ?>
         </div>

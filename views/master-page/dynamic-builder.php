@@ -1,98 +1,25 @@
 <?php
 
-use yii\helpers\Html;
-use yii\helpers\Json;
 use yii\helpers\Url;
-use app\models\Form;
 
 /**
  * @var \app\models\MasterPage $model
+ * @var array $initialState
+ * @var array $forms
  */
 
 $this->title = $model->isNewRecord ? 'Buat Halaman Baru' : 'Edit Halaman: ' . $model->title;
 $this->params['breadcrumbs'][] = ['label' => 'Halaman', 'url' => ['index']];
 $this->params['breadcrumbs'][] = $this->title;
 
-// Parse layout_json from model - handle both array and JSON string formats
-// CRITICAL: Use ONLY direct DB query to avoid MasterPage __get() infinite recursion bug
-$initialState = [];
-$rawJson = null;
-
-try {
-    // Direct DB query to get raw layout_json value (bypasses ActiveRecord __get/__set issues)
-    $db = \Yii::$app->db;
-    $tableName = $model::tableName();
-    $modelId = (int)$model->id;
-
-    $sql = "SELECT layout_json FROM {$tableName} WHERE id = :id";
-    $cmd = $db->createCommand($sql, [':id' => $modelId]);
-    $rawJson = $cmd->queryScalar();
-    $debugInfo['rawJsonFromDb'] = $rawJson;
-    $debugInfo['rawJsonLength'] = is_string($rawJson) ? strlen($rawJson) : (is_null($rawJson) ? -1 : 9999);
-} catch (\Exception $e) {
-    $rawJson = null;
-    $debugInfo['error'] = $e->getMessage();
-}
-
-if ($rawJson !== null && $rawJson !== '') {
-    if (is_array($rawJson)) {
-        $initialState = $rawJson;
-    } elseif (is_string($rawJson)) {
-        // html_entity_decode first because the value might have been HTML-encoded through json_encode
-        $decodedRaw = html_entity_decode($rawJson, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        // Try direct decode first
-        $decoded = json_decode($decodedRaw, true);
-        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            $initialState = $decoded;
-        } else {
-            // Try double-decode (JSON was double-encoded)
-            $doubleDecoded = json_decode($decodedRaw, true);
-            if (is_array($doubleDecoded)) {
-                $initialState = $doubleDecoded;
-            } else {
-                // Try stripping slashes then decode
-                $stripped = stripslashes($decodedRaw);
-                $third = @json_decode($stripped, true);
-                if (is_array($third)) {
-                    $initialState = $third;
-                } else {
-                    // Final fallback: try decoding the original raw value
-                    $fourth = @json_decode($rawJson, true);
-                    if (is_array($fourth)) {
-                        $initialState = $fourth;
-                    }
-                }
-            }
-        }
-    }
-}
-// Normalize: ensure state is always an array of blocks
-if (!is_array($initialState)) {
-    $initialState = [];
-}
-// Guarantee array of blocks (re-index)
-$initialState = array_values($initialState);
-$availableForms = Form::find()->where(['user_id' => Yii::$app->user->id])->all();
-$formsList = [];
-foreach ($availableForms as $form) {
-    $formsList[$form->id] = ['id' => $form->id, 'name' => $form->name, 'storage' => $form->storage_type];
-}
-
+// Register Assets
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_END]);
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css');
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js', ['position' => \yii\web\View::POS_END]);
 
-$fieldTypes = [
-    ['value' => 'input', 'label' => 'Input Text'],
-    ['value' => 'email', 'label' => 'Email'],
-    ['value' => 'textarea', 'label' => 'Textarea'],
-    ['value' => 'select', 'label' => 'Dropdown'],
-    ['value' => 'checkbox', 'label' => 'Checkbox'],
-    ['value' => 'radio', 'label' => 'Radio'],
-    ['value' => 'date', 'label' => 'Date'],
-    ['value' => 'number', 'label' => 'Number'],
-    ['value' => 'file', 'label' => 'File Upload']
-];
+$initialState = $initialState ?? [];
+$forms = $forms ?? [];
 ?>
 
 <!-- TEMPLATE SELECTOR MODAL -->
@@ -873,6 +800,26 @@ $fieldTypes = [
 <?php endif; ?>
 
 <style>
+    .material-symbols-outlined {
+        font-family: 'Material Symbols Outlined';
+        font-weight: 400;
+        font-style: normal;
+        font-size: 24px;
+        line-height: 1;
+        letter-spacing: normal;
+        text-transform: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+        word-wrap: normal;
+        direction: ltr;
+        -webkit-font-feature-settings: 'liga';
+        -webkit-font-smoothing: antialiased;
+        font-feature-settings: 'liga';
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
     .page-builder {
         height: calc(100vh - 56px);
         display: flex;
@@ -892,9 +839,170 @@ $fieldTypes = [
 
     .builder-canvas {
         flex: 1;
-        overflow-y: auto;
-        padding: 32px;
+        display: flex;
+        flex-direction: column;
+        background: #f1f5f9;
+        min-width: 0;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .canvas-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 20px;
         background: #ffffff;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    .canvas-toolbar-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .canvas-toolbar-right {
+        font-size: 12px;
+    }
+
+    .canvas-device-switcher {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        padding: 4px;
+        border-radius: 8px;
+    }
+
+    .device-btn {
+        border: none;
+        background: transparent;
+        color: #64748b;
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .device-btn:hover {
+        background: #e2e8f0;
+        color: #475569;
+    }
+
+    .device-btn.active {
+        background: #ffffff;
+        color: #3b82f6;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .device-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    .canvas-wrapper {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        padding: 20px;
+        min-height: 0;
+        overflow-x: auto;
+        overflow-y: auto;
+        background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+
+    .canvas-wrapper::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    .canvas-wrapper::-webkit-scrollbar-track {
+        background: #e2e8f0;
+        border-radius: 999px;
+    }
+
+    .canvas-wrapper::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+        border: 2px solid #e2e8f0;
+    }
+
+    .canvas-wrapper::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
+    }
+
+    .canvas-wrapper.component-scroll-mode {
+        padding: 24px 28px;
+    }
+
+    .canvas-wrapper.page-scroll-mode {
+        padding: 20px;
+    }
+
+    .canvas-frame {
+        width: 100%;
+        max-width: 100%;
+        min-height: 600px;
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        transition: width 0.25s ease, max-width 0.25s ease;
+        overflow: hidden;
+    }
+
+    .canvas-frame.device-tablet {
+        width: 820px;
+        max-width: 820px;
+    }
+
+    .canvas-frame.device-mobile {
+        width: 390px;
+        max-width: 390px;
+    }
+
+    .canvas-content {
+        min-height: calc(100vh - 180px);
+        padding: 20px;
+        background: #ffffff;
+    }
+
+    .canvas-frame.component-scroll-mode {
+        height: calc(100vh - 170px);
+        min-height: calc(100vh - 170px);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .canvas-frame.component-scroll-mode .canvas-content {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .canvas-frame.component-scroll-mode .canvas-content::-webkit-scrollbar {
+        width: 10px;
+    }
+
+    .canvas-frame.component-scroll-mode .canvas-content::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 999px;
+    }
+
+    .canvas-frame.component-scroll-mode .canvas-content::-webkit-scrollbar-thumb {
+        background: #94a3b8;
+        border-radius: 999px;
+        border: 2px solid #f1f5f9;
+    }
+
+    .canvas-frame.component-scroll-mode .canvas-content::-webkit-scrollbar-thumb:hover {
+        background: #64748b;
     }
 
     .builder-properties {
@@ -961,10 +1069,141 @@ $fieldTypes = [
 
     .canvas-drop-zone {
         min-height: calc(100vh - 120px);
-        padding: 24px;
-        background: white;
+        padding: 16px;
+        background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
         border-radius: 12px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .builder-workspace {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .builder-workspace-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        background: rgba(255, 255, 255, 0.92);
+    }
+
+    .builder-workspace-hint {
+        font-size: 12px;
+        color: #64748b;
+        text-align: right;
+    }
+
+    .builder-canvas-surface {
+        min-height: 360px;
+        padding: 18px;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+
+    .preview-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        backdrop-filter: blur(10px);
+    }
+
+    .preview-toolbar-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .preview-device-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #eff6ff;
+        border: 1px solid #dbeafe;
+        padding: 4px;
+        border-radius: 999px;
+    }
+
+    .preview-device-btn {
+        border: 0;
+        background: transparent;
+        color: #64748b;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .preview-device-btn:hover {
+        background: rgba(255, 255, 255, 0.8);
+        color: #1d4ed8;
+    }
+
+    .preview-device-btn.active {
+        background: #ffffff;
+        color: #1d4ed8;
+        box-shadow: 0 1px 4px rgba(37, 99, 235, 0.15);
+    }
+
+    .preview-device-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+
+    .preview-stage {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 12px;
+    }
+
+    .live-preview-frame {
+        width: 100%;
+        min-height: calc(100vh - 210px);
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 18px;
+        box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+        overflow: hidden;
+        transition: width 0.2s ease, max-width 0.2s ease;
+    }
+
+    .live-preview-frame.preview-tablet {
+        width: min(100%, 820px);
+    }
+
+    .live-preview-frame.preview-mobile {
+        width: min(100%, 390px);
+    }
+
+    .live-preview-frame iframe {
+        width: 100%;
+        min-height: calc(100vh - 210px);
+        border: 0;
+        display: block;
+        background: white;
     }
 
     .builder-block {
@@ -1070,6 +1309,113 @@ $fieldTypes = [
         font-weight: 600;
         color: #6b7280;
         margin-bottom: 6px;
+    }
+
+    .code-editor-header {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 10px 15px;
+        background: #1e293b;
+        border-bottom: 1px solid #334155;
+    }
+
+    .code-scope-buttons {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .code-scope-btn {
+        padding: 6px 12px;
+        border-radius: 6px;
+        border: 1px solid #475569;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .code-scope-btn:hover {
+        background: #334155;
+        color: #ffffff;
+    }
+
+    .code-scope-btn.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #ffffff;
+    }
+
+    .code-editor-tools {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .code-lang-buttons {
+        display: flex;
+        gap: 4px;
+    }
+
+    .code-mode-hint {
+        padding: 8px 12px;
+        background: #0f172a;
+        color: #cbd5e1;
+        border-bottom: 1px solid #334155;
+        font-size: 11px;
+        line-height: 1.5;
+    }
+
+    .is-hidden {
+        display: none !important;
+    }
+
+    .code-lang-btn {
+        padding: 5px 12px;
+        border-radius: 4px;
+        border: 1px solid #475569;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .code-lang-btn:hover {
+        background: #334155;
+        color: white;
+    }
+
+    .code-lang-btn.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+
+    .btn-reset-base {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 10px;
+        border-radius: 4px;
+        border: 1px solid #475569;
+        background: transparent;
+        color: #94a3b8;
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .btn-reset-base:hover {
+        background: #dc2626;
+        border-color: #dc2626;
+        color: white;
     }
 
     .prop-group small {
@@ -1286,6 +1632,109 @@ $fieldTypes = [
         color: #374151;
     }
 
+    .save-dialog-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 12000;
+        padding: 16px;
+    }
+
+    .save-dialog-overlay.open {
+        display: flex;
+    }
+
+    .save-dialog {
+        width: min(520px, 100%);
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+        overflow: hidden;
+    }
+
+    .save-dialog-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 18px;
+        border-bottom: 1px solid #e5e7eb;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+
+    .save-dialog-title {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .save-dialog-body {
+        padding: 18px;
+    }
+
+    .save-dialog-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #64748b;
+        margin-bottom: 8px;
+    }
+
+    .save-dialog-input {
+        width: 100%;
+        padding: 11px 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 14px;
+        color: #0f172a;
+        background: #ffffff;
+    }
+
+    .save-dialog-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    }
+
+    .save-dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 18px 18px;
+    }
+
+    .save-dialog-btn {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 9px 14px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        background: #ffffff;
+        color: #334155;
+    }
+
+    .save-dialog-btn:hover {
+        background: #f8fafc;
+    }
+
+    .save-dialog-btn.primary {
+        border-color: #2563eb;
+        background: #2563eb;
+        color: #ffffff;
+    }
+
+    .save-dialog-btn.primary:hover {
+        background: #1d4ed8;
+        border-color: #1d4ed8;
+    }
+
     .block-type-badge {
         display: inline-flex;
         align-items: center;
@@ -1396,28 +1845,74 @@ $fieldTypes = [
         </div>
     </div>
 
-    <!-- CANVAS: Main Area -->
+    <!-- CANVAS: Main Area with Unified Responsive -->
     <div class="builder-canvas">
-        <div id="canvas" class="canvas-drop-zone">
-            <p style="text-align: center; color: #94a3b8; padding: 60px 20px;">
-                <span style="font-size:48px;display:block;margin-bottom:16px">🎨</span>
-                Drag komponen dari panel kiri ke sini<br>
-                atau klik untuk menambah komponen
-            </p>
+        <!-- Responsive Switcher - DI ATAS canvas -->
+        <div class="canvas-toolbar">
+            <div class="canvas-toolbar-left">
+                <span class="material-symbols-outlined" style="color:#6366f1">dashboard</span>
+                <span style="font-weight:600;color:#1e2937;font-size:14px;">Canvas Builder</span>
+            </div>
+            <div class="canvas-device-switcher">
+                <button type="button" class="device-btn active" data-device="desktop" onclick="setDevice('desktop')" title="Desktop">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h6v2H8v2h8v-2h-2v-2h6c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z"/></svg>
+                </button>
+                <button type="button" class="device-btn" data-device="tablet" onclick="setDevice('tablet')" title="Tablet">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zM7 20h10v-2H7v2z"/></svg>
+                </button>
+                <button type="button" class="device-btn" data-device="mobile" onclick="setDevice('mobile')" title="Mobile">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V3h10v16z"/></svg>
+                </button>
+            </div>
+            <div class="canvas-toolbar-right">
+                <span style="color:#94a3b8;font-size:12px;">Drop komponen untuk membangun halaman</span>
+            </div>
+        </div>
+        
+        <!-- Canvas Wrapper with Responsive Frame -->
+        <div class="canvas-wrapper">
+            <div id="main-canvas-frame" class="canvas-frame device-desktop">
+                <div id="canvas" class="canvas-content"></div>
+            </div>
         </div>
     </div>
 
     <!-- RIGHT PANEL: Properties -->
     <div class="builder-properties">
-        <div class="prop-header">
-            <span class="material-symbols-outlined">settings</span>
-            Properties
+        <div class="prop-tabs" style="display: flex; background: #f8fafc; border-bottom: 1px solid #e5e7eb;">
+            <button class="prop-tab-btn active" data-tab="design" style="flex: 1; padding: 12px; border: none; background: none; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid #3b82f6;">Design</button>
+            <button class="prop-tab-btn" data-tab="code" style="flex: 1; padding: 12px; border: none; background: none; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent;">Custom Code</button>
         </div>
-        <div id="properties-panel">
-            <div class="no-selection">
-                <span class="material-symbols-outlined">touch_app</span>
-                <p style="font-size:14px">Pilih komponen untuk edit</p>
+
+        <div id="properties-design-tab" class="prop-tab-content active">
+            <div id="properties-panel">
+                <div class="no-selection">
+                    <span class="material-symbols-outlined">touch_app</span>
+                    <p style="font-size:14px">Pilih komponen untuk edit</p>
+                </div>
             </div>
+        </div>
+
+        <div id="properties-code-tab" class="prop-tab-content" style="display: none; flex: 1; flex-direction: column;">
+            <div class="code-editor-header">
+                <div class="code-scope-buttons">
+                    <button class="code-scope-btn active" data-scope="component">Component Code</button>
+                    <button class="code-scope-btn" data-scope="page">Page Source</button>
+                </div>
+                <div class="code-editor-tools" id="component-code-tools">
+                    <div class="code-lang-buttons">
+                        <button class="code-lang-btn active" data-lang="html" onclick="switchCodeLang('html')">HTML</button>
+                        <button class="code-lang-btn" data-lang="css" onclick="switchCodeLang('css')">CSS</button>
+                        <button class="code-lang-btn" data-lang="js" onclick="switchCodeLang('js')">JS</button>
+                    </div>
+                    <button class="btn-reset-base" onclick="resetBaseCode()">
+                        <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
+                        Reset Base
+                    </button>
+                </div>
+            </div>
+            <div id="code-mode-hint" class="code-mode-hint">Edit custom code untuk komponen yang dipilih (HTML/CSS/JS terpisah).</div>
+            <div id="monaco-editor-container" style="flex: 1; min-height: 400px; background: #1e1e1e;"></div>
         </div>
     </div>
 </div>
@@ -1524,9 +2019,87 @@ $fieldTypes = [
         }
     };
 
+    // Base Code Templates per Component Type
+    const COMPONENT_BASE_CODE = {
+        heading: {
+            html: '<h1 class="heading-{id}">{text}</h1>',
+            css: '.heading-{id} {\n  font-size: 32px;\n  font-weight: 700;\n  color: #1e293b;\n  margin: 0 0 16px;\n  line-height: 1.2;\n}',
+            js: ''
+        },
+        text: {
+            html: '<p class="text-{id}">{content}</p>',
+            css: '.text-{id} {\n  font-size: 16px;\n  line-height: 1.6;\n  color: #475569;\n  margin: 0;\n}',
+            js: ''
+        },
+        image: {
+            html: '<img class="image-{id}" src="{src}" alt="{alt}" />',
+            css: '.image-{id} {\n  max-width: 100%;\n  height: auto;\n  border-radius: 8px;\n  display: block;\n}',
+            js: ''
+        },
+        button: {
+            html: '<a href="{url}" class="btn-{id}">{text}</a>',
+            css: '.btn-{id} {\n  display: inline-block;\n  padding: 12px 24px;\n  background: #6366f1;\n  color: white;\n  text-decoration: none;\n  border-radius: 8px;\n  font-weight: 600;\n  transition: all 0.2s;\n}\n.btn-{id}:hover {\n  background: #4f46e5;\n  transform: translateY(-2px);\n}',
+            js: ''
+        },
+        card: {
+            html: '<div class="card-{id}">\n  <h3 class="card-title">{title}</h3>\n  <p class="card-content">{content}</p>\n</div>',
+            css: '.card-{id} {\n  padding: 24px;\n  background: white;\n  border-radius: 12px;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.08);\n}\n.card-title {\n  margin: 0 0 8px;\n  font-size: 18px;\n  font-weight: 600;\n  color: #1e293b;\n}\n.card-content {\n  margin: 0;\n  color: #64748b;\n  font-size: 14px;\n}',
+            js: ''
+        },
+        form: {
+            html: '<form class="form-{id}" method="post" action="{action}">\n  <div class="form-fields"></div>\n</form>',
+            css: '.form-{id} {\n  padding: 24px;\n  background: #f8fafc;\n  border-radius: 12px;\n}\n.form-fields {\n  display: flex;\n  flex-direction: column;\n  gap: 16px;\n}',
+            js: ''
+        },
+        grid: {
+            html: '<div class="grid-{id}">\n  <div class="grid-item">Kolom 1</div>\n  <div class="grid-item">Kolom 2</div>\n  <div class="grid-item">Kolom 3</div>\n</div>',
+            css: '.grid-{id} {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 16px;\n  padding: 20px;\n}\n.grid-item {\n  padding: 20px;\n  background: white;\n  border-radius: 8px;\n  text-align: center;\n}',
+            js: ''
+        },
+        row: {
+            html: '<div class="row-{id}">\n  <div class="row-item">Item 1</div>\n  <div class="row-item">Item 2</div>\n</div>',
+            css: '.row-{id} {\n  display: flex;\n  gap: 16px;\n  align-items: center;\n}\n.row-item {\n  flex: 1;\n}',
+            js: ''
+        },
+        section: {
+            html: '<section class="section-{id}">\n  <div class="section-content"></div>\n</section>',
+            css: '.section-{id} {\n  padding: 60px 20px;\n  background: white;\n}\n.section-content {\n  max-width: 1200px;\n  margin: 0 auto;\n}',
+            js: ''
+        },
+        spacer: {
+            html: '<div class="spacer-{id}"></div>',
+            css: '.spacer-{id} {\n  height: 32px;\n}',
+            js: ''
+        },
+        divider: {
+            html: '<hr class="divider-{id}" />',
+            css: '.divider-{id} {\n  border: none;\n  border-top: 2px solid #e2e8f0;\n  margin: 16px 0;\n}',
+            js: ''
+        },
+        video: {
+            html: '<div class="video-{id}">\n  <iframe src="{url}" frameborder="0" allowfullscreen></iframe>\n</div>',
+            css: '.video-{id} {\n  position: relative;\n  padding-bottom: 56.25%;\n  height: 0;\n}\n.video-{id} iframe {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n}',
+            js: ''
+        }
+    };
+
     window.pageState = <?= json_encode($initialState) ?>;
+    window.availableForms = <?= json_encode($forms ?? []) ?>;
     let selectedBlockId = null;
     let isAddingBlock = false;
+    const PAGE_TYPE_BUILDER = 'builder';
+    const PAGE_TYPE_CUSTOM_CODE = 'custom_code';
+    const initialPageTypeValue = <?= json_encode((string) ($model->page_type ?? 'builder')) ?>;
+    const initialCustomHtml = <?= json_encode((string) ($model->custom_html ?? '')) ?>;
+    const initialCustomCss = <?= json_encode((string) ($model->custom_css ?? '')) ?>;
+    const initialCustomJs = <?= json_encode((string) ($model->custom_js ?? '')) ?>;
+    const hasInitialFullPageSource =
+        (initialCustomHtml || '').trim() !== '' ||
+        (initialCustomCss || '').trim() !== '' ||
+        (initialCustomJs || '').trim() !== '';
+    let activeCodeScope = (initialPageTypeValue === PAGE_TYPE_CUSTOM_CODE || hasInitialFullPageSource) ? 'page' : 'component';
+    let fullPageSource = '';
+    let fullPageSourceDerivedFromBuilder = !hasInitialFullPageSource;
 
     function generateId() {
         return 'block-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -1535,6 +2108,11 @@ $fieldTypes = [
     function renderBuilder(state) {
         const canvas = document.getElementById('canvas');
         canvas.innerHTML = '';
+
+        if (activeCodeScope === 'page') {
+            renderFullPageSourceCanvas();
+            return;
+        }
 
         if (state.length === 0) {
             canvas.innerHTML = '<p style="text-align: center; color: #94a3b8; padding: 60px 20px;"><span style="font-size:48px;display:block;margin-bottom:16px">🎨</span>Drag komponen dari panel kiri ke sini</p>';
@@ -1549,7 +2127,7 @@ $fieldTypes = [
         if (window.sortableInstance) {
             window.sortableInstance.destroy();
         }
-        window.sortableInstance = new Sortable(canvas, {
+        window.sortableInstance = new window.Sortable(canvas, {
             animation: 150,
             handle: '.block-action-btn.move',
             ghostClass: 'sortable-ghost',
@@ -1559,6 +2137,9 @@ $fieldTypes = [
                 renderBuilder(window.pageState);
             }
         });
+
+        scheduleLivePreviewUpdate();
+        scheduleFullPageSourceSyncFromBuilder();
     }
 
     function createBlockElement(block) {
@@ -1628,6 +2209,14 @@ $fieldTypes = [
                 return `<div style="width:${props.width || '100'}%;aspect-ratio:${props.aspectRatio || '16/9'};background:#000;border-radius:12px;display:flex;align-items:center;justify-content:center;color:white;">▶️ Video</div>`;
             case 'grid':
                 return `<div style="display:grid;grid-template-columns:repeat(${props.columns || 3},1fr);gap:${props.gap || '16'}px;padding:${props.padding || '20'}px;background:#f8fafc;border-radius:8px;"><div style="padding:30px;background:white;border:2px dashed #e2e8f0;border-radius:8px;text-align:center;color:#94a3b8;">Kolom</div></div>`;
+            case 'form':
+                const form = (window.availableForms || []).find(f => f.id == props.formId);
+                return `<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
+                    <div style="font-size:32px;margin-bottom:12px">📝</div>
+                    <div style="font-weight:700;color:#1e293b;font-size:16px">${form ? form.name : 'Form Belum Dipilih'}</div>
+                    <div style="font-size:13px;color:#64748b;margin-top:4px">${form ? 'ID: ' + form.id : 'Pilih form di panel kanan'}</div>
+                    ${props.showTitle && form ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8">Form Title Visible</div>` : ''}
+                </div>`;
             case 'section':
                 return `<div style="padding:${props.padding || '40'}px;margin:${props.margin || '0'}px;background:${props.background || '#fff'};border-radius:8px;border:1px dashed #cbd5e1;color:#94a3b8;text-align:center;">📦 Section</div>`;
             default:
@@ -1928,6 +2517,90 @@ $fieldTypes = [
                     <label>Gap Antar Kolom</label>
                     <input type="range" class="prop-slider" min="0" max="32" value="${props.gap || '16'}" onchange="updateProp('${blockId}', 'gap', this.value)">
                     <span class="prop-slider-value">${props.gap || '16'}px</span>
+                </div>
+            </div>`;
+                break;
+
+            case 'form':
+                html += `<div class="prop-section">
+                <div class="prop-section-title">📋 Konfigurasi Form</div>
+                <div class="prop-group">
+                    <label>Pilih Form</label>
+                    <select class="prop-select" onchange="updateProp('${blockId}', 'formId', this.value)">
+                        <option value="">-- Pilih Form --</option>
+                        ${(window.availableForms || []).map(f => `<option value="${f.id}" ${props.formId == f.id ? 'selected' : ''}>${f.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${props.showTitle ? 'checked' : ''} onchange="updateProp('${blockId}', 'showTitle', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">Tampilkan Judul Form</label>
+                </div>
+            </div>`;
+                break;
+
+            case 'divider':
+                html += `<div class="prop-section">
+                <div class="prop-section-title">📏 Ukuran</div>
+                <div class="prop-group">
+                    <label>Ketebalan</label>
+                    <input type="range" class="prop-slider" min="1" max="10" value="${props.thickness || '2'}" onchange="updateProp('${blockId}', 'thickness', this.value)">
+                    <span class="prop-slider-value">${props.thickness || '2'}px</span>
+                </div>
+                <div class="prop-group">
+                    <label>Margin</label>
+                    <input type="range" class="prop-slider" min="0" max="100" value="${props.margin || '16'}" onchange="updateProp('${blockId}', 'margin', this.value)">
+                    <span class="prop-slider-value">${props.margin || '16'}px</span>
+                </div>
+            </div>
+            <div class="prop-section">
+                <div class="prop-section-title">🎨 Warna</div>
+                <div class="prop-group">
+                    <div class="prop-color-picker">
+                        <input type="color" class="prop-color-input" value="${props.color || '#e2e8f0'}" onchange="updateProp('${blockId}', 'color', this.value)">
+                        <input type="text" class="prop-color-value" value="${props.color || '#e2e8f0'}" onchange="updateProp('${blockId}', 'color', this.value)">
+                    </div>
+                </div>
+            </div>`;
+                break;
+
+            case 'video':
+                html += `<div class="prop-section">
+                <div class="prop-section-title">📹 Video Settings</div>
+                <div class="prop-group">
+                    <label>Video URL (YouTube/Vimeo)</label>
+                    <input type="text" class="prop-input" value="${props.url || ''}" onchange="updateProp('${blockId}', 'url', this.value)" placeholder="https://www.youtube.com/watch?v=...">
+                </div>
+                <div class="prop-group">
+                    <label>Aspect Ratio</label>
+                    <select class="prop-select" onchange="updateProp('${blockId}', 'aspectRatio', this.value)">
+                        <option value="16/9" ${props.aspectRatio === '16/9' ? 'selected' : ''}>16:9 (Widescreen)</option>
+                        <option value="4/3" ${props.aspectRatio === '4/3' ? 'selected' : ''}>4:3 (Standard)</option>
+                        <option value="1/1" ${props.aspectRatio === '1/1' ? 'selected' : ''}>1:1 (Square)</option>
+                        <option value="21/9" ${props.aspectRatio === '21/9' ? 'selected' : ''}>21:9 (Ultrawide)</option>
+                    </select>
+                </div>
+            </div>`;
+                break;
+
+            case 'section':
+                html += `<div class="prop-section">
+                <div class="prop-section-title">📦 Section Settings</div>
+                <div class="prop-group">
+                    <label>Background Color</label>
+                    <div class="prop-color-picker">
+                        <input type="color" class="prop-color-input" value="${props.background || '#ffffff'}" onchange="updateProp('${blockId}', 'background', this.value)">
+                        <input type="text" class="prop-color-value" value="${props.background || '#ffffff'}" onchange="updateProp('${blockId}', 'background', this.value)">
+                    </div>
+                </div>
+                <div class="prop-group">
+                    <label>Padding</label>
+                    <input type="range" class="prop-slider" min="0" max="100" value="${props.padding || '40'}" onchange="updateProp('${blockId}', 'padding', this.value)">
+                    <span class="prop-slider-value">${props.padding || '40'}px</span>
+                </div>
+                <div class="prop-group">
+                    <label>Margin</label>
+                    <input type="range" class="prop-slider" min="0" max="100" value="${props.margin || '0'}" onchange="updateProp('${blockId}', 'margin', this.value)">
+                    <span class="prop-slider-value">${props.margin || '0'}px</span>
                 </div>
             </div>`;
                 break;
@@ -3756,6 +4429,39 @@ $fieldTypes = [
             </div>`;
         }
 
+        if (mode === 'card') {
+            const summarizeBlock = (block, index) => {
+                const props = block.props || {};
+                const labelMap = {
+                    heading: props.text || `Heading ${index + 1}`,
+                    text: props.content || `Text ${index + 1}`,
+                    button: props.text || `Button ${index + 1}`,
+                    card: props.title || `Card ${index + 1}`,
+                    form: props.title || 'Formulir',
+                    image: props.alt || 'Image',
+                    divider: 'Divider',
+                    spacer: 'Spacer',
+                    video: 'Video',
+                    grid: 'Grid',
+                    section: 'Section',
+                    row: 'Row',
+                };
+
+                const label = labelMap[block.type] || `${block.type.charAt(0).toUpperCase()}${block.type.slice(1)}`;
+                return `<div style="padding:7px 10px;border:1px solid #ecebe5;border-radius:8px;background:#ffffff;margin-bottom:6px;font-size:9px;line-height:1.35;color:#6b6b68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                    <strong style="color:#111110;font-size:9px;">${label}</strong>
+                </div>`;
+            };
+
+            const visibleBlocks = state.slice(0, 4);
+            const hiddenCount = Math.max(state.length - visibleBlocks.length, 0);
+
+            return `<div style="padding:8px;background:#f9f8f4;border-radius:10px;border:1px solid #ecebe5;height:100%;overflow:hidden;font-family:Arial;">
+                ${visibleBlocks.map((block, index) => summarizeBlock(block, index)).join('')}
+                ${hiddenCount > 0 ? `<div style="font-size:9px;color:#9d9d9a;padding:4px 2px 0;">+${hiddenCount} lainnya</div>` : ''}
+            </div>`;
+        }
+
         return state.map(block => {
             const props = block.props || {};
             const scale = mode === 'modal' ? 1 : 0.55;
@@ -3824,7 +4530,7 @@ $fieldTypes = [
             const selected = selectedTemplateId === template.id;
             const sections = getTemplateSections(template);
             return `
-                <div class="template-card ${selected ? 'selected' : ''}" onclick="selectTemplate('${template.id}')" ondblclick="openTemplatePreview('${template.id}')">
+                <div class="template-card ${selected ? 'selected' : ''}" data-template-id="${template.id}" onclick="selectTemplate('${template.id}')" ondblclick="openTemplatePreview('${template.id}')">
                     <div class="template-check"><i class="ti ti-check"></i></div>
                     <div class="template-preview">
                         <div class="template-preview-content">${renderPreviewContent(template.state)}</div>
@@ -3841,6 +4547,15 @@ $fieldTypes = [
                     </div>
                 </div>`;
         }).join('');
+
+        applyMaterialIconFallback(grid);
+    }
+
+    function syncTemplateSelection() {
+        document.querySelectorAll('#templateGrid .template-card').forEach(card => {
+            card.classList.toggle('selected', card.dataset.templateId === selectedTemplateId);
+        });
+        updateTemplateSelectionState();
     }
 
     function setTemplateCategory(category) {
@@ -3865,8 +4580,7 @@ $fieldTypes = [
 
     function selectTemplate(id) {
         selectedTemplateId = id;
-        updateTemplateSelectionState();
-        renderTemplates();
+        syncTemplateSelection();
     }
 
     function startBlankTemplate() {
@@ -3886,6 +4600,7 @@ $fieldTypes = [
             `<button class="template-sec-item ${index === 0 ? 'active' : ''}" onclick="activateTemplateSection(this)">${section}</button>`
         ).join('');
         document.getElementById('templatePreviewOverlay').classList.add('open');
+        applyMaterialIconFallback(document.getElementById('templatePreviewOverlay'));
     }
 
     function activateTemplateSection(button) {
@@ -3916,45 +4631,60 @@ $fieldTypes = [
         closeTemplatePreview();
     }
 
-    function confirmTemplate() {
+    async function confirmTemplate() {
         let newState = [];
         if (selectedTemplateId && selectedTemplateId !== 'blank') {
             const template = templates.find(t => t.id === selectedTemplateId);
             if (template) newState = JSON.parse(JSON.stringify(template.state));
         }
         window.pageState = newState;
+
+        if (selectedTemplateId === 'blank') {
+            fullPageSource = '';
+            fullPageSourceDerivedFromBuilder = false;
+        } else {
+            fullPageSource = await generateFullSourceFromLayoutState(newState, getDefaultFullPageSource());
+            fullPageSourceDerivedFromBuilder = true;
+        }
+
         closeTemplatePreview();
         const modal = document.getElementById('templateModal');
         if (modal) modal.remove();
         document.getElementById('builderInterface').style.display = 'flex';
-        setTimeout(() => renderBuilder(window.pageState), 0);
+        setTimeout(() => {
+            renderBuilder(window.pageState);
+            scheduleLivePreviewUpdate();
+        }, 0);
     }
 
     // Initialize on load
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         const hasExisting = <?= json_encode(!empty($initialState)) ?>;
         const isNewRecord = <?= json_encode($model->isNewRecord) ?>;
 
         // For existing pages (update mode), always show builder with saved state
         // For new pages, show template selector first
         if (isNewRecord && !hasExisting) {
-            renderTemplates();
+            window.requestAnimationFrame(() => renderTemplates());
         } else if (!isNewRecord) {
             // Update mode: remove template modal if present, show builder
             const modal = document.getElementById('templateModal');
             if (modal) modal.remove();
             const builder = document.getElementById('builderInterface');
             if (builder) builder.style.display = 'flex';
+            if (activeCodeScope === 'page' && !fullPageSource.trim()) {
+                fullPageSource = await generateFullSourceFromLayoutState(window.pageState, getDefaultFullPageSource());
+            }
             // Render builder with saved state from PHP
             console.log('UPDATE MODE - pageState blocks:', window.pageState ? window.pageState.length : 0);
             renderBuilder(window.pageState);
-            // Select first block if any exist
-            if (window.pageState && window.pageState.length > 0) {
+            // Select first block if any exist (component mode only)
+            if (activeCodeScope !== 'page' && window.pageState && window.pageState.length > 0) {
                 selectBlock(window.pageState[0].id);
             }
         } else {
             // New record with no existing data - show template selector
-            renderTemplates();
+            window.requestAnimationFrame(() => renderTemplates());
         }
 
         // Setup drag & drop
@@ -3967,6 +4697,7 @@ $fieldTypes = [
 
         const canvas = document.getElementById('canvas');
         canvas?.addEventListener('dragover', (e) => {
+            if (activeCodeScope === 'page') return;
             e.preventDefault();
             canvas.style.borderColor = '#6366f1';
         });
@@ -3974,10 +4705,13 @@ $fieldTypes = [
             canvas.style.borderColor = 'transparent';
         });
         canvas?.addEventListener('drop', (e) => {
+            if (activeCodeScope === 'page') return;
             e.preventDefault();
             const type = e.dataTransfer.getData('type');
             if (type) addBlock(type);
         });
+
+        syncCodeScopeUI();
     });
 
     // Preview Page
@@ -3997,6 +4731,17 @@ $fieldTypes = [
         `;
         loadingNotification.textContent = 'Generating preview...';
         document.body.appendChild(loadingNotification);
+
+        if (activeCodeScope === 'page') {
+            const previewWindow = window.open('', '_blank', 'width=1200,height=800');
+            if (previewWindow) {
+                previewWindow.document.open();
+                previewWindow.document.write(fullPageSource || getDefaultFullPageSource());
+                previewWindow.document.close();
+            }
+            loadingNotification.remove();
+            return;
+        }
 
         // Send AJAX request to generate preview
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -4065,36 +4810,543 @@ $fieldTypes = [
             });
     }
 
-    // Save Page
-    function savePage() {
-        const title = prompt('Judul Halaman:', <?= json_encode($model->title ?? '') ?>);
-        if (!title) return;
+    // MONACO EDITOR LOGIC
+    let monacoEditor = null;
+    let currentCodeLang = 'html';
+    let isSyncingCode = false;
+    let previewLoading = false;
 
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '<?= $model->isNewRecord ? Url::to(['dynamic-create']) : Url::to(['dynamic-update', 'id' => $model->id]) ?>';
+    function looksLikeFullHtmlDocument(source) {
+        const normalized = (source || '').trim().toLowerCase();
+        return normalized.startsWith('<!doctype html') || normalized.startsWith('<html');
+    }
 
-        const csrf = document.querySelector('meta[name="csrf-token"]');
-        if (csrf) {
-            const input = document.createElement('input');
-            input.name = '_csrf-frontend';
-            input.value = csrf.getAttribute('content');
-            form.appendChild(input);
+    function getDefaultFullPageSource() {
+        return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: #0f172a;
+      color: #ffffff;
+    }
+
+    .hero {
+      padding: 100px 40px;
+    }
+  </style>
+</head>
+<body>
+  <section class="hero">
+    <h1>Hello World</h1>
+    <p>Full page source editor aktif.</p>
+  </section>
+
+  <script>
+    console.log('full page source mode');
+  <\/script>
+</body>
+</html>`;
+    }
+
+    function buildFullPageSource(html, css, js) {
+        const htmlValue = (html || '').trim();
+        if (looksLikeFullHtmlDocument(htmlValue)) {
+            return htmlValue;
         }
 
-        const titleInput = document.createElement('input');
-        titleInput.name = 'MasterPage[title]';
-        titleInput.value = title;
-        form.appendChild(titleInput);
+        const bodyContent = htmlValue || '<div style="padding:32px">Mulai tulis halaman di sini</div>';
+        const cssContent = (css || '').trim();
+        const jsContent = (js || '').trim();
 
-        const contentInput = document.createElement('input');
-        contentInput.name = 'MasterPage[layout_json]';
-        contentInput.value = JSON.stringify(window.pageState);
-        form.appendChild(contentInput);
-
-        document.body.appendChild(form);
-        form.submit();
+        return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+${cssContent}
+  </style>
+</head>
+<body>
+${bodyContent}
+  <script>
+${jsContent}
+  <\/script>
+</body>
+</html>`;
     }
+
+    async function generateFullSourceFromLayoutState(state, fallback = '') {
+        const normalizedState = Array.isArray(state) ? state : [];
+        if (!normalizedState.length) {
+            return fallback;
+        }
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        try {
+            const response = await fetch('<?= Url::to(['preview-layout']) ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    'layout_json': JSON.stringify(normalizedState),
+                    '_csrf-frontend': csrfToken
+                })
+            });
+            const data = await response.json();
+            if (data && data.success) {
+                return buildFullPageSource(data.html || '', '', '');
+            }
+        } catch (error) {
+            console.warn('Failed to generate template full source:', error);
+        }
+
+        return fallback;
+    }
+
+    if (hasInitialFullPageSource) {
+        fullPageSource = buildFullPageSource(initialCustomHtml, initialCustomCss, initialCustomJs);
+        if (!fullPageSource.trim()) {
+            fullPageSource = '';
+        }
+    }
+
+    function renderFullPageSourceCanvas() {
+        const canvas = document.getElementById('canvas');
+        if (!canvas) return;
+
+        if (window.sortableInstance) {
+            window.sortableInstance.destroy();
+            window.sortableInstance = null;
+        }
+
+        canvas.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'width:100%;min-height:calc(100vh - 180px);background:#fff;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;';
+
+        const iframe = document.createElement('iframe');
+        iframe.id = 'full-page-source-preview';
+        iframe.srcdoc = fullPageSource || getDefaultFullPageSource();
+        iframe.style.cssText = 'width:100%;min-height:calc(100vh - 180px);border:0;display:block;background:#fff;';
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+
+        wrap.appendChild(iframe);
+        canvas.appendChild(wrap);
+        scheduleLivePreviewUpdate();
+    }
+
+    function getPreviewDoc(html) {
+        return `<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        html, body { margin: 0; padding: 0; background: #ffffff; }
+        body { font-family: Inter, Arial, sans-serif; }
+        * { box-sizing: border-box; }
+    </style>
+</head>
+<body>
+${html || ''}
+</body>
+</html>`;
+    }
+
+    // Device Switching for Unified Canvas
+    let currentDevice = localStorage.getItem('builder-device') || 'desktop';
+
+    function setDevice(device) {
+        currentDevice = device;
+        const frame = document.getElementById('main-canvas-frame');
+        if (frame) {
+            frame.classList.remove('device-desktop', 'device-tablet', 'device-mobile');
+            frame.classList.add(`device-${device}`);
+        }
+
+        document.querySelectorAll('.device-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.device === device);
+        });
+
+        localStorage.setItem('builder-device', device);
+    }
+
+    setDevice(currentDevice);
+
+    function setPreviewDevice(mode) {
+        setDevice(mode);
+    }
+
+    function scheduleLivePreviewUpdate() {
+        clearTimeout(window.livePreviewTimer);
+        window.livePreviewTimer = setTimeout(() => {
+            updateLivePreviewValue();
+        }, 250);
+    }
+
+    function updateLivePreviewValue() {
+        if (previewLoading) return;
+
+        const previewFrame = document.getElementById('live-preview-iframe');
+        if (!previewFrame) return;
+
+        if (activeCodeScope === 'page') {
+            previewFrame.srcdoc = fullPageSource || getDefaultFullPageSource();
+            return;
+        }
+
+        previewLoading = true;
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+        fetch('<?= Url::to(['preview-layout']) ?>', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams({
+                    'layout_json': JSON.stringify(window.pageState),
+                    '_csrf-frontend': csrfToken
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    previewFrame.srcdoc = getPreviewDoc(data.html);
+                }
+                previewLoading = false;
+            })
+            .catch(() => {
+                previewLoading = false;
+            });
+    }
+
+    function applyCodeEditorLanguage() {
+        if (!monacoEditor) return;
+        const model = monacoEditor.getModel();
+        if (!model) return;
+        const language = activeCodeScope === 'page' ? 'html' : (currentCodeLang === 'js' ? 'javascript' : currentCodeLang);
+        monaco.editor.setModelLanguage(model, language);
+    }
+
+    function syncCodeScopeUI() {
+        document.querySelectorAll('.code-scope-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.scope === activeCodeScope);
+        });
+
+        const canvasWrapper = document.querySelector('.canvas-wrapper');
+        const canvasFrame = document.getElementById('main-canvas-frame');
+        if (canvasWrapper) {
+            canvasWrapper.classList.toggle('page-scroll-mode', activeCodeScope === 'page');
+            canvasWrapper.classList.toggle('component-scroll-mode', activeCodeScope !== 'page');
+        }
+        if (canvasFrame) {
+            canvasFrame.classList.toggle('component-scroll-mode', activeCodeScope !== 'page');
+        }
+
+        const componentTools = document.getElementById('component-code-tools');
+        if (componentTools) {
+            componentTools.classList.toggle('is-hidden', activeCodeScope === 'page');
+        }
+
+        const hint = document.getElementById('code-mode-hint');
+        if (hint) {
+            hint.textContent = activeCodeScope === 'page'
+                ? 'Single file editor untuk full halaman (DOCTYPE + head + body + script) dengan render realtime di canvas.'
+                : 'Edit custom code untuk komponen yang dipilih (HTML/CSS/JS terpisah).';
+        }
+    }
+
+    async function setCodeScope(scope) {
+        activeCodeScope = scope === 'page' ? 'page' : 'component';
+
+        if (activeCodeScope === 'page' && (fullPageSourceDerivedFromBuilder || !fullPageSource.trim())) {
+            fullPageSource = await generateFullSourceFromLayoutState(window.pageState, getDefaultFullPageSource());
+        }
+
+        syncCodeScopeUI();
+        renderBuilder(window.pageState);
+
+        if (document.getElementById('properties-code-tab')?.style.display !== 'none') {
+            initMonacoEditor();
+        }
+    }
+
+    // Tab Switching Logic
+    document.querySelectorAll('.prop-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tab = btn.dataset.tab;
+            document.querySelectorAll('.prop-tab-btn').forEach(b => {
+                b.classList.toggle('active', b === btn);
+                b.style.borderBottomColor = (b === btn) ? '#3b82f6' : 'transparent';
+            });
+
+            document.querySelectorAll('.prop-tab-content').forEach(c => {
+                c.style.display = c.id === `properties-${tab}-tab` ? 'flex' : 'none';
+            });
+
+            if (tab === 'code') {
+                initMonacoEditor();
+            }
+        });
+    });
+
+    document.querySelectorAll('.code-scope-btn').forEach(btn => {
+        btn.addEventListener('click', () => setCodeScope(btn.dataset.scope));
+    });
+
+    // Code Language Switching Logic
+    document.querySelectorAll('.code-lang-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const lang = btn.dataset.lang;
+            switchCodeLang(lang);
+        });
+    });
+
+    function initMonacoEditor() {
+        if (monacoEditor) {
+            applyCodeEditorLanguage();
+            if (activeCodeScope === 'page') {
+                loadPageSourceIntoEditor();
+            } else {
+                loadCodeFromState();
+            }
+            return;
+        }
+
+        require.config({
+            paths: {
+                vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs'
+            }
+        });
+        require(['vs/editor/editor.main'], function() {
+            monacoEditor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
+                value: '',
+                language: 'html',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: {
+                    enabled: false
+                },
+                fontSize: 12,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                padding: {
+                    top: 10
+                }
+            });
+
+            monacoEditor.onDidChangeModelContent(() => {
+                if (isSyncingCode) return;
+                if (activeCodeScope === 'page') {
+                    updatePageSourceInState();
+                } else {
+                    updateCodeInState();
+                }
+            });
+
+            applyCodeEditorLanguage();
+            if (activeCodeScope === 'page') {
+                loadPageSourceIntoEditor();
+            } else {
+                loadCodeFromState();
+            }
+        });
+    }
+
+    function loadPageSourceIntoEditor() {
+        if (!monacoEditor) return;
+        isSyncingCode = true;
+        monacoEditor.setValue(fullPageSource || getDefaultFullPageSource());
+        isSyncingCode = false;
+    }
+
+    function updatePageSourceInState() {
+        if (!monacoEditor) return;
+        fullPageSource = monacoEditor.getValue() || getDefaultFullPageSource();
+        fullPageSourceDerivedFromBuilder = false;
+        clearTimeout(window.pageSourceUpdateTimer);
+        window.pageSourceUpdateTimer = setTimeout(() => {
+            renderBuilder(window.pageState);
+            scheduleLivePreviewUpdate();
+        }, 350);
+    }
+
+    async function syncFullPageSourceFromBuilderState() {
+        if (!fullPageSourceDerivedFromBuilder) return;
+        fullPageSource = await generateFullSourceFromLayoutState(window.pageState, getDefaultFullPageSource());
+        if (activeCodeScope === 'page' && monacoEditor) {
+            loadPageSourceIntoEditor();
+        }
+    }
+
+    function scheduleFullPageSourceSyncFromBuilder() {
+        if (!fullPageSourceDerivedFromBuilder) return;
+        clearTimeout(window.fullPageSourceSyncTimer);
+        window.fullPageSourceSyncTimer = setTimeout(() => {
+            syncFullPageSourceFromBuilderState();
+        }, 300);
+    }
+
+    function loadCodeFromState() {
+        if (!monacoEditor || !selectedBlockId) return;
+
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block) return;
+
+        isSyncingCode = true;
+        const codeKey = `custom${currentCodeLang.charAt(0).toUpperCase()}${currentCodeLang.slice(1)}`;
+        let code = block.props[codeKey];
+
+        if (!code && COMPONENT_BASE_CODE[block.type]) {
+            let baseCode = COMPONENT_BASE_CODE[block.type][currentCodeLang] || '';
+            if (baseCode) {
+                const props = block.props || {};
+                baseCode = baseCode
+                    .replace(/{id}/g, block.id)
+                    .replace(/{text}/g, props.text || 'Teks')
+                    .replace(/{content}/g, props.content || 'Konten')
+                    .replace(/{title}/g, props.title || 'Judul')
+                    .replace(/{src}/g, props.src || '')
+                    .replace(/{alt}/g, props.alt || 'Image')
+                    .replace(/{url}/g, props.url || '#')
+                    .replace(/{action}/g, props.action || '/submit');
+            }
+            code = baseCode;
+        }
+
+        monacoEditor.setValue(code || '');
+        isSyncingCode = false;
+    }
+
+    function updateCodeInState() {
+        if (!monacoEditor || !selectedBlockId) return;
+
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block) return;
+
+        const code = monacoEditor.getValue();
+        const codeKey = `custom${currentCodeLang.charAt(0).toUpperCase()}${currentCodeLang.slice(1)}`;
+        block.props[codeKey] = code;
+
+        clearTimeout(window.codeUpdateTimer);
+        window.codeUpdateTimer = setTimeout(() => {
+            renderBuilder(window.pageState);
+            scheduleLivePreviewUpdate();
+            scheduleFullPageSourceSyncFromBuilder();
+        }, 500);
+    }
+
+    const originalSelectBlock = window.selectBlock;
+    window.selectBlock = function(blockId) {
+        if (originalSelectBlock) originalSelectBlock(blockId);
+        if (document.getElementById('properties-code-tab') &&
+            document.getElementById('properties-code-tab').style.display !== 'none' &&
+            activeCodeScope !== 'page') {
+            loadCodeFromState();
+        }
+    };
+
+    function switchCodeLang(lang) {
+        currentCodeLang = lang;
+        document.querySelectorAll('.code-lang-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.lang === lang);
+            btn.style.background = btn.classList.contains('active') ? '#3b82f6' : 'transparent';
+            btn.style.color = btn.classList.contains('active') ? 'white' : '#94a3b8';
+            btn.style.borderColor = btn.classList.contains('active') ? '#3b82f6' : '#475569';
+        });
+        if (monacoEditor && activeCodeScope !== 'page') {
+            applyCodeEditorLanguage();
+            loadCodeFromState();
+        }
+    }
+
+    function resetBaseCode() {
+        if (!selectedBlockId || activeCodeScope === 'page') return;
+        const block = window.pageState.find(b => b.id === selectedBlockId);
+        if (!block) return;
+
+        if (confirm('Reset semua custom code komponen ke base template?')) {
+            delete block.props.customHtml;
+            delete block.props.customCss;
+            delete block.props.customJs;
+            loadCodeFromState();
+            renderBuilder(window.pageState);
+        }
+    }
+
+    // Modify renderBlockContent to support custom code with iframe sandbox
+    const originalRenderBlockContent = renderBlockContent;
+    window.renderBlockContent = function(block) {
+        const props = block.props || {};
+
+        if (props.customHtml || props.customCss || props.customJs) {
+            const id = `custom-wrap-${block.id}`;
+            const srcDoc = `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { margin: 0; padding: 0; font-family: sans-serif; overflow: hidden; }
+                        ${props.customCss || ''}
+                    </style>
+                </head>
+                <body>
+                    <div id="root">${props.customHtml || ''}</div>
+                    <script>
+                        (function() {
+                            try {
+                                const container = document.getElementById('root');
+                                ${props.customJs || ''}
+                            } catch (e) { console.error(e); }
+                        })();
+                        
+                        // Auto-resize parent iframe
+                        function updateHeight() {
+                            window.parent.postMessage({
+                                type: 'resize',
+                                blockId: '${block.id}',
+                                height: document.documentElement.scrollHeight
+                            }, '*');
+                        }
+                        window.onload = updateHeight;
+                        new ResizeObserver(updateHeight).observe(document.body);
+                        <\/script>
+                </body>
+                </html>
+            `.replace(/"/g, '&quot;');
+
+            return `
+                <div class="iframe-container" style="min-height: 50px;">
+                    <iframe 
+                        id="iframe-${block.id}"
+                        srcdoc="${srcDoc}"
+                        style="width: 100%; border: none; overflow: hidden; display: block; pointer-events: none;"
+                        sandbox="allow-scripts"
+                    ></iframe>
+                </div>
+            `;
+        }
+
+        return originalRenderBlockContent(block);
+    };
+
+    // Message handler for iframe resizing
+    window.addEventListener('message', (e) => {
+        if (e.data && e.type === 'resize' && e.data.blockId) {
+            const iframe = document.getElementById(`iframe-${e.data.blockId}`);
+            if (iframe) {
+                iframe.style.height = e.data.height + 'px';
+            }
+        }
+    });
 </script>
 
 <!-- Builder Toolbar -->
@@ -4114,3 +5366,238 @@ $fieldTypes = [
         </button>
     </div>
 </div>
+
+<div id="saveDialogOverlay" class="save-dialog-overlay" onclick="handleSaveDialogOverlay(event)">
+    <div class="save-dialog">
+        <div class="save-dialog-header">
+            <h3 class="save-dialog-title">Simpan Halaman</h3>
+        </div>
+        <div class="save-dialog-body">
+            <label class="save-dialog-label" for="saveTitleInput">Judul Halaman</label>
+            <input id="saveTitleInput" class="save-dialog-input" type="text" maxlength="255" autocomplete="off" />
+        </div>
+        <div class="save-dialog-actions">
+            <button type="button" class="save-dialog-btn" onclick="closeSaveDialog()">Batal</button>
+            <button type="button" class="save-dialog-btn primary" onclick="submitSavePage()">Simpan</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Save Page
+    const defaultPageTitle = <?= json_encode((string) ($model->title ?? '')) ?>;
+
+    function openSaveDialog() {
+        const overlay = document.getElementById('saveDialogOverlay');
+        const input = document.getElementById('saveTitleInput');
+        if (!overlay || !input) return;
+
+        input.value = defaultPageTitle || '';
+        overlay.classList.add('open');
+        setTimeout(() => {
+            input.focus();
+            input.select();
+        }, 20);
+    }
+
+    function closeSaveDialog() {
+        const overlay = document.getElementById('saveDialogOverlay');
+        if (overlay) overlay.classList.remove('open');
+    }
+
+    function handleSaveDialogOverlay(event) {
+        if (event.target && event.target.id === 'saveDialogOverlay') {
+            closeSaveDialog();
+        }
+    }
+
+    function submitSavePage() {
+        const input = document.getElementById('saveTitleInput');
+        const title = (input?.value || '').trim();
+        if (!title) {
+            if (input) input.focus();
+            return;
+        }
+
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '<?= $model->isNewRecord ? Url::to(['dynamic-create']) : Url::to(['dynamic-update', 'id' => $model->id]) ?>';
+
+        const csrf = document.querySelector('meta[name="csrf-token"]');
+        if (csrf) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = '_csrf-frontend';
+            input.value = csrf.getAttribute('content');
+            form.appendChild(input);
+        }
+
+        const titleInput = document.createElement('input');
+        titleInput.type = 'hidden';
+        titleInput.name = 'MasterPage[title]';
+        titleInput.value = title;
+        form.appendChild(titleInput);
+
+        const contentInput = document.createElement('input');
+        contentInput.type = 'hidden';
+        contentInput.name = 'MasterPage[layout_json]';
+        contentInput.value = JSON.stringify(window.pageState);
+        form.appendChild(contentInput);
+
+        const pageTypeInput = document.createElement('input');
+        pageTypeInput.type = 'hidden';
+        pageTypeInput.name = 'MasterPage[page_type]';
+        pageTypeInput.value = (fullPageSource || '').trim() !== '' ? PAGE_TYPE_CUSTOM_CODE : PAGE_TYPE_BUILDER;
+        form.appendChild(pageTypeInput);
+
+        const customHtmlInput = document.createElement('textarea');
+        customHtmlInput.name = 'MasterPage[custom_html]';
+        customHtmlInput.style.display = 'none';
+        customHtmlInput.value = (fullPageSource || '').trim();
+        form.appendChild(customHtmlInput);
+
+        const customCssInput = document.createElement('input');
+        customCssInput.type = 'hidden';
+        customCssInput.name = 'MasterPage[custom_css]';
+        customCssInput.value = '';
+        form.appendChild(customCssInput);
+
+        const customJsInput = document.createElement('input');
+        customJsInput.type = 'hidden';
+        customJsInput.name = 'MasterPage[custom_js]';
+        customJsInput.value = '';
+        form.appendChild(customJsInput);
+
+        closeSaveDialog();
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function savePage() {
+        openSaveDialog();
+    }
+
+    document.addEventListener('keydown', (event) => {
+        const overlay = document.getElementById('saveDialogOverlay');
+        if (!overlay || !overlay.classList.contains('open')) return;
+
+        if (event.key === 'Escape') {
+            closeSaveDialog();
+        } else if (event.key === 'Enter') {
+            event.preventDefault();
+            submitSavePage();
+        }
+    });
+</script>
+
+<script>
+    (() => {
+        const svg = (content) => `
+            <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${content}
+            </svg>`;
+        const filled = (content) => `
+            <svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" focusable="false" fill="currentColor">
+                ${content}
+            </svg>`;
+
+        const icons = {
+            add: svg('<path d="M12 5v14"/><path d="M5 12h14"/>'),
+            arrow_back: svg('<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>'),
+            chevron_left: svg('<path d="m15 18-6-6 6-6"/>'),
+            content_copy: svg('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+            dashboard: svg('<rect x="3" y="3" width="7" height="8" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/>'),
+            database: svg('<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>'),
+            delete: svg('<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/>'),
+            description: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h6"/>'),
+            drag_indicator: svg('<path d="M9 5h.01"/><path d="M15 5h.01"/><path d="M9 12h.01"/><path d="M15 12h.01"/><path d="M9 19h.01"/><path d="M15 19h.01"/>'),
+            dynamic_form: svg('<path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h10"/><rect x="4" y="3" width="16" height="18" rx="2"/>'),
+            expand_more: svg('<path d="m6 9 6 6 6-6"/>'),
+            folder_open: svg('<path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2"/>'),
+            grid_view: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>'),
+            horizontal_rule: svg('<path d="M4 12h16"/>'),
+            image: svg('<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="2"/><path d="m21 16-5-5L5 19"/>'),
+            list_alt: svg('<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>'),
+            logout: svg('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>'),
+            notes: svg('<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/>'),
+            person: svg('<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 14.5-4 16 0"/>'),
+            save: svg('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>'),
+            settings: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2 3.4-.2-.1a1.7 1.7 0 0 0-2 .2 1.7 1.7 0 0 0-.6 1.5H9a1.7 1.7 0 0 0-.6-1.5 1.7 1.7 0 0 0-2-.2l-.2.1-2-3.4.1-.1A1.7 1.7 0 0 0 4.6 15 1.7 1.7 0 0 0 3 14V10a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 2-3.4.2.1a1.7 1.7 0 0 0 2-.2A1.7 1.7 0 0 0 9 2h6a1.7 1.7 0 0 0 .6 1.5 1.7 1.7 0 0 0 2 .2l.2-.1 2 3.4-.1.1a1.7 1.7 0 0 0-.3 1.9A1.7 1.7 0 0 0 21 10v4a1.7 1.7 0 0 0-1.6 1z"/>'),
+            smart_button: svg('<rect x="3" y="7" width="18" height="10" rx="3"/><path d="M8 12h8"/>'),
+            space_bar: svg('<path d="M4 17h16"/><path d="M4 17v-4"/><path d="M20 17v-4"/>'),
+            square: svg('<rect x="5" y="5" width="14" height="14" rx="2"/>'),
+            table_chart: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18"/><path d="M9 4v16"/><path d="M15 4v16"/>'),
+            title: svg('<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>'),
+            touch_app: svg('<path d="M9 11V5a2 2 0 0 1 4 0v6"/><path d="M13 10v-1a2 2 0 0 1 4 0v3"/><path d="M17 12v-1a2 2 0 0 1 4 0v3c0 5-3 8-8 8h-1a5 5 0 0 1-4-2l-4-5a2 2 0 0 1 3-3l2 2"/>'),
+            videocam: svg('<rect x="3" y="6" width="12" height="12" rx="2"/><path d="m15 10 6-4v12l-6-4z"/>'),
+            view_column: svg('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/><path d="M15 4v16"/>'),
+            view_stream: svg('<rect x="4" y="5" width="16" height="5" rx="1"/><rect x="4" y="14" width="16" height="5" rx="1"/>'),
+            visibility: svg('<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>'),
+            widgets: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M17.5 14v7"/><path d="M14 17.5h7"/>'),
+            category: svg('<circle cx="7" cy="7" r="3"/><circle cx="17" cy="7" r="3"/><circle cx="7" cy="17" r="3"/><circle cx="17" cy="17" r="3"/>')
+        };
+
+        const applyMaterialIconFallback = (root = document) => {
+            root.querySelectorAll('.material-symbols-outlined').forEach((el) => {
+                if (el.dataset.iconFallbackApplied === '1' || el.querySelector('svg')) {
+                    return;
+                }
+
+                const name = el.textContent.trim();
+                if (!name) {
+                    return;
+                }
+
+                el.dataset.iconName = name;
+                el.setAttribute('aria-label', name.replace(/_/g, ' '));
+                el.innerHTML = icons[name] || icons.category;
+                el.dataset.iconFallbackApplied = '1';
+            });
+        };
+
+        window.applyMaterialIconFallback = applyMaterialIconFallback;
+
+        const materialFontAvailable = () => {
+            const probeText = 'view_stream';
+            const probe = document.createElement('span');
+            probe.textContent = probeText;
+            probe.style.cssText = 'position:absolute;left:-9999px;top:-9999px;font-size:24px;line-height:1;white-space:nowrap;visibility:hidden;';
+
+            const fallbackProbe = probe.cloneNode(true);
+            fallbackProbe.style.fontFamily = 'Arial, sans-serif';
+
+            const iconProbe = probe.cloneNode(true);
+            iconProbe.style.fontFamily = '"Material Symbols Outlined", Arial, sans-serif';
+            iconProbe.style.fontFeatureSettings = '"liga"';
+
+            document.body.appendChild(fallbackProbe);
+            document.body.appendChild(iconProbe);
+
+            const fallbackWidth = fallbackProbe.getBoundingClientRect().width;
+            const iconWidth = iconProbe.getBoundingClientRect().width;
+
+            fallbackProbe.remove();
+            iconProbe.remove();
+
+            return iconWidth > 0 && fallbackWidth > 0 && iconWidth < fallbackWidth * 0.8;
+        };
+
+        const runIfNeeded = () => {
+            if (!materialFontAvailable()) {
+                applyMaterialIconFallback();
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runIfNeeded);
+        } else {
+            runIfNeeded();
+        }
+
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(runIfNeeded).catch(runIfNeeded);
+        }
+
+        window.setTimeout(runIfNeeded, 1200);
+    })();
+</script>

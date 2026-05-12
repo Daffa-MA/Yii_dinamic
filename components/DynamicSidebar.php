@@ -46,6 +46,8 @@ class DynamicSidebar extends Component
                     'icon' => $menu->icon ?: 'folder',
                     'url' => $url,
                     'page_id' => $menu->page_id,
+                    'form_id' => $menu->form_id,
+                    'route' => $menu->route,
                     'children' => !empty($children) ? $children : null,
                     'forms' => $forms,
                     
@@ -95,10 +97,22 @@ class DynamicSidebar extends Component
 
     private function resolveUrl($menu)
     {
-        if ($menu->page_id) {
+        // Debug: log menu info
+        \Yii::info('resolveUrl - type: ' . ($menu->type ?? 'null') . ', form_id: ' . ($menu->form_id ?? 'null') . ', page_id: ' . ($menu->page_id ?? 'null') . ', route: ' . ($menu->route ?? 'null'), 'menu-url-debug');
+        
+        if ($menu->type === 'form' && !empty($menu->form_id)) {
+            \Yii::info('resolveUrl - Returning form URL with id: ' . $menu->form_id, 'menu-url-debug');
+            return ['/master-form/preview', 'id' => $menu->form_id];
+        }
+        if ($menu->type === 'page' && !empty($menu->page_id)) {
             return ['/page/view', 'id' => $menu->page_id];
         }
-        return null;
+        if (!empty($menu->route)) {
+            return '/' . ltrim($menu->route, '/');
+        }
+        
+        // Default return # for unknown types
+        return '#';
     }
 
     private function getFormsForMenu($menuId)

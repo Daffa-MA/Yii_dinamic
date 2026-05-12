@@ -118,8 +118,8 @@ function handleMenuClick(menuId, menuType, menuName) {
         return;
     }
     
-    if (menuType === 'page') {
-        // Page - load via AJAX
+    if (menuType === 'page' || menuType === 'form') {
+        // Page/Form - resolve via AJAX
         fetch(handleMenuUrl + '?project_id=' + currentProjectId + '&menu_id=' + menuId)
             .then(response => response.json())
             .then(data => {
@@ -164,7 +164,7 @@ function handlePageResponse(response) {
         return;
     }
     
-    if (response.type === 'route') {
+    if (response.type === 'route' || response.type === 'form' || response.action === 'redirect') {
         // Redirect
         window.location.href = response.redirect_url;
         return;

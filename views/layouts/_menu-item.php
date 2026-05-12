@@ -51,6 +51,10 @@ if (is_array($url) && !empty($url)) {
     $href = Url::to($url);
 } elseif (is_string($url) && $url !== '' && $url !== '#') {
     $href = Url::to($url);
+} elseif (!empty($item['form_id'])) {
+    $href = Url::to(['/master-form/preview', 'id' => (int) $item['form_id']]);
+} elseif (($item['type'] ?? '') !== 'group' && $itemId !== '') {
+    $href = Url::to(['/master-menu/resolve-link', 'id' => (int) $itemId]);
 }
 
 $baseLink = 'app-sidebar-link group flex min-h-11 items-center gap-3 rounded-2xl border border-transparent px-3.5 py-3 text-sm font-semibold no-underline transition-all duration-200';

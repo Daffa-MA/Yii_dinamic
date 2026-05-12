@@ -606,6 +606,31 @@ class MasterPageController extends Controller
     }
 
     /**
+     * Get pages list for dropdown (AJAX)
+     */
+    public function actionGetPages()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $pages = MasterPage::find()
+            ->select(['id', 'name', 'slug'])
+            ->where(['is_active' => 1])
+            ->orderBy(['name' => SORT_ASC])
+            ->all();
+
+        return [
+            'success' => true,
+            'pages' => array_map(function($p) {
+                return [
+                    'id' => $p->id,
+                    'name' => $p->name ?: ('Page ' . $p->id),
+                    'slug' => $p->slug,
+                ];
+            }, $pages),
+        ];
+    }
+
+    /**
      * Render dynamic page content for frontend
      */
     public function actionViewDynamic($slug)

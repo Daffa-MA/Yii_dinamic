@@ -16,6 +16,7 @@ class MasterMenu extends ActiveRecord
     const TYPE_ROUTE = 'route';
     const TYPE_BUTTON = 'button';
     const TYPE_DIVIDER = 'divider';
+    const TYPE_FORM = 'form';
 
     // Target constants
     const TARGET_SELF = '_self';
@@ -184,6 +185,7 @@ class MasterMenu extends ActiveRecord
             'id',
             'parent_id',
             'page_id',
+            'form_id',
             'name',
             'type',
             'route',
@@ -263,7 +265,7 @@ public function __set($name, $value)
     {
         return [
             [['name'], 'required'],
-            [['parent_id', 'page_id', 'sort_order', 'is_active', 'sort_priority', 'animation_duration'], 'integer'],
+            [['parent_id', 'page_id', 'form_id', 'sort_order', 'is_active', 'sort_priority', 'animation_duration'], 'integer'],
             [['name'], 'string', 'max' => 100],
             [['icon'], 'string', 'max' => 50],
             [['route'], 'string', 'max' => 255],
@@ -276,7 +278,7 @@ public function __set($name, $value)
             [['metadata', 'visibility_condition'], 'string'],
             
             // Type validation
-            [['type'], 'in', 'range' => [self::TYPE_GROUP, self::TYPE_PAGE, self::TYPE_ROUTE, self::TYPE_BUTTON, self::TYPE_DIVIDER], 'message' => 'Pilih tipe menu yang valid'],
+            [['type'], 'in', 'range' => [self::TYPE_GROUP, self::TYPE_PAGE, self::TYPE_ROUTE, self::TYPE_BUTTON, self::TYPE_DIVIDER, self::TYPE_FORM], 'message' => 'Pilih tipe menu yang valid'],
             
             // Target validation
             [['target'], 'in', 'range' => [self::TARGET_SELF, self::TARGET_BLANK, self::TARGET_MODAL, self::TARGET_AJAX, self::TARGET_POPUP]],
@@ -329,6 +331,7 @@ public function __set($name, $value)
             
             ['parent_id', 'exist', 'skipOnError' => true, 'targetClass' => MasterMenu::class, 'targetAttribute' => ['parent_id' => 'id']],
             ['page_id', 'exist', 'skipOnError' => true, 'targetClass' => MasterPage::class, 'targetAttribute' => ['page_id' => 'id']],
+            ['form_id', 'exist', 'skipOnError' => true, 'targetClass' => MasterForm::class, 'targetAttribute' => ['form_id' => 'id']],
         ];
     }
 
@@ -336,6 +339,9 @@ public function __set($name, $value)
     {
         if ($this->type === self::TYPE_PAGE && !empty($this->route)) {
             $this->addError($attribute, 'Menu tipe Page tidak boleh menggunakan Route');
+        }
+        if ($this->type === self::TYPE_FORM && empty($this->form_id)) {
+            $this->addError('form_id', 'Menu tipe Form wajib memilih Form');
         }
     }
 
@@ -346,6 +352,7 @@ public function __set($name, $value)
             'parent_id' => 'Parent Menu',
             'type' => 'Tipe',
             'page_id' => 'Halaman',
+            'form_id' => 'Form',
             'name' => 'Nama Menu',
             'icon' => 'Icon',
             'route' => 'Route (URL)',
@@ -473,6 +480,11 @@ public function __set($name, $value)
         return $this->type === self::TYPE_ROUTE;
     }
     
+    public function isForm(): bool
+    {
+        return $this->type === self::TYPE_FORM;
+    }
+    
     public function getUrl()
     {
         if ($this->type === self::TYPE_ROUTE && !empty($this->route)) {
@@ -480,6 +492,9 @@ public function __set($name, $value)
         }
         if ($this->type === self::TYPE_PAGE && $this->page_id) {
             return \yii\helpers\Url::to(['/page/view', 'id' => $this->page_id]);
+        }
+        if ($this->type === self::TYPE_FORM && $this->form_id) {
+            return \yii\helpers\Url::to(['/form/view', 'id' => $this->form_id]);
         }
         return null;
     }

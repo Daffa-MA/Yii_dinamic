@@ -80,10 +80,21 @@ $config = [
                 // Table builder routes
                 'tables' => 'table-builder/index',
                 'tables/create' => 'table-builder/create',
+                'tables/get-tables' => 'table-builder/get-tables',
+                'tables/get-columns/<id:\d+>' => 'table-builder/get-table-columns',
+                'tables/columns/<id:\d+>' => 'table-builder/get-columns',
+                'tables/view/<id:\d+>' => 'table-builder/view',
                 'tables/update/<id:\d+>' => 'table-builder/update',
                 'tables/execute/<id:\d+>' => 'table-builder/execute-sql',
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',
                 'tables/delete/<id:\d+>' => 'table-builder/delete',
+
+                // Master Form routes
+                'master-form' => 'master-form/index',
+                'master-form/create' => 'master-form/create',
+                'master-form/view/<id:\d+>' => 'master-form/view',
+                'master-form/update/<id:\d+>' => 'master-form/update',
+                'master-form/delete/<id:\d+>' => 'master-form/delete',
 
                 // Project routes (main landing after login)
                 'project-list' => 'project/index',
@@ -109,6 +120,7 @@ $config = [
                 'master-page/update/<id:\d+>' => 'master-page/update',
                 'master-page/delete/<id:\d+>' => 'master-page/delete',
                 'master-page/toggle/<id:\d+>' => 'master-page/toggle',
+                'master-page/get-pages' => 'master-page/get-pages',
 
                 // Master Form routes
                 'master-form' => 'master-form/index',
@@ -124,6 +136,19 @@ $config = [
                 'master-menu/update/<id:\d+>' => 'master-menu/update',
                 'master-menu/delete/<id:\d+>' => 'master-menu/delete',
                 'master-menu/toggle/<id:\d+>' => 'master-menu/toggle',
+                'master-menu/get-all-menus' => 'master-menu/get-all-menus',
+
+                // Form Placement routes
+                'form-placement/save-placement' => 'form-placement/save-placement',
+                'form-placement/get-placement' => 'form-placement/get-placement',
+                'form-placement/get-menu-list' => 'form-placement/get-menu-list',
+                'form-placement/create-menu' => 'form-placement/create-menu',
+                'form-placement/update-menu' => 'form-placement/update-menu',
+                'form-placement/delete-menu' => 'form-placement/delete-menu',
+                'form-placement/get-menu-tree' => 'form-placement/get-menu-tree',
+                'form-placement/update-order' => 'form-placement/update-order',
+                'form-placement/get-icons' => 'form-placement/get-icons',
+                'form-placement/view/<slug:[a-zA-Z0-9-_]+>' => 'form-placement/view',
 
                 // Dynamic Page routes
                 'page/view/<id:\d+>' => 'page/view',

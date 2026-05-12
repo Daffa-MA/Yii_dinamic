@@ -444,7 +444,19 @@ class TableBuilderController extends Controller
     private function getPhysicalDb(): Connection
     {
         $metadataDb = Yii::$app->db;
-        $project = (new ActiveProjectContext())->getActiveProject();
+        $project = null;
+        
+        // Try to get active project safely
+        try {
+            if (class_exists('app\components\ActiveProjectContext')) {
+                $context = new \app\components\ActiveProjectContext();
+                $project = $context->getActiveProject();
+            }
+        } catch (\Throwable $e) {
+            // Fallback to metadata db
+        }
+        
+        // If no active project, use metadata db
         if ($project === null) {
             return $metadataDb;
         }
@@ -1228,5 +1240,151 @@ class TableBuilderController extends Controller
         }
 
         throw new NotFoundHttpException('The requested table does not exist.');
+    }
+    
+    /**
+     * Get columns for a table (JSON API for form builder)
+     */
+    public function actionGetColumns($id)
+    {
+        try {
+            $this->refreshDbTableColumnsSchema();
+            
+            $model = $this->findModel($id);
+            if ($model === null) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Table not found for id: ' . $id
+                ]);
+            }
+            
+            $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            
+            $columnData = [];
+            foreach ($columns as $col) {
+                $columnData[] = [
+                    'id' => $col->id,
+                    'name' => $col->name,
+                    'label' => $col->label ?: $col->name,
+                    'type' => $col->type,
+                    'base_type' => $col->type,
+                    'is_nullable' => (bool)$col->is_nullable,
+                    'is_primary' => (bool)$col->is_primary,
+                    'default_value' => $col->default_value,
+                    'max_length' => $col->length,
+                ];
+            }
+            
+            return $this->asJson([
+                'success' => true,
+                'table_id' => $model->id,
+                'table_name' => $model->name,
+                'table_label' => $model->label,
+                'columns' => $columnData,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->asJson([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+        }
+    }
+    
+/**
+     * Get table definitions from metadata (DbTable model) for form builder dropdown
+     * This returns tables defined in Master Table (table-builder), not physical database tables
+     */
+    public function actionGetTables()
+    {
+        try {
+            $activeProjectId = $this->getActiveProjectId();
+            
+            // Get table definitions from DbTable model (like table-builder index does)
+            $tablesQuery = DbTable::find()
+                ->where(['user_id' => Yii::$app->user->id])
+                ->orderBy(['created_at' => SORT_DESC]);
+                
+            if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+                $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+            }
+            
+            $tables = $tablesQuery->all();
+            
+            $tableList = [];
+            foreach ($tables as $table) {
+                $this->syncTableCreationState($table);
+                $tableList[] = [
+                    'id' => $table->id,
+                    'name' => $table->name,
+                    'label' => $table->label ?: $table->name,
+                ];
+            }
+            
+            return $this->asJson([
+                'success' => true,
+                'tables' => $tableList,
+                'source' => 'db_table_metadata',
+                'count' => count($tableList)
+            ]);
+            
+        } catch (\Throwable $e) {
+            return $this->asJson([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+    
+    /**
+     * Get columns from table definition (metadata) for form builder
+     */
+    public function actionGetTableColumns($id)
+    {
+        try {
+            $this->refreshDbTableColumnsSchema();
+            
+            // Find the table by ID
+            $model = DbTable::findOne((int)$id);
+            if ($model === null) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Table not found with id: ' . $id
+                ]);
+            }
+            
+            // Get columns relation
+            $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            
+            $columnData = [];
+            foreach ($columns as $col) {
+                $columnData[] = [
+                    'id' => $col->id,
+                    'name' => $col->name,
+                    'label' => $col->label ?: $col->name,
+                    'type' => $col->type,
+                    'base_type' => preg_match('/^(\w+)/', $col->type ?? '', $m) ? $m[1] : ($col->type ?? 'text'),
+                    'is_nullable' => (bool)$col->is_nullable,
+                    'is_primary' => (bool)$col->is_primary,
+                    'default_value' => $col->default_value,
+                ];
+            }
+            
+            return $this->asJson([
+                'success' => true,
+                'table_id' => $model->id,
+                'table_name' => $model->name,
+                'table_label' => $model->label ?: $model->name,
+                'columns' => $columnData,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->asJson([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+        }
     }
 }

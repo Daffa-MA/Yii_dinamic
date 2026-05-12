@@ -12,6 +12,9 @@ class MenuService
     const TYPE_GROUP = 'group';
     const TYPE_PAGE = 'page';
     const TYPE_ROUTE = 'route';
+    const TYPE_FORM = 'form';
+    const TYPE_BUTTON = 'button';
+    const TYPE_DIVIDER = 'divider';
 
     /**
      * Validasi data menu sebelum save
@@ -25,7 +28,7 @@ class MenuService
         // 1. Validate type is required and valid
         if (empty($menu->type)) {
             $errors[] = 'Tipe menu wajib dipilih';
-        } elseif (!in_array($menu->type, [self::TYPE_GROUP, self::TYPE_PAGE, self::TYPE_ROUTE])) {
+        } elseif (!in_array($menu->type, [self::TYPE_GROUP, self::TYPE_PAGE, self::TYPE_ROUTE, self::TYPE_FORM, self::TYPE_BUTTON, self::TYPE_DIVIDER])) {
             $errors[] = 'Tipe menu tidak valid';
         }
 
@@ -39,6 +42,9 @@ class MenuService
                 if (!empty($menu->route)) {
                     $errors[] = 'Menu tipe Group tidak boleh menggunakan Route';
                 }
+                if (!empty($menu->form_id)) {
+                    $errors[] = 'Menu tipe Group tidak boleh terhubung ke Form';
+                }
                 break;
 
             case self::TYPE_PAGE:
@@ -50,17 +56,41 @@ class MenuService
                 if (!empty($menu->route)) {
                     $errors[] = 'Menu tipe Page tidak boleh menggunakan Route';
                 }
+                if (!empty($menu->form_id)) {
+                    $errors[] = 'Menu tipe Page tidak boleh terhubung ke Form';
+                }
+                break;
+
+            case self::TYPE_FORM:
+                // Form wajib ada form_id
+                if (empty($menu->form_id)) {
+                    $errors[] = 'Menu tipe Form wajib memilih Form';
+                }
+                if (!empty($menu->page_id)) {
+                    $errors[] = 'Menu tipe Form tidak boleh terhubung ke Halaman';
+                }
+                if (!empty($menu->route)) {
+                    $errors[] = 'Menu tipe Form tidak boleh menggunakan Route';
+                }
                 break;
 
             case self::TYPE_ROUTE:
-                // Route wajib ada route
+            case self::TYPE_BUTTON:
+                // Route/Button wajib ada route
                 if (empty($menu->route)) {
-                    $errors[] = 'Menu tipe Route wajib填写 URL';
+                    $errors[] = 'URL wajib diisi untuk tipe ' . $menu->type;
                 }
                 // Route tidak boleh punya page_id
                 if (!empty($menu->page_id)) {
-                    $errors[] = 'Menu tipe Route tidak boleh terhubung ke halaman';
+                    $errors[] = 'Menu tipe Route/Button tidak boleh terhubung ke halaman';
                 }
+                if (!empty($menu->form_id)) {
+                    $errors[] = 'Menu tipe Route/Button tidak boleh terhubung ke Form';
+                }
+                break;
+
+            case self::TYPE_DIVIDER:
+                // Divider tidak perlu validasi khusus, hanya tidak punya target
                 break;
         }
 
@@ -130,6 +160,7 @@ class MenuService
     {
         $menu = new MasterMenu();
         $menu->load($data);
+        $this->normalizePostedMenuFields($menu, $data);
 
         // Set default values
         $menu->is_active = $menu->is_active ?? 1;
@@ -177,6 +208,7 @@ class MenuService
         }
 
         $menu->load($data);
+        $this->normalizePostedMenuFields($menu, $data);
 
         // Validate
         $validation = $this->validateMenu($menu);
@@ -207,6 +239,26 @@ class MenuService
     }
 
     /**
+     * Normalize critical fields from raw POST payload.
+     */
+    private function normalizePostedMenuFields(MasterMenu $menu, array $data): void
+    {
+        $postedType = trim((string)($data['MasterMenu']['type'] ?? ''));
+        $postedFormId = $data['MasterMenu']['form_id'] ?? null;
+
+        if ($postedType !== '') {
+            $menu->type = $postedType;
+        }
+
+        if ($menu->type === self::TYPE_FORM && $postedFormId !== null && $postedFormId !== '') {
+            $menu->form_id = (int)$postedFormId;
+        } elseif ($menu->type === self::TYPE_FORM && empty($postedFormId) && !empty($data['MasterMenu']['page_id'])) {
+            // Guard for mixed payloads from custom-page edit flows.
+            $menu->type = self::TYPE_PAGE;
+        }
+    }
+
+    /**
      * Clean fields based on type
      */
     private function cleanFieldsByType(MasterMenu $menu): void
@@ -215,12 +267,25 @@ class MenuService
             case self::TYPE_GROUP:
                 $menu->page_id = null;
                 $menu->route = null;
+                $menu->form_id = null;
                 break;
             case self::TYPE_PAGE:
                 $menu->route = null;
+                $menu->form_id = null;
+                break;
+            case self::TYPE_FORM:
+                $menu->page_id = null;
+                $menu->route = null;
                 break;
             case self::TYPE_ROUTE:
+            case self::TYPE_BUTTON:
                 $menu->page_id = null;
+                $menu->form_id = null;
+                break;
+            case self::TYPE_DIVIDER:
+                $menu->page_id = null;
+                $menu->route = null;
+                $menu->form_id = null;
                 break;
         }
     }

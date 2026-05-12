@@ -36,6 +36,12 @@ function isActiveRoute($itemUrl, $currentRoute) {
                 <p style="font-size: 11px; color: #94a3b8;">Hubungi admin untuk menambahkan menu.</p>
             </div>
         <?php else: ?>
+            <!-- DEBUG: Show all menu items and their URLs -->
+            <?php
+            // Debug: log menu tree to see what URLs are generated
+            \Yii::info('Menu tree JSON: ' . json_encode($menuTree), 'menu-debug');
+            ?>
+            <pre style="display:none;"><?php // debug: echo json_encode($menuTree, JSON_PRETTY_PRINT); ?></pre>
             <?= $sidebar->renderHtml($menuTree) ?>
         <?php endif; ?>
     </nav>

@@ -126,6 +126,7 @@ class SidebarService
             'icon' => $menu->icon ?? 'folder',
             'url' => $url,
             'page_id' => $menu->page_id ? (int) $menu->page_id : null,
+            'form_id' => $menu->form_id ? (int) $menu->form_id : null,
             'route' => $menu->route,
             'parent_id' => $menu->parent_id ? (int) $menu->parent_id : null,
             'order' => (int) ($menu->order ?? $menu->sort_order),
@@ -144,6 +145,11 @@ class SidebarService
      */
     public function getMenuUrl(MasterMenu $menu): string
     {
+        // Recovery path: page-without-page_id but with form_id should behave as form
+        if (!empty($menu->form_id) && ($menu->type === 'form' || ($menu->type === 'page' && empty($menu->page_id)))) {
+            return '/master-form/preview?id=' . $menu->form_id;
+        }
+
         switch ($menu->type) {
             case 'route':
                 // Direct URL - pastikan ada leading slash
@@ -157,7 +163,14 @@ class SidebarService
             case 'page':
                 // Link ke page view
                 if (!empty($menu->page_id)) {
-                    return ['/page/view', 'id' => $menu->page_id];
+                    return '/page/view?id=' . $menu->page_id;
+                }
+                return '#';
+
+            case 'form':
+                // Link ke form preview (dynamic form builder existing)
+                if (!empty($menu->form_id)) {
+                    return '/master-form/preview?id=' . $menu->form_id;
                 }
                 return '#';
                 

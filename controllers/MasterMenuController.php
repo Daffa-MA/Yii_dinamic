@@ -5,6 +5,7 @@ namespace app\controllers;
 use Yii;
 use app\models\MasterMenu;
 use app\models\MasterPage;
+use yii\helpers\Url;
 use app\services\MenuService;
 use app\components\ActiveDatabaseContext;
 use yii\data\ActiveDataProvider;
@@ -117,14 +118,53 @@ class MasterMenuController extends Controller
             // Ensure columns exist before loading
             MasterMenu::ensureColumnsExist();
             
-            if ($model->load(Yii::$app->request->post())) {
+            $postData = Yii::$app->request->post();
+            
+            // Debug: log what was submitted - specifically check form_id
+            \Yii::info('POST data keys: ' . implode(', ', array_keys($postData)), 'menu-debug');
+            \Yii::info('MasterMenu POST: ' . json_encode($postData['MasterMenu'] ?? []), 'menu-debug');
+            
+            // Check what name the form_id field is using
+            $formIdSubmitted = $postData['MasterMenu']['form_id'] ?? $postData['form_id'] ?? 'NOT_IN_POST';
+            \Yii::info('form_id SUBMITTED value: ' . $formIdSubmitted, 'menu-debug');
+            
+            if ($model->load($postData)) {
+                \Yii::info('Model after load - type: ' . ($model->type ?? 'null') . ', form_id: ' . ($model->form_id ?? 'null') . ', page_id: ' . ($model->page_id ?? 'null'), 'menu-debug');
+                
+                // Normalize critical type/form fields from raw POST to avoid stale default "page"
+                $postedType = trim((string)($postData['MasterMenu']['type'] ?? ''));
+                $postedFormId = $postData['MasterMenu']['form_id'] ?? null;
+                if ($postedType !== '') {
+                    $model->type = $postedType;
+                }
+                if ($model->type === MasterMenu::TYPE_FORM && $postedFormId !== null && $postedFormId !== '') {
+                    $model->form_id = (int)$postedFormId;
+                }
+                if ($model->type === MasterMenu::TYPE_FORM && empty($postedFormId) && !empty($postData['MasterMenu']['page_id'])) {
+                    $model->type = MasterMenu::TYPE_PAGE;
+                }
+                
+                // Force set form_id from POST if not loaded
+                if (empty($model->form_id) && !empty($postData['MasterMenu']['form_id'])) {
+                    $model->form_id = $postData['MasterMenu']['form_id'];
+                    \Yii::info('Force set form_id to: ' . $model->form_id, 'menu-debug');
+                }
+                
                 // Ensure sort_order is set
                 if (empty($model->sort_order) || $model->sort_order <= 0) {
                     $maxOrder = MasterMenu::find()->select('MAX([[sort_order]]) as max_order')->scalar();
                     $model->sort_order = ($maxOrder ? (int)$maxOrder : 0) + 1;
                 }
                 
+                // Debug: check if model is valid
+                if ($model->validate()) {
+                    \Yii::info('Model validation passed', 'menu-debug');
+                } else {
+                    \Yii::info('Model validation errors: ' . json_encode($model->getErrors()), 'menu-debug');
+                }
+                
                 if ($model->save()) {
+                    \Yii::info('Menu SAVED - id: ' . $model->id . ', type: ' . $model->type . ', form_id: ' . ($model->form_id ?? 'null'), 'menu-debug');
                     Yii::$app->session->setFlash('success', 'Menu berhasil dibuat!');
                     return $this->redirect(['index']);
                 } else {
@@ -135,6 +175,7 @@ class MasterMenuController extends Controller
                     Yii::$app->session->setFlash('error', 'Gagal menyimpan menu: ' . $errorMsg);
                 }
             } else {
+                \Yii::info('Model load FAILED - post data not loaded properly', 'menu-debug');
                 Yii::$app->session->setFlash('error', 'Data tidak valid - mohon periksa kembali form Anda');
             }
         }
@@ -281,6 +322,30 @@ class MasterMenuController extends Controller
             'success' => true,
             'tree' => $this->menuService->getMenuTree($activeOnly)
         ];
+    }
+
+    /**
+     * Resolve fallback link for menu items that still render as "#"
+     */
+    public function actionResolveLink($id)
+    {
+        $menu = $this->findModel($id);
+
+        if (!empty($menu->form_id)) {
+            return $this->redirect(['/master-form/preview', 'id' => $menu->form_id]);
+        }
+
+        if ($menu->type === MasterMenu::TYPE_PAGE && !empty($menu->page_id)) {
+            return $this->redirect(['/page/view', 'id' => $menu->page_id]);
+        }
+
+        if ($menu->type === MasterMenu::TYPE_ROUTE && !empty($menu->route)) {
+            $route = $menu->route[0] === '/' ? $menu->route : '/' . ltrim($menu->route, '/');
+            return $this->redirect($route);
+        }
+
+        Yii::$app->session->setFlash('error', 'Link menu belum terhubung ke halaman/form.');
+        return $this->redirect(Url::previous() ?: ['index']);
     }
 
     /**

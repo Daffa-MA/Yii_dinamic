@@ -1,7 +1,6 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
 
 /* @var $items array */
 /* @var $project_id int */
@@ -45,10 +44,22 @@ foreach ($items as $item):
     elseif ($item['type'] === 'route'):
         // Route - render as actual link
 ?>
-        <a href="<?= Url::to([$item['url']]) ?>" 
+        <a href="<?= Html::encode($item['url']) ?>" 
            class="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
             <span class="material-symbols-outlined text-gray-400">
                 <?= $item['icon'] ?: 'link' ?>
+            </span>
+            <span class="font-medium"><?= Html::encode($item['name']) ?></span>
+        </a>
+<?php 
+    elseif ($item['type'] === 'form'):
+        // Form - resolve by dashboard handler, then redirect to dynamic form renderer
+?>
+        <a href="javascript:void(0)" 
+           onclick="handleMenuClick(<?= $item['id'] ?>, 'form', '<?= Html::encode($item['name']) ?>')"
+           class="flex items-center gap-3 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-lg">
+            <span class="material-symbols-outlined text-gray-400">
+                <?= $item['icon'] ?: 'description' ?>
             </span>
             <span class="font-medium"><?= Html::encode($item['name']) ?></span>
         </a>

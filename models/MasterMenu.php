@@ -112,6 +112,7 @@ class MasterMenu extends ActiveRecord
         }
         
         $columnsToAdd = [
+            'form_id' => ['type' => 'integer', 'default' => null],
             'target' => ['type' => 'string', 'length' => 20, 'default' => '_self'],
             'action_type' => ['type' => 'string', 'length' => 20, 'default' => 'link'],
             'button_text' => ['type' => 'string', 'length' => 100],
@@ -324,9 +325,17 @@ public function __set($name, $value)
                 return $model->type === self::TYPE_BUTTON;
             }, 'message' => 'Button wajib memiliki URL/Route'],
             
+            // Form type validation (handled by validateRouteForPage and MenuService)
+            // Only add error if form_id is empty AND type is form AND form is submitted
+            ['form_id', 'safe'],
+            
             // Page type should NOT have route
             ['route', 'validateRouteForPage', 'when' => function($model) {
                 return $model->type === self::TYPE_PAGE;
+            }],
+            
+            ['form_id', 'validateFormType', 'when' => function($model) {
+                return $model->type === self::TYPE_FORM;
             }],
             
             ['parent_id', 'exist', 'skipOnError' => true, 'targetClass' => MasterMenu::class, 'targetAttribute' => ['parent_id' => 'id']],
@@ -340,8 +349,17 @@ public function __set($name, $value)
         if ($this->type === self::TYPE_PAGE && !empty($this->route)) {
             $this->addError($attribute, 'Menu tipe Page tidak boleh menggunakan Route');
         }
-        if ($this->type === self::TYPE_FORM && empty($this->form_id)) {
-            $this->addError('form_id', 'Menu tipe Form wajib memilih Form');
+    }
+    
+    public function validateFormType($attribute, $params)
+    {
+        $post = Yii::$app->request->post('MasterMenu', []);
+        $postedType = trim((string)($post['type'] ?? $this->type ?? ''));
+        $isFormSubmission = $postedType === self::TYPE_FORM || $this->type === self::TYPE_FORM;
+
+        // Only enforce form selection for explicit "Type = Form" submissions.
+        if ($isFormSubmission && empty($this->form_id)) {
+            $this->addError('form_id', 'Menu tipe Form wajib memilih Formulir');
         }
     }
 
@@ -424,10 +442,20 @@ public function __set($name, $value)
 
     public function beforeSave($insert)
     {
+        self::ensureColumnsExist();
+        \Yii::info('beforeSave START - type: ' . ($this->type ?? 'NULL') . ', form_id: ' . ($this->form_id ?? 'NULL') . ', page_id: ' . ($this->page_id ?? 'NULL') . ', route: ' . ($this->route ?? 'NULL'), 'menu-debug');
+        
+        // Recovery normalization: if form_id exists but type stayed page without page_id, treat as form
+        if (!empty($this->form_id) && $this->type === self::TYPE_PAGE && empty($this->page_id)) {
+            $this->type = self::TYPE_FORM;
+        }
+
         // Auto-detect type if not set
         if (empty($this->type)) {
             if (!empty($this->route)) {
                 $this->type = self::TYPE_ROUTE;
+            } elseif (!empty($this->form_id)) {
+                $this->type = self::TYPE_FORM;
             } elseif (!empty($this->page_id)) {
                 $this->type = self::TYPE_PAGE;
             } else {
@@ -439,11 +467,22 @@ public function __set($name, $value)
         if ($this->type === self::TYPE_GROUP) {
             $this->page_id = null;
             $this->route = null;
+            $this->form_id = null;
         } elseif ($this->type === self::TYPE_PAGE) {
             $this->route = null;
+            $this->form_id = null;
         } elseif ($this->type === self::TYPE_ROUTE) {
             $this->page_id = null;
+            $this->form_id = null;
+        } elseif ($this->type === self::TYPE_FORM) {
+            $this->page_id = null;
+            $this->route = null;
+            // KEEP form_id - this is what we want!
+        } elseif ($this->type === self::TYPE_BUTTON) {
+            $this->form_id = null;
         }
+        
+        \Yii::info('beforeSave AFTER CLEAN - type: ' . $this->type . ', form_id: ' . ($this->form_id ?? 'NULL') . ', page_id: ' . ($this->page_id ?? 'NULL'), 'menu-debug');
         
         if ($insert) {
             $this->created_at = date('Y-m-d H:i:s');
@@ -487,6 +526,9 @@ public function __set($name, $value)
     
     public function getUrl()
     {
+        if (!empty($this->form_id) && ($this->type === self::TYPE_FORM || ($this->type === self::TYPE_PAGE && empty($this->page_id)))) {
+            return \yii\helpers\Url::to(['/master-form/preview', 'id' => $this->form_id]);
+        }
         if ($this->type === self::TYPE_ROUTE && !empty($this->route)) {
             return $this->route[0] === '/' ? $this->route : '/' . ltrim($this->route, '/');
         }
@@ -494,7 +536,7 @@ public function __set($name, $value)
             return \yii\helpers\Url::to(['/page/view', 'id' => $this->page_id]);
         }
         if ($this->type === self::TYPE_FORM && $this->form_id) {
-            return \yii\helpers\Url::to(['/form/view', 'id' => $this->form_id]);
+            return \yii\helpers\Url::to(['/master-form/preview', 'id' => $this->form_id]);
         }
         return null;
     }
@@ -759,6 +801,7 @@ public function __set($name, $value)
 
     public static function getMenuTree($activeOnly = true)
     {
+        self::ensureColumnsExist();
         $items = self::find()->orderBy(['sort_order' => SORT_ASC])->all();
         
         if ($activeOnly) {
@@ -786,6 +829,7 @@ public function __set($name, $value)
                     'url' => $item->getUrl(),
                     'menu_key' => $item->menu_key,
                     'page_id' => $item->page_id,
+                    'form_id' => $item->form_id,
                     'route' => $item->route,
                     'has_children' => !empty($children),
                     'children' => !empty($children) ? $children : null,

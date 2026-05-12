@@ -30,6 +30,7 @@ class UserSidebar extends Component
     public function getMenuTree(bool $activeOnly = true): array
     {
         $query = MasterMenu::find()
+            ->select(['id', 'parent_id', 'name', 'type', 'icon', 'route', 'page_id', 'form_id', 'sort_order', 'is_active'])
             ->orderBy(['sort_order' => SORT_ASC, 'order' => SORT_ASC]);
         
         if ($activeOnly) {
@@ -99,6 +100,7 @@ class UserSidebar extends Component
             'icon' => $menu->icon ?? 'folder',
             'url' => $this->resolveUrl($menu),
             'page_id' => $menu->page_id ? (int) $menu->page_id : null,
+            'form_id' => $menu->form_id ? (int) $menu->form_id : null,
             'route' => $menu->route,
             'parent_id' => $menu->parent_id ? (int) $menu->parent_id : null,
             'order' => (int) ($menu->order ?? $menu->sort_order),
@@ -115,26 +117,33 @@ class UserSidebar extends Component
      */
     public function resolveUrl(MasterMenu $menu): string
     {
+        // Debug log
+        \Yii::info('resolveUrl UserSidebar - type: ' . ($menu->type ?? 'null') . ', form_id: ' . ($menu->form_id ?? 'null') . ', page_id: ' . ($menu->page_id ?? 'null'), 'menu-url-debug');
+        
         switch ($menu->type) {
             case MasterMenu::TYPE_ROUTE:
-                // Direct URL
                 if (!empty($menu->route)) {
-                    return $menu->route[0] === '/' 
-                        ? $menu->route 
+                    return $menu->route[0] === '/'
+                        ? $menu->route
                         : '/' . ltrim($menu->route, '/');
                 }
                 return '#';
-                
+
             case MasterMenu::TYPE_PAGE:
-                // Link ke page view
                 if (!empty($menu->page_id)) {
                     return Url::to(['/page/view', 'id' => $menu->page_id]);
                 }
                 return '#';
-                
+
+            case MasterMenu::TYPE_FORM:
+                \Yii::info('resolveUrl - TYPE_FORM case, form_id: ' . ($menu->form_id ?? 'null'), 'menu-url-debug');
+                if (!empty($menu->form_id)) {
+                    return Url::to(['/master-form/preview', 'id' => $menu->form_id]);
+                }
+                return '#';
+
             case MasterMenu::TYPE_GROUP:
             default:
-                // Group tidak punya URL langsung
                 return '#';
         }
     }

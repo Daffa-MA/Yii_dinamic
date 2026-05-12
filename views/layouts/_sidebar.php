@@ -132,6 +132,12 @@ if (!function_exists('renderDynamicSidebarTree')) {
                 $url = \yii\helpers\Url::to($item['url']);
             } elseif (is_string($item['url'] ?? null) && $item['url'] !== '' && $item['url'] !== '#') {
                 $url = \yii\helpers\Url::to($item['url']);
+            } elseif (!empty($item['form_id'])) {
+                // Recovery for legacy rows that still produced '#'
+                $url = \yii\helpers\Url::to(['/master-form/preview', 'id' => (int) $item['form_id']]);
+            } elseif (($item['type'] ?? '') !== 'group' && !empty($itemId)) {
+                // Guaranteed clickable fallback for non-group menus.
+                $url = \yii\helpers\Url::to(['/master-menu/resolve-link', 'id' => (int) $itemId]);
             }
 
             $html .= '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" class="' . $linkClasses . '" data-menu-id="' . htmlspecialchars($itemId, ENT_QUOTES, 'UTF-8') . '">' . "\n";
@@ -757,6 +763,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     'parent_id' => $m->getAttribute('parent_id'),
                     'type' => $m->getAttribute('type'),
                     'page_id' => $m->getAttribute('page_id'),
+                    'form_id' => $m->getAttribute('form_id'),
                     'name' => $m->getAttribute('name'),
                     'icon' => $m->getAttribute('icon'),
                     'route' => $m->getAttribute('route'),
@@ -784,12 +791,18 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                 $type = $item['type'] ?? 'page';
                 $route = $item['route'] ?? '';
                 $pageId = $item['page_id'] ?? null;
+                $formId = $item['form_id'] ?? null;
                 
                 $url = '#';
                 if ($type === 'route' && !empty($route)) {
                     $url = $route[0] === '/' ? $route : '/' . ltrim($route, '/');
+                } elseif ($type === 'form' && !empty($formId)) {
+                    $url = ['/master-form/preview', 'id' => $formId];
                 } elseif ($type === 'page' && !empty($pageId)) {
                     $url = ['/page/view', 'id' => $pageId];
+                } elseif ($type !== 'group' && !empty($item['id'])) {
+                    // Guaranteed fallback so leaf menu never becomes "#"
+                    $url = ['/master-menu/resolve-link', 'id' => $item['id']];
                 }
                 
                 $hasChildren = !empty($item['children']) || $type === 'group';

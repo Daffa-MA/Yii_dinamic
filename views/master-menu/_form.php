@@ -182,8 +182,26 @@ if ($model->isNewRecord && empty($model->type)) {
         </div>
     </div>
 
-    <!-- Page Field - Only for Page type -->
-    <div id="page-field-container" class="<?= $model->type !== 'page' ? 'hidden' : '' ?>">
+<style id="menu-type-styles">
+/* Menu type field containers - highest specificity */
+#page-field-container,
+#form-field-container,
+#route-field-container {
+    transition: opacity 0.2s ease, max-height 0.3s ease;
+    overflow: hidden;
+}
+
+#page-field-container.menu-hidden,
+#form-field-container.menu-hidden,
+#route-field-container.menu-hidden {
+    display: none !important;
+    max-height: 0;
+    opacity: 0;
+}
+</style>
+
+<!-- Page Field - Only for Page type -->
+<div id="page-field-container" class="<?= $model->type !== 'page' ? 'menu-hidden' : '' ?>">
         <?= $form->field($model, 'page_id')->dropDownList($pageList, [
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
         ])->label('Pilih Halaman', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
@@ -191,20 +209,43 @@ if ($model->isNewRecord && empty($model->type)) {
 
     <!-- Form Field - Only for Form type -->
     <?php
-    $forms = \app\models\MasterForm::find()->where(['is_active' => 1])->orderBy(['form_name' => SORT_ASC])->all();
     $formList = ['' => 'Pilih Formulir...'];
-    foreach ($forms as $f) {
-        $formList[(int)$f->id] = $f->form_name;
+    try {
+        $forms = \app\models\MasterForm::find()
+            ->where(['is_active' => 1])
+            ->orderBy(['form_name' => SORT_ASC])
+            ->all();
+        foreach ($forms as $f) {
+            $formList[(int)$f->id] = $f->form_name;
+        }
+    } catch (\Exception $e) {
+        Yii::warning('Error loading MasterForm (try 1): ' . $e->getMessage());
+        try {
+            $forms = \Yii::$app->db->createCommand("SELECT id, form_name FROM master_form WHERE is_active = 1 ORDER BY form_name")->queryAll();
+            foreach ($forms as $f) {
+                $formList[(int)$f['id']] = $f['form_name'];
+            }
+        } catch (\Exception $e2) {
+            Yii::warning('Error loading MasterForm (try 2): ' . $e2->getMessage());
+        }
     }
     ?>
-    <div id="form-field-container" class="<?= $model->type !== 'form' ? 'hidden' : '' ?>">
-        <?= $form->field($model, 'form_id')->dropDownList($formList, [
+    <div id="form-field-container" class="<?= $model->type !== 'form' ? 'menu-hidden' : '' ?>">
+        <?= $form->field($model, 'form_id', [
+            'options' => ['id' => 'form-field-wrapper']
+        ])->dropDownList($formList, [
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
         ])->label('Pilih Formulir', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
+        
+        <!-- Debug: Show current form_id value and field name -->
+        <div class="mt-2 text-xs text-slate-500">Debug: form_id = "<?= $model->form_id ?? 'null' ?>", type = "<?= $model->type ?? 'null' ?>", POST name = "MasterMenu[form_id]"</div>
+        
+        <!-- Also add a visible hidden input to ensure form_id is sent -->
+        <?= Html::hiddenInput('MasterMenu[form_id_debug]', $model->form_id, ['id' => 'form-id-debug']) ?>
     </div>
 
     <!-- Route Field - Only for Route type -->
-    <div id="route-field-container" class="<?= $model->type !== 'route' ? 'hidden' : '' ?>">
+    <div id="route-field-container" class="<?= $model->type !== 'route' ? 'menu-hidden' : '' ?>">
         <?= $form->field($model, 'route')->textInput([
             'maxlength' => true,
             'placeholder' => '/site/dashboard',
@@ -514,39 +555,50 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateFields() {
         const type = typeSelect.value;
         
+        // Guard against null elements
+        if (!pageContainer || !routeContainer || !formContainer) {
+            console.error('Menu form containers not found:', {
+                pageContainer: !!pageContainer,
+                routeContainer: !!routeContainer,
+                formContainer: !!formContainer
+            });
+            return;
+        }
+        
         // Clear validation states
         clearValidation();
         
         if (type === 'page') {
-            pageContainer.classList.remove('hidden');
-            routeContainer.classList.add('hidden');
-            formContainer.classList.add('hidden');
+            pageContainer.classList.remove('menu-hidden');
+            routeContainer.classList.add('menu-hidden');
+            formContainer.classList.add('menu-hidden');
             if (routeInput) routeInput.value = '';
             if (formSelect) formSelect.value = '';
         } else if (type === 'route' || type === 'button') {
-            pageContainer.classList.add('hidden');
-            routeContainer.classList.remove('hidden');
-            formContainer.classList.add('hidden');
+            pageContainer.classList.add('menu-hidden');
+            routeContainer.classList.remove('menu-hidden');
+            formContainer.classList.add('menu-hidden');
             if (pageSelect) pageSelect.value = '';
             if (formSelect) formSelect.value = '';
         } else if (type === 'form') {
-            pageContainer.classList.add('hidden');
-            routeContainer.classList.add('hidden');
-            formContainer.classList.remove('hidden');
+            console.log('Switching to Form type - showing form container');
+            pageContainer.classList.add('menu-hidden');
+            routeContainer.classList.add('menu-hidden');
+            formContainer.classList.remove('menu-hidden');
             if (pageSelect) pageSelect.value = '';
             if (routeInput) routeInput.value = '';
         } else if (type === 'divider') {
-            pageContainer.classList.add('hidden');
-            routeContainer.classList.add('hidden');
-            formContainer.classList.add('hidden');
+            pageContainer.classList.add('menu-hidden');
+            routeContainer.classList.add('menu-hidden');
+            formContainer.classList.add('menu-hidden');
             if (pageSelect) pageSelect.value = '';
             if (routeInput) routeInput.value = '';
             if (formSelect) formSelect.value = '';
         } else {
             // Group
-            pageContainer.classList.add('hidden');
-            routeContainer.classList.add('hidden');
-            formContainer.classList.add('hidden');
+            pageContainer.classList.add('menu-hidden');
+            routeContainer.classList.add('menu-hidden');
+            formContainer.classList.add('menu-hidden');
             if (pageSelect) pageSelect.value = '';
             if (routeInput) routeInput.value = '';
             if (formSelect) formSelect.value = '';
@@ -629,6 +681,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (typeSelect) {
         typeSelect.addEventListener('change', updateFields);
+        updateFields();
+    }
+    
+    // Form validation on submit - only validate if type is 'form'
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const type = typeSelect ? typeSelect.value : '';
+            
+            // Get form_id value at SUBMIT TIME (not at page load)
+            const formIdField = document.getElementById('mastermenu-form_id');
+            const formSelectElement = formIdField ? formIdField : document.querySelector('#form-field-wrapper select');
+            const formValue = formSelectElement ? formSelectElement.value : '';
+            
+            console.log('[MenuType] Submit check - type:', type);
+            console.log('[MenuType] form_id element:', formSelectElement ? 'FOUND' : 'NOT FOUND');
+            console.log('[MenuType] form_id value at submit:', formValue);
+            
+            // List all form inputs
+            const allInputs = Array.from(document.querySelectorAll('form input, form select')).map(i => i.name + '=' + i.value);
+            console.log('[MenuType] All form inputs:', allInputs.slice(0, 10));
+            
+            if (type === 'form') {
+                if (!formValue) {
+                    e.preventDefault();
+                    showFieldError(formSelectElement, 'Pilih formulir untuk tipe Form');
+                    console.error('[MenuType] Form validation failed - no form selected');
+                }
+            }
+        });
     }
     
     // Form submission - allow default submission
@@ -636,6 +718,78 @@ document.addEventListener('DOMContentLoaded', function() {
 JS;
 $this->registerJs($script);
 ?>
+
+<script>
+// Standalone menu type handler - runs immediately
+(function() {
+    console.log('[MenuType] Script loaded, waiting for DOM...');
+    
+    function initMenuTypeHandler() {
+        var typeSelect = document.getElementById('menu-type-select');
+        var pageContainer = document.getElementById('page-field-container');
+        var routeContainer = document.getElementById('route-field-container');
+        var formContainer = document.getElementById('form-field-container');
+        
+        console.log('[MenuType] Elements found:', {
+            typeSelect: !!typeSelect,
+            pageContainer: !!pageContainer,
+            routeContainer: !!routeContainer,
+            formContainer: !!formContainer
+        });
+        
+        if (!typeSelect || !pageContainer || !routeContainer || !formContainer) {
+            console.error('[MenuType] Required elements not found');
+            return;
+        }
+        
+        function updateFields() {
+            var type = typeSelect.value;
+            console.log('[MenuType] Type changed to:', type);
+            
+            // Hide all containers first using menu-hidden class
+            pageContainer.classList.add('menu-hidden');
+            routeContainer.classList.add('menu-hidden');
+            formContainer.classList.add('menu-hidden');
+            
+            // Show relevant container based on type
+            if (type === 'page') {
+                pageContainer.classList.remove('menu-hidden');
+                console.log('[MenuType] Showing page field');
+            } else if (type === 'route' || type === 'button') {
+                routeContainer.classList.remove('menu-hidden');
+                console.log('[MenuType] Showing route field');
+            } else if (type === 'form') {
+                formContainer.classList.remove('menu-hidden');
+                console.log('[MenuType] Showing FORM field - Pilih Formulir');
+            } else {
+                console.log('[MenuType] No field container for type:', type);
+            }
+            
+            // Debug: show all containers state
+            console.log('[MenuType] Container states:', {
+                page: !pageContainer.classList.contains('menu-hidden'),
+                route: !routeContainer.classList.contains('menu-hidden'),
+                form: !formContainer.classList.contains('menu-hidden')
+            });
+        }
+        
+        // Attach event listener
+        typeSelect.addEventListener('change', updateFields);
+        console.log('[MenuType] Event listener attached');
+        
+        // Initial call to sync UI with current value
+        updateFields();
+        console.log('[MenuType] Initial updateFields called');
+    }
+    
+    // Run on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMenuTypeHandler);
+    } else {
+        initMenuTypeHandler();
+    }
+})();
+</script>
 
 <?php
 // Icon Picker Inline Scripts

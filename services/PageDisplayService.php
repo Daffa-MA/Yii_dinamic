@@ -5,8 +5,10 @@ namespace app\services;
 use Yii;
 use app\models\MasterMenu;
 use app\models\MasterPage;
+use app\models\MasterForm;
 use app\models\PageForms;
 use app\models\Form;
+use yii\helpers\Url;
 
 /**
  * PageDisplayService - Handle menu click dan page rendering
@@ -69,13 +71,16 @@ class PageDisplayService
         switch ($menu->type) {
             case 'group':
                 return $this->handleGroupType($menu);
-                
+
             case 'route':
                 return $this->handleRouteType($menu);
-                
+
             case 'page':
                 return $this->handlePageType($menu);
-                
+
+            case 'form':
+                return $this->handleFormType($menu);
+
             default:
                 return [
                     'success' => false,
@@ -83,6 +88,35 @@ class PageDisplayService
                     'code' => 'INVALID_TYPE'
                 ];
         }
+    }
+
+    private function handleFormType(MasterMenu $menu): array
+    {
+        if (empty($menu->form_id)) {
+            return [
+                'success' => false,
+                'error' => 'Form belum dipilih untuk menu ini',
+                'code' => 'FORM_NOT_SET'
+            ];
+        }
+
+        $form = MasterForm::findOne($menu->form_id);
+        if (!$form) {
+            return [
+                'success' => false,
+                'error' => 'Form tidak ditemukan',
+                'code' => 'FORM_NOT_FOUND'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'type' => 'form',
+            'action' => 'redirect',
+            'redirect_url' => Url::to(['/master-form/preview', 'id' => $form->id]),
+            'form_name' => $form->form_name,
+            'form_id' => $form->id
+        ];
     }
 
     /**
@@ -313,6 +347,12 @@ class PageDisplayService
                     return '/page/view?id=' . $menu->page_id;
                 }
                 return '#';
+            
+            case 'form':
+                if (!empty($menu->form_id)) {
+                    return '/master-form/preview?id=' . $menu->form_id;
+                }
+                return '#';
                 
             default:
                 return '#';
@@ -477,6 +517,11 @@ class PageDisplayService
      */
     private function handleMenuTypeWithProject($menu, int $projectId): array
     {
+        // Recovery path for legacy rows where form menu was saved as page with empty page_id
+        if ($menu->type === 'page' && empty($menu->page_id) && !empty($menu->form_id)) {
+            return $this->handleFormTypeWithProject($menu, $projectId);
+        }
+
         switch ($menu->type) {
             case 'group':
                 return $this->handleGroupTypeWithProject($menu, $projectId);
@@ -486,14 +531,57 @@ class PageDisplayService
                 
             case 'page':
                 return $this->handlePageTypeWithProject($menu, $projectId);
+
+            case 'form':
+                return $this->handleFormTypeWithProject($menu, $projectId);
                 
             default:
                 return [
                     'success' => false,
                     'error' => 'Tipe menu tidak valid',
                     'code' => 'INVALID_TYPE'
-                ];
+            ];
         }
+    }
+
+    /**
+     * Handle Form type with project context
+     */
+    private function handleFormTypeWithProject($menu, int $projectId): array
+    {
+        if (empty($menu->form_id)) {
+            return [
+                'success' => false,
+                'error' => 'Menu form belum terhubung dengan formulir',
+                'code' => 'FORM_NOT_LINKED'
+            ];
+        }
+
+        $form = MasterForm::findOne($menu->form_id);
+
+        if (!$form || (int)$form->is_active !== 1) {
+            return [
+                'success' => false,
+                'error' => $form ? 'Form tidak aktif' : 'Form tidak ditemukan',
+                'code' => $form ? 'FORM_INACTIVE' : 'FORM_NOT_FOUND'
+            ];
+        }
+
+        return [
+            'success' => true,
+            'type' => 'form',
+            'action' => 'redirect',
+            'menu' => [
+                'id' => $menu->id,
+                'name' => $menu->name,
+                'icon' => $menu->icon,
+            ],
+            'form' => [
+                'id' => $form->id,
+                'name' => $form->form_name,
+            ],
+            'redirect_url' => Url::to(['/master-form/preview', 'id' => $form->id]),
+        ];
     }
 
     /**

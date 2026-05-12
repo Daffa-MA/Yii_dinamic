@@ -1359,6 +1359,7 @@ class TableBuilderController extends Controller
             
             $columnData = [];
             foreach ($columns as $col) {
+                $isFk = $col->hasAttribute('is_foreign_key') ? (bool)$col->getAttribute('is_foreign_key') : false;
                 $columnData[] = [
                     'id' => $col->id,
                     'name' => $col->name,
@@ -1367,6 +1368,10 @@ class TableBuilderController extends Controller
                     'base_type' => preg_match('/^(\w+)/', $col->type ?? '', $m) ? $m[1] : ($col->type ?? 'text'),
                     'is_nullable' => (bool)$col->is_nullable,
                     'is_primary' => (bool)$col->is_primary,
+                    'is_auto_increment' => (bool)$col->is_auto_increment,
+                    'is_foreign_key' => $isFk,
+                    'referenced_table_name' => $isFk ? $col->getAttribute('referenced_table_name') : null,
+                    'referenced_column_name' => $isFk ? $col->getAttribute('referenced_column_name') : null,
                     'default_value' => $col->default_value,
                 ];
             }
@@ -1386,5 +1391,125 @@ class TableBuilderController extends Controller
                 'line' => $e->getLine()
             ]);
         }
+    }
+    
+    /**
+     * Get foreign key dropdown options for a specific column
+     */
+    public function actionGetForeignKeyOptions(int $columnId)
+    {
+        try {
+            $this->refreshDbTableColumnsSchema();
+            
+            $column = DbTableColumn::findOne((int)$columnId);
+            if ($column === null) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Column not found with id: ' . $columnId
+                ]);
+            }
+            
+            $isFk = $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
+            if (!$isFk) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Column is not a foreign key'
+                ]);
+            }
+            
+            $refTable = $column->getAttribute('referenced_table_name');
+            $refColumn = $column->getAttribute('referenced_column_name');
+            
+            if (empty($refTable) || empty($refColumn)) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Referenced table or column not configured'
+                ]);
+            }
+            
+            $db = $this->getPhysicalDb();
+            $schema = $db->schema->getTableSchema($refTable, true);
+            if ($schema === null) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Referenced table not found in database'
+                ]);
+            }
+            
+            $displayColumn = $this->resolveFkDisplayColumn($db, $refTable, $refColumn);
+            
+            $rows = (new \yii\db\Query())
+                ->select([
+                    'value' => $refColumn,
+                    'label' => $displayColumn ?: $refColumn,
+                ])
+                ->from($refTable)
+                ->orderBy([$displayColumn ?: $refColumn => SORT_ASC])
+                ->limit(500)
+                ->all($db);
+            
+            $options = [];
+            foreach ($rows as $row) {
+                $value = isset($row['value']) ? (string)$row['value'] : '';
+                if ($value === '') continue;
+                
+                $label = isset($row['label']) ? trim((string)$row['label']) : '';
+                if ($label === '' || ($displayColumn === null && preg_match('/^\d+$/', $label))) {
+                    $label = 'Record #' . $value;
+                }
+                
+                $options[] = [
+                    'value' => $value,
+                    'label' => $label,
+                ];
+            }
+            
+            return $this->asJson([
+                'success' => true,
+                'column_name' => $column->name,
+                'referenced_table' => $refTable,
+                'display_column' => $displayColumn,
+                'options' => $options,
+            ]);
+            
+        } catch (\Throwable $e) {
+            return $this->asJson([
+                'success' => false,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+    
+    private function resolveFkDisplayColumn($db, string $tableName, string $valueColumn): ?string
+    {
+        $schema = $db->schema->getTableSchema($tableName, true);
+        if ($schema === null) {
+            return null;
+        }
+        
+        $priorities = ['name', 'nama', 'title', 'judul', 'label', 'deskripsi', 'description'];
+        foreach ($priorities as $candidate) {
+            if ($candidate === $valueColumn) continue;
+            if (isset($schema->columns[$candidate])) {
+                return $candidate;
+            }
+        }
+        
+        foreach ($schema->columns as $colName => $colSchema) {
+            $phpType = strtolower((string)$colSchema->phpType);
+            if ($colName === $valueColumn || $colSchema->isPrimaryKey) continue;
+            $normalizedCol = strtolower((string)$colName);
+            if ($phpType === 'string' && stripos($normalizedCol, 'id') === false) {
+                return $colName;
+            }
+        }
+        
+        foreach ($schema->columns as $colName => $colSchema) {
+            if ($colName !== $valueColumn && !$colSchema->isPrimaryKey) {
+                return $colName;
+            }
+        }
+        
+        return null;
     }
 }

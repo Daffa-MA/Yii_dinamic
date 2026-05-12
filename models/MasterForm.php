@@ -11,6 +11,7 @@ use yii\helpers\ArrayHelper;
  *
  * @property int $id
  * @property int|null $page_id
+ * @property int|null $table_id
  * @property string $form_name
  * @property array $form_data
  * @property string $slug
@@ -19,6 +20,7 @@ use yii\helpers\ArrayHelper;
  * @property string $updated_at
  *
  * @property MasterPage $page
+ * @property DbTable $table
  */
 class MasterForm extends ActiveRecord
 {
@@ -32,14 +34,14 @@ class MasterForm extends ActiveRecord
         return Yii::$app->get('metadataDb', false) ?: parent::getDb();
     }
 
-public function rules()
+    public function rules()
     {
         return [
             [['form_name', 'form_data'], 'required'],
             [['form_data'], 'safe'],
             [['form_name'], 'string', 'max' => 255],
             [['slug'], 'string', 'max' => 100],
-            [['page_id'], 'integer', 'skipOnEmpty' => true],
+            [['page_id', 'table_id'], 'integer', 'skipOnEmpty' => true],
         ];
     }
 
@@ -48,6 +50,7 @@ public function rules()
         return [
             'id' => 'ID',
             'page_id' => 'Page',
+            'table_id' => 'Target Table',
             'form_name' => 'Form Name',
             'form_data' => 'Form Data',
             'slug' => 'Slug',
@@ -76,6 +79,16 @@ public function rules()
     public function getPage()
     {
         return $this->hasOne(MasterPage::class, ['id' => 'page_id']);
+    }
+    
+    public function getTable()
+    {
+        return $this->hasOne(DbTable::class, ['id' => 'table_id']);
+    }
+    
+    public function getTableName()
+    {
+        return $this->table ? $this->table->name : null;
     }
 
     public function isActive()

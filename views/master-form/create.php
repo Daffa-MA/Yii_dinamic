@@ -846,9 +846,35 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     color: white;
 }
 
-.is-hidden {
-    display: none !important;
-}
+        .is-hidden {
+            display: none !important;
+        }
+
+        .field-badge-fk {
+            background: #fef3c7;
+            color: #92400e;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+
+        .field-badge-auto {
+            background: #e0e7ff;
+            color: #3730a3;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+        }
+
+        .fk-options-loading {
+            font-size: 11px;
+            color: #64748b;
+            padding: 4px 8px;
+        }
 </style>
 
 <!-- FORM BUILDER INTERFACE -->
@@ -964,6 +990,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
                     <form id="master-form-form" method="post">
                         <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->getCsrfToken() ?>">
                         <input type="hidden" name="MasterForm[form_data]" id="form-data-input" value="[]">
+                        <input type="hidden" name="MasterForm[table_id]" id="table-id-input" value="<?= !empty($model->table_id) ? $model->table_id : '' ?>">
                         <?php if (!empty($model->id)): ?>
                         <input type="hidden" name="MasterForm[form_id]" id="form-id-input" value="<?= $model->id ?>">
                         <?php endif; ?>
@@ -1146,6 +1173,21 @@ document.addEventListener('DOMContentLoaded', function() {
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };
+        
+        if (type === 'select') {
+            let optionsHtml = '<option value="">-- Pilih --</option>';
+            if (field.is_foreign_key && field.fk_options && field.fk_options.length > 0) {
+                field.fk_options.forEach(opt => {
+                    optionsHtml += '<option value="' + opt.value + '">' + opt.label + '</option>';
+                });
+            } else if (field.options && field.options.length > 0) {
+                field.options.forEach(opt => {
+                    optionsHtml += '<option value="' + opt.value + '">' + opt.label + '</option>';
+                });
+            }
+            return `<div class="field-preview"><select disabled>${optionsHtml}</select></div>`;
+        }
+        
         return `<div class="field-preview"><input type="${inputType[type] || 'text'}" placeholder="${placeholders[type] || ''}" disabled></div>`;
     }
     
@@ -1217,6 +1259,32 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="prop-section"><div class="prop-section-title">Validasi</div>';
         html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.required ? 'checked' : '') + ' data-prop="required" onchange="updateFieldProp(\'required\', this.checked)">Wajib Diisi (Required)</label></div>';
         html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.disabled ? 'checked' : '') + ' data-prop="disabled" onchange="updateFieldProp(\'disabled\', this.checked)">Disable / Read-only</label></div></div>';
+        
+        if (field.is_foreign_key) {
+            html += '<div class="prop-section"><div class="prop-section-title">Foreign Key</div>';
+            html += '<div class="prop-group"><label class="prop-label">Referenced Table</label><input type="text" class="prop-input" value="' + (field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Display Column</label><input type="text" class="prop-input" value="' + (field.fk_display_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
+            if (field.fk_options && field.fk_options.length > 0) {
+                html += '<div class="prop-group"><label class="prop-label">Options (' + field.fk_options.length + ' items)</label><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#64748b;">';
+                field.fk_options.forEach(opt => {
+                    html += '<div style="padding:2px 0;">' + opt.label + ' (value: ' + opt.value + ')</div>';
+                });
+                html += '</div></div>';
+            } else {
+                html += '<div class="prop-group"><label class="prop-label">Options</label><span class="fk-options-loading">Loading options...</span></div>';
+            }
+            html += '</div>';
+        }
+        
+        html += '<div class="prop-section"><div class="prop-section-title">System</div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.excluded ? 'checked' : '') + ' data-prop="excluded" onchange="updateFieldProp(\'excluded\', this.checked)">Exclude from Form (Hide)</label></div>';
+        if (field.is_primary) {
+            html += '<div class="prop-group"><span class="field-badge-auto">Primary Key</span></div>';
+        }
+        if (field.is_auto_increment) {
+            html += '<div class="prop-group"><span class="field-badge-auto">Auto Increment</span></div>';
+        }
+        html += '</div>';
         
         propsPanel.innerHTML = html;
     }
@@ -1434,6 +1502,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         container.innerHTML = formFields.map((field, i) => {
             const selected = selectedIndex === i ? 'selected' : '';
+            const isExcluded = field.excluded === true;
             return '<div class="field-item ' + selected + '" data-index="' + i + '" data-field-id="' + field.id + '">' +
                 '<div class="field-item-header">' +
                 '<div class="field-item-label">' +
@@ -1441,15 +1510,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 '<span class="material-symbols-outlined">' + (fieldIcons[field.type] || 'text_fields') + '</span>' +
                 field.label +
                 (field.required ? '<span class="field-item-required">*</span>' : '') +
+                (field.is_foreign_key ? '<span class="field-badge-fk">FK</span>' : '') +
                 '</div>' +
                 '<div class="field-actions">' +
+                (isExcluded ? '<span class="field-badge-auto" style="margin-right:4px;">Hidden</span>' : '') +
                 '<button class="field-actions-btn" data-duplicate="' + i + '" title="Duplicate"><span class="material-symbols-outlined">content_copy</span></button>' +
                 '<button class="field-actions-btn" data-settings="' + i + '" title="Settings"><span class="material-symbols-outlined">tune</span></button>' +
                 '<button class="field-actions-btn delete" data-delete="' + i + '" title="Delete"><span class="material-symbols-outlined">delete</span></button>' +
                 '</div>' +
                 '</div>' +
-                renderPreview(field) +
-                '<div class="field-name">Name: ' + field.name + '</div>' +
+                (isExcluded ? '<div class="field-preview" style="background:#fef3c7;border-color:#fcd34d;"><span style="color:#92400e;font-size:12px;">Field disembunyikan dari form (excluded)</span></div>' : renderPreview(field)) +
+                '<div class="field-name">Name: ' + field.name + (field.is_foreign_key ? ' <span class="field-badge-fk">→ ' + field.fk_referenced_table + '</span>' : '') + '</div>' +
                 '</div>';
         }).join('');
         
@@ -1626,6 +1697,8 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        document.getElementById('table-id-input').value = tableId;
+        
         fetch('/tables/columns/' + tableId + '?t=' + Date.now(), {
             headers: {
                 'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
@@ -1638,12 +1711,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             if (data.columns && data.columns.length > 0) {
-                formFields = data.columns.map(col => {
+                formFields = [];
+                let fkPromises = [];
+                
+                data.columns.forEach(col => {
+                    const colName = (col.name || '').toLowerCase();
+                    const isPrimaryKey = !!(col.is_primary);
+                    const isAutoIncrement = !!(col.is_auto_increment);
+                    const isForeignKey = !!(col.is_foreign_key);
+                    
+                    if (isPrimaryKey && (isAutoIncrement || colName === 'id')) {
+                        return;
+                    }
+                    
                     let fieldType = 'text';
                     const colType = (col.base_type || col.type || '').toUpperCase();
-                    const colName = (col.name || '').toLowerCase();
                     
-                    if (colType.includes('INT') || colType.includes('DECIMAL') || colType.includes('FLOAT') || colType.includes('DOUBLE')) {
+                    if (isForeignKey) {
+                        fieldType = 'select';
+                    } else if (colType.includes('INT') || colType.includes('DECIMAL') || colType.includes('FLOAT') || colType.includes('DOUBLE')) {
                         fieldType = 'number';
                     } else if (colType.includes('TEXT') || colType.includes('VARCHAR') || colType.includes('CHAR')) {
                         if (colName.includes('email')) fieldType = 'email';
@@ -1657,25 +1743,64 @@ document.addEventListener('DOMContentLoaded', function() {
                         fieldType = 'time';
                     }
                     
-                    return {
-                        id: 'field_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    const fieldId = 'field_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+                    const fieldData = {
+                        id: fieldId,
                         type: fieldType,
                         inputType: getInputType(fieldType),
                         label: col.label || col.name,
                         name: col.name,
-                        required: !col.is_nullable && col.is_primary,
+                        required: !col.is_nullable,
                         placeholder: '',
-                        default_value: col.default_value || ''
+                        default_value: col.default_value || '',
+                        excluded: false,
+                        source_column_id: col.id,
+                        is_foreign_key: isForeignKey,
+                        is_primary: isPrimaryKey,
+                        is_auto_increment: isAutoIncrement,
+                        fk_referenced_table: isForeignKey ? col.referenced_table_name : null,
+                        fk_referenced_column: isForeignKey ? col.referenced_column_name : null,
+                        fk_options: isForeignKey ? [] : null,
+                        fk_options_loaded: false,
                     };
+                    
+                    formFields.push(fieldData);
+                    
+                    if (isForeignKey && col.id) {
+                        fkPromises.push(
+                            fetch('/tables/foreign-key-options/' + col.id + '?t=' + Date.now(), {
+                                headers: {
+                                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                                }
+                            })
+                            .then(res => res.json())
+                            .then(fkData => {
+                                if (fkData.success && fkData.options) {
+                                    const fkField = formFields.find(f => f.source_column_id === col.id);
+                                    if (fkField) {
+                                        fkField.fk_options = fkData.options;
+                                        fkField.fk_options_loaded = true;
+                                        fkField.fk_display_column = fkData.display_column;
+                                        fkField.fk_referenced_table = fkData.referenced_table;
+                                    }
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Error loading FK options for column', col.name, ':', err);
+                            })
+                        );
+                    }
+                });
+                
+                Promise.all(fkPromises).then(() => {
+                    renderFields();
+                    updateData();
                 });
                 
                 const formNameInput = document.querySelector('[name="MasterForm[form_name]"]');
                 if (!formNameInput.value && data.table_label) {
                     formNameInput.value = data.table_label + ' Form';
                 }
-                
-                renderFields();
-                updateData();
             }
         })
         .catch(err => {

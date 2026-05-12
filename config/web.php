@@ -83,6 +83,7 @@ $config = [
                 'tables/get-tables' => 'table-builder/get-tables',
                 'tables/get-columns/<id:\d+>' => 'table-builder/get-table-columns',
                 'tables/columns/<id:\d+>' => 'table-builder/get-columns',
+                'tables/foreign-key-options/<columnId:\d+>' => 'table-builder/get-foreign-key-options',
                 'tables/view/<id:\d+>' => 'table-builder/view',
                 'tables/update/<id:\d+>' => 'table-builder/update',
                 'tables/execute/<id:\d+>' => 'table-builder/execute-sql',
@@ -93,8 +94,11 @@ $config = [
                 'master-form' => 'master-form/index',
                 'master-form/create' => 'master-form/create',
                 'master-form/view/<id:\d+>' => 'master-form/view',
+                'master-form/preview/<id:\d+>' => 'master-form/preview',
+                'master-form/submit/<id:\d+>' => 'master-form/submit',
                 'master-form/update/<id:\d+>' => 'master-form/update',
                 'master-form/delete/<id:\d+>' => 'master-form/delete',
+                'master-form/duplicate/<id:\d+>' => 'master-form/duplicate',
 
                 // Project routes (main landing after login)
                 'project-list' => 'project/index',
@@ -126,8 +130,11 @@ $config = [
                 'master-form' => 'master-form/index',
                 'master-form/create' => 'master-form/create',
                 'master-form/view/<id:\d+>' => 'master-form/view',
+                'master-form/preview/<id:\d+>' => 'master-form/preview',
+                'master-form/submit/<id:\d+>' => 'master-form/submit',
                 'master-form/update/<id:\d+>' => 'master-form/update',
                 'master-form/delete/<id:\d+>' => 'master-form/delete',
+                'master-form/duplicate/<id:\d+>' => 'master-form/duplicate',
 
                 // Master Menu routes
                 'master-menu' => 'master-menu/index',

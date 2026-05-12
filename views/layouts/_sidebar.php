@@ -823,7 +823,80 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
             } else {
                 echo '<div style="color: #94a3b8; padding: 10px; text-align: center; font-size: 12px;">No active menus</div>';
             }
+            
+            // Dynamic Menu dari sidebar_menu table (Form Placements) - only if table exists
+            try {
+                $dynamicMenus = \app\models\SidebarMenu::find()
+                    ->where(['is_active' => 1, 'parent_id' => null])
+                    ->andWhere(['or', ['user_id' => Yii::$app->user->id], ['user_id' => null]])
+                    ->orderBy(['sort_order' => SORT_ASC])
+                    ->limit(100)
+                    ->all();
+            } catch (\Exception $e) {
+                $dynamicMenus = [];
+            }
+            
+            try {
+                $formPlacements = \app\models\FormPlacement::find()
+                    ->where(['show_in_sidebar' => 1, 'is_published' => 1])
+                    ->with('form')
+                    ->limit(50)
+                    ->all();
+            } catch (\Exception $e) {
+                $formPlacements = [];
+            }
+            
+            if (!empty($dynamicMenus) || !empty($formPlacements)):
             ?>
+                <div style="border-top: 1px solid rgba(148, 163, 184, 0.14); margin: 12px 0;"></div>
+                <div style="padding: 0 14px; margin-bottom: 8px;">
+                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b;">Custom Pages</span>
+                </div>
+                <?php foreach ($formPlacements as $placement): ?>
+                    <?php 
+                    $form = $placement->form;
+                    $label = $placement->page_title ?: ($form ? $form->form_name : 'Form');
+                    $icon = $placement->icon ?: 'article';
+                    $url = \yii\helpers\Url::to(['/form-placement/view', 'slug' => $placement->page_slug]);
+                    ?>
+                    <a href="<?= Html::encode($url) ?>" class="app-sidebar-link" data-menu-id="form-<?= $placement->id ?>">
+                        <span class="ti <?= Html::encode($icon) ?>"></span>
+                        <span class="app-sidebar-link-text"><?= Html::encode($label) ?></span>
+                    </a>
+                <?php endforeach; ?>
+                
+                <?php foreach ($dynamicMenus as $menu): ?>
+                    <?php 
+                    $icon = $menu->icon ?: 'link';
+                    $url = $menu->route ? \yii\helpers\Url::to([$menu->route]) : ($menu->url ?: '#');
+                    $children = $menu->getActiveChildren();
+                    $hasChildren = !empty($children);
+                    ?>
+                    <?php if ($hasChildren): ?>
+                        <a href="#" class="app-sidebar-link has-children" data-menu-id="menu-<?= $menu->id ?>">
+                            <span class="ti <?= Html::encode($icon) ?>"></span>
+                            <span class="app-sidebar-link-text"><?= Html::encode($menu->label) ?></span>
+                            <span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>
+                        </a>
+                        <div class="sub-menu">
+                            <?php foreach ($children as $child): ?>
+                                <?php 
+                                $childUrl = $child->route ? \yii\helpers\Url::to([$child->route]) : ($child->url ?: '#');
+                                ?>
+                                <a href="<?= Html::encode($childUrl) ?>" class="app-sidebar-link" data-menu-id="menu-<?= $child->id ?>">
+                                    <span class="ti <?= Html::encode($child->icon ?: 'link') ?>"></span>
+                                    <span class="app-sidebar-link-text"><?= Html::encode($child->label) ?></span>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php else: ?>
+                        <a href="<?= Html::encode($url) ?>" class="app-sidebar-link" data-menu-id="menu-<?= $menu->id ?>">
+                            <span class="ti <?= Html::encode($icon) ?>"></span>
+                            <span class="app-sidebar-link-text"><?= Html::encode($menu->label) ?></span>
+                        </a>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
 <?php endif; ?>
             <!-- SYSTEM BUILDER - HARDCODED (di bawah menu dinamis) -->
             <?php if ($sidebarVariant === 'full'): ?>

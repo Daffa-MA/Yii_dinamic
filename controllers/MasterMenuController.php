@@ -228,6 +228,47 @@ class MasterMenuController extends Controller
     }
 
     /**
+     * Get all menus for dropdown (AJAX)
+     */
+    public function actionGetAllMenus()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        // Ensure columns exist
+        MasterMenu::ensureColumnsExist();
+
+        $menus = MasterMenu::find()
+            ->where(['is_active' => 1])
+            ->orderBy(['sort_order' => SORT_ASC])
+            ->all();
+
+        $result = [];
+        $this->buildMenuFlatList($menus, null, 0, $result);
+
+        return [
+            'success' => true,
+            'menus' => $result,
+        ];
+    }
+
+    /**
+     * Build flat menu list with depth
+     */
+    private function buildMenuFlatList($menus, $parentId, $depth, &$result)
+    {
+        foreach ($menus as $menu) {
+            if ($menu->parent_id == $parentId) {
+                $result[] = [
+                    'id' => $menu->id,
+                    'name' => $menu->name,
+                    'depth' => $depth,
+                ];
+                $this->buildMenuFlatList($menus, $menu->id, $depth + 1, $result);
+            }
+        }
+    }
+
+    /**
      * Get menu tree for AJAX/JSON
      */
     public function actionGetTree()

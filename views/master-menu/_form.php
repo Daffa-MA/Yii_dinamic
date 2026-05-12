@@ -32,6 +32,7 @@ foreach ($pages as $page) {
 $typeList = [
     'group' => 'Group (Menu Induk/Dropdown)',
     'page' => 'Page (Link ke Halaman)',
+    'form' => 'Form (Formulir Dinamis)',
     'route' => 'Route (URL Langsung)',
     'button' => 'Button (Tombol Aksi)',
     'divider' => 'Divider (Pemisah)',
@@ -117,6 +118,7 @@ if ($model->isNewRecord && empty($model->type)) {
         <ul class="mt-2 list-inside list-disc space-y-1">
             <li><strong>Group:</strong> Menu induk untuk dropdown. Tidak perlu pilih halaman atau route.</li>
             <li><strong>Page:</strong> Menu yang membuka halaman. Wajib pilih halaman.</li>
+            <li><strong>Form:</strong> Menu yang membuka formulir. Wajib pilih formulir.</li>
             <li><strong>Route:</strong> Menu dengan URL langsung. Wajib isi URL.</li>
         </ul>
     </div>
@@ -185,6 +187,20 @@ if ($model->isNewRecord && empty($model->type)) {
         <?= $form->field($model, 'page_id')->dropDownList($pageList, [
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
         ])->label('Pilih Halaman', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
+    </div>
+
+    <!-- Form Field - Only for Form type -->
+    <?php
+    $forms = \app\models\MasterForm::find()->where(['is_active' => 1])->orderBy(['form_name' => SORT_ASC])->all();
+    $formList = ['' => 'Pilih Formulir...'];
+    foreach ($forms as $f) {
+        $formList[(int)$f->id] = $f->form_name;
+    }
+    ?>
+    <div id="form-field-container" class="<?= $model->type !== 'form' ? 'hidden' : '' ?>">
+        <?= $form->field($model, 'form_id')->dropDownList($formList, [
+            'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
+        ])->label('Pilih Formulir', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
     </div>
 
     <!-- Route Field - Only for Route type -->
@@ -486,12 +502,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const typeSelect = document.getElementById('menu-type-select');
     const pageContainer = document.getElementById('page-field-container');
     const routeContainer = document.getElementById('route-field-container');
+    const formContainer = document.getElementById('form-field-container');
     const pageSelect = document.getElementById('mastermenu-page_id');
     const routeInput = document.getElementById('mastermenu-route');
+    const formSelect = document.getElementById('mastermenu-form_id');
     
     // Error message elements
-    const pageError = pageContainer.querySelector('.help-block');
-    const routeError = routeContainer.querySelector('.help-block');
+    const pageError = pageContainer ? pageContainer.querySelector('.help-block') : null;
+    const routeError = routeContainer ? routeContainer.querySelector('.help-block') : null;
     
     function updateFields() {
         const type = typeSelect.value;
@@ -502,24 +520,36 @@ document.addEventListener('DOMContentLoaded', function() {
         if (type === 'page') {
             pageContainer.classList.remove('hidden');
             routeContainer.classList.add('hidden');
+            formContainer.classList.add('hidden');
             if (routeInput) routeInput.value = '';
+            if (formSelect) formSelect.value = '';
         } else if (type === 'route' || type === 'button') {
-            // Button type also needs route/url
             pageContainer.classList.add('hidden');
             routeContainer.classList.remove('hidden');
+            formContainer.classList.add('hidden');
             if (pageSelect) pageSelect.value = '';
-        } else if (type === 'divider') {
-            // Divider - hide both
+            if (formSelect) formSelect.value = '';
+        } else if (type === 'form') {
             pageContainer.classList.add('hidden');
             routeContainer.classList.add('hidden');
+            formContainer.classList.remove('hidden');
             if (pageSelect) pageSelect.value = '';
             if (routeInput) routeInput.value = '';
+        } else if (type === 'divider') {
+            pageContainer.classList.add('hidden');
+            routeContainer.classList.add('hidden');
+            formContainer.classList.add('hidden');
+            if (pageSelect) pageSelect.value = '';
+            if (routeInput) routeInput.value = '';
+            if (formSelect) formSelect.value = '';
         } else {
             // Group
             pageContainer.classList.add('hidden');
             routeContainer.classList.add('hidden');
+            formContainer.classList.add('hidden');
             if (pageSelect) pageSelect.value = '';
             if (routeInput) routeInput.value = '';
+            if (formSelect) formSelect.value = '';
         }
     }
     
@@ -572,6 +602,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!routeInput || !routeInput.value.trim()) {
                 const msg = type === 'button' ? 'URL wajib diisi untuk tombol' : 'URL route wajib diisi untuk tipe Route';
                 showFieldError(routeInput, msg);
+                isValid = false;
+            }
+        } else if (type === 'form') {
+            if (!formSelect || !formSelect.value) {
+                showFieldError(formSelect, 'Pilih formulir untuk tipe Form');
                 isValid = false;
             }
         }

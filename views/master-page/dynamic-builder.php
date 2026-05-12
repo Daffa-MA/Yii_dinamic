@@ -899,7 +899,7 @@ $forms = $forms ?? [];
     .device-btn.active {
         background: #ffffff;
         color: #3b82f6;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     .device-btn .material-symbols-outlined {
@@ -951,7 +951,7 @@ $forms = $forms ?? [];
         min-height: 600px;
         background: #ffffff;
         border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
         transition: width 0.25s ease, max-width 0.25s ease;
         overflow: hidden;
     }
@@ -1855,20 +1855,26 @@ $forms = $forms ?? [];
             </div>
             <div class="canvas-device-switcher">
                 <button type="button" class="device-btn active" data-device="desktop" onclick="setDevice('desktop')" title="Desktop">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h6v2H8v2h8v-2h-2v-2h6c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z"/></svg>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M21 2H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h6v2H8v2h8v-2h-2v-2h6c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H3V4h18v12z" />
+                    </svg>
                 </button>
                 <button type="button" class="device-btn" data-device="tablet" onclick="setDevice('tablet')" title="Tablet">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zM7 20h10v-2H7v2z"/></svg>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M21 4H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H3V6h18v12zM7 20h10v-2H7v2z" />
+                    </svg>
                 </button>
                 <button type="button" class="device-btn" data-device="mobile" onclick="setDevice('mobile')" title="Mobile">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V3h10v16z"/></svg>
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M17 1H7c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 18H7V3h10v16z" />
+                    </svg>
                 </button>
             </div>
             <div class="canvas-toolbar-right">
                 <span style="color:#94a3b8;font-size:12px;">Drop komponen untuk membangun halaman</span>
             </div>
         </div>
-        
+
         <!-- Canvas Wrapper with Responsive Frame -->
         <div class="canvas-wrapper">
             <div id="main-canvas-frame" class="canvas-frame device-desktop">
@@ -5058,9 +5064,9 @@ ${html || ''}
 
         const hint = document.getElementById('code-mode-hint');
         if (hint) {
-            hint.textContent = activeCodeScope === 'page'
-                ? 'Single file editor untuk full halaman (DOCTYPE + head + body + script) dengan render realtime di canvas.'
-                : 'Edit custom code untuk komponen yang dipilih (HTML/CSS/JS terpisah).';
+            hint.textContent = activeCodeScope === 'page' ?
+                'Single file editor untuk full halaman (DOCTYPE + head + body + script) dengan render realtime di canvas.' :
+                'Edit custom code untuk komponen yang dipilih (HTML/CSS/JS terpisah).';
         }
     }
 

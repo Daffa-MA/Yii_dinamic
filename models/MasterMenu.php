@@ -281,6 +281,21 @@ public function __set($name, $value)
             // Type validation
             [['type'], 'in', 'range' => [self::TYPE_GROUP, self::TYPE_PAGE, self::TYPE_ROUTE, self::TYPE_BUTTON, self::TYPE_DIVIDER, self::TYPE_FORM], 'message' => 'Pilih tipe menu yang valid'],
             
+            // Prevent duplicate page_id usage (page can only be used by one menu)
+            ['page_id', 'uniquePageId', 'when' => function($model) {
+                return $model->type === self::TYPE_PAGE && !empty($model->page_id);
+            }],
+            
+            // Prevent duplicate form_id usage (form can only be used by one menu)
+            ['form_id', 'uniqueFormId', 'when' => function($model) {
+                return $model->type === self::TYPE_FORM && !empty($model->form_id);
+            }],
+            
+            // Prevent duplicate route usage (route can only be used by one menu)
+            ['route', 'uniqueRoute', 'when' => function($model) {
+                return $model->type === self::TYPE_ROUTE && !empty($model->route);
+            }],
+            
             // Target validation
             [['target'], 'in', 'range' => [self::TARGET_SELF, self::TARGET_BLANK, self::TARGET_MODAL, self::TARGET_AJAX, self::TARGET_POPUP]],
             
@@ -360,6 +375,68 @@ public function __set($name, $value)
         // Only enforce form selection for explicit "Type = Form" submissions.
         if ($isFormSubmission && empty($this->form_id)) {
             $this->addError('form_id', 'Menu tipe Form wajib memilih Formulir');
+        }
+    }
+    
+    public function uniquePageId($attribute, $params)
+    {
+        if (empty($this->page_id)) return;
+        
+        $query = self::find()
+            ->where(['page_id' => $this->page_id, 'type' => self::TYPE_PAGE, 'is_active' => 1]);
+        
+        if (isset($this->id) && $this->id > 0) {
+            $query->andWhere(['!=', 'id', $this->id]);
+        }
+        
+        $existing = $query->one();
+            
+        if ($existing) {
+            $this->addError($attribute, "Halaman ini sudah digunakan oleh menu '{$existing->name}'. Setiap halaman hanya bisa dipakai satu menu.");
+        }
+    }
+    
+    public function uniqueFormId($attribute, $params)
+    {
+        if (empty($this->form_id)) return;
+        
+        $query = self::find()
+            ->where(['form_id' => $this->form_id, 'type' => self::TYPE_FORM, 'is_active' => 1]);
+        
+        if (isset($this->id) && $this->id > 0) {
+            $query->andWhere(['!=', 'id', $this->id]);
+        }
+        
+        $existing = $query->one();
+            
+        if ($existing) {
+            $this->addError($attribute, "Formulir ini sudah digunakan oleh menu '{$existing->name}'. Setiap formulir hanya bisa dipakai satu menu.");
+        }
+    }
+    
+    public function uniqueRoute($attribute, $params)
+    {
+        if (empty($this->route)) return;
+        
+        $normalizedRoute = '/' . ltrim($this->route, '/');
+        
+        $query = self::find()
+            ->where(['type' => self::TYPE_ROUTE, 'is_active' => 1]);
+        
+        if (isset($this->id) && $this->id > 0) {
+            $query->andWhere(['!=', 'id', $this->id]);
+        }
+        
+        $existingMenus = $query->all();
+            
+        foreach ($existingMenus as $menu) {
+            if (!empty($menu->route)) {
+                $existingRoute = '/' . ltrim($menu->route, '/');
+                if ($normalizedRoute === $existingRoute) {
+                    $this->addError($attribute, "Route '{$this->route}' sudah digunakan oleh menu '{$menu->name}'. Gunakan route yang berbeda.");
+                    return;
+                }
+            }
         }
     }
 

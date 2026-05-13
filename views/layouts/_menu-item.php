@@ -59,10 +59,10 @@ if (is_array($url) && !empty($url)) {
 
 $baseLink = 'app-sidebar-link group flex min-h-11 items-center gap-3 rounded-2xl border border-transparent px-3.5 py-3 text-sm font-semibold no-underline transition-all duration-200';
 $inactive = 'text-slate-600 hover:translate-x-[3px] hover:border-slate-300/30 hover:bg-slate-400/10 hover:text-slate-900';
-$active = 'active border-sky-400/30 bg-gradient-to-br from-blue-700 via-blue-600 to-sky-600 text-white shadow-[0_12px_20px_rgba(37,99,235,0.28)] hover:text-white';
-$iconBase = 'material-symbols-outlined inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[18px] transition-colors';
+$active = 'bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-600 text-white shadow-lg shadow-blue-500/20 font-semibold border-none hover:text-white';
+$iconBase = 'material-symbols-outlined inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[18px] transition-colors duration-200';
 $iconInactive = 'bg-slate-400/10 text-slate-500 group-hover:bg-blue-500/15 group-hover:text-blue-700';
-$iconActive = 'bg-white/20 text-white';
+$iconActive = 'bg-white/20 text-white group-hover:bg-white/25';
 
 $linkClass = $baseLink . ' ' . ($hasChildren ? 'has-children ' . ($isActive ? 'expanded ' : '') : '') . ($isActive ? $active : $inactive);
 $iconClass = $iconBase . ' ' . ($isActive ? $iconActive : $iconInactive);

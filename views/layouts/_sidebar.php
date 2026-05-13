@@ -3,6 +3,28 @@ use yii\bootstrap5\Html;
 use app\components\ProjectSchema;
 use app\models\MasterMenu;
 use app\models\MasterPage;
+use app\models\WorkspaceSettings;
+
+$workspaceSettings = new WorkspaceSettings();
+$workspaceSettings->loadFromSession();
+$cssVars = $workspaceSettings->getCssVars();
+
+// Helper function for exact route matching
+function normalizePath($path) {
+    if ($path === null || $path === false) {
+        return '/';
+    }
+    $normalized = strtolower(trim((string) $path));
+    $normalized = rtrim($normalized, '/');
+    return empty($normalized) ? '/' : $normalized;
+}
+
+// Check if routes match exactly
+function routesMatchExactly($currentRoute, $menuRoute) {
+    $current = normalizePath($currentRoute);
+    $target = normalizePath($menuRoute);
+    return $current === $target;
+}
 
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
@@ -31,9 +53,11 @@ $activeProject = null;
 $isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
 $sidebarVariant = $isProjectListPage ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
-$headerBadge = $isMinimalSidebar ? 'Project Hub' : 'Workspace';
-$headerTitle = $isMinimalSidebar ? 'Navigasi Project' : 'Projects';
-$headerSubtitle = $isMinimalSidebar ? 'Pintu masuk workspace' : 'Beranda & navigasi';
+
+// Use workspace settings or defaults
+$headerBadge = $isMinimalSidebar ? $cssVars['workspace-badge'] ?? 'Project Hub' : ($cssVars['workspace-badge'] ?? 'Workspace');
+$headerTitle = $isMinimalSidebar ? 'Navigasi Project' : ($cssVars['workspace-title'] ?? 'Projects');
+$headerSubtitle = $isMinimalSidebar ? 'Pintu masuk workspace' : ($cssVars['workspace-subtitle'] ?? 'Beranda & navigasi');
 $projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Projects';
 $profileNavLabel = $isMinimalSidebar ? 'Akun Saya' : 'Profile';
 $logoutLabel = $isMinimalSidebar ? 'Keluar Workspace' : 'Sign Out';
@@ -71,49 +95,121 @@ $reservedMenuKeys = [
     'projects',
 ];
 
-$sessionActiveMenu = (string) Yii::$app->session->get('active_menu', '');
-$dynamicActiveMenu = (string) $activeMenu;
+// REMOVED: No more session-based active menu tracking
+// Only route-based exact matching is used now
+$dynamicActiveMenu = '';
 
-if ($dynamicActiveMenu === '') {
-    $dynamicActiveMenu = $sessionActiveMenu;
-}
+$currentRoute = Yii::$app->controller->route;
 
+// REWRITTEN: Use EXACT route matching only - NO name/label matching
 if (!function_exists('renderDynamicSidebarTree')) {
     /**
      * @param array<int, array<string, mixed>> $items
+     * @param string $currentRoute
      * @return array{html: string, active: bool}
      */
-    function renderDynamicSidebarTree(array $items, string $activeMenu, string $sessionActiveMenu): array
+    function renderDynamicSidebarTree(array $items, string $currentRoute): array
     {
         $html = '';
         $hasActiveBranch = false;
+        
+        // Track activated items to prevent duplicates
+        $activatedRoutes = [];
+        $activatedPageIds = [];
+        $activatedFormIds = [];
+        
+        // Normalize path helper
+        $normalizePath = function($path) {
+            if ($path === null || $path === false) return '/';
+            $normalized = strtolower(trim((string) $path));
+            $normalized = rtrim($normalized, '/');
+            return empty($normalized) ? '/' : $normalized;
+        };
+        
+        // Check if current route EXACTLY matches menu route
+        $routeMatches = function($menuRoute) use ($currentRoute, $normalizePath) {
+            if (empty($menuRoute)) return false;
+            return $normalizePath($currentRoute) === $normalizePath($menuRoute);
+        };
+        
+        // Check if menu is active based on EXACT route only, with duplicate prevention
+        $isMenuActive = function($item) use ($routeMatches, &$activatedRoutes, &$activatedPageIds, &$activatedFormIds) {
+            $type = $item['type'] ?? '';
+            $route = $item['route'] ?? '';
+            $pageId = $item['page_id'] ?? null;
+            $formId = $item['form_id'] ?? null;
+            
+            if ($type === 'route' && !empty($route)) {
+                // EXACT route matching - prevent duplicate routes
+                $normalizedRoute = $normalizePath($route);
+                if (in_array($normalizedRoute, $activatedRoutes)) {
+                    return false; // Another menu already matched this exact route
+                }
+                if ($routeMatches($route)) {
+                    $activatedRoutes[] = $normalizedRoute;
+                    return true;
+                }
+            }
+            
+            if ($type === 'page' && !empty($pageId)) {
+                // Page matching - prevent duplicate page_ids
+                if (in_array($pageId, $activatedPageIds)) {
+                    return false;
+                }
+                if ($routeMatches('page/view')) {
+                    $pageIdFromRoute = Yii::$app->request->get('id');
+                    if ($pageIdFromRoute == $pageId) {
+                        $activatedPageIds[] = $pageId;
+                        return true;
+                    }
+                }
+            }
+            
+            if ($type === 'form' && !empty($formId)) {
+                // Form matching - prevent duplicate form_ids
+                if (in_array($formId, $activatedFormIds)) {
+                    return false;
+                }
+                if ($routeMatches('master-form/preview') || $routeMatches('form/view')) {
+                    $formIdFromRoute = Yii::$app->request->get('id');
+                    if ($formIdFromRoute == $formId) {
+                        $activatedFormIds[] = $formId;
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        };
+        
+        // Check if any child has active state (recursive)
+        $hasActiveChild = function($item) use (&$hasActiveChild, $isMenuActive) {
+            if ($isMenuActive($item)) return true;
+            $children = $item['children'] ?? [];
+            if (!empty($children) && is_array($children)) {
+                foreach ($children as $child) {
+                    if ($hasActiveChild($child)) return true;
+                }
+            }
+            return false;
+        };
 
         foreach ($items as $item) {
             $itemId = isset($item['id']) ? (string) $item['id'] : '';
-            $itemName = strtolower(trim((string) ($item['name'] ?? '')));
-            $hasChildren = !empty($item['children']);
+            $hasChildren = !empty($item['children']) || ($item['type'] ?? '') === 'group';
             $icon = htmlspecialchars((string) ($item['icon'] ?? 'folder'), ENT_QUOTES, 'UTF-8');
 
-            $matchesItem = static function (string $candidate) use ($itemId, $itemName): bool {
-                $normalized = strtolower(trim($candidate));
-                if ($normalized === '') {
-                    return false;
-                }
-
-                return ($itemId !== '' && ($normalized === $itemId || $normalized === 'menu-' . $itemId))
-                    || ($itemName !== '' && $normalized === $itemName);
-            };
-
-            $childState = ['html' => '', 'active' => false];
-            if ($hasChildren) {
-                $childState = renderDynamicSidebarTree($item['children'], $activeMenu, $sessionActiveMenu);
-            }
-
-            $isCurrent = $matchesItem($activeMenu) || $matchesItem($sessionActiveMenu);
-            $isActiveBranch = $isCurrent || $childState['active'];
+            // EXACT route matching only - NO name comparison
+            $isCurrentActive = $isMenuActive($item);
+            $childActive = $hasChildren ? $hasActiveChild($item) : false;
+            $isActiveBranch = $isCurrentActive || $childActive;
             $hasActiveBranch = $hasActiveBranch || $isActiveBranch;
 
-            $linkClasses = 'app-sidebar-link' . ($hasChildren ? ' has-children' : '') . ($isActiveBranch ? ' active' : '') . ($hasChildren && $isActiveBranch ? ' expanded' : '');
+            $linkClasses = 'app-sidebar-link';
+            if ($hasChildren) $linkClasses .= ' has-children';
+            if ($isActiveBranch) $linkClasses .= ' active';
+            if ($hasChildren && $childActive && !$isCurrentActive) $linkClasses .= ' parent-has-active';
+            if ($hasChildren && ($isCurrentActive || $childActive)) $linkClasses .= ' expanded';
 
             if ($hasChildren) {
                 $html .= '<a href="#" class="' . $linkClasses . '" data-menu-id="' . htmlspecialchars($itemId, ENT_QUOTES, 'UTF-8') . '">' . "\n";
@@ -122,21 +218,20 @@ if (!function_exists('renderDynamicSidebarTree')) {
                 $html .= '    <span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>' . "\n";
                 $html .= '</a>' . "\n";
                 $html .= '<div class="sub-menu">' . "\n";
-                $html .= $childState['html'];
+                $html .= renderDynamicSidebarTree($item['children'] ?? [], $currentRoute)['html'];
                 $html .= '</div>' . "\n";
                 continue;
             }
 
+            // Build URL for leaf menu
             $url = '#';
             if (is_array($item['url'] ?? null) && !empty($item['url'])) {
                 $url = \yii\helpers\Url::to($item['url']);
             } elseif (is_string($item['url'] ?? null) && $item['url'] !== '' && $item['url'] !== '#') {
                 $url = \yii\helpers\Url::to($item['url']);
             } elseif (!empty($item['form_id'])) {
-                // Recovery for legacy rows that still produced '#'
                 $url = \yii\helpers\Url::to(['/master-form/preview', 'id' => (int) $item['form_id']]);
             } elseif (($item['type'] ?? '') !== 'group' && !empty($itemId)) {
-                // Guaranteed clickable fallback for non-group menus.
                 $url = \yii\helpers\Url::to(['/master-menu/resolve-link', 'id' => (int) $itemId]);
             }
 
@@ -153,7 +248,6 @@ if (!function_exists('renderDynamicSidebarTree')) {
     }
 }
 
-$dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dynamicActiveMenu);
 ?>
 
 <style>
@@ -198,10 +292,10 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         width: var(--app-sidebar-width, var(--app-sidebar-expanded-width, 16rem));
         height: 100vh;
         z-index: 60;
-        background: linear-gradient(180deg, #07111f 0%, #0b1220 48%, #111827 100%);
-        border-right: 1px solid rgba(148, 163, 184, 0.16);
+        background: linear-gradient(180deg, var(--ws-sidebar-bg-start) 0%, var(--ws-sidebar-bg-end) 100%);
+        border-right: 1px solid var(--ws-sidebar-border-color);
         box-shadow: 12px 0 32px rgba(2, 6, 23, 0.18);
-        color: #e2e8f0;
+        color: var(--ws-sidebar-text-color);
         display: flex;
         flex-direction: column;
         padding: 0;
@@ -246,7 +340,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         align-items: center;
         gap: 14px;
         padding: 18px 16px 16px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        border-bottom: 1px solid var(--ws-sidebar-border-color);
         flex-shrink: 0;
     }
 
@@ -268,7 +362,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         width: 44px;
         height: 44px;
         min-width: 44px;
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(135deg, var(--ws-workspace-logo-bg) 0%, var(--ws-workspace-logo-bg) 100%);
         border-radius: 14px;
         display: flex;
         align-items: center;
@@ -306,7 +400,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
 
     .app-sidebar-header-text p {
         font-size: 12px;
-        color: #94a3b8;
+        color: var(--ws-sidebar-text-muted);
         margin: 4px 0 0;
         transition: opacity 0.2s ease, transform 0.2s ease;
     }
@@ -321,7 +415,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         display: flex;
         flex-direction: column;
         gap: 8px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        border-bottom: 1px solid var(--ws-sidebar-border-color);
         flex-shrink: 0;
         max-height: 260px;
         transition: opacity 0.2s ease, max-height 0.2s ease, padding 0.2s ease, border-color 0.2s ease;
@@ -332,7 +426,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #94a3b8;
+        color: var(--ws-sidebar-text-muted);
         font-weight: 700;
         margin: 0;
     }
@@ -346,7 +440,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         font-size: 12px;
         font-weight: 600;
         background: rgba(15, 23, 42, 0.72);
-        color: #e2e8f0;
+        color: var(--ws-sidebar-text-color);
         border: 1px solid rgba(148, 163, 184, 0.14);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
     }
@@ -390,7 +484,6 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         font-size: 14px;
         font-weight: 600;
         text-decoration: none;
-        color: #cbd5e1;
         transition: all 0.2s ease;
         border: 1px solid transparent;
         min-height: 44px;
@@ -407,6 +500,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         color: #94a3b8;
         background: rgba(255, 255, 255, 0.05);
         border-radius: 8px;
+        transition: all 0.2s ease;
     }
 
     .app-sidebar-link-text {
@@ -419,22 +513,42 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
     }
 
     .app-sidebar-link:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: #ffffff;
+        background: var(--ws-sidebar-hover-bg);
+        color: var(--ws-sidebar-hover-text);
         transform: translateX(3px);
     }
 
-    .app-sidebar-link.active {
-        background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
-        color: white;
-        box-shadow: 0 16px 30px rgba(37, 99, 235, 0.34);
-        border-color: rgba(255, 255, 255, 0.12);
+    /* ACTIVE STATE - Modern SaaS Style (Unified for all menus) */
+    .app-sidebar-link.active,
+    .app-sidebar-link.is-active {
+        background: linear-gradient(135deg, var(--ws-sidebar-active-bg-start) 0%, var(--ws-sidebar-active-bg-end) 50%, var(--ws-sidebar-active-bg-end) 100%);
+        color: var(--ws-sidebar-active-text) !important;
+        font-weight: 600;
+        border: none;
+        box-shadow: var(--ws-sidebar-active-shadow);
+        transform: translateX(3px);
     }
 
     .app-sidebar-link.active .material-symbols-outlined,
-    .app-sidebar-link:hover .material-symbols-outlined {
-        color: #ffffff;
-        background: rgba(255, 255, 255, 0.12);
+    .app-sidebar-link.is-active .material-symbols-outlined {
+        color: white !important;
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    .app-sidebar-link.active:hover .material-symbols-outlined,
+    .app-sidebar-link.is-active:hover .material-symbols-outlined {
+        background: rgba(255, 255, 255, 0.25);
+    }
+
+    /* Parent group with active child - subtle highlight */
+    .app-sidebar-link.parent-has-active {
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--ws-sidebar-text-color);
+    }
+
+    .app-sidebar-link.parent-has-active .material-symbols-outlined {
+        color: var(--ws-sidebar-text-muted);
+        background: rgba(255, 255, 255, 0.08);
     }
 
     .app-sidebar-link.has-children {
@@ -448,7 +562,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         margin-top: 6px;
         margin-left: 16px;
         padding-left: 8px;
-        border-left: 1px solid rgba(255,255,255,0.1);
+        border-left: 1px solid var(--ws-sidebar-border-color);
     }
 
     .app-sidebar-link.has-children.expanded + .sub-menu {
@@ -462,7 +576,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
     /* Footer */
     .app-sidebar-footer {
         padding: 12px;
-        border-top: 1px solid rgba(148, 163, 184, 0.14);
+        border-top: 1px solid var(--ws-sidebar-border-color);
         flex-shrink: 0;
         background: linear-gradient(180deg, rgba(15, 23, 42, 0.1) 0%, rgba(15, 23, 42, 0.22) 100%);
     }
@@ -476,7 +590,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         font-size: 14px;
         font-weight: 700;
         text-decoration: none;
-        color: #cbd5e1;
+        color: var(--ws-sidebar-text-color);
         transition: all 0.2s ease;
         border: 1px solid rgba(148, 163, 184, 0.14);
         background: rgba(15, 23, 42, 0.68);
@@ -578,8 +692,8 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
 
     /* Light theme for dashboard pages */
     body.dashboard-main-page .app-sidebar {
-        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 48%, #eef2f7 100%);
-        border-right: 1px solid rgba(148, 163, 184, 0.2);
+        background: linear-gradient(180deg, var(--ws-light-sidebar-bg) 0%, var(--ws-light-sidebar-bg) 48%, var(--ws-light-sidebar-bg) 100%);
+        border-right: 1px solid var(--ws-light-sidebar-border);
         box-shadow: 12px 0 32px rgba(2, 6, 23, 0.08);
         color: #0f172a;
     }
@@ -651,20 +765,40 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         background: rgba(59, 130, 246, 0.12);
     }
 
-    body.dashboard-main-page .app-sidebar-link.active {
-        background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 58%, #0284c7 100%);
-        color: #ffffff;
-        box-shadow: 0 12px 20px rgba(37, 99, 235, 0.28);
-        border-color: rgba(59, 130, 246, 0.28);
+    /* Light Theme Active State - Unified */
+    body.dashboard-main-page .app-sidebar-link.active,
+    body.dashboard-main-page .app-sidebar-link.is-active {
+        background: linear-gradient(135deg, var(--ws-sidebar-active-bg-start) 0%, var(--ws-sidebar-active-bg-end) 50%, var(--ws-sidebar-active-bg-end) 100%);
+        color: var(--ws-sidebar-active-text) !important;
+        font-weight: 600;
+        border: none;
+        box-shadow: var(--ws-sidebar-active-shadow);
+        transform: translateX(3px);
     }
 
-    body.dashboard-main-page .app-sidebar-link.active .material-symbols-outlined {
-        color: #ffffff;
-        background: rgba(255, 255, 255, 0.24);
+    body.dashboard-main-page .app-sidebar-link.active .material-symbols-outlined,
+    body.dashboard-main-page .app-sidebar-link.is-active .material-symbols-outlined {
+        color: white !important;
+        background: rgba(255, 255, 255, 0.2);
+    }
+
+    body.dashboard-main-page .app-sidebar-link.active:hover,
+    body.dashboard-main-page .app-sidebar-link.is-active:hover {
+        box-shadow: 0 12px 28px rgba(37, 99, 235, 0.32);
+    }
+
+    body.dashboard-main-page .app-sidebar-link.parent-has-active {
+        background: rgba(59, 130, 246, 0.06);
+        color: #1e293b;
+    }
+
+    body.dashboard-main-page .app-sidebar-link.parent-has-active .material-symbols-outlined {
+        color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
     }
 
     body.dashboard-main-page .app-sidebar-footer {
-        border-top: 1px solid rgba(148, 163, 184, 0.16);
+        border-top: 1px solid var(--ws-light-sidebar-border);
         background: rgba(248, 250, 252, 0.6);
     }
 
@@ -687,20 +821,35 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
 
 </style>
 
-<aside class="app-sidebar">
+<?php
+$sidebarBgStart = $cssVars['sidebar-bg-start'] ?? '#07111f';
+$sidebarBgEnd = $cssVars['sidebar-bg-end'] ?? '#111827';
+$sidebarBorderColor = $cssVars['sidebar-border-color'] ?? 'rgba(148, 163, 184, 0.16)';
+$sidebarTextColor = $cssVars['sidebar-text-color'] ?? '#e2e8f0';
+$sidebarTextMuted = $cssVars['sidebar-text-muted'] ?? '#94a3b8';
+$sidebarHoverBg = $cssVars['sidebar-hover-bg'] ?? 'rgba(255, 255, 255, 0.08)';
+$sidebarHoverText = $cssVars['sidebar-hover-text'] ?? '#ffffff';
+$sidebarActiveBgStart = $cssVars['sidebar-active-bg-start'] ?? '#2563eb';
+$sidebarActiveBgEnd = $cssVars['sidebar-active-bg-end'] ?? '#06b6d4';
+$sidebarActiveText = $cssVars['sidebar-active-text'] ?? '#ffffff';
+$sidebarActiveShadow = $cssVars['sidebar-active-shadow'] ?? '0 8px 24px rgba(37, 99, 235, 0.28)';
+$logoBg = $cssVars['workspace-logo-bg'] ?? '#4f46e5';
+?>
+
+<aside class="app-sidebar" style="background: linear-gradient(180deg, <?= Html::encode($sidebarBgStart) ?> 0%, <?= Html::encode($sidebarBgEnd) ?> 100%); border-color: <?= Html::encode($sidebarBorderColor) ?>; color: <?= Html::encode($sidebarTextColor) ?>;">
     <button type="button" class="app-sidebar-toggle" data-sidebar-toggle aria-label="Tutup sidebar" aria-expanded="true" title="Tutup sidebar">
         <span class="material-symbols-outlined">chevron_left</span>
     </button>
 
     <!-- Header -->
-    <div class="app-sidebar-header">
-        <div class="app-sidebar-header-icon">
-            <span class="material-symbols-outlined">folder_open</span>
+    <div class="app-sidebar-header" style="border-color: <?= Html::encode($sidebarBorderColor) ?>;">
+        <div class="app-sidebar-header-icon" style="background: linear-gradient(135deg, <?= Html::encode($logoBg) ?> 0%, <?= Html::encode($logoBg) ?> 100%);">
+            <span class="material-symbols-outlined"><?= Html::encode($cssVars['workspace-logo-icon'] ?? 'folder_open') ?></span>
         </div>
         <div class="app-sidebar-header-text">
             <span class="app-sidebar-header-badge"><?= Html::encode($headerBadge) ?></span>
-            <h2><?= Html::encode($headerTitle) ?></h2>
-            <p><?= Html::encode($headerSubtitle) ?></p>
+            <h2 style="color: #f8fafc;"><?= Html::encode($headerTitle) ?></h2>
+            <p style="color: <?= Html::encode($sidebarTextMuted) ?>;"><?= Html::encode($headerSubtitle) ?></p>
         </div>
     </div>
 
@@ -709,8 +858,8 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
         <div class="app-sidebar-context">
             <?php if ($activeProject !== null): ?>
                 <div>
-                    <span class="app-sidebar-context-item-label"><?= Html::encode($activeProjectLabel) ?></span>
-                    <div class="app-sidebar-context-item">
+                    <span class="app-sidebar-context-item-label" style="color: <?= Html::encode($sidebarTextMuted) ?>;"><?= Html::encode($activeProjectLabel) ?></span>
+                    <div class="app-sidebar-context-item" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                         <span class="material-symbols-outlined">folder_open</span>
                         <span><?= Html::encode($activeProject->name) ?></span>
                     </div>
@@ -719,8 +868,8 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
 
             <?php if (!empty($activeDatabase)): ?>
                 <div>
-                    <span class="app-sidebar-context-item-label"><?= Html::encode($activeDatabaseLabel) ?></span>
-                    <div class="app-sidebar-context-item">
+                    <span class="app-sidebar-context-item-label" style="color: <?= Html::encode($sidebarTextMuted) ?>;"><?= Html::encode($activeDatabaseLabel) ?></span>
+                    <div class="app-sidebar-context-item" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                         <span class="material-symbols-outlined">database</span>
                         <span><?= Html::encode($activeDatabase) ?></span>
                     </div>
@@ -730,17 +879,17 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
     <?php endif; ?>
 
 <!-- Navigation -->
-    <nav class="app-sidebar-nav">
+    <nav class="app-sidebar-nav" style="color: <?= Html::encode($sidebarTextColor) ?>;">
         <!-- Projects Page - Minimal: Hardcoded Only -->
         <?php if ($sidebarVariant === 'minimal'): ?>
             <!-- Projects (clickable) -->
-            <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'projects' ? 'active' : '' ?>">
+            <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'project/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                 <span class="material-symbols-outlined">folder_open</span>
                 <span class="app-sidebar-link-text"><?= Html::encode($projectNavLabel) ?></span>
             </a>
             
             <!-- Akun Saya -->
-            <a href="<?= \yii\helpers\Url::to(['site/profile']) ?>" class="app-sidebar-link <?= $activeMenu === 'profile' ? 'active' : '' ?>">
+            <a href="<?= \yii\helpers\Url::to(['site/profile']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'site/profile') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                 <span class="material-symbols-outlined">person</span>
                 <span class="app-sidebar-link-text"><?= Html::encode($profileNavLabel) ?></span>
             </a>
@@ -785,13 +934,128 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                 }
             }
             
-            // Use closure instead of nested function to avoid PHP issues
-            $renderMenuItem = function($item, &$menuMap) use (&$renderMenuItem, &$html) {
+            // Track which specific menu items/IDs have been activated to prevent duplicates
+            $activatedIds = [];
+            $activatedPageIds = [];
+            $activatedFormIds = [];
+            $activatedRoutes = [];
+            
+            // Helper closures for EXACT route matching
+            $normalizePath = function($path) {
+                if ($path === null || $path === false) return '/';
+                $normalized = strtolower(trim((string) $path));
+                $normalized = rtrim($normalized, '/');
+                return empty($normalized) ? '/' : $normalized;
+            };
+            
+            $routeMatches = function($menuRoute) use ($currentRoute, $normalizePath) {
+                if (empty($menuRoute)) return false;
+                return $normalizePath($currentRoute) === $normalizePath($menuRoute);
+            };
+            
+            // Check if menu is active based on EXACT route only, with duplicate prevention
+            $isMenuActive = function($item) use ($routeMatches, $normalizePath, &$activatedIds, &$activatedPageIds, &$activatedFormIds, &$activatedRoutes) {
+                $type = $item['type'] ?? '';
+                $route = $item['route'] ?? '';
+                $pageId = $item['page_id'] ?? null;
+                $formId = $item['form_id'] ?? null;
+                $itemId = $item['id'] ?? null;
+                
+                // Prevent same item from being checked twice
+                if ($itemId && in_array($itemId, $activatedIds)) {
+                    return false;
+                }
+                
+                if ($type === 'route' && !empty($route)) {
+                    // EXACT route matching - prevent duplicate routes
+                    $normalizedRoute = $normalizePath($route);
+                    if (in_array($normalizedRoute, $activatedRoutes)) {
+                        return false; // Another menu already matched this exact route
+                    }
+                    if ($routeMatches($route)) {
+                        $activatedIds[] = $itemId;
+                        $activatedRoutes[] = $normalizedRoute;
+                        return true;
+                    }
+                }
+                
+                if ($type === 'page' && !empty($pageId)) {
+                    // Page matching - prevent duplicate page_ids
+                    if (in_array($pageId, $activatedPageIds)) {
+                        return false; // Another menu already matched this page
+                    }
+                    if ($routeMatches('page/view')) {
+                        $pageIdFromRoute = Yii::$app->request->get('id');
+                        if ($pageIdFromRoute == $pageId) {
+                            $activatedIds[] = $itemId;
+                            $activatedPageIds[] = $pageId;
+                            return true;
+                        }
+                    }
+                }
+                
+                if ($type === 'form' && !empty($formId)) {
+                    // Form matching - prevent duplicate form_ids
+                    if (in_array($formId, $activatedFormIds)) {
+                        return false;
+                    }
+                    if ($routeMatches('master-form/preview') || $routeMatches('form/view')) {
+                        $formIdFromRoute = Yii::$app->request->get('id');
+                        if ($formIdFromRoute == $formId) {
+                            $activatedIds[] = $itemId;
+                            $activatedFormIds[] = $formId;
+                            return true;
+                        }
+                    }
+                }
+                
+                return false;
+            };
+            
+            // Check if any child has active state (recursive, also tracks duplicates)
+            $hasActiveChild = function($item) use (&$hasActiveChild, $isMenuActive, $routeMatches, $normalizePath, &$activatedIds, &$activatedPageIds, &$activatedFormIds, &$activatedRoutes) {
+                // Check current item first
+                $type = $item['type'] ?? '';
+                $route = $item['route'] ?? '';
+                $pageId = $item['page_id'] ?? null;
+                $formId = $item['form_id'] ?? null;
+                $itemId = $item['id'] ?? null;
+                
+                if ($type === 'route' && !empty($route) && $routeMatches($route)) {
+                    return true;
+                }
+                if ($type === 'page' && !empty($pageId) && $routeMatches('page/view')) {
+                    $pageIdFromRoute = Yii::$app->request->get('id');
+                    if ($pageIdFromRoute == $pageId) {
+                        return true;
+                    }
+                }
+                if ($type === 'form' && !empty($formId) && ($routeMatches('master-form/preview') || $routeMatches('form/view'))) {
+                    $formIdFromRoute = Yii::$app->request->get('id');
+                    if ($formIdFromRoute == $formId) {
+                        return true;
+                    }
+                }
+                
+                // Check children recursively
+                $children = $item['children'] ?? [];
+                if (!empty($children) && is_array($children)) {
+                    foreach ($children as $child) {
+                        if ($hasActiveChild($child)) return true;
+                    }
+                }
+                return false;
+            };
+            
+            // Render menu item with EXACT route matching only
+            $renderMenuItem = function($item, &$menuMap) use (&$renderMenuItem, $isMenuActive, $hasActiveChild) {
                 $icon = $item['icon'] ?: 'folder';
                 $type = $item['type'] ?? 'page';
                 $route = $item['route'] ?? '';
                 $pageId = $item['page_id'] ?? null;
                 $formId = $item['form_id'] ?? null;
+                $itemId = $item['id'] ?? null;
+                $hasChildren = !empty($item['children']) || $type === 'group';
                 
                 $url = '#';
                 if ($type === 'route' && !empty($route)) {
@@ -800,15 +1064,27 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     $url = ['/master-form/preview', 'id' => $formId];
                 } elseif ($type === 'page' && !empty($pageId)) {
                     $url = ['/page/view', 'id' => $pageId];
-                } elseif ($type !== 'group' && !empty($item['id'])) {
-                    // Guaranteed fallback so leaf menu never becomes "#"
-                    $url = ['/master-menu/resolve-link', 'id' => $item['id']];
+                } elseif ($type !== 'group' && !empty($itemId)) {
+                    $url = ['/master-menu/resolve-link', 'id' => $itemId];
                 }
                 
-                $hasChildren = !empty($item['children']) || $type === 'group';
+                // EXACT route matching ONLY - NO name/label comparison
+                $isActive = $isMenuActive($item);
+                $childHasActive = $hasChildren && $hasActiveChild($item);
+                
+                // Build link classes
+                $linkClass = 'app-sidebar-link';
+                if ($hasChildren) {
+                    $linkClass .= ' has-children';
+                    if ($childHasActive && !$isActive) $linkClass .= ' parent-has-active';
+                    if ($isActive || $childHasActive) $linkClass .= ' expanded';
+                }
+                if ($isActive) {
+                    $linkClass .= ' active';
+                }
                 
                 if ($hasChildren) {
-                    echo '<a href="#" class="app-sidebar-link has-children" data-menu-id="' . $item['id'] . '">';
+                    echo '<a href="#" class="' . Html::encode($linkClass) . '" data-menu-id="' . $itemId . '">';
                     echo '<span class="material-symbols-outlined">' . Html::encode($icon) . '</span>';
                     echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
                     echo '<span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>';
@@ -822,7 +1098,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     echo '</div>';
                 } else {
                     $urlFinal = is_array($url) ? \yii\helpers\Url::to($url) : $url;
-                    echo '<a href="' . Html::encode($urlFinal) . '" class="app-sidebar-link" data-menu-id="' . $item['id'] . '">';
+                    echo '<a href="' . Html::encode($urlFinal) . '" class="' . Html::encode($linkClass) . '" data-menu-id="' . $itemId . '">';
                     echo '<span class="material-symbols-outlined">' . Html::encode($icon) . '</span>';
                     echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
                     echo '</a>';
@@ -859,6 +1135,18 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                 $formPlacements = [];
             }
             
+            // Detect active for form placements - EXACT route matching
+            $isFormPlacementActive = function($placement) use ($currentRoute) {
+                $slug = $placement->page_slug ?? '';
+                if (routesMatchExactly($currentRoute, 'form-placement/view')) {
+                    $slugFromRoute = Yii::$app->request->get('slug');
+                    if ($slugFromRoute === $slug) {
+                        return true;
+                    }
+                }
+                return false;
+            };
+            
             if (!empty($dynamicMenus) || !empty($formPlacements)):
             ?>
                 <div style="border-top: 1px solid rgba(148, 163, 184, 0.14); margin: 12px 0;"></div>
@@ -871,8 +1159,9 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     $label = $placement->page_title ?: ($form ? $form->form_name : 'Form');
                     $icon = $placement->icon ?: 'article';
                     $url = \yii\helpers\Url::to(['/form-placement/view', 'slug' => $placement->page_slug]);
+                    $isActive = $isFormPlacementActive($placement);
                     ?>
-                    <a href="<?= Html::encode($url) ?>" class="app-sidebar-link" data-menu-id="form-<?= $placement->id ?>">
+                    <a href="<?= Html::encode($url) ?>" class="app-sidebar-link <?= $isActive ? 'active' : '' ?>" data-menu-id="form-<?= $placement->id ?>">
                         <span class="ti <?= Html::encode($icon) ?>"></span>
                         <span class="app-sidebar-link-text"><?= Html::encode($label) ?></span>
                     </a>
@@ -884,9 +1173,17 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                     $url = $menu->route ? \yii\helpers\Url::to([$menu->route]) : ($menu->url ?: '#');
                     $children = $menu->getActiveChildren();
                     $hasChildren = !empty($children);
+                    
+                    // Check if route matches current route - EXACT matching only
+                    $isActive = false;
+                    if ($menu->route) {
+                        if (routesMatchExactly($currentRoute, $menu->route)) {
+                            $isActive = true;
+                        }
+                    }
                     ?>
                     <?php if ($hasChildren): ?>
-                        <a href="#" class="app-sidebar-link has-children" data-menu-id="menu-<?= $menu->id ?>">
+                        <a href="#" class="app-sidebar-link has-children <?= $isActive ? 'parent-has-active' : '' ?>" data-menu-id="menu-<?= $menu->id ?>">
                             <span class="ti <?= Html::encode($icon) ?>"></span>
                             <span class="app-sidebar-link-text"><?= Html::encode($menu->label) ?></span>
                             <span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>
@@ -895,15 +1192,21 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                             <?php foreach ($children as $child): ?>
                                 <?php 
                                 $childUrl = $child->route ? \yii\helpers\Url::to([$child->route]) : ($child->url ?: '#');
+                                $childIsActive = false;
+                                if ($child->route) {
+                                    if (routesMatchExactly($currentRoute, $child->route)) {
+                                        $childIsActive = true;
+                                    }
+                                }
                                 ?>
-                                <a href="<?= Html::encode($childUrl) ?>" class="app-sidebar-link" data-menu-id="menu-<?= $child->id ?>">
+                                <a href="<?= Html::encode($childUrl) ?>" class="app-sidebar-link <?= $childIsActive ? 'active' : '' ?>" data-menu-id="menu-<?= $child->id ?>">
                                     <span class="ti <?= Html::encode($child->icon ?: 'link') ?>"></span>
                                     <span class="app-sidebar-link-text"><?= Html::encode($child->label) ?></span>
                                 </a>
                             <?php endforeach; ?>
                         </div>
                     <?php else: ?>
-                        <a href="<?= Html::encode($url) ?>" class="app-sidebar-link" data-menu-id="menu-<?= $menu->id ?>">
+                        <a href="<?= Html::encode($url) ?>" class="app-sidebar-link <?= $isActive ? 'active' : '' ?>" data-menu-id="menu-<?= $menu->id ?>">
                             <span class="ti <?= Html::encode($icon) ?>"></span>
                             <span class="app-sidebar-link-text"><?= Html::encode($menu->label) ?></span>
                         </a>
@@ -913,23 +1216,27 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
 <?php endif; ?>
             <!-- SYSTEM BUILDER - HARDCODED (di bawah menu dinamis) -->
             <?php if ($sidebarVariant === 'full'): ?>
-                <div style="border-top: 1px solid rgba(148, 163, 184, 0.14); margin: 12px 0;"></div>
+                <div style="border-top: 1px solid <?= Html::encode($sidebarBorderColor) ?>; margin: 12px 0;"></div>
                 <div class="app-sidebar-system-builder" style="padding: 0 14px;">
-                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b;">System Builder</span>
+                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: <?= Html::encode($sidebarTextMuted) ?>;">System Builder</span>
                 </div>
-                <a href="<?= \yii\helpers\Url::to(['master-menu/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-menu' ? 'active' : '' ?>">
+                <a href="<?= \yii\helpers\Url::to(['master-menu/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-menu/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">list_alt</span>
                     <span class="app-sidebar-link-text">Master Menu</span>
                 </a>
-                <a href="<?= \yii\helpers\Url::to(['master-page/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-page' ? 'active' : '' ?>">
+                <a href="<?= \yii\helpers\Url::to(['workspace-settings/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'workspace-settings/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
+                    <span class="material-symbols-outlined">palette</span>
+                    <span class="app-sidebar-link-text">Workspace Settings</span>
+                </a>
+                <a href="<?= \yii\helpers\Url::to(['master-page/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-page/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">description</span>
                     <span class="app-sidebar-link-text">Master Page</span>
                 </a>
-                <a href="<?= \yii\helpers\Url::to(['master-form/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'master-form' ? 'active' : '' ?>">
+                <a href="<?= \yii\helpers\Url::to(['master-form/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-form/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">dynamic_form</span>
                     <span class="app-sidebar-link-text">Master Form</span>
                 </a>
-                <a href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>" class="app-sidebar-link <?= $activeMenu === 'table-builder' ? 'active' : '' ?>">
+                <a href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'table-builder/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">table_chart</span>
                     <span class="app-sidebar-link-text">Master Table</span>
                 </a>
@@ -952,6 +1259,7 @@ $dynamicMenuTree = renderDynamicSidebarTree($menuItems, $dynamicActiveMenu, $dyn
                 ['site/logout'],
                 [
                     'class' => 'app-sidebar-logout',
+                    'style' => 'color: ' . Html::encode($sidebarTextColor),
                     'data' => ['method' => 'post'],
                     'encode' => false
                 ]

@@ -160,6 +160,11 @@ $config = [
                 // Dynamic Page routes
                 'page/view/<id:\d+>' => 'page/view',
                 'page/<slug:[a-zA-Z0-9-_]+>' => 'master-page/view-dynamic',
+
+                // Workspace Settings routes
+                'settings/workspace' => 'workspace-settings/index',
+                'settings/workspace/save' => 'workspace-settings/save',
+                'settings/workspace/reset' => 'workspace-settings/reset',
             ],
         ],
     ],

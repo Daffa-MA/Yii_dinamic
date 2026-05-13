@@ -102,20 +102,27 @@ function isActiveRoute($itemUrl, $currentRoute) {
     text-decoration: none;
     border-radius: 10px;
     margin-bottom: 4px;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     font-size: 14px;
     font-weight: 500;
 }
 
 .menu-link:hover, .menu-toggle:hover {
-    background: rgba(79, 70, 229, 0.08);
-    color: #4f46e5;
-    transform: translateX(4px);
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563eb;
+    transform: translateX(3px);
 }
 
-.menu-link.active {
-    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-    color: white;
+/* ACTIVE STATE - Modern SaaS Style */
+.menu-link.active, .menu-link.is-active {
+    background: linear-gradient(135deg, #2563eb 0%, #06b6d4 50%, #0ea5e9 100%);
+    color: white !important;
+    font-weight: 600;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.24);
+}
+
+.menu-link.active:hover {
+    box-shadow: 0 12px 28px rgba(37, 99, 235, 0.32);
 }
 
 .menu-link .material-symbols-outlined,
@@ -127,11 +134,21 @@ function isActiveRoute($itemUrl, $currentRoute) {
     align-items: center;
     justify-content: center;
     color: #64748b;
+    background: rgba(148, 163, 184, 0.08);
+    border-radius: 8px;
+    transition: all 0.2s ease;
 }
 
 .menu-link:hover .material-symbols-outlined,
 .menu-toggle:hover .material-symbols-outlined {
-    color: #4f46e5;
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.12);
+}
+
+.menu-link.active .material-symbols-outlined,
+.menu-link.active:hover .material-symbols-outlined {
+    color: white;
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .menu-label {
@@ -165,8 +182,13 @@ function isActiveRoute($itemUrl, $currentRoute) {
 }
 
 .menu-group.open > .menu-toggle {
-    background: rgba(79, 70, 229, 0.08);
-    color: #4f46e5;
+    background: rgba(37, 99, 235, 0.08);
+    color: #2563eb;
+}
+
+.menu-group.open > .menu-toggle .material-symbols-outlined {
+    color: #2563eb;
+    background: rgba(37, 99, 235, 0.12);
 }
 </style>
 

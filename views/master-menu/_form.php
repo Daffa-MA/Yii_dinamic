@@ -23,10 +23,59 @@ foreach ($menuItems as $menuItem) {
 
 // Get active pages for page selection
 $pages = $pages ?? MasterPage::find()->where(['is_active' => 1])->orderBy(['id' => SORT_ASC])->all();
+
+// Get pages that are already assigned to other menus (for this project)
+$assignedPageIds = [];
+$assignedPageMenus = [];
+try {
+    $assignedMenus = \app\models\MasterMenu::find()
+        ->select(['page_id', 'name'])
+        ->where(['type' => 'page', 'is_active' => 1])
+        ->andWhere(['!=', 'id', $model->id ?? 0])
+        ->andWhere(['not', ['page_id' => null]])
+        ->all();
+    foreach ($assignedMenus as $am) {
+        if ($am->page_id) {
+            $assignedPageIds[] = $am->page_id;
+            $assignedPageMenus[$am->page_id] = $am->name;
+        }
+    }
+} catch (\Exception $e) {
+    // Ignore
+}
+
 $pageList = ['' => 'Pilih Halaman...'];
 foreach ($pages as $page) {
     $pageAttrs = $page instanceof \yii\db\ActiveRecord ? $page->getAttributes() : (array) $page;
-    $pageList[(int)$pageAttrs['id']] = $pageAttrs['title'] ?? $pageAttrs['name'] ?? 'Page ' . $pageAttrs['id'];
+    $pageId = (int)$pageAttrs['id'];
+    $pageTitle = $pageAttrs['title'] ?? $pageAttrs['name'] ?? 'Page ' . $pageId;
+    
+    // Mark pages that are already assigned to another menu
+    if (in_array($pageId, $assignedPageIds) && $pageId !== (int)$model->page_id) {
+        $pageList[$pageId] = $pageTitle . ' (Sudah dipakai: ' . ($assignedPageMenus[$pageId] ?? 'menu lain') . ')';
+    } else {
+        $pageList[$pageId] = $pageTitle;
+    }
+}
+
+// Get forms that are already assigned
+$assignedFormIds = [];
+$assignedFormMenus = [];
+try {
+    $assignedFormMenusList = \app\models\MasterMenu::find()
+        ->select(['form_id', 'name'])
+        ->where(['type' => 'form', 'is_active' => 1])
+        ->andWhere(['!=', 'id', $model->id ?? 0])
+        ->andWhere(['not', ['form_id' => null]])
+        ->all();
+    foreach ($assignedFormMenusList as $am) {
+        if ($am->form_id) {
+            $assignedFormIds[] = $am->form_id;
+            $assignedFormMenus[$am->form_id] = $am->name;
+        }
+    }
+} catch (\Exception $e) {
+    // Ignore
 }
 
 $typeList = [
@@ -198,10 +247,31 @@ if ($model->isNewRecord && empty($model->type)) {
     max-height: 0;
     opacity: 0;
 }
+
+/* Info box for assigned items */
+.assigned-info {
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    color: #92400e;
+}
+
+.assigned-info strong {
+    color: #b45309;
+}
 </style>
 
 <!-- Page Field - Only for Page type -->
-<div id="page-field-container" class="<?= $model->type !== 'page' ? 'menu-hidden' : '' ?>">
+    <div id="page-field-container" class="<?= $model->type !== 'page' ? 'menu-hidden' : '' ?>">
+        <?php if (!empty($assignedPageMenus)): ?>
+        <div class="assigned-info">
+            <strong>Info:</strong> Halaman yang sudah dipakai menu lain akan menampilkan nama menu pemiliknya.
+            <br>Setiap halaman hanya bisa dipakai oleh SATU menu.
+        </div>
+        <?php endif; ?>
         <?= $form->field($model, 'page_id')->dropDownList($pageList, [
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
         ])->label('Pilih Halaman', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
@@ -216,7 +286,13 @@ if ($model->isNewRecord && empty($model->type)) {
             ->orderBy(['form_name' => SORT_ASC])
             ->all();
         foreach ($forms as $f) {
-            $formList[(int)$f->id] = $f->form_name;
+            $formId = (int)$f->id;
+            // Mark forms that are already assigned
+            if (in_array($formId, $assignedFormIds) && $formId !== (int)$model->form_id) {
+                $formList[$formId] = $f->form_name . ' (Sudah dipakai: ' . ($assignedFormMenus[$formId] ?? 'menu lain') . ')';
+            } else {
+                $formList[$formId] = $f->form_name;
+            }
         }
     } catch (\Exception $e) {
         Yii::warning('Error loading MasterForm (try 1): ' . $e->getMessage());
@@ -231,6 +307,12 @@ if ($model->isNewRecord && empty($model->type)) {
     }
     ?>
     <div id="form-field-container" class="<?= $model->type !== 'form' ? 'menu-hidden' : '' ?>">
+        <?php if (!empty($assignedFormMenus)): ?>
+        <div class="assigned-info">
+            <strong>Info:</strong> Formulir yang sudah dipakai menu lain akan menampilkan nama menu pemiliknya.
+            <br>Setiap formulir hanya bisa dipakai oleh SATU menu.
+        </div>
+        <?php endif; ?>
         <?= $form->field($model, 'form_id', [
             'options' => ['id' => 'form-field-wrapper']
         ])->dropDownList($formList, [

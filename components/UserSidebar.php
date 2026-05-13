@@ -175,28 +175,120 @@ class UserSidebar extends Component
     {
         $html = '';
         $indent = str_repeat('    ', $level);
+        $currentRoute = Yii::$app->controller->route;
+        
+        // Helper to normalize path for exact matching
+        $normalizePath = function($path) {
+            if ($path === null || $path === false) {
+                return '/';
+            }
+            $normalized = strtolower(trim((string) $path));
+            $normalized = rtrim($normalized, '/');
+            return empty($normalized) ? '/' : $normalized;
+        };
+        
+        // Check if routes match exactly
+        $routesMatch = function($route) use ($currentRoute, $normalizePath) {
+            return $normalizePath($currentRoute) === $normalizePath($route);
+        };
+        
+        // Helper function to check if any child is active - EXACT matching only
+        $hasActiveChild = function($item) use ($currentRoute, &$hasActiveChild, $routesMatch, $normalizePath) {
+            if (empty($item) || !is_array($item)) {
+                return false;
+            }
+            $type = $item['type'] ?? '';
+            $route = $item['route'] ?? '';
+            $pageId = $item['page_id'] ?? null;
+            $formId = $item['form_id'] ?? null;
+            
+            // Check current item - EXACT match only
+            if ($type === 'route' && !empty($route)) {
+                if ($routesMatch($route)) {
+                    return true;
+                }
+            } elseif ($type === 'page' && !empty($pageId)) {
+                if ($routesMatch('page/view')) {
+                    $pageIdFromRoute = Yii::$app->request->get('id');
+                    if ($pageIdFromRoute == $pageId) {
+                        return true;
+                    }
+                }
+            } elseif ($type === 'form' && !empty($formId)) {
+                if ($routesMatch('master-form/preview') || $routesMatch('form/view')) {
+                    $formIdFromRoute = Yii::$app->request->get('id');
+                    if ($formIdFromRoute == $formId) {
+                        return true;
+                    }
+                }
+            }
+            
+            // Check children recursively
+            $children = $item['children'] ?? [];
+            if (!empty($children) && is_array($children)) {
+                foreach ($children as $child) {
+                    if ($hasActiveChild($child)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
         
         foreach ($items as $item) {
             $hasChildren = !empty($item['children']);
             $url = $item['url'];
             $name = htmlspecialchars($item['name']);
             $icon = htmlspecialchars($item['icon']);
+            $type = $item['type'] ?? '';
+            $route = $item['route'] ?? '';
+            $pageId = $item['page_id'] ?? null;
+            $formId = $item['form_id'] ?? null;
+            
+            // Detect active based on EXACT route matching
+            $isActive = false;
+            if ($type === 'route' && !empty($route)) {
+                if ($routesMatch($route)) {
+                    $isActive = true;
+                }
+            } elseif ($type === 'page' && !empty($pageId)) {
+                if ($routesMatch('page/view')) {
+                    $pageIdFromRoute = Yii::$app->request->get('id');
+                    if ($pageIdFromRoute == $pageId) {
+                        $isActive = true;
+                    }
+                }
+            } elseif ($type === 'form' && !empty($formId)) {
+                if ($routesMatch('master-form/preview') || $routesMatch('form/view')) {
+                    $formIdFromRoute = Yii::$app->request->get('id');
+                    if ($formIdFromRoute == $formId) {
+                        $isActive = true;
+                    }
+                }
+            }
+            
+            // Check if this parent has active child
+            $childHasActive = $hasChildren && $hasActiveChild($item);
+            
+            // Determine classes
+            $activeClass = $isActive ? ' active' : '';
+            $expandedClass = $childHasActive ? ' open' : '';
             
             if ($hasChildren) {
                 // Menu dengan children → dropdown/submenu
-                $html .= $indent . '<div class="menu-group">' . "\n";
-                $html .= $indent . '    <a href="#" class="menu-toggle">' . "\n";
+                $html .= $indent . '<div class="menu-group' . $expandedClass . '">' . "\n";
+                $html .= $indent . '    <a href="#" class="menu-toggle' . $activeClass . '" aria-expanded="' . ($childHasActive ? 'true' : 'false') . '">' . "\n";
                 $html .= $indent . '        <span class="material-symbols-outlined">' . $icon . '</span>' . "\n";
                 $html .= $indent . '        <span class="menu-label">' . $name . '</span>' . "\n";
                 $html .= $indent . '        <span class="menu-arrow">expand_more</span>' . "\n";
                 $html .= $indent . '    </a>' . "\n";
-                $html .= $indent . '    <div class="submenu">' . "\n";
+                $html .= $indent . '    <div class="submenu' . ($childHasActive ? ' open' : '') . '">' . "\n";
                 $html .= $this->renderMenuItems($item['children'], $level + 1);
                 $html .= $indent . '    </div>' . "\n";
                 $html .= $indent . '</div>' . "\n";
             } else {
                 // Menu tanpa children → link
-                $html .= $indent . '<a href="' . $url . '" class="menu-link">' . "\n";
+                $html .= $indent . '<a href="' . $url . '" class="menu-link' . $activeClass . '">' . "\n";
                 $html .= $indent . '    <span class="material-symbols-outlined">' . $icon . '</span>' . "\n";
                 $html .= $indent . '    <span class="menu-label">' . $name . '</span>' . "\n";
                 $html .= $indent . '</a>' . "\n";

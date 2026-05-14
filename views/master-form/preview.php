@@ -7,12 +7,17 @@ use app\models\DbTable;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\MasterForm */
+/* @var $renderPayload array|null */
 
-$formData = $model->form_data ?? [];
-if (is_string($formData)) {
-    $formData = json_decode($formData, true) ?? [];
+$renderPayload = $renderPayload ?? null;
+$fields = is_array($renderPayload['fields'] ?? null) ? $renderPayload['fields'] : [];
+if (empty($fields)) {
+    $formData = $model->form_data ?? [];
+    if (is_string($formData)) {
+        $formData = json_decode($formData, true) ?? [];
+    }
+    $fields = is_array($formData) ? $formData : [];
 }
-$fields = is_array($formData) ? $formData : [];
 $formName = $model->form_name ?? 'Form';
 $tableName = null;
 if ($model->table_id) {
@@ -337,6 +342,23 @@ $this->title = 'Preview: ' . $formName;
         </div>
         
         <div class="preview-card-body">
+            <?php if (!empty($renderPayload['hasOverride'])): ?>
+                <?php if (!empty($renderPayload['customCss'])): ?>
+                    <style><?= $renderPayload['customCss'] ?></style>
+                <?php endif; ?>
+                <div class="mb-3">
+                    <?= $renderPayload['customHtml'] ?>
+                </div>
+                <?php if (!empty($renderPayload['customJs'])): ?>
+                    <script>
+                        (function(){
+                            const run = function(){ <?= $renderPayload['customJs'] ?> };
+                            try { run(); } catch (e) { console.error(e); }
+                        })();
+                    </script>
+                <?php endif; ?>
+            <?php endif; ?>
+
             <?php if (!empty($fields)): ?>
                 <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', ['id' => 'preview-form']) ?>
                 <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->getCsrfToken() ?>">

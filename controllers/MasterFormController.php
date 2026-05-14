@@ -6,11 +6,15 @@ use Yii;
 use app\models\MasterForm;
 use app\models\MasterFormField;
 use app\models\MasterFormLayout;
+use app\models\MasterFormActivityLog;
 use app\models\MasterPage;
 use app\models\DbTable;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
+use app\services\FormActivityLogService;
+use app\services\FormEngineService;
+use app\services\FormRenderService;
 use yii\data\ActiveDataProvider;
 use yii\helpers\Json;
 use yii\web\Controller;
@@ -20,6 +24,17 @@ use yii\filters\VerbFilter;
 class MasterFormController extends Controller
 {
     public $layout = 'dashboard';
+    private FormEngineService $formEngineService;
+    private FormRenderService $formRenderService;
+    private FormActivityLogService $activityLogService;
+
+    public function init()
+    {
+        parent::init();
+        $this->formEngineService = new FormEngineService();
+        $this->formRenderService = new FormRenderService();
+        $this->activityLogService = new FormActivityLogService();
+    }
 
     private function assignActiveProject(MasterForm $model): void
     {
@@ -229,8 +244,18 @@ class MasterFormController extends Controller
 
     public function actionView($id)
     {
+        $model = $this->findScopedModel($id);
+        $logs = [];
+        if (Yii::$app->db->getTableSchema(MasterFormActivityLog::tableName(), true) !== null) {
+            $logs = MasterFormActivityLog::find()
+                ->where(['form_id' => (int)$model->id])
+                ->orderBy(['id' => SORT_DESC])
+                ->limit(15)
+                ->all();
+        }
         return $this->render('view', [
-            'model' => $this->findScopedModel($id),
+            'model' => $model,
+            'activityLogs' => $logs,
         ]);
     }
 
@@ -262,6 +287,7 @@ class MasterFormController extends Controller
             
             if ($model->save()) {
                 $this->syncFormArchitecture($model);
+                $this->activityLogService->log($model, 'form_created', 'success', 'Form created and synced.');
                 Yii::$app->session->setFlash('success', 'Form berhasil dibuat dan struktur fields/layout tersimpan.');
                 return $this->redirect(['view', 'id' => $model->id]);
             }
@@ -297,6 +323,7 @@ class MasterFormController extends Controller
             
             if ($model->save()) {
                 $this->syncFormArchitecture($model);
+                $this->activityLogService->log($model, 'form_updated', 'success', 'Form updated and synced.');
                 Yii::$app->session->setFlash('success', 'Form berhasil diperbarui dan struktur fields/layout disinkronkan.');
                 return $this->redirect(['view', 'id' => $model->id]);
             }
@@ -342,8 +369,15 @@ class MasterFormController extends Controller
     public function actionPreview($id)
     {
         $model = $this->findScopedModel($id);
+        $schema = $this->formEngineService->getResolvedFormSchema($model);
+        $renderPayload = $this->formRenderService->buildRenderPayload($model, $schema['fields'], $schema['layout']);
+        if (!empty($schema['autoSynced'])) {
+            $this->activityLogService->log($model, 'auto_sync', 'success', 'Legacy form_data auto-synced to relational tables.');
+        }
+        $this->activityLogService->log($model, 'preview_opened', 'success', 'Preview opened.');
         return $this->render('preview', [
             'model' => $model,
+            'renderPayload' => $renderPayload,
         ]);
     }
     
@@ -352,6 +386,12 @@ class MasterFormController extends Controller
         $model = $this->findScopedModel($id);
         
         if (Yii::$app->request->isPost) {
+            $isEmbedded = (int)Yii::$app->request->post('_embedded', 0) === 1;
+            $isAjax = Yii::$app->request->isAjax || $isEmbedded;
+            if ($isAjax) {
+                Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            }
+
             // APPLY DATABASE CONTEXT - ini kunci fix!
             $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
             $db = Yii::$app->db;
@@ -363,14 +403,16 @@ class MasterFormController extends Controller
                 'database_context' => $dbContext,
             ], 'submit_debug');
             
-            $formData = $model->form_data;
-            if (is_string($formData)) {
-                $formData = json_decode($formData, true) ?? [];
-            }
+            $schema = $this->formEngineService->getResolvedFormSchema($model);
+            $fields = $schema['fields'];
             
             $tableId = $model->table_id;
             if (!$tableId) {
-                Yii::$app->session->setFlash('error', 'Target table not configured for this form.');
+                $message = 'Target table not configured for this form.';
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $message];
+                }
+                Yii::$app->session->setFlash('error', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
             
@@ -385,7 +427,11 @@ class MasterFormController extends Controller
                     ->one();
             }
             if (!$dbTable) {
-                Yii::$app->session->setFlash('error', 'Target table metadata not found.');
+                $message = 'Target table metadata not found.';
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $message];
+                }
+                Yii::$app->session->setFlash('error', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
             
@@ -394,7 +440,11 @@ class MasterFormController extends Controller
             
             $columns = $db->schema->getTableSchema($tableName, true);
             if (!$columns) {
-                Yii::$app->session->setFlash('error', 'Target table "' . $tableName . '" not found in database "' . $dbDsn . '".');
+                $message = 'Target table "' . $tableName . '" not found in database "' . $dbDsn . '".';
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $message];
+                }
+                Yii::$app->session->setFlash('error', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
             
@@ -406,7 +456,7 @@ class MasterFormController extends Controller
             
             $insertData = [];
             
-            foreach ($formData as $field) {
+            foreach ($fields as $field) {
                 $fieldName = $field['name'] ?? null;
                 $fieldType = $field['type'] ?? 'text';
                 $isExcluded = !empty($field['excluded']);
@@ -450,16 +500,39 @@ class MasterFormController extends Controller
                         \Yii::info("Last row after insert: " . json_encode($checkRows), 'submit_debug');
                     }
                     
+                    $successMessage = 'Data berhasil dikirim.';
+                    if ($isAjax) {
+                        return ['success' => true, 'message' => $successMessage];
+                    }
                     Yii::$app->session->setFlash('success', 'Data saved! Fields: ' . implode(', ', array_keys($insertData)));
+                    $this->activityLogService->log($model, 'submit', 'success', 'Submission saved to target table.', [
+                        'target_table' => $tableName,
+                        'fields' => array_keys($insertData),
+                    ]);
                 } catch (\Exception $e) {
-                    Yii::$app->session->setFlash('error', 'Save failed: ' . $e->getMessage());
+                    $message = 'Save failed: ' . $e->getMessage();
+                    if ($isAjax) {
+                        return ['success' => false, 'message' => $message];
+                    }
+                    Yii::$app->session->setFlash('error', $message);
+                    $this->activityLogService->log($model, 'submit', 'failed', 'Submission failed: ' . $e->getMessage(), [
+                        'target_table' => $tableName,
+                    ]);
                 }
             } else {
                 $postedFieldNames = array_keys($postData);
-                $formFieldNames = array_column($formData, 'name');
+                $formFieldNames = array_column($fields, 'name');
+                $message = 'No data extracted.';
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $message];
+                }
                 Yii::$app->session->setFlash('warning', 'No data extracted. POST: ' . implode(', ', $postedFieldNames) . ' | Form fields: ' . implode(', ', $formFieldNames));
+                $this->activityLogService->log($model, 'submit', 'warning', 'No submission data extracted.');
             }
             
+            if ($isAjax) {
+                return ['success' => false, 'message' => 'Submit tidak diproses.'];
+            }
             return $this->redirect(['preview', 'id' => $id]);
         }
         

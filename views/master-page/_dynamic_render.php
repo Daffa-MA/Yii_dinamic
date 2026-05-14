@@ -201,13 +201,9 @@ function renderBlockSafe(block) {
             el.className = 'mb-4 p-6 bg-white border border-gray-200 rounded-xl shadow-sm';
             el.style.maxWidth = '600px';
             el.style.margin = '0 auto 1.5rem';
-            el.innerHTML = `
-                <div style=\"text-align:center;\">
-                    <div style=\"font-size:24px;margin-bottom:8px\">📝</div>
-                    <div style=\"font-weight:600;color:#1e40af;\">Formulir #\${props.formId || 'Belum dipilih'}</div>
-                    <div style=\"font-size:12px;color:#6b7280;margin-top:4px\">[Renderer akan memuat form dinamis di sini]</div>
-                </div>
-            `;
+            const formId = props.formId || '';
+            const showTitle = props.showTitle ? '1' : '0';
+            el.innerHTML = `<div class=\"dynamic-form-slot\" data-form-id=\"\${formId}\" data-show-title=\"\${showTitle}\"><div style=\"font-size:12px;color:#64748b;\">Loading form...</div></div>`;
             return el;
         }
         case 'card': {
@@ -318,7 +314,94 @@ document.addEventListener('DOMContentLoaded', function() {
     for (const block of window.dynamicPageState) {
         container.appendChild(renderBlockSafe(block));
     }
+
+    hydrateDynamicForms(container);
 });
+
+function hydrateDynamicForms(root) {
+    const slots = root.querySelectorAll('.dynamic-form-slot[data-form-id]');
+    if (!slots.length) return;
+
+    slots.forEach((slot) => {
+        const formId = slot.getAttribute('data-form-id');
+        const showTitle = slot.getAttribute('data-show-title') === '1' ? '1' : '0';
+        if (!formId) {
+            slot.innerHTML = '<div style=\"font-size:12px;color:#9a3412;\">Form belum dipilih.</div>';
+            return;
+        }
+
+        fetch('/master-page/form-preview?id=' + encodeURIComponent(formId) + '&showTitle=' + showTitle + '&interactive=1', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+            .then((res) => res.text())
+            .then((raw) => {
+                let data = null;
+                try { data = JSON.parse(raw); } catch (e) { data = null; }
+                if (!data || !data.success) {
+                    slot.innerHTML = '<div style=\"font-size:12px;color:#9f1239;\">Gagal memuat form preview.</div>';
+                    return;
+                }
+                slot.innerHTML = data.html || '';
+                bindEmbeddedFormSubmit(slot);
+            })
+            .catch(() => {
+                slot.innerHTML = '<div style=\"font-size:12px;color:#9f1239;\">Gagal memuat form preview.</div>';
+            });
+    });
+}
+
+function bindEmbeddedFormSubmit(root) {
+    const form = root.querySelector('form.dynamic-embedded-form');
+    if (!form || form.dataset.bound === '1') return;
+    form.dataset.bound = '1';
+
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const messageBox = form.querySelector('.dynamic-form-submit-message');
+        const submitBtn = form.querySelector('button[type=\"submit\"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        const formData = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        })
+        .then((res) => res.text())
+        .then((raw) => {
+            let data = null;
+            try { data = JSON.parse(raw); } catch (e) { data = null; }
+            if (!messageBox) return;
+
+            messageBox.style.display = 'block';
+            if (data && data.success) {
+                messageBox.style.background = '#ecfdf5';
+                messageBox.style.border = '1px solid #86efac';
+                messageBox.style.color = '#166534';
+                messageBox.textContent = data.message || 'Data berhasil dikirim.';
+                form.reset();
+            } else {
+                messageBox.style.background = '#fef2f2';
+                messageBox.style.border = '1px solid #fecaca';
+                messageBox.style.color = '#991b1b';
+                messageBox.textContent = (data && data.message) ? data.message : 'Gagal mengirim data.';
+            }
+        })
+        .catch(() => {
+            if (!messageBox) return;
+            messageBox.style.display = 'block';
+            messageBox.style.background = '#fef2f2';
+            messageBox.style.border = '1px solid #fecaca';
+            messageBox.style.color = '#991b1b';
+            messageBox.textContent = 'Gagal mengirim data.';
+        })
+        .finally(() => {
+            if (submitBtn) submitBtn.disabled = false;
+        });
+    });
+}
 
 // Global Message Handler for Iframe Resizing
 window.addEventListener('message', (e) => {

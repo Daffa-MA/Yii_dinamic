@@ -2091,6 +2091,9 @@ $forms = $forms ?? [];
 
     window.pageState = <?= json_encode($initialState) ?>;
     window.availableForms = <?= json_encode($forms ?? []) ?>;
+    window.dynamicFormPreviewEndpoint = <?= json_encode(Url::to(['master-page/form-preview'])) ?>;
+    window.dynamicFormPreviewCache = {};
+    window.dynamicFormPreviewPending = {};
     let selectedBlockId = null;
     let isAddingBlock = false;
     const PAGE_TYPE_BUILDER = 'builder';
@@ -2217,17 +2220,98 @@ $forms = $forms ?? [];
                 return `<div style="display:grid;grid-template-columns:repeat(${props.columns || 3},1fr);gap:${props.gap || '16'}px;padding:${props.padding || '20'}px;background:#f8fafc;border-radius:8px;"><div style="padding:30px;background:white;border:2px dashed #e2e8f0;border-radius:8px;text-align:center;color:#94a3b8;">Kolom</div></div>`;
             case 'form':
                 const form = (window.availableForms || []).find(f => f.id == props.formId);
-                return `<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
-                    <div style="font-size:32px;margin-bottom:12px">📝</div>
-                    <div style="font-weight:700;color:#1e293b;font-size:16px">${form ? form.name : 'Form Belum Dipilih'}</div>
-                    <div style="font-size:13px;color:#64748b;margin-top:4px">${form ? 'ID: ' + form.id : 'Pilih form di panel kanan'}</div>
-                    ${props.showTitle && form ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #e2e8f0;font-size:12px;color:#94a3b8">Form Title Visible</div>` : ''}
+                if (!props.formId) {
+                    return `<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
+                        <div style="font-size:32px;margin-bottom:12px">📝</div>
+                        <div style="font-weight:700;color:#1e293b;font-size:16px">Form Belum Dipilih</div>
+                        <div style="font-size:13px;color:#64748b;margin-top:4px">Pilih form di panel kanan</div>
+                    </div>`;
+                }
+
+                const cacheKey = `${props.formId}|${props.showTitle ? 1 : 0}`;
+                const cachedPreview = window.dynamicFormPreviewCache[cacheKey];
+                if (cachedPreview) {
+                    const srcDoc = buildDynamicFormPreviewSrcDoc(cachedPreview);
+                    return `<div class="dynamic-form-preview-wrap" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+                        <iframe
+                            srcdoc="${srcDoc}"
+                            style="width:100%;border:none;display:block;min-height:160px;pointer-events:none;"
+                            onload="this.style.height=(this.contentWindow.document.documentElement.scrollHeight + 8) + 'px'"
+                            sandbox="allow-scripts"
+                        ></iframe>
+                    </div>`;
+                }
+
+                requestDynamicFormPreview(block.id, props.formId, !!props.showTitle);
+                return `<div style="padding:16px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;color:#64748b;">
+                    <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:6px;">${form ? form.name : ('Form #' + props.formId)}</div>
+                    <div style="font-size:12px;">Loading form preview...</div>
                 </div>`;
             case 'section':
                 return `<div style="padding:${props.padding || '40'}px;margin:${props.margin || '0'}px;background:${props.background || '#fff'};border-radius:8px;border:1px dashed #cbd5e1;color:#94a3b8;text-align:center;">📦 Section</div>`;
             default:
                 return `<div style="padding:16px;background:#fef3c7;color:#92400e;">Unknown: ${block.type}</div>`;
         }
+    }
+
+    function requestDynamicFormPreview(blockId, formId, showTitle) {
+        if (!formId) return;
+
+        const cacheKey = `${formId}|${showTitle ? 1 : 0}`;
+        if (window.dynamicFormPreviewCache[cacheKey]) return;
+        if (window.dynamicFormPreviewPending[cacheKey]) return;
+
+        window.dynamicFormPreviewPending[cacheKey] = true;
+        const url = `${window.dynamicFormPreviewEndpoint}?id=${encodeURIComponent(formId)}&showTitle=${showTitle ? 1 : 0}`;
+
+        fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(async (res) => {
+                const raw = await res.text();
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return {
+                        success: false,
+                        message: 'Preview response tidak valid.'
+                    };
+                }
+            })
+            .then(data => {
+                if (!data || !data.success) {
+                    window.dynamicFormPreviewCache[cacheKey] = `<div style="padding:12px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:8px;font-size:12px;">${(data && data.message) ? data.message : 'Gagal load form preview.'}</div>`;
+                } else {
+                    window.dynamicFormPreviewCache[cacheKey] = data.html || '';
+                }
+                renderBuilder(window.pageState);
+            })
+            .catch(() => {
+                window.dynamicFormPreviewCache[cacheKey] = `<div style="padding:12px;background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:8px;font-size:12px;">Gagal load form preview.</div>`;
+                renderBuilder(window.pageState);
+            })
+            .finally(() => {
+                delete window.dynamicFormPreviewPending[cacheKey];
+            });
+    }
+
+    function buildDynamicFormPreviewSrcDoc(contentHtml) {
+        const doc = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <style>
+                    html, body { margin: 0; padding: 0; background: #fff; }
+                    body { font-family: Inter, Segoe UI, Arial, sans-serif; }
+                </style>
+            </head>
+            <body>${contentHtml}</body>
+            </html>
+        `;
+        return doc.replace(/"/g, '&quot;');
     }
 
     function addBlock(type) {

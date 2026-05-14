@@ -6,6 +6,7 @@ use yii\db\ActiveRecord;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\MasterForm */
+/* @var $activityLogs app\models\MasterFormActivityLog[] */
 
 if ($model instanceof ActiveRecord) {
     $attrs = $model->getAttributes();
@@ -38,6 +39,7 @@ $isActive = isset($attrs['is_active']) && $attrs['is_active'] == 1;
 $createdAt = $attrs['created_at'] ?? '-';
 $updatedAt = $attrs['updated_at'] ?? '-';
 $slug = $attrs['slug'] ?? '';
+$activityLogs = $activityLogs ?? [];
 
 $tableName = null;
 if ($tableId) {
@@ -820,6 +822,9 @@ $this->params['breadcrumbs'][] = $this->title;
             <?php endforeach; ?>
         <?php endforeach; ?>
 
+        <?= $this->render('_status_panel', ['model' => $model]) ?>
+        <?= $this->render('_activity_timeline', ['activityLogs' => $activityLogs]) ?>
+
         <!-- Stats Row -->
         <div class="view-stats">
             <div class="view-stat-card">
@@ -972,7 +977,7 @@ $this->params['breadcrumbs'][] = $this->title;
                         $label = $fieldData['field_label'] ?? $fieldData['label'] ?? $fieldData['field_name'] ?? 'Field';
                         $name = $fieldData['field_name'] ?? $fieldData['field_key'] ?? $fieldData['name'] ?? '';
                         $required = !empty($fieldData['is_required'] ?? $fieldData['required']);
-                        $isFk = !empty($fieldData['foreign_key_table'] ?? $fieldData['is_foreign_key']);
+                        $isFk = !empty(($fieldData['foreign_key_table'] ?? ($fieldData['is_foreign_key'] ?? false)));
                         $isExcluded = !empty($fieldData['excluded']);
                         $fkTable = $fieldData['foreign_key_table'] ?? $fieldData['fk_referenced_table'] ?? '';
                         $fieldSettings = [];

@@ -2,6 +2,7 @@
 
 use app\models\Form;
 use app\models\MasterPage;
+use app\services\DynamicFormPreviewService;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
@@ -207,12 +208,10 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                         break;
                         
                     case 'form':
-                        $formId = $props['formId'] ?? null;
-                        if ($formId) {
-                            echo "<div style='background:#eff6ff;border-radius:8px;padding:20px;margin:1rem 0;text-align:center;'>";
-                            echo "<span style='color:#1e40af;font-weight:600;'>Form ID: {$formId}</span>";
-                            echo "</div>";
-                        }
+                        $formId = isset($props['formId']) ? (int)$props['formId'] : null;
+                        $showTitle = !empty($props['showTitle']);
+                        $previewService = new DynamicFormPreviewService();
+                        echo "<div style='margin:1rem 0;'>" . $previewService->renderByScopedId($formId, $showTitle, true) . "</div>";
                         break;
                         
                     case 'video':
@@ -325,6 +324,63 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
         </div>
     <?php endif; ?>
 </div>
+
+<?php
+$this->registerJs(<<<'JS'
+(function() {
+    function bindEmbeddedFormSubmit(form) {
+        if (!form || form.dataset.bound === '1') return;
+        form.dataset.bound = '1';
+
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const messageBox = form.querySelector('.dynamic-form-submit-message');
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: formData
+            })
+            .then((res) => res.text())
+            .then((raw) => {
+                let data = null;
+                try { data = JSON.parse(raw); } catch (e) { data = null; }
+                if (!messageBox) return;
+                messageBox.style.display = 'block';
+                if (data && data.success) {
+                    messageBox.style.background = '#ecfdf5';
+                    messageBox.style.border = '1px solid #86efac';
+                    messageBox.style.color = '#166534';
+                    messageBox.textContent = data.message || 'Data berhasil dikirim.';
+                    form.reset();
+                } else {
+                    messageBox.style.background = '#fef2f2';
+                    messageBox.style.border = '1px solid #fecaca';
+                    messageBox.style.color = '#991b1b';
+                    messageBox.textContent = (data && data.message) ? data.message : 'Gagal mengirim data.';
+                }
+            })
+            .catch(() => {
+                if (!messageBox) return;
+                messageBox.style.display = 'block';
+                messageBox.style.background = '#fef2f2';
+                messageBox.style.border = '1px solid #fecaca';
+                messageBox.style.color = '#991b1b';
+                messageBox.textContent = 'Gagal mengirim data.';
+            })
+            .finally(() => {
+                if (submitBtn) submitBtn.disabled = false;
+            });
+        });
+    }
+
+    document.querySelectorAll('form.dynamic-embedded-form').forEach(bindEmbeddedFormSubmit);
+})();
+JS);
+?>
 
 <?php
 $iframeResizeScript = <<<JS

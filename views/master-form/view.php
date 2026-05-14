@@ -15,6 +15,8 @@ if ($model instanceof ActiveRecord) {
 
 $formName = $attrs['form_name'] ?? 'Form';
 $formType = $attrs['form_type'] ?? '-';
+$databaseContext = $attrs['database_context'] ?? '-';
+$customCodeMode = !empty($attrs['custom_code_mode']) ? 'Enabled' : 'Disabled';
 $formDataRaw = $attrs['form_data'] ?? '';
 $formData = [];
 if (is_string($formDataRaw)) {
@@ -22,7 +24,13 @@ if (is_string($formDataRaw)) {
 } elseif (is_array($formDataRaw)) {
     $formData = $formDataRaw;
 }
-$fieldCount = count($formData);
+$fields = [];
+if (method_exists($model, 'getFields')) {
+    $fields = $model->getFields()->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
+}
+$fieldCount = !empty($fields) ? count($fields) : count($formData);
+$layoutCount = method_exists($model, 'getLayouts') ? $model->getLayouts()->count() : 0;
+$flashes = Yii::$app->session->getAllFlashes();
 $formId = $attrs['id'] ?? null;
 $pageId = $attrs['page_id'] ?? null;
 $tableId = $attrs['table_id'] ?? null;
@@ -195,6 +203,34 @@ $this->params['breadcrumbs'][] = $this->title;
 .view-stat-card:hover {
     border-color: #cbd5e1;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.view-notice {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+    border: 1px solid transparent;
+}
+
+.view-notice.success {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+.view-notice.warning {
+    background: #fffbeb;
+    border-color: #fde68a;
+    color: #92400e;
+}
+
+.view-notice.info {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
 }
 
 .view-stat-icon {
@@ -775,6 +811,15 @@ $this->params['breadcrumbs'][] = $this->title;
     
     <!-- Content -->
     <div class="view-content">
+        <?php foreach ($flashes as $flashType => $flashMessages): ?>
+            <?php foreach ((array)$flashMessages as $flashMessage): ?>
+                <div class="view-notice <?= Html::encode($flashType) ?>">
+                    <span class="material-symbols-outlined">notifications</span>
+                    <div><?= Html::encode(is_array($flashMessage) ? Json::encode($flashMessage) : $flashMessage) ?></div>
+                </div>
+            <?php endforeach; ?>
+        <?php endforeach; ?>
+
         <!-- Stats Row -->
         <div class="view-stats">
             <div class="view-stat-card">
@@ -832,8 +877,16 @@ $this->params['breadcrumbs'][] = $this->title;
                         <span class="view-type-badge"><?= Html::encode($formType) ?></span>
                     </div>
                     <div class="view-info-row">
+                        <span class="view-info-label">Database Context</span>
+                        <span class="view-info-value mono"><?= Html::encode($databaseContext) ?></span>
+                    </div>
+                    <div class="view-info-row">
                         <span class="view-info-label">Target Table</span>
                         <span class="view-info-value mono" style="<?= $tableName ? 'color:#16a34a;' : '' ?>"><?= $tableName ?: '<span style="color:#94a3b8;">Not set</span>' ?></span>
+                    </div>
+                    <div class="view-info-row">
+                        <span class="view-info-label">Custom Code</span>
+                        <span class="view-type-badge"><?= Html::encode($customCodeMode) ?></span>
                     </div>
                     <div class="view-info-row">
                         <span class="view-info-label">Status</span>
@@ -906,21 +959,29 @@ $this->params['breadcrumbs'][] = $this->title;
                     </div>
                     <div class="view-fields-title-text">Field Preview</div>
                     <div class="view-fields-count"><?= $fieldCount ?> fields</div>
+                    <div class="view-fields-count"><?= $layoutCount ?> layouts</div>
                 </div>
             </div>
             
-            <?php if (!empty($formData)): ?>
+            <?php if (!empty($fields)): ?>
                 <div class="view-fields-grid">
-                    <?php foreach ($formData as $field): ?>
+                    <?php foreach ($fields as $field): ?>
                         <?php
-                        $type = $field['type'] ?? 'text';
-                        $label = $field['label'] ?? $field['name'] ?? 'Field';
-                        $name = $field['name'] ?? '';
-                        $required = !empty($field['required']);
-                        $isFk = !empty($field['is_foreign_key']);
-                        $isExcluded = !empty($field['excluded']);
-                        $fkTable = $field['fk_referenced_table'] ?? '';
-                        $optionsCount = isset($field['options']) ? count($field['options']) : (isset($field['fk_options']) ? count($field['fk_options']) : 0);
+                        $fieldData = $field instanceof \yii\db\ActiveRecord ? $field->getAttributes() : (array)$field;
+                        $type = $fieldData['field_type'] ?? $fieldData['type'] ?? 'text';
+                        $label = $fieldData['field_label'] ?? $fieldData['label'] ?? $fieldData['field_name'] ?? 'Field';
+                        $name = $fieldData['field_name'] ?? $fieldData['field_key'] ?? $fieldData['name'] ?? '';
+                        $required = !empty($fieldData['is_required'] ?? $fieldData['required']);
+                        $isFk = !empty($fieldData['foreign_key_table'] ?? $fieldData['is_foreign_key']);
+                        $isExcluded = !empty($fieldData['excluded']);
+                        $fkTable = $fieldData['foreign_key_table'] ?? $fieldData['fk_referenced_table'] ?? '';
+                        $fieldSettings = [];
+                        if (!empty($fieldData['field_settings'])) {
+                            $fieldSettings = is_string($fieldData['field_settings']) ? (json_decode($fieldData['field_settings'], true) ?? []) : (array)$fieldData['field_settings'];
+                        } elseif (!empty($fieldData['field_config'])) {
+                            $fieldSettings = is_string($fieldData['field_config']) ? (json_decode($fieldData['field_config'], true) ?? []) : (array)$fieldData['field_config'];
+                        }
+                        $optionsCount = isset($fieldSettings['options']) ? count($fieldSettings['options']) : (isset($fieldSettings['fk_options']) ? count($fieldSettings['fk_options']) : 0);
                         
                         $iconMap = [
                             'text' => 'text_fields',

@@ -3,9 +3,14 @@
 namespace app\models;
 
 use app\components\ActiveProjectContext;
+use app\components\ActiveDatabaseContext;
+use app\components\DatabaseSchemaInitializer;
 use app\components\ProjectSchema;
+use app\models\MasterFormField;
+use app\models\MasterFormLayout;
 use Yii;
 use yii\db\ActiveRecord;
+use yii\db\ActiveQuery;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -16,6 +21,9 @@ use yii\helpers\ArrayHelper;
  * @property int|null $project_id
  * @property int|null $table_id
  * @property string $form_name
+ * @property string|null $form_type
+ * @property string|null $database_context
+ * @property int|null $custom_code_mode
  * @property array $form_data
  * @property string $slug
  * @property int $is_active
@@ -37,6 +45,44 @@ class MasterForm extends ActiveRecord
         return Yii::$app->get('db', false) ?: parent::getDb();
     }
 
+    private static function ensureActiveDatabaseContext(): void
+    {
+        if (!Yii::$app->has('db', false)) {
+            return;
+        }
+
+        (new ActiveDatabaseContext())->resolveAndApply();
+        DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db);
+        Yii::$app->db->schema->refresh();
+    }
+
+    public static function findScoped(): ActiveQuery
+    {
+        self::ensureActiveDatabaseContext();
+        return self::applyActiveProjectScope(self::find());
+    }
+
+    public static function findByIdScoped($id): ?self
+    {
+        return self::findScoped()
+            ->where(['id' => (int)$id])
+            ->one();
+    }
+
+    private static function applyActiveProjectScope(ActiveQuery $query): ActiveQuery
+    {
+        $schema = Yii::$app->db->getSchema()->getTableSchema(self::tableName(), true);
+
+        if (ProjectSchema::supportsProjectContext() && $schema !== null && isset($schema->columns['project_id'])) {
+            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $query->andWhere(['project_id' => (int)$activeProjectId]);
+            }
+        }
+
+        return $query;
+    }
+
     public function rules()
     {
         return [
@@ -44,7 +90,8 @@ class MasterForm extends ActiveRecord
             [['form_data'], 'safe'],
             [['form_name'], 'string', 'max' => 255],
             [['slug'], 'string', 'max' => 100],
-            [['page_id', 'table_id', 'project_id'], 'integer', 'skipOnEmpty' => true],
+            [['form_type', 'database_context'], 'string', 'max' => 100],
+            [['page_id', 'table_id', 'project_id', 'custom_code_mode', 'is_active'], 'integer', 'skipOnEmpty' => true],
         ];
     }
 
@@ -56,6 +103,9 @@ class MasterForm extends ActiveRecord
             'project_id' => 'Project',
             'table_id' => 'Target Table',
             'form_name' => 'Form Name',
+            'form_type' => 'Form Type',
+            'database_context' => 'Database Context',
+            'custom_code_mode' => 'Custom Code Mode',
             'form_data' => 'Form Data',
             'slug' => 'Slug',
             'is_active' => 'Status',
@@ -71,6 +121,16 @@ class MasterForm extends ActiveRecord
             $this->is_active = $this->is_active ?? 1;
         }
         $this->updated_at = date('Y-m-d H:i:s');
+
+        if (empty($this->database_context) && Yii::$app->has('db', false)) {
+            $this->database_context = (string)preg_replace('/^.*dbname=([^;]+).*$/i', '$1', Yii::$app->db->dsn);
+        }
+        if (empty($this->form_type)) {
+            $this->form_type = 'dynamic';
+        }
+        if ($this->custom_code_mode === null) {
+            $this->custom_code_mode = 0;
+        }
         
         // Auto-generate slug if not provided
         if (empty($this->slug) && !empty($this->form_name)) {
@@ -100,6 +160,21 @@ class MasterForm extends ActiveRecord
         return $this->table ? $this->table->name : null;
     }
 
+    public function getFields()
+    {
+        return $this->hasMany(MasterFormField::class, ['form_id' => 'id'])->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC]);
+    }
+
+    public function getLayouts()
+    {
+        return $this->hasMany(MasterFormLayout::class, ['form_id' => 'id'])->orderBy(['is_default' => SORT_DESC, 'id' => SORT_DESC]);
+    }
+
+    public function getActiveLayout()
+    {
+        return $this->hasOne(MasterFormLayout::class, ['form_id' => 'id'])->andOnCondition(['is_default' => 1]);
+    }
+
     public function isActive()
     {
         return $this->is_active == 1;
@@ -113,16 +188,9 @@ class MasterForm extends ActiveRecord
 
     public static function getActiveForms()
     {
-        $query = self::find()
+        $query = self::findScoped()
             ->where(['is_active' => 1])
             ->orderBy(['form_name' => SORT_ASC]);
-
-        if (ProjectSchema::supportsProjectContext() && self::getTableSchema() && isset(self::getTableSchema()->columns['project_id'])) {
-            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
-            if ($activeProjectId !== null) {
-                $query->andWhere(['project_id' => $activeProjectId]);
-            }
-        }
 
         return $query->all();
     }
@@ -134,16 +202,20 @@ class MasterForm extends ActiveRecord
 
     public static function findBySlug($slug)
     {
-        $query = self::find()
+        $query = self::findScoped()
             ->where(['slug' => $slug, 'is_active' => 1]);
 
-        if (ProjectSchema::supportsProjectContext() && self::getTableSchema() && isset(self::getTableSchema()->columns['project_id'])) {
-            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
-            if ($activeProjectId !== null) {
-                $query->andWhere(['project_id' => $activeProjectId]);
-            }
+        return $query->one();
+    }
+
+    public function getFormDataArray(): array
+    {
+        $formData = $this->form_data;
+        if (is_string($formData)) {
+            $decoded = json_decode($formData, true);
+            return is_array($decoded) ? $decoded : [];
         }
 
-        return $query->one();
+        return is_array($formData) ? $formData : [];
     }
 }

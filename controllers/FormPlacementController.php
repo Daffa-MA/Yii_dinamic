@@ -29,15 +29,7 @@ class FormPlacementController extends Controller
 
     private function findScopedForm($formId): ?MasterForm
     {
-        $query = MasterForm::find()->where(['id' => (int)$formId]);
-        if (ProjectSchema::supportsProjectContext() && MasterForm::getTableSchema() && isset(MasterForm::getTableSchema()->columns['project_id'])) {
-            $activeProjectId = $this->getActiveProjectId();
-            if ($activeProjectId !== null) {
-                $query->andWhere(['project_id' => $activeProjectId]);
-            }
-        }
-
-        return $query->one();
+        return MasterForm::findByIdScoped($formId);
     }
 
     public function beforeAction($action)
@@ -45,6 +37,9 @@ class FormPlacementController extends Controller
         if (!parent::beforeAction($action)) {
             return false;
         }
+
+        (new \app\components\ActiveDatabaseContext())->resolveAndApply();
+        Yii::$app->db->schema->refresh();
 
         if (!ProjectSchema::supportsProjectContext()) {
             return true;

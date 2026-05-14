@@ -100,7 +100,7 @@ class PageDisplayService
             ];
         }
 
-        $form = MasterForm::findOne($menu->form_id);
+        $form = MasterForm::findByIdScoped($menu->form_id);
         if (!$form) {
             return [
                 'success' => false,
@@ -557,7 +557,7 @@ class PageDisplayService
             ];
         }
 
-        $form = MasterForm::findOne($menu->form_id);
+        $form = MasterForm::findByIdScoped($menu->form_id);
 
         if (!$form || (int)$form->is_active !== 1) {
             return [

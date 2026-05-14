@@ -1,6 +1,5 @@
 <?php
 
-use app\models\Form;
 use app\models\MasterMenu;
 use app\models\MasterForm;
 use app\models\MasterPage;
@@ -69,7 +68,6 @@ try {
     $assignedFormMenusQuery = \app\models\MasterMenu::find()
         ->alias('m')
         ->select(['m.form_id', 'm.name'])
-        ->innerJoin(['f' => Form::tableName()], 'f.id = m.form_id')
         ->where(['m.type' => 'form', 'm.is_active' => 1])
         ->andWhere(['!=', 'm.id', $model->id ?? 0])
         ->andWhere(['not', ['m.form_id' => null]]);
@@ -77,7 +75,7 @@ try {
     if (ProjectSchema::supportsProjectContext()) {
         $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
         if ($activeProjectId !== null) {
-            $assignedFormMenusQuery->andWhere(['f.project_id' => $activeProjectId]);
+            $assignedFormMenusQuery->andWhere(['m.project_id' => $activeProjectId]);
         }
     }
 
@@ -306,15 +304,7 @@ if ($model->isNewRecord && empty($model->type)) {
             }
         }
     } catch (\Exception $e) {
-        Yii::warning('Error loading MasterForm (try 1): ' . $e->getMessage());
-        try {
-            $forms = \Yii::$app->db->createCommand("SELECT id, form_name FROM master_form WHERE is_active = 1 ORDER BY form_name")->queryAll();
-            foreach ($forms as $f) {
-                $formList[(int)$f['id']] = $f['form_name'];
-            }
-        } catch (\Exception $e2) {
-            Yii::warning('Error loading MasterForm (try 2): ' . $e2->getMessage());
-        }
+        Yii::warning('Error loading MasterForm: ' . $e->getMessage());
     }
     ?>
     <div id="form-field-container" class="<?= $model->type !== 'form' ? 'menu-hidden' : '' ?>">

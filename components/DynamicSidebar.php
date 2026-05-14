@@ -125,15 +125,8 @@ class DynamicSidebar extends Component
 
         $page = MasterPage::findOne(['master_menu' => ['id' => $menuId]]);
         if ($page) {
-            $query = MasterForm::find()
+            $query = MasterForm::findScoped()
                 ->where(['page_id' => $page->id, 'is_active' => 1]);
-
-            if (ProjectSchema::supportsProjectContext() && MasterForm::getTableSchema() && isset(MasterForm::getTableSchema()->columns['project_id'])) {
-                $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
-                if ($activeProjectId !== null) {
-                    $query->andWhere(['project_id' => $activeProjectId]);
-                }
-            }
 
             $forms = $query->all();
             $this->_formCache[$menuId] = $forms;

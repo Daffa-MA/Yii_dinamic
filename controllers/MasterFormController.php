@@ -4,12 +4,15 @@ namespace app\controllers;
 
 use Yii;
 use app\models\MasterForm;
+use app\models\MasterFormField;
+use app\models\MasterFormLayout;
 use app\models\MasterPage;
 use app\models\DbTable;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
 use yii\data\ActiveDataProvider;
+use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\VerbFilter;
@@ -17,15 +20,6 @@ use yii\filters\VerbFilter;
 class MasterFormController extends Controller
 {
     public $layout = 'dashboard';
-
-    private function getActiveProjectId(): ?int
-    {
-        if (!ProjectSchema::supportsProjectContext()) {
-            return null;
-        }
-
-        return (new ActiveProjectContext())->getActiveProjectId();
-    }
 
     private function assignActiveProject(MasterForm $model): void
     {
@@ -37,24 +31,18 @@ class MasterFormController extends Controller
         $model->project_id = $activeProjectId !== null ? (int)$activeProjectId : null;
     }
 
-    private function applyActiveProjectScope($query)
+    private function getActiveProjectId(): ?int
     {
-        if (ProjectSchema::supportsProjectContext() && MasterForm::getTableSchema() && isset(MasterForm::getTableSchema()->columns['project_id'])) {
-            $activeProjectId = $this->getActiveProjectId();
-            if ($activeProjectId !== null) {
-                $query->andWhere(['project_id' => $activeProjectId]);
-            }
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
         }
 
-        return $query;
+        return (new ActiveProjectContext())->getActiveProjectId();
     }
 
     private function findScopedModel($id): MasterForm
     {
-        $query = MasterForm::find()
-            ->where(['id' => (int)$id]);
-        $query = $this->applyActiveProjectScope($query);
-        $model = $query->one();
+        $model = MasterForm::findByIdScoped($id);
 
         if ($model !== null) {
             return $model;
@@ -63,11 +51,141 @@ class MasterFormController extends Controller
         throw new NotFoundHttpException('The requested page does not exist.');
     }
 
+    private function normalizeBuilderData(MasterForm $model): array
+    {
+        $formData = $model->getFormDataArray();
+        if (!empty($formData['fields']) && is_array($formData['fields'])) {
+            return $formData;
+        }
+
+        return [
+            'fields' => $formData,
+        ];
+    }
+
+    private function isListArray(array $array): bool
+    {
+        if ($array === []) {
+            return true;
+        }
+
+        return array_keys($array) === range(0, count($array) - 1);
+    }
+
+    private function extractFieldsFromBuilderData(array $builderData): array
+    {
+        if (isset($builderData['fields']) && is_array($builderData['fields'])) {
+            return $builderData['fields'];
+        }
+
+        if ($this->isListArray($builderData)) {
+            return $builderData;
+        }
+
+        return [];
+    }
+
+    private function normalizeFieldName(array $field, int $index): string
+    {
+        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? ''));
+        if ($name === '') {
+            $name = 'field_' . ($index + 1);
+        }
+
+        return $name;
+    }
+
+    private function syncFormArchitecture(MasterForm $model): void
+    {
+        $builderData = $this->normalizeBuilderData($model);
+        $fields = $this->extractFieldsFromBuilderData($builderData);
+
+        MasterFormField::deleteAll(['form_id' => $model->id]);
+        MasterFormLayout::deleteAll(['form_id' => $model->id]);
+
+        $customCodeDetected = false;
+        foreach ($fields as $index => $fieldData) {
+            if (!is_array($fieldData)) {
+                continue;
+            }
+
+            $field = new MasterFormField();
+            $fieldName = $this->normalizeFieldName($fieldData, (int)$index);
+            $fieldType = (string)($fieldData['type'] ?? $fieldData['field_type'] ?? 'text');
+            $field->form_id = (int)$model->id;
+            $field->field_key = $fieldName;
+            $field->field_name = $fieldName;
+            $field->field_label = (string)($fieldData['label'] ?? $fieldData['field_label'] ?? ucfirst(str_replace('_', ' ', $fieldName)));
+            $field->field_type = $fieldType;
+            $field->component_type = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $fieldType);
+            $field->is_required = !empty($fieldData['required'] ?? $fieldData['is_required']) ? 1 : 0;
+            $field->placeholder = (string)($fieldData['placeholder'] ?? '');
+            $field->default_value = isset($fieldData['default_value']) ? (string)$fieldData['default_value'] : null;
+            $field->dropdown_source = (string)($fieldData['dropdown_source'] ?? (!empty($fieldData['fk_options']) ? 'foreign_key' : (!empty($fieldData['options']) ? 'static_options' : '')));
+            $field->foreign_key_table = isset($fieldData['fk_referenced_table']) ? (string)$fieldData['fk_referenced_table'] : null;
+            $field->foreign_key_column = isset($fieldData['fk_display_column']) ? (string)$fieldData['fk_display_column'] : null;
+            $field->validation_rules = Json::encode([
+                'required' => !empty($fieldData['required'] ?? $fieldData['is_required']),
+                'rules' => $fieldData['validation_rules'] ?? null,
+            ]);
+            $field->field_config = Json::encode($fieldData);
+            $field->field_settings = Json::encode($fieldData);
+            $field->sort_order = (int)$index;
+            $field->save(false);
+
+            if (!empty($fieldData['customHtml']) || !empty($fieldData['customCss']) || !empty($fieldData['customJs'])) {
+                $customCodeDetected = true;
+            }
+        }
+
+        $customHtml = [];
+        $customCss = [];
+        $customJs = [];
+        foreach ($fields as $fieldData) {
+            if (!is_array($fieldData)) {
+                continue;
+            }
+
+            if (!empty($fieldData['customHtml'])) {
+                $customHtml[] = (string)$fieldData['customHtml'];
+            }
+            if (!empty($fieldData['customCss'])) {
+                $customCss[] = (string)$fieldData['customCss'];
+            }
+            if (!empty($fieldData['customJs'])) {
+                $customJs[] = (string)$fieldData['customJs'];
+            }
+        }
+
+        $layout = new MasterFormLayout();
+        $layout->form_id = (int)$model->id;
+        $layout->layout_name = $model->form_name . ' Layout';
+        $layout->layout_type = (string)($model->form_type ?: 'builder');
+        $layout->layout_json = Json::encode([
+            'form' => $model->getAttributes(),
+            'builder' => $builderData,
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $layout->custom_html = implode("\n\n", $customHtml);
+        $layout->custom_css = implode("\n\n", $customCss);
+        $layout->custom_js = implode("\n\n", $customJs);
+        $layout->builder_state = Json::encode($builderData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $layout->is_default = 1;
+        $layout->sort_order = 0;
+        $layout->save(false);
+
+        $model->custom_code_mode = $customCodeDetected ? 1 : 0;
+        $model->save(false, ['custom_code_mode']);
+    }
+
     public function beforeAction($action)
     {
         if (!parent::beforeAction($action)) {
             return false;
         }
+
+        $dbContext = new ActiveDatabaseContext();
+        $dbContext->resolveAndApply();
+        Yii::$app->db->schema->refresh();
 
         if (!ProjectSchema::supportsProjectContext()) {
             return true;
@@ -98,8 +216,7 @@ class MasterFormController extends Controller
 
     public function actionIndex()
     {
-        $query = MasterForm::find()->with('page');
-        $query = $this->applyActiveProjectScope($query);
+        $query = MasterForm::findScoped()->with('page');
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -123,6 +240,7 @@ class MasterFormController extends Controller
         $this->assignActiveProject($model);
 
         if ($model->load(Yii::$app->request->post())) {
+            $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
             $this->assignActiveProject($model);
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
@@ -135,8 +253,16 @@ class MasterFormController extends Controller
             if (empty($model->slug) && !empty($model->form_name)) {
                 $model->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $model->form_name)));
             }
+            if ($model->hasAttribute('database_context')) {
+                $model->database_context = (string)($dbContext['activeDatabase'] ?? '');
+            }
+            if ($model->hasAttribute('form_type') && empty($model->form_type)) {
+                $model->form_type = 'dynamic';
+            }
             
             if ($model->save()) {
+                $this->syncFormArchitecture($model);
+                Yii::$app->session->setFlash('success', 'Form berhasil dibuat dan struktur fields/layout tersimpan.');
                 return $this->redirect(['view', 'id' => $model->id]);
             }
         }
@@ -152,6 +278,7 @@ class MasterFormController extends Controller
         $model = $this->findScopedModel($id);
 
         if ($model->load(Yii::$app->request->post())) {
+            $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
             $this->assignActiveProject($model);
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
@@ -164,8 +291,13 @@ class MasterFormController extends Controller
             if (empty($model->slug) && !empty($model->form_name)) {
                 $model->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $model->form_name)));
             }
+            if ($model->hasAttribute('database_context')) {
+                $model->database_context = (string)($dbContext['activeDatabase'] ?? '');
+            }
             
             if ($model->save()) {
+                $this->syncFormArchitecture($model);
+                Yii::$app->session->setFlash('success', 'Form berhasil diperbarui dan struktur fields/layout disinkronkan.');
                 return $this->redirect(['view', 'id' => $model->id]);
             }
         }
@@ -178,7 +310,10 @@ class MasterFormController extends Controller
 
     public function actionDelete($id)
     {
-        $this->findScopedModel($id)->delete();
+        $model = $this->findScopedModel($id);
+        MasterFormField::deleteAll(['form_id' => $model->id]);
+        MasterFormLayout::deleteAll(['form_id' => $model->id]);
+        $model->delete();
         return $this->redirect(['index']);
     }
     
@@ -189,13 +324,15 @@ class MasterFormController extends Controller
         $copy = new MasterForm();
         $copy->form_name = $source->form_name . ' (Copy)';
         $copy->form_data = $source->form_data;
-        $copy->form_type = $source->form_type ?? '-';
+        $copy->form_type = $source->form_type ?? 'dynamic';
+        $copy->database_context = $source->database_context ?? null;
         $copy->page_id = $source->page_id;
         $copy->table_id = $source->table_id;
         $this->assignActiveProject($copy);
         $copy->is_active = 0;
         
         if ($copy->save()) {
+            $this->syncFormArchitecture($copy);
             return $this->redirect(['view', 'id' => $copy->id]);
         }
         

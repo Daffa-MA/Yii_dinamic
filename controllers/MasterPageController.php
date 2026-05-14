@@ -8,6 +8,8 @@ use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\services\PageService;
 use app\components\ActiveDatabaseContext;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 use yii\data\ActiveDataProvider;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -420,9 +422,17 @@ class MasterPageController extends Controller
      */
     private function findAvailableForms()
     {
-        $rows = Form::find()
-            ->orderBy(['id' => SORT_ASC])
-            ->all();
+        $query = Form::find()
+            ->orderBy(['id' => SORT_ASC]);
+
+        if (ProjectSchema::supportsProjectContext()) {
+            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $query->andWhere(['project_id' => $activeProjectId]);
+            }
+        }
+
+        $rows = $query->all();
 
         $forms = [];
         foreach ($rows as $row) {

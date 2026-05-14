@@ -819,7 +819,7 @@ class TableBuilderController extends Controller
         $activeProjectId = $this->getActiveProjectId();
         if ($activeProjectId === null) {
             Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
-            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table.');
+            Yii::$app->session->setFlash('tableBuilderWarning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table.');
             $this->redirect(['project/index']);
             return false;
         }
@@ -870,6 +870,29 @@ class TableBuilderController extends Controller
         // Preserve column data for re-rendering on validation failure
         $savedColumns = [];
         $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
+        $builderMode = trim((string)Yii::$app->request->post('builder_mode', 'manual'));
+        $rawSql = trim((string)Yii::$app->request->post('raw_sql', ''));
+
+        if ($builderMode === 'sql' && Yii::$app->request->isPost) {
+            try {
+                $executionResult = $this->executeRawSchemaSql($rawSql);
+                Yii::$app->session->setFlash(
+                    'success',
+                    'SQL schema berhasil dijalankan dan sinkron ke metadata untuk: ' . implode(', ', $executionResult['tables'])
+                );
+                return $this->redirect(['index']);
+            } catch (\Throwable $e) {
+                return $this->render('create', [
+                    'model' => $model,
+                    'savedColumns' => $savedColumns,
+                    'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
+                    'databaseInfo' => $this->getDatabaseInfo(),
+                    'builderMode' => 'sql',
+                    'rawSql' => $rawSql,
+                    'sqlError' => $e->getMessage(),
+                ]);
+            }
+        }
 
         if ($model->load(Yii::$app->request->post())) {
             $model->user_id = Yii::$app->user->id;
@@ -913,28 +936,28 @@ class TableBuilderController extends Controller
                         }
 
                         $transaction->commit();
-                        Yii::$app->session->setFlash('success', "Table '{$model->name}' definition saved successfully. Status: pending database creation.");
+                        Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$model->name}' definition saved successfully. Status: pending database creation.");
 
                         return $this->redirect(['index']);
                     } catch (\Throwable $e) {
                         $transaction->rollBack();
                         $model->delete();
-                        Yii::$app->session->setFlash('error', $e->getMessage());
+                        Yii::$app->session->setFlash('tableBuilderError', $e->getMessage());
                     }
                 } else {
                     // Model validation failed - show error and preserve columns
-                    Yii::$app->session->setFlash('error', 'Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
+                    Yii::$app->session->setFlash('tableBuilderError', 'Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
                 }
             } catch (\yii\db\IntegrityException $e) {
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
                     $model->addError('name', 'A table with this name already exists. Please choose a different name.');
-                    Yii::$app->session->setFlash('error', 'A table with this name already exists. Please choose a different name.');
+                    Yii::$app->session->setFlash('tableBuilderError', 'A table with this name already exists. Please choose a different name.');
                 } else {
                     $model->addError('name', 'Database error: ' . $e->getMessage());
-                    Yii::$app->session->setFlash('error', 'Database error: ' . $e->getMessage());
+                    Yii::$app->session->setFlash('tableBuilderError', 'Database error: ' . $e->getMessage());
                 }
             } catch (\Exception $e) {
-                Yii::$app->session->setFlash('error', 'Error: ' . $e->getMessage());
+                Yii::$app->session->setFlash('tableBuilderError', 'Error: ' . $e->getMessage());
             }
         }
 
@@ -943,6 +966,9 @@ class TableBuilderController extends Controller
             'savedColumns' => $savedColumns,
             'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
             'databaseInfo' => $this->getDatabaseInfo(),
+            'builderMode' => $builderMode !== '' ? $builderMode : 'manual',
+            'rawSql' => $rawSql,
+            'sqlError' => null,
         ]);
     }
 
@@ -1088,22 +1114,22 @@ class TableBuilderController extends Controller
                         if ($wasPhysicallyCreated) {
                             try {
                                 $this->syncUpdatedPhysicalTable($model, $oldTableName, $columnModels);
-                                Yii::$app->session->setFlash('success', "Table updated successfully and synced to database table '{$model->name}'.");
+                                Yii::$app->session->setFlash('tableBuilderSuccess', "Table updated successfully and synced to database table '{$model->name}'.");
                             } catch (\Throwable $syncError) {
                                 Yii::error('Failed to sync updated table to database: ' . $syncError->getMessage(), 'app');
-                                Yii::$app->session->setFlash('warning', 'Table definition was updated, but failed to sync physical database table: ' . $syncError->getMessage());
+                                Yii::$app->session->setFlash('tableBuilderWarning', 'Table definition was updated, but failed to sync physical database table: ' . $syncError->getMessage());
                             }
                         } else {
-                            Yii::$app->session->setFlash('success', 'Table updated successfully.');
+                            Yii::$app->session->setFlash('tableBuilderSuccess', 'Table updated successfully.');
                         }
 
                         return $this->redirect(['view', 'id' => $model->id]);
                     } catch (\Throwable $e) {
                         $transaction->rollBack();
-                        Yii::$app->session->setFlash('error', $e->getMessage());
+                        Yii::$app->session->setFlash('tableBuilderError', $e->getMessage());
                     }
                 } else {
-                    Yii::$app->session->setFlash('error', 'Failed to save table: ' . implode(', ', $model->getErrorSummary(true)));
+                    Yii::$app->session->setFlash('tableBuilderError', 'Failed to save table: ' . implode(', ', $model->getErrorSummary(true)));
                 }
             } catch (\yii\db\IntegrityException $e) {
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
@@ -1112,7 +1138,7 @@ class TableBuilderController extends Controller
                     $model->addError('name', 'Database error: ' . $e->getMessage());
                 }
             } catch (\Exception $e) {
-                Yii::$app->session->setFlash('error', 'Error: ' . $e->getMessage());
+                Yii::$app->session->setFlash('tableBuilderError', 'Error: ' . $e->getMessage());
             }
         }
 
@@ -1131,14 +1157,14 @@ class TableBuilderController extends Controller
         $model = $this->findModel($id);
 
         if ($this->syncTableCreationState($model)) {
-            Yii::$app->session->setFlash('warning', 'Table already exists in database!');
+            Yii::$app->session->setFlash('tableBuilderWarning', 'Table already exists in database!');
             return $this->redirect(['view', 'id' => $id]);
         }
 
         $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
         
         if (empty($columns)) {
-            Yii::$app->session->setFlash('error', 'Table must have at least one column!');
+            Yii::$app->session->setFlash('tableBuilderError', 'Table must have at least one column!');
             return $this->redirect(['view', 'id' => $id]);
         }
 
@@ -1170,10 +1196,10 @@ class TableBuilderController extends Controller
             $model->save(false, ['is_created']);
 
             $dbName = $db->createCommand('SELECT DATABASE()')->queryScalar();
-            Yii::$app->session->setFlash('success', "Table '{$model->name}' created successfully in database '{$dbName}'.");
+            Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$model->name}' created successfully in database '{$dbName}'.");
             
         } catch (\Exception $e) {
-            Yii::$app->session->setFlash('error', 'Failed to create table: ' . $e->getMessage());
+            Yii::$app->session->setFlash('tableBuilderError', 'Failed to create table: ' . $e->getMessage());
         }
 
         return $this->redirect(['view', 'id' => $id]);
@@ -1192,7 +1218,7 @@ class TableBuilderController extends Controller
         }
         
         $model->delete();
-        Yii::$app->session->setFlash('success', 'Table deleted successfully!');
+        Yii::$app->session->setFlash('tableBuilderSuccess', 'Table deleted successfully!');
 
         return $this->redirect(['index']);
     }
@@ -1216,6 +1242,402 @@ class TableBuilderController extends Controller
         ]);
 
         return $this->asJson(['sql' => $sql]);
+    }
+
+    private function executeRawSchemaSql(string $sql): array
+    {
+        $sql = trim($sql);
+        if ($sql === '') {
+            throw new \RuntimeException('SQL editor is empty.');
+        }
+
+        $statements = $this->splitSqlStatements($sql);
+        if (empty($statements)) {
+            throw new \RuntimeException('Tidak ada statement SQL yang valid untuk dijalankan.');
+        }
+
+        $db = $this->getPhysicalDb();
+        $tablesToSync = [];
+
+        foreach ($statements as $index => $statement) {
+            $validationError = $this->validateSchemaStatement($statement);
+            if ($validationError !== null) {
+                throw new \RuntimeException('Statement #' . ($index + 1) . ': ' . $validationError);
+            }
+
+            $db->createCommand($statement)->execute();
+
+            $tableName = $this->extractAffectedTableName($statement);
+            if ($tableName !== null) {
+                $tablesToSync[$tableName] = true;
+                $db->schema->refreshTableSchema($tableName);
+            }
+        }
+
+        if (empty($tablesToSync)) {
+            throw new \RuntimeException('SQL berhasil dijalankan, tetapi tidak ada table yang bisa disinkronkan.');
+        }
+
+        return [
+            'statements' => $statements,
+            'tables' => $this->syncImportedTables(array_keys($tablesToSync)),
+        ];
+    }
+
+    private function splitSqlStatements(string $sql): array
+    {
+        $statements = [];
+        $buffer = '';
+        $length = strlen($sql);
+        $singleQuoted = false;
+        $doubleQuoted = false;
+        $backticked = false;
+        $lineComment = false;
+        $blockComment = false;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $sql[$i];
+            $next = $i + 1 < $length ? $sql[$i + 1] : '';
+
+            if ($lineComment) {
+                if ($char === "\n") {
+                    $lineComment = false;
+                    $buffer .= $char;
+                }
+                continue;
+            }
+
+            if ($blockComment) {
+                if ($char === '*' && $next === '/') {
+                    $blockComment = false;
+                    $i++;
+                }
+                continue;
+            }
+
+            if (!$singleQuoted && !$doubleQuoted && !$backticked) {
+                if ($char === '-' && $next === '-') {
+                    $lineComment = true;
+                    $i++;
+                    continue;
+                }
+                if ($char === '#') {
+                    $lineComment = true;
+                    continue;
+                }
+                if ($char === '/' && $next === '*') {
+                    $blockComment = true;
+                    $i++;
+                    continue;
+                }
+            }
+
+            if ($char === "'" && !$doubleQuoted && !$backticked) {
+                $escaped = $i > 0 && $sql[$i - 1] === '\\';
+                if (!$escaped) {
+                    $singleQuoted = !$singleQuoted;
+                }
+                $buffer .= $char;
+                continue;
+            }
+
+            if ($char === '"' && !$singleQuoted && !$backticked) {
+                $escaped = $i > 0 && $sql[$i - 1] === '\\';
+                if (!$escaped) {
+                    $doubleQuoted = !$doubleQuoted;
+                }
+                $buffer .= $char;
+                continue;
+            }
+
+            if ($char === '`' && !$singleQuoted && !$doubleQuoted) {
+                $backticked = !$backticked;
+                $buffer .= $char;
+                continue;
+            }
+
+            if ($char === ';' && !$singleQuoted && !$doubleQuoted && !$backticked) {
+                $trimmed = trim($buffer);
+                if ($trimmed !== '') {
+                    $statements[] = $trimmed;
+                }
+                $buffer = '';
+                continue;
+            }
+
+            $buffer .= $char;
+        }
+
+        $trimmed = trim($buffer);
+        if ($trimmed !== '') {
+            $statements[] = $trimmed;
+        }
+
+        return $statements;
+    }
+
+    private function validateSchemaStatement(string $statement): ?string
+    {
+        $normalized = trim($statement);
+        if ($normalized === '') {
+            return 'statement kosong.';
+        }
+
+        $compact = strtoupper(preg_replace('/\s+/', ' ', $normalized) ?? $normalized);
+        $bannedPatterns = [
+            '/^\s*DROP\s+DATABASE\b/',
+            '/^\s*DROP\s+TABLE\b/',
+            '/^\s*TRUNCATE\b/',
+            '/^\s*DELETE\b/',
+            '/^\s*UPDATE\b/',
+            '/^\s*INSERT\b/',
+            '/^\s*REPLACE\b/',
+            '/^\s*CREATE\s+DATABASE\b/',
+            '/^\s*ALTER\s+DATABASE\b/',
+            '/^\s*GRANT\b/',
+            '/^\s*REVOKE\b/',
+            '/^\s*CALL\b/',
+            '/^\s*LOAD\s+DATA\b/',
+            '/^\s*HANDLER\b/',
+            '/^\s*LOCK\s+TABLES\b/',
+            '/^\s*UNLOCK\s+TABLES\b/',
+            '/^\s*START\s+TRANSACTION\b/',
+            '/^\s*COMMIT\b/',
+            '/^\s*ROLLBACK\b/',
+        ];
+
+        foreach ($bannedPatterns as $pattern) {
+            if (preg_match($pattern, $compact) === 1) {
+                return 'statement berbahaya diblokir.';
+            }
+        }
+
+        if (preg_match('/^\s*CREATE\s+TABLE\b/i', $normalized) === 1) {
+            return null;
+        }
+
+        if (preg_match('/^\s*ALTER\s+TABLE\b/i', $normalized) === 1) {
+            if (preg_match('/\bDROP\s+(COLUMN|INDEX|KEY)\b/i', $normalized) === 1) {
+                return 'ALTER TABLE dengan DROP diblokir.';
+            }
+            if (preg_match('/\bDROP\s+PRIMARY\s+KEY\b/i', $normalized) === 1) {
+                return 'ALTER TABLE dengan DROP PRIMARY KEY diblokir.';
+            }
+            return null;
+        }
+
+        return 'hanya CREATE TABLE dan ALTER TABLE yang diperbolehkan.';
+    }
+
+    private function extractAffectedTableName(string $statement): ?string
+    {
+        if (preg_match('/^\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([a-zA-Z0-9_]+)`?/i', $statement, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        if (preg_match('/^\s*ALTER\s+TABLE\s+`?([a-zA-Z0-9_]+)`?/i', $statement, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        return null;
+    }
+
+    private function syncImportedTables(array $tableNames): array
+    {
+        $synced = [];
+        foreach (array_values(array_unique($tableNames)) as $tableName) {
+            $synced[] = $this->syncImportedTable($tableName);
+        }
+
+        return $synced;
+    }
+
+    private function syncImportedTable(string $tableName): string
+    {
+        $db = $this->getPhysicalDb();
+        $schema = $db->schema->getTableSchema($tableName, true);
+        if ($schema === null) {
+            throw new \RuntimeException("Table '{$tableName}' tidak ditemukan setelah SQL dijalankan.");
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        $criteria = [
+            'user_id' => Yii::$app->user->id,
+            'name' => strtolower($tableName),
+        ];
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $criteria['project_id'] = $activeProjectId;
+        }
+
+        $model = DbTable::findOne($criteria);
+        if ($model === null) {
+            $model = new DbTable();
+            $model->user_id = Yii::$app->user->id;
+            $this->assignActiveProject($model);
+            $model->name = strtolower($tableName);
+            $model->label = ucwords(str_replace('_', ' ', strtolower($tableName)));
+            $model->description = 'Imported from SQL editor';
+            $model->engine = 'InnoDB';
+            $model->charset = 'utf8mb4';
+            $model->collation = 'utf8mb4_unicode_ci';
+        }
+
+        $model->is_created = true;
+        if (!$model->save()) {
+            throw new \RuntimeException("Gagal menyimpan metadata table '{$tableName}': " . implode(', ', $model->getErrorSummary(true)));
+        }
+
+        DbTableColumn::deleteAll(['table_id' => $model->id]);
+
+        $primaryKeyColumns = array_flip(array_map('strtolower', (array)($schema->primaryKey ?? [])));
+        $uniqueColumns = $this->getUniqueColumnsFromTable($tableName);
+        $foreignKeyMap = $this->getForeignKeyMetadataFromTable($tableName);
+        $sortOrder = 1;
+
+        foreach ($schema->columns as $columnSchema) {
+            $column = $this->buildImportedColumnModel($model->id, $columnSchema, $sortOrder, $primaryKeyColumns, $uniqueColumns, $foreignKeyMap);
+            if (!$column->save(false)) {
+                throw new \RuntimeException("Gagal menyimpan metadata kolom '{$column->name}' pada '{$tableName}'.");
+            }
+            $sortOrder++;
+        }
+
+        $db->schema->refreshTableSchema($tableName);
+        return $model->name;
+    }
+
+    private function buildImportedColumnModel(int $tableId, $columnSchema, int $sortOrder, array $primaryKeyColumns, array $uniqueColumns, array $foreignKeyMap): DbTableColumn
+    {
+        $column = new DbTableColumn();
+        $column->table_id = $tableId;
+        $column->name = strtolower((string)$columnSchema->name);
+        $column->label = ucwords(str_replace('_', ' ', $column->name));
+
+        [$type, $length, $enumValues] = $this->inferImportedColumnType((string)($columnSchema->dbType ?? $columnSchema->type ?? 'TEXT'));
+        $column->type = $type;
+        $column->length = $length;
+        $column->is_nullable = (bool)($columnSchema->allowNull ?? true);
+        $column->is_primary = isset($primaryKeyColumns[$column->name]);
+        $column->is_unique = isset($uniqueColumns[$column->name]) || $column->is_primary;
+
+        if ($column->hasAttribute('is_auto_increment')) {
+            $column->setAttribute('is_auto_increment', (bool)($columnSchema->autoIncrement ?? false));
+        }
+
+        $column->default_value = $columnSchema->defaultValue !== null ? (string)$columnSchema->defaultValue : null;
+        $column->comment = $columnSchema->comment !== null ? (string)$columnSchema->comment : null;
+        $column->sort_order = $sortOrder;
+
+        if ($column->hasAttribute('enum_values')) {
+            $column->setAttribute('enum_values', $enumValues);
+        }
+
+        if ($column->hasAttribute('is_foreign_key')) {
+            $fk = $foreignKeyMap[$column->name] ?? null;
+            $column->setAttribute('is_foreign_key', $fk !== null);
+            $column->setAttribute('referenced_table_name', $fk['referenced_table_name'] ?? null);
+            $column->setAttribute('referenced_column_name', $fk['referenced_column_name'] ?? null);
+            $column->setAttribute('on_delete_action', $fk['on_delete_action'] ?? 'RESTRICT');
+            $column->setAttribute('on_update_action', $fk['on_update_action'] ?? 'RESTRICT');
+        }
+
+        return $column;
+    }
+
+    private function inferImportedColumnType(string $dbType): array
+    {
+        $normalized = strtolower(trim($dbType));
+        $normalized = preg_replace('/\s+unsigned$/i', '', $normalized) ?? $normalized;
+
+        if (preg_match('/^([a-z]+)\(([^)]*)\)$/i', $normalized, $matches) === 1) {
+            $type = strtoupper($matches[1]);
+            $args = trim($matches[2]);
+
+            if (in_array($type, ['ENUM', 'SET'], true)) {
+                preg_match_all("/'((?:[^'\\\\]|\\\\.)*)'/", $args, $enumMatches);
+                $values = array_map(static function ($value) {
+                    return str_replace("\\'", "'", $value);
+                }, $enumMatches[1] ?? []);
+                return [$type, null, implode(',', $values)];
+            }
+
+            $firstArg = trim(explode(',', $args)[0] ?? '');
+            $length = is_numeric($firstArg) ? (int)$firstArg : null;
+            return [$type, $length, null];
+        }
+
+        $type = strtoupper($normalized);
+        if ($type === '') {
+            $type = 'TEXT';
+        }
+
+        return [$type, null, null];
+    }
+
+    private function getUniqueColumnsFromTable(string $tableName): array
+    {
+        $db = $this->getPhysicalDb();
+        if (stripos((string)$db->dsn, 'mysql:') !== 0) {
+            return [];
+        }
+
+        $rows = $db->createCommand('SHOW INDEX FROM `' . str_replace('`', '``', $tableName) . '`')->queryAll();
+
+        $uniqueColumns = [];
+        foreach ($rows as $row) {
+            if ((int)($row['Non_unique'] ?? 1) === 0 && strcasecmp((string)($row['Key_name'] ?? ''), 'PRIMARY') !== 0) {
+                $uniqueColumns[strtolower((string)($row['Column_name'] ?? ''))] = true;
+            }
+        }
+
+        return $uniqueColumns;
+    }
+
+    private function getForeignKeyMetadataFromTable(string $tableName): array
+    {
+        $db = $this->getPhysicalDb();
+        if (stripos((string)$db->dsn, 'mysql:') !== 0) {
+            return [];
+        }
+
+        $databaseName = (string)$db->createCommand('SELECT DATABASE()')->queryScalar();
+        if ($databaseName === '') {
+            return [];
+        }
+
+        $rows = (new \yii\db\Query())
+            ->select([
+                'column_name' => 'kcu.COLUMN_NAME',
+                'referenced_table_name' => 'kcu.REFERENCED_TABLE_NAME',
+                'referenced_column_name' => 'kcu.REFERENCED_COLUMN_NAME',
+                'on_update_action' => 'rc.UPDATE_RULE',
+                'on_delete_action' => 'rc.DELETE_RULE',
+            ])
+            ->from(['kcu' => 'INFORMATION_SCHEMA.KEY_COLUMN_USAGE'])
+            ->innerJoin(['rc' => 'INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS'], 'kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA AND kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME')
+            ->where([
+                'kcu.CONSTRAINT_SCHEMA' => $databaseName,
+                'kcu.TABLE_NAME' => $tableName,
+            ])
+            ->andWhere(['not', ['kcu.REFERENCED_TABLE_NAME' => null]])
+            ->all($db);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $columnName = strtolower((string)($row['column_name'] ?? ''));
+            if ($columnName === '') {
+                continue;
+            }
+
+            $map[$columnName] = [
+                'referenced_table_name' => strtolower((string)($row['referenced_table_name'] ?? '')),
+                'referenced_column_name' => strtolower((string)($row['referenced_column_name'] ?? '')),
+                'on_delete_action' => strtoupper((string)($row['on_delete_action'] ?? 'RESTRICT')),
+                'on_update_action' => strtoupper((string)($row['on_update_action'] ?? 'RESTRICT')),
+            ];
+        }
+
+        return $map;
     }
 
     protected function findModel($id)

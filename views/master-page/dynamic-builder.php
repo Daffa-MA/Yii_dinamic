@@ -4241,7 +4241,7 @@ $forms = $forms ?? [];
                     type: 'card',
                     props: {
                         title: 'Pengumpulan Data',
-                        content: 'Kami mengumpulkan informasi yang Anda berikan secara sukarela saat menggunakan layanan kami.',
+                        content: 'Kami mengumpulkan informasi yang Anda berikan secara s    ukarela saat menggunakan layanan kami.',
                         showShadow: false
                     }
                 },

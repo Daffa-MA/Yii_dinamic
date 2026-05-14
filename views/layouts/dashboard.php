@@ -34,13 +34,19 @@ $customProps = [
     'topnav-text-color' => $cssVars['topnav-text-color'] ?? '#1e293b',
 ];
 
-$customPropsStyle = ':root {';
+$customPropsStyle = '.dashboard-layout, .dynamic-workspace-layout {';
 foreach ($customProps as $key => $value) {
     $customPropsStyle .= "--ws-{$key}: " . Html::encode($value) . "; ";
 }
 $customPropsStyle .= '}';
 
-$this->registerCss($customPropsStyle, ['position' => View::POS_BEGIN]);
+// Scope theme injection: only register workspace theme for dynamic layouts.
+// Exclude hardcoded pages that must remain independent (e.g., project listing).
+$currentRouteForTheme = Yii::$app->controller->route ?? '';
+$themeExclusions = ['project/index', 'project-list/index'];
+if (!in_array($currentRouteForTheme, $themeExclusions, true)) {
+    $this->registerCss($customPropsStyle, ['position' => View::POS_BEGIN]);
+}
 
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap', ['position' => View::POS_HEAD]);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);

@@ -7,6 +7,8 @@ use app\models\MasterForm;
 use app\models\MasterPage;
 use app\models\DbTable;
 use app\components\ActiveDatabaseContext;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 use yii\data\ActiveDataProvider;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -15,6 +17,72 @@ use yii\filters\VerbFilter;
 class MasterFormController extends Controller
 {
     public $layout = 'dashboard';
+
+    private function getActiveProjectId(): ?int
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        return (new ActiveProjectContext())->getActiveProjectId();
+    }
+
+    private function assignActiveProject(MasterForm $model): void
+    {
+        if (!$model->hasAttribute('project_id')) {
+            return;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        $model->project_id = $activeProjectId !== null ? (int)$activeProjectId : null;
+    }
+
+    private function applyActiveProjectScope($query)
+    {
+        if (ProjectSchema::supportsProjectContext() && MasterForm::getTableSchema() && isset(MasterForm::getTableSchema()->columns['project_id'])) {
+            $activeProjectId = $this->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $query->andWhere(['project_id' => $activeProjectId]);
+            }
+        }
+
+        return $query;
+    }
+
+    private function findScopedModel($id): MasterForm
+    {
+        $query = MasterForm::find()
+            ->where(['id' => (int)$id]);
+        $query = $this->applyActiveProjectScope($query);
+        $model = $query->one();
+
+        if ($model !== null) {
+            return $model;
+        }
+
+        throw new NotFoundHttpException('The requested page does not exist.');
+    }
+
+    public function beforeAction($action)
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            return true;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        if ($activeProjectId === null) {
+            Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
+            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola form.');
+            $this->redirect(['project/index']);
+            return false;
+        }
+
+        return true;
+    }
 
     public function behaviors()
     {
@@ -30,8 +98,11 @@ class MasterFormController extends Controller
 
     public function actionIndex()
     {
+        $query = MasterForm::find()->with('page');
+        $query = $this->applyActiveProjectScope($query);
+
         $dataProvider = new ActiveDataProvider([
-            'query' => MasterForm::find()->with('page'),
+            'query' => $query,
         ]);
 
         return $this->render('index', [
@@ -42,15 +113,17 @@ class MasterFormController extends Controller
     public function actionView($id)
     {
         return $this->render('view', [
-            'model' => $this->findModel($id),
+            'model' => $this->findScopedModel($id),
         ]);
     }
 
     public function actionCreate()
     {
         $model = new MasterForm();
+        $this->assignActiveProject($model);
 
         if ($model->load(Yii::$app->request->post())) {
+            $this->assignActiveProject($model);
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
             }
@@ -76,9 +149,10 @@ class MasterFormController extends Controller
     
     public function actionUpdate($id)
     {
-        $model = $this->findModel($id);
+        $model = $this->findScopedModel($id);
 
         if ($model->load(Yii::$app->request->post())) {
+            $this->assignActiveProject($model);
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
             }
@@ -104,13 +178,13 @@ class MasterFormController extends Controller
 
     public function actionDelete($id)
     {
-        $this->findModel($id)->delete();
+        $this->findScopedModel($id)->delete();
         return $this->redirect(['index']);
     }
     
     public function actionDuplicate($id)
     {
-        $source = $this->findModel($id);
+        $source = $this->findScopedModel($id);
         
         $copy = new MasterForm();
         $copy->form_name = $source->form_name . ' (Copy)';
@@ -118,6 +192,7 @@ class MasterFormController extends Controller
         $copy->form_type = $source->form_type ?? '-';
         $copy->page_id = $source->page_id;
         $copy->table_id = $source->table_id;
+        $this->assignActiveProject($copy);
         $copy->is_active = 0;
         
         if ($copy->save()) {
@@ -129,7 +204,7 @@ class MasterFormController extends Controller
     
     public function actionPreview($id)
     {
-        $model = $this->findModel($id);
+        $model = $this->findScopedModel($id);
         return $this->render('preview', [
             'model' => $model,
         ]);
@@ -137,7 +212,7 @@ class MasterFormController extends Controller
     
     public function actionSubmit($id)
     {
-        $model = $this->findModel($id);
+        $model = $this->findScopedModel($id);
         
         if (Yii::$app->request->isPost) {
             // APPLY DATABASE CONTEXT - ini kunci fix!
@@ -163,6 +238,15 @@ class MasterFormController extends Controller
             }
             
             $dbTable = DbTable::findOne($tableId);
+            if (ProjectSchema::supportsProjectContext() && $model->hasAttribute('project_id') && $model->project_id !== null) {
+                $dbTable = DbTable::find()
+                    ->where([
+                        'id' => $tableId,
+                        'user_id' => Yii::$app->user->id,
+                    ])
+                    ->andWhere(['project_id' => (int)$model->project_id])
+                    ->one();
+            }
             if (!$dbTable) {
                 Yii::$app->session->setFlash('error', 'Target table metadata not found.');
                 return $this->redirect(['preview', 'id' => $id]);
@@ -245,11 +329,4 @@ class MasterFormController extends Controller
         return $this->redirect(['preview', 'id' => $id]);
     }
     
-    protected function findModel($id)
-    {
-        if (($model = MasterForm::findOne($id)) !== null) {
-            return $model;
-        }
-        throw new NotFoundHttpException('The requested page does not exist.');
-    }
 }

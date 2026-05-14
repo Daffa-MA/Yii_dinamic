@@ -1,7 +1,11 @@
 <?php
 
+use app\models\Form;
 use app\models\MasterMenu;
+use app\models\MasterForm;
 use app\models\MasterPage;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
@@ -62,12 +66,22 @@ foreach ($pages as $page) {
 $assignedFormIds = [];
 $assignedFormMenus = [];
 try {
-    $assignedFormMenusList = \app\models\MasterMenu::find()
-        ->select(['form_id', 'name'])
-        ->where(['type' => 'form', 'is_active' => 1])
-        ->andWhere(['!=', 'id', $model->id ?? 0])
-        ->andWhere(['not', ['form_id' => null]])
-        ->all();
+    $assignedFormMenusQuery = \app\models\MasterMenu::find()
+        ->alias('m')
+        ->select(['m.form_id', 'm.name'])
+        ->innerJoin(['f' => Form::tableName()], 'f.id = m.form_id')
+        ->where(['m.type' => 'form', 'm.is_active' => 1])
+        ->andWhere(['!=', 'm.id', $model->id ?? 0])
+        ->andWhere(['not', ['m.form_id' => null]]);
+
+    if (ProjectSchema::supportsProjectContext()) {
+        $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+        if ($activeProjectId !== null) {
+            $assignedFormMenusQuery->andWhere(['f.project_id' => $activeProjectId]);
+        }
+    }
+
+    $assignedFormMenusList = $assignedFormMenusQuery->all();
     foreach ($assignedFormMenusList as $am) {
         if ($am->form_id) {
             $assignedFormIds[] = $am->form_id;
@@ -281,10 +295,7 @@ if ($model->isNewRecord && empty($model->type)) {
     <?php
     $formList = ['' => 'Pilih Formulir...'];
     try {
-        $forms = \app\models\MasterForm::find()
-            ->where(['is_active' => 1])
-            ->orderBy(['form_name' => SORT_ASC])
-            ->all();
+        $forms = MasterForm::getActiveForms();
         foreach ($forms as $f) {
             $formId = (int)$f->id;
             // Mark forms that are already assigned

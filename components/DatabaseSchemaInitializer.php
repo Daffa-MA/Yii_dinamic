@@ -73,8 +73,91 @@ class DatabaseSchemaInitializer
         $this->createMasterPageTable();
         $this->createMasterMenuTable();
         $this->createPageFormsTable();
+        $this->createWorkspaceSettingsTable();
         $this->ensureColumnsExist();
         $this->ensureMasterPageColumnsExist();
+    }
+
+    /**
+     * Buat tabel workspace_settings untuk setiap database project
+     */
+    private function createWorkspaceSettingsTable(): void
+    {
+        if ($this->connection->getTableSchema('workspace_settings', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('workspace_settings', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'setting_key' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
+            'workspace_title' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Projects'),
+            'workspace_subtitle' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Beranda & navigasi'),
+            'workspace_badge' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Workspace'),
+            'workspace_logo_icon' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('folder_open'),
+            'workspace_logo_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
+            'workspace_logo_image' => $this->connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
+            'sidebar_bg_start' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),
+            'sidebar_bg_end' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#111827'),
+            'sidebar_border_color' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(148, 163, 184, 0.16)'),
+            'sidebar_text_color' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#e2e8f0'),
+            'sidebar_text_muted' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#94a3b8'),
+            'sidebar_icon_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(255, 255, 255, 0.05)'),
+            'sidebar_active_bg_start' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#2563eb'),
+            'sidebar_active_bg_end' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#06b6d4'),
+            'sidebar_active_text' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#ffffff'),
+            'sidebar_active_icon_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(255, 255, 255, 0.2)'),
+            'sidebar_active_shadow' => $this->connection->schema->createColumnSchemaBuilder('string', 200)->defaultValue('0 8px 24px rgba(37, 99, 235, 0.28)'),
+            'sidebar_hover_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(255, 255, 255, 0.08)'),
+            'sidebar_hover_text' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#ffffff'),
+            'topnav_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#ffffff'),
+            'topnav_border_color' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#e2e8f0'),
+            'topnav_text_color' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#1e293b'),
+            'light_sidebar_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#f8fafc'),
+            'light_sidebar_border' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(148, 163, 184, 0.2)'),
+            'light_sidebar_text' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#475569'),
+            'footer_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(15, 23, 42, 0.22)'),
+            'footer_text' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#cbd5e1'),
+            'footer_logout_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(248, 250, 252, 0.8)'),
+            'footer_logout_hover_bg' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#fee2e2'),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-workspace_settings-key', 'workspace_settings', 'setting_key')->execute();
+
+        $defaults = \app\models\WorkspaceSettings::getDefaults();
+        $this->connection->createCommand()->insert('workspace_settings', [
+            'setting_key' => \app\models\WorkspaceSettings::DEFAULT_KEY,
+            'workspace_title' => $defaults['workspace_title'],
+            'workspace_subtitle' => $defaults['workspace_subtitle'],
+            'workspace_badge' => $defaults['workspace_badge'],
+            'workspace_logo_icon' => $defaults['workspace_logo_icon'],
+            'workspace_logo_bg' => $defaults['workspace_logo_bg'],
+            'workspace_logo_image' => $defaults['workspace_logo_image'],
+            'sidebar_bg_start' => $defaults['sidebar_bg_start'],
+            'sidebar_bg_end' => $defaults['sidebar_bg_end'],
+            'sidebar_border_color' => $defaults['sidebar_border_color'],
+            'sidebar_text_color' => $defaults['sidebar_text_color'],
+            'sidebar_text_muted' => $defaults['sidebar_text_muted'],
+            'sidebar_icon_bg' => $defaults['sidebar_icon_bg'],
+            'sidebar_active_bg_start' => $defaults['sidebar_active_bg_start'],
+            'sidebar_active_bg_end' => $defaults['sidebar_active_bg_end'],
+            'sidebar_active_text' => $defaults['sidebar_active_text'],
+            'sidebar_active_icon_bg' => $defaults['sidebar_active_icon_bg'],
+            'sidebar_active_shadow' => $defaults['sidebar_active_shadow'],
+            'sidebar_hover_bg' => $defaults['sidebar_hover_bg'],
+            'sidebar_hover_text' => $defaults['sidebar_hover_text'],
+            'topnav_bg' => $defaults['topnav_bg'],
+            'topnav_border_color' => $defaults['topnav_border_color'],
+            'topnav_text_color' => $defaults['topnav_text_color'],
+            'light_sidebar_bg' => $defaults['light_sidebar_bg'],
+            'light_sidebar_border' => $defaults['light_sidebar_border'],
+            'light_sidebar_text' => $defaults['light_sidebar_text'],
+            'footer_bg' => $defaults['footer_bg'],
+            'footer_text' => $defaults['footer_text'],
+            'footer_logout_bg' => $defaults['footer_logout_bg'],
+            'footer_logout_hover_bg' => $defaults['footer_logout_hover_bg'],
+        ])->execute();
     }
 
     /**

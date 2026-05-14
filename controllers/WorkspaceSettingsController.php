@@ -5,6 +5,7 @@ namespace app\controllers;
 use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\UploadedFile;
 use yii\filters\VerbFilter;
 
 class WorkspaceSettingsController extends Controller
@@ -18,6 +19,8 @@ class WorkspaceSettingsController extends Controller
                 'class' => VerbFilter::class,
                 'actions' => [
                     'save' => ['POST'],
+                    'upload-logo' => ['POST'],
+                    'remove-logo' => ['POST'],
                 ],
             ],
         ];
@@ -75,6 +78,81 @@ class WorkspaceSettingsController extends Controller
         $model = $this->loadSettings();
         $model->reset();
         return $this->redirect(['index']);
+    }
+    
+    public function actionUploadLogo()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $model = $this->loadSettings();
+        
+        $uploadedFile = UploadedFile::getInstanceByName('workspace_logo_image');
+        
+        if (!$uploadedFile) {
+            return ['success' => false, 'message' => 'No file uploaded'];
+        }
+        
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+        $extension = strtolower($uploadedFile->getExtension());
+        
+        if (!in_array($extension, $allowedExtensions)) {
+            return ['success' => false, 'message' => 'Invalid file type. Allowed: JPG, PNG, WEBP'];
+        }
+        
+        $maxSize = 2 * 1024 * 1024;
+        if ($uploadedFile->size > $maxSize) {
+            return ['success' => false, 'message' => 'File too large. Maximum size: 2MB'];
+        }
+        
+        $uploadDir = Yii::getAlias('@webroot/uploads/workspace/');
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $fileName = 'logo_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $filePath = $uploadDir . $fileName;
+        
+        if ($uploadedFile->saveAs($filePath)) {
+            $oldLogo = $model->workspace_logo_image;
+            if ($oldLogo && file_exists($uploadDir . $oldLogo)) {
+                @unlink($uploadDir . $oldLogo);
+            }
+            
+            $model->workspace_logo_image = $fileName;
+            $model->save();
+            
+            return [
+                'success' => true, 
+                'message' => 'Logo uploaded successfully',
+                'logoUrl' => Yii::getAlias('@web/uploads/workspace/') . $fileName,
+                'logoFile' => $fileName
+            ];
+        }
+        
+        return ['success' => false, 'message' => 'Failed to save file'];
+    }
+    
+    public function actionRemoveLogo()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $model = $this->loadSettings();
+        
+        if ($model->workspace_logo_image) {
+            $uploadDir = Yii::getAlias('@webroot/uploads/workspace/');
+            $filePath = $uploadDir . $model->workspace_logo_image;
+            
+            if (file_exists($filePath)) {
+                @unlink($filePath);
+            }
+            
+            $model->workspace_logo_image = null;
+            $model->save();
+            
+            return ['success' => true, 'message' => 'Logo removed successfully'];
+        }
+        
+        return ['success' => false, 'message' => 'No logo to remove'];
     }
     
     private function loadSettings()

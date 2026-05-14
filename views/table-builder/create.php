@@ -9,6 +9,7 @@
 /** @var string|null $pageHeading */
 /** @var string|null $heroText */
 /** @var string|null $submitLabel */
+/** @var string|null $sqlError */
 
 use app\models\DbTableColumn;
 use yii\bootstrap5\ActiveForm;
@@ -45,6 +46,17 @@ if ($fkDebugEnabled) {
 
 $this->title = $pageTitle;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+$this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css');
+$this->registerCssFile('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/eclipse.min.css');
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js', ['position' => \yii\web\View::POS_END]);
+$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js', ['position' => \yii\web\View::POS_END]);
+
+$builderMode = $builderMode ?? 'manual';
+$rawSql = $rawSql ?? '';
+$sqlError = $sqlError ?? null;
+$tableBuilderSuccess = Yii::$app->session->getFlash('tableBuilderSuccess');
+$tableBuilderError = Yii::$app->session->getFlash('tableBuilderError');
+$tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 ?>
 
 <style>
@@ -161,6 +173,187 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
 .table-create-page .btn-primary-clean:hover {
     color: #fff;
+}
+
+.table-create-page .builder-mode-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 18px 22px;
+    border: 1px solid #e4ebf3;
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 12px 30px rgba(20, 32, 51, 0.05);
+}
+
+.table-create-page .mode-toggle-group {
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px;
+    border-radius: 16px;
+    background: #f3f7fc;
+    border: 1px solid #dfe8f2;
+}
+
+.table-create-page .mode-tab {
+    border: 0;
+    background: transparent;
+    color: #5b6b80;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.table-create-page .mode-tab.is-active {
+    background: #ffffff;
+    color: #122033;
+    box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
+}
+
+.table-create-page .mode-note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.table-create-page .sql-shell {
+    display: none;
+}
+
+.table-create-page.builder-mode-sql .sql-shell {
+    display: block;
+}
+
+.table-create-page.builder-mode-sql [data-builder-scope="manual"] {
+    display: none !important;
+}
+
+.table-create-page .sql-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: 20px;
+}
+
+.table-create-page .sql-help,
+.table-create-page .sql-editor-card {
+    border: 1px solid #e4ebf3;
+    border-radius: 18px;
+    background: #fff;
+    padding: 18px;
+}
+
+.table-create-page .sql-help h3,
+.table-create-page .sql-editor-card h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    font-weight: 750;
+    color: #102033;
+}
+
+.table-create-page .sql-help p,
+.table-create-page .sql-help li,
+.table-create-page .sql-editor-card p {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.table-create-page .sql-help ul {
+    margin: 10px 0 0;
+    padding-left: 18px;
+}
+
+.table-create-page .sql-example {
+    margin-top: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #0f172a;
+    color: #dbe7ff;
+    overflow: auto;
+    font-size: 13px;
+    line-height: 1.7;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.table-create-page .sql-warning {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.table-create-page .sql-error {
+    margin-bottom: 14px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.table-create-page .sql-error code {
+    display: block;
+    margin-top: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(254, 202, 202, 0.8);
+    color: #7f1d1d;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+}
+
+.table-create-page .sql-editor-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.table-create-page .sql-editor-toolbar .toolbar-hint {
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.table-create-page .sql-editor-wrap {
+    border: 1px solid #dfe8f2;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.table-create-page .CodeMirror {
+    height: auto;
+    min-height: 360px;
+    font-size: 13px;
+    line-height: 1.7;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+}
+
+.table-create-page .CodeMirror-scroll {
+    min-height: 360px;
+}
+
+.table-create-page .sql-submit-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 14px;
 }
 
 .table-create-page .hero-stats {
@@ -518,6 +711,10 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
         grid-template-columns: 1fr;
     }
 
+    .table-create-page .sql-panel {
+        grid-template-columns: 1fr;
+    }
+
     .table-create-page .hero-stats {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -553,13 +750,29 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 }
 </style>
 
-<div class="table-create-page">
+<div class="table-create-page <?= $builderMode === 'sql' ? 'builder-mode-sql' : '' ?>">
     <?php $form = ActiveForm::begin(['id' => 'table-form', 'enableClientValidation' => false]); ?>
     <?php if ($fkDebugEnabled): ?>
         <?= Html::hiddenInput('fk_debug', '1') ?>
     <?php endif; ?>
+    <?= Html::hiddenInput('builder_mode', $builderMode, ['id' => 'builder-mode']) ?>
 
     <div class="page-shell">
+        <?php if (!empty($tableBuilderSuccess)): ?>
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <?= Html::encode(is_array($tableBuilderSuccess) ? implode(' ', $tableBuilderSuccess) : $tableBuilderSuccess) ?>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($tableBuilderError)): ?>
+            <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <?= Html::encode(is_array($tableBuilderError) ? implode(' ', $tableBuilderError) : $tableBuilderError) ?>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($tableBuilderWarning)): ?>
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <?= Html::encode(is_array($tableBuilderWarning) ? implode(' ', $tableBuilderWarning) : $tableBuilderWarning) ?>
+            </div>
+        <?php endif; ?>
         <?php if (!empty($model->getFirstError('name'))): ?>
             <div class="error-box">
                 <?= Html::encode($model->getFirstError('name')) ?>
@@ -580,7 +793,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
                 <div class="hero-actions">
                     <?= Html::a('Back to Tables', $indexRoute, ['class' => 'btn-clean']) ?>
-                    <button type="submit" class="btn-clean btn-primary-clean"><?= Html::encode($submitLabel) ?></button>
+                    <button type="submit" class="btn-clean btn-primary-clean" id="primary-submit-btn"><?= Html::encode($submitLabel) ?></button>
                 </div>
             </div>
 
@@ -613,7 +826,68 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
         </section>
 
-        <section class="panel">
+        <section class="builder-mode-switch">
+            <div class="mode-toggle-group" role="tablist" aria-label="Table builder mode">
+                <button type="button" class="mode-tab <?= $builderMode !== 'sql' ? 'is-active' : '' ?>" data-builder-mode="manual">Manual Builder</button>
+                <button type="button" class="mode-tab <?= $builderMode === 'sql' ? 'is-active' : '' ?>" data-builder-mode="sql">SQL Editor</button>
+            </div>
+            <p class="mode-note" id="mode-note">
+                Gunakan manual builder untuk struktur cepat, atau SQL editor untuk paste schema yang sudah siap.
+            </p>
+        </section>
+
+        <section class="panel sql-shell">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">SQL Editor</h2>
+                    <p class="panel-subtitle">Paste schema SQL yang aman, lalu jalankan untuk membuat dan menyinkronkan table.</p>
+                </div>
+            </div>
+            <div class="panel-body">
+                <div class="sql-panel">
+                    <div class="sql-help">
+                        <h3>Guidance</h3>
+                        <p>Mode ini menerima statement schema yang aman. Query berbahaya tetap diblokir di server.</p>
+                        <ul>
+                            <li><strong>Supported</strong>: CREATE TABLE, ALTER TABLE, ADD COLUMN</li>
+                            <li><strong>Blocked</strong>: DROP DATABASE, TRUNCATE, DELETE massal, dan statement destructive lain</li>
+                            <li>Setelah dijalankan, table akan masuk ke metadata table builder otomatis</li>
+                        </ul>
+                        <?php if (!empty($sqlError)) : ?>
+                            <div class="sql-error">
+                                <strong>SQL gagal dijalankan.</strong>
+                                <div>Periksa syntax atau statement terakhir yang diproses.</div>
+                                <code><?= Html::encode($sqlError) ?></code>
+                            </div>
+                        <?php endif; ?>
+                        <div class="sql-warning">
+                            Gunakan query ini untuk schema, bukan untuk manipulasi data. Jika ragu, jalankan satu table dulu.
+                        </div>
+                        <div class="sql-example">CREATE TABLE products (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  created_at TIMESTAMP NULL
+);</div>
+                    </div>
+                    <div class="sql-editor-card">
+                        <div class="sql-editor-toolbar">
+                            <div>
+                                <h3>SQL Schema</h3>
+                                <p class="toolbar-hint">Supports multiline schema paste with line numbers.</p>
+                            </div>
+                        </div>
+                        <textarea id="raw-sql-editor" name="raw_sql" placeholder="Paste CREATE TABLE or ALTER TABLE SQL here..."><?= Html::encode($rawSql) ?></textarea>
+                        <div class="sql-submit-row">
+                            <button type="button" class="btn-clean" id="sql-sample-btn">Insert Example</button>
+                            <button type="submit" class="btn-clean btn-primary-clean" id="sql-submit-btn">Run SQL & Sync</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel" data-builder-scope="manual">
             <div class="panel-header">
                 <div>
                     <h2 class="panel-title">Table Metadata</h2>
@@ -657,9 +931,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
         </section>
 
-        <div class="workspace">
+        <div class="workspace" data-builder-scope="manual">
             <div class="stack">
-                <section class="panel">
+                <section class="panel" data-builder-scope="manual">
                     <div class="panel-header">
                         <div>
                             <h2 class="panel-title">Columns</h2>
@@ -683,7 +957,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
 
             <div class="stack">
-                <section class="panel">
+                <section class="panel" data-builder-scope="manual">
                     <div class="panel-header">
                         <div>
                             <h2 class="panel-title">Column Properties</h2>
@@ -800,7 +1074,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     </div>
                 </section>
 
-                <section class="panel">
+                <section class="panel" data-builder-scope="manual">
                     <div class="panel-header">
                         <div>
                             <h2 class="panel-title">Draft Summary</h2>
@@ -839,7 +1113,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
             </div>
         </div>
 
-        <section class="panel">
+        <section class="panel" data-builder-scope="manual">
             <div class="panel-body">
                 <div class="footer-actions">
                     <p class="footer-note">Saving this form stores the table definition and column metadata in the application database. The actual SQL table can then be created from the saved definition.</p>
@@ -879,6 +1153,15 @@ document.addEventListener('DOMContentLoaded', function () {
     const referencedColumnInput = document.getElementById('prop-referenced-column');
     const onDeleteInput = document.getElementById('prop-on-delete');
     const onUpdateInput = document.getElementById('prop-on-update');
+    const builderModeInput = document.getElementById('builder-mode');
+    const modeTabs = document.querySelectorAll('.mode-tab');
+    const rootPage = document.querySelector('.table-create-page');
+    const sqlTextarea = document.getElementById('raw-sql-editor');
+    const sqlSampleBtn = document.getElementById('sql-sample-btn');
+    const sqlSubmitBtn = document.getElementById('sql-submit-btn');
+    const primarySubmitBtn = document.getElementById('primary-submit-btn');
+    const manualSubmitLabel = <?= \yii\helpers\Json::encode($submitLabel) ?>;
+    let sqlEditor = null;
     const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
 
     const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-enum-values', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
@@ -887,6 +1170,84 @@ document.addEventListener('DOMContentLoaded', function () {
     const rawForeignKeyReferenceMap = <?= \yii\helpers\Json::encode($foreignKeyReferenceMap) ?>;
     const foreignKeyReferenceMap = normalizeReferenceMetadata(rawForeignKeyReferenceMap);
     const fkDebugEnabled = <?= $fkDebugEnabled ? 'true' : 'false' ?> || window.localStorage.getItem('tb_fk_debug') === '1';
+
+    if (sqlTextarea && typeof CodeMirror !== 'undefined') {
+        sqlEditor = CodeMirror.fromTextArea(sqlTextarea, {
+            mode: 'text/x-sql',
+            theme: 'eclipse',
+            lineNumbers: true,
+            lineWrapping: true,
+            indentWithTabs: false,
+            tabSize: 4,
+            viewportMargin: Infinity
+        });
+        sqlEditor.setSize(null, 'auto');
+    }
+
+    function getBuilderMode() {
+        return builderModeInput ? builderModeInput.value : 'manual';
+    }
+
+    function setBuilderMode(mode) {
+        var nextMode = mode === 'sql' ? 'sql' : 'manual';
+
+        if (builderModeInput) {
+            builderModeInput.value = nextMode;
+        }
+        if (rootPage) {
+            rootPage.classList.toggle('builder-mode-sql', nextMode === 'sql');
+        }
+        modeTabs.forEach(function (tab) {
+            tab.classList.toggle('is-active', tab.dataset.builderMode === nextMode);
+        });
+        if (primarySubmitBtn) {
+            primarySubmitBtn.textContent = nextMode === 'sql' ? 'Run SQL & Sync' : manualSubmitLabel;
+            primarySubmitBtn.style.display = nextMode === 'sql' ? 'none' : '';
+        }
+        if (sqlSubmitBtn) {
+            sqlSubmitBtn.style.display = nextMode === 'sql' ? '' : 'none';
+        }
+        if (sqlEditor) {
+            setTimeout(function () {
+                sqlEditor.refresh();
+            }, 20);
+        }
+    }
+
+    function setSubmittingState(isSubmitting) {
+        [primarySubmitBtn, sqlSubmitBtn].forEach(function (button) {
+            if (!button) {
+                return;
+            }
+            button.disabled = isSubmitting;
+            button.dataset.originalLabel = button.dataset.originalLabel || button.textContent;
+            button.textContent = isSubmitting ? 'Processing...' : button.dataset.originalLabel;
+        });
+    }
+
+    modeTabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            setBuilderMode(this.dataset.builderMode || 'manual');
+            if (sqlEditor && getBuilderMode() === 'sql') {
+                sqlEditor.focus();
+            }
+        });
+    });
+
+    if (sqlSampleBtn) {
+        sqlSampleBtn.addEventListener('click', function () {
+            var exampleSql = "CREATE TABLE products (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(255) NOT NULL,\n  price DECIMAL(10,2) NOT NULL,\n  created_at TIMESTAMP NULL\n);";
+            if (sqlEditor) {
+                sqlEditor.setValue(exampleSql);
+                sqlEditor.focus();
+            } else if (sqlTextarea) {
+                sqlTextarea.value = exampleSql;
+            }
+            setBuilderMode('sql');
+        });
+    }
+
+    setBuilderMode(getBuilderMode());
 
     function cloneDebugPayload(value) {
         try {
@@ -995,6 +1356,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.getElementById('table-form').addEventListener('submit', function (event) {
+        if (getBuilderMode() === 'sql') {
+            if (sqlEditor && sqlTextarea) {
+                sqlTextarea.value = sqlEditor.getValue();
+            }
+            if (!sqlTextarea || sqlTextarea.value.trim() === '') {
+                event.preventDefault();
+                alert('Paste SQL schema terlebih dahulu.');
+                return false;
+            }
+            setSubmittingState(true);
+            return;
+        }
+
         if (columns.length === 0) {
             event.preventDefault();
             alert('Add at least one column before saving the table definition.');
@@ -1002,6 +1376,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         columnsJson.value = JSON.stringify(columns);
+        setSubmittingState(true);
         const incompleteFkColumns = columns.filter(function (column) {
             return !!column.is_foreign_key && (!column.referenced_table || !column.referenced_column);
         });

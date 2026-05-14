@@ -63,6 +63,17 @@ class DatabaseSchemaInitializer
         $initializer->insertDefaultData();
     }
 
+    public static function ensureMasterFormStructure(Connection $connection): void
+    {
+        $initializer = new self($connection);
+        $initializer->createMasterFormTable();
+        $initializer->createMasterFormFieldsTable();
+        $initializer->createMasterFormLayoutsTable();
+        $initializer->ensureMasterFormColumnsExist();
+        $initializer->ensureMasterFormFieldsColumnsExist();
+        $initializer->ensureMasterFormLayoutsColumnsExist();
+    }
+
     /**
      * Buat semua tabel yang diperlukan
      * 
@@ -72,10 +83,195 @@ class DatabaseSchemaInitializer
     {
         $this->createMasterPageTable();
         $this->createMasterMenuTable();
+        $this->createMasterFormTable();
+        $this->createMasterFormFieldsTable();
+        $this->createMasterFormLayoutsTable();
         $this->createPageFormsTable();
         $this->createWorkspaceSettingsTable();
         $this->ensureColumnsExist();
         $this->ensureMasterPageColumnsExist();
+    }
+
+    private function createMasterFormTable(): void
+    {
+        if ($this->connection->getTableSchema('master_form', true) !== null) {
+            return;
+        }
+
+        $columns = [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'page_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(null),
+            'table_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(null),
+            'project_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(null),
+            'form_name' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+            'form_data' => $this->connection->schema->createColumnSchemaBuilder('json')->notNull(),
+            'form_type' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('dynamic'),
+            'database_context' => $this->connection->schema->createColumnSchemaBuilder('string', 100),
+            'custom_code_mode' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
+            'slug' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
+            'is_active' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(1),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ];
+
+        $this->connection->createCommand()->createTable('master_form', $columns)->execute();
+        $this->connection->createCommand()->createIndex('idx-master_form-page_id', 'master_form', 'page_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-master_form-table_id', 'master_form', 'table_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-master_form-project_id', 'master_form', 'project_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-master_form-slug', 'master_form', 'slug', true)->execute();
+
+        try {
+            $this->connection->createCommand()->addForeignKey(
+                'fk-master_form-page_id',
+                'master_form',
+                'page_id',
+                'master_page',
+                'id',
+                'SET NULL',
+                'CASCADE'
+            )->execute();
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private function createMasterFormFieldsTable(): void
+    {
+        if ($this->connection->getTableSchema('master_form_fields', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('master_form_fields', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'form_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull(),
+            'field_key' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull(),
+            'field_label' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+            'field_type' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->notNull(),
+            'field_name' => $this->connection->schema->createColumnSchemaBuilder('string', 100),
+            'component_type' => $this->connection->schema->createColumnSchemaBuilder('string', 100),
+            'is_required' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
+            'placeholder' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'default_value' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'dropdown_source' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'foreign_key_table' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'foreign_key_column' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'validation_rules' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'field_config' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'field_settings' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'sort_order' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-master_form_fields-form_id', 'master_form_fields', 'form_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-master_form_fields-sort_order', 'master_form_fields', 'sort_order')->execute();
+    }
+
+    private function createMasterFormLayoutsTable(): void
+    {
+        if ($this->connection->getTableSchema('master_form_layouts', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('master_form_layouts', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'form_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull(),
+            'layout_name' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull(),
+            'layout_type' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('builder'),
+            'layout_json' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'custom_html' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'custom_css' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'custom_js' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'builder_state' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'is_default' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
+            'sort_order' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-master_form_layouts-form_id', 'master_form_layouts', 'form_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-master_form_layouts-is_default', 'master_form_layouts', 'is_default')->execute();
+    }
+
+    private function ensureMasterFormColumnsExist(): void
+    {
+        $schema = $this->connection->getTableSchema('master_form', true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columnsToAdd = [
+            'form_type' => ['type' => 'string', 'length' => 50, 'default' => 'dynamic'],
+            'database_context' => ['type' => 'string', 'length' => 100],
+            'custom_code_mode' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
+        ];
+
+        foreach ($columnsToAdd as $column => $config) {
+            if (!isset($schema->columns[$column])) {
+                $columnSchema = $this->connection->schema->createColumnSchemaBuilder($config['type'], $config['length'] ?? null);
+                if (array_key_exists('default', $config)) {
+                    $columnSchema->defaultValue($config['default']);
+                }
+                $this->connection->createCommand()->addColumn('master_form', $column, $columnSchema)->execute();
+            }
+        }
+    }
+
+    private function ensureMasterFormFieldsColumnsExist(): void
+    {
+        $schema = $this->connection->getTableSchema('master_form_fields', true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columnsToAdd = [
+            'field_name' => ['type' => 'string', 'length' => 100],
+            'component_type' => ['type' => 'string', 'length' => 100],
+            'is_required' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
+            'placeholder' => ['type' => 'string', 'length' => 255],
+            'default_value' => ['type' => 'string', 'length' => 255],
+            'dropdown_source' => ['type' => 'string', 'length' => 255],
+            'foreign_key_table' => ['type' => 'string', 'length' => 255],
+            'foreign_key_column' => ['type' => 'string', 'length' => 255],
+            'validation_rules' => ['type' => 'text'],
+            'field_settings' => ['type' => 'text'],
+        ];
+
+        foreach ($columnsToAdd as $column => $config) {
+            if (!isset($schema->columns[$column])) {
+                $columnSchema = $this->connection->schema->createColumnSchemaBuilder($config['type'], $config['length'] ?? null);
+                if (array_key_exists('default', $config)) {
+                    $columnSchema->defaultValue($config['default']);
+                }
+                $this->connection->createCommand()->addColumn('master_form_fields', $column, $columnSchema)->execute();
+            }
+        }
+    }
+
+    private function ensureMasterFormLayoutsColumnsExist(): void
+    {
+        $schema = $this->connection->getTableSchema('master_form_layouts', true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columnsToAdd = [
+            'layout_type' => ['type' => 'string', 'length' => 100, 'default' => 'builder'],
+            'custom_html' => ['type' => 'text'],
+            'custom_css' => ['type' => 'text'],
+            'custom_js' => ['type' => 'text'],
+            'builder_state' => ['type' => 'text'],
+            'sort_order' => ['type' => 'integer', 'default' => 0],
+        ];
+
+        foreach ($columnsToAdd as $column => $config) {
+            if (!isset($schema->columns[$column])) {
+                $columnSchema = $this->connection->schema->createColumnSchemaBuilder($config['type'], $config['length'] ?? null);
+                if (array_key_exists('default', $config)) {
+                    $columnSchema->defaultValue($config['default']);
+                }
+                $this->connection->createCommand()->addColumn('master_form_layouts', $column, $columnSchema)->execute();
+            }
+        }
     }
 
     /**

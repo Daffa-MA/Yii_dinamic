@@ -709,12 +709,14 @@ class FormController extends Controller
 
         $insertData = [];
         foreach ($columns as $column) {
-            if ($this->isIncrementColumn($column)) {
+            $columnName = (string)($column['name'] ?? '');
+            if ($columnName === '') {
                 continue;
             }
 
-            $columnName = (string)($column['name'] ?? '');
-            if ($columnName === '' || !isset($tableSchema->columns[$columnName])) {
+            $schemaColumn = $tableSchema->columns[$columnName] ?? null;
+            $isPrimaryKey = !empty($tableSchema->primaryKey) && in_array($columnName, (array)$tableSchema->primaryKey, true);
+            if ($this->isIncrementColumn($column) || $schemaColumn === null || !empty($schemaColumn->autoIncrement) || $isPrimaryKey) {
                 continue;
             }
 

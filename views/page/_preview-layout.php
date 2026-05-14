@@ -56,9 +56,8 @@ $layoutJson = Json::decode($layoutJson, true);
                         <div class="p-4 bg-white rounded border">${props.content || 'Column 3'}</div>
                     </div>`;
                 case "form":
-                    return `<div class="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                        <h3 class="font-bold mb-2 text-blue-900">Form: #${props.formId || 'Not selected'}</h3>
-                        <p class="text-blue-700">${props.showTitle ? 'Form will be rendered here' : ''}</p>
+                    return `<div class="dynamic-form-slot p-3 bg-white rounded-lg border border-slate-200" data-form-id="${props.formId || ''}" data-show-title="${props.showTitle ? '1' : '0'}">
+                        <div class="text-xs text-slate-500">Loading form...</div>
                     </div>`;
                 default:
                     return `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded">Unknown block: ${block.type}</div>`;
@@ -69,8 +68,93 @@ $layoutJson = Json::decode($layoutJson, true);
             const container = document.getElementById("preview-content");
             if (container && window.pageState) {
                 container.innerHTML = window.pageState.map(renderBlock).join("");
+                hydrateDynamicForms(container);
             }
         });
+
+        function hydrateDynamicForms(root) {
+            const slots = root.querySelectorAll('.dynamic-form-slot[data-form-id]');
+            if (!slots.length) return;
+
+            slots.forEach((slot) => {
+                const formId = slot.getAttribute('data-form-id');
+                const showTitle = slot.getAttribute('data-show-title') === '1' ? '1' : '0';
+                if (!formId) {
+                    slot.innerHTML = '<div class="text-xs text-amber-700">Form belum dipilih.</div>';
+                    return;
+                }
+
+                fetch('/master-page/form-preview?id=' + encodeURIComponent(formId) + '&showTitle=' + showTitle + '&interactive=1', {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then((res) => res.text())
+                .then((raw) => {
+                    let data = null;
+                    try { data = JSON.parse(raw); } catch (e) { data = null; }
+                    if (!data || !data.success) {
+                        slot.innerHTML = '<div class="text-xs text-rose-700">Gagal memuat form preview.</div>';
+                        return;
+                    }
+                    slot.innerHTML = data.html || '';
+                    bindEmbeddedFormSubmit(slot);
+                })
+                .catch(() => {
+                    slot.innerHTML = '<div class="text-xs text-rose-700">Gagal memuat form preview.</div>';
+                });
+            });
+        }
+
+        function bindEmbeddedFormSubmit(root) {
+            const form = root.querySelector('form.dynamic-embedded-form');
+            if (!form || form.dataset.bound === '1') return;
+            form.dataset.bound = '1';
+
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const messageBox = form.querySelector('.dynamic-form-submit-message');
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) submitBtn.disabled = true;
+
+                const formData = new FormData(form);
+                fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                })
+                .then((res) => res.text())
+                .then((raw) => {
+                    let data = null;
+                    try { data = JSON.parse(raw); } catch (e) { data = null; }
+                    if (!messageBox) return;
+                    messageBox.style.display = 'block';
+                    if (data && data.success) {
+                        messageBox.style.background = '#ecfdf5';
+                        messageBox.style.border = '1px solid #86efac';
+                        messageBox.style.color = '#166534';
+                        messageBox.textContent = data.message || 'Data berhasil dikirim.';
+                        form.reset();
+                    } else {
+                        messageBox.style.background = '#fef2f2';
+                        messageBox.style.border = '1px solid #fecaca';
+                        messageBox.style.color = '#991b1b';
+                        messageBox.textContent = (data && data.message) ? data.message : 'Gagal mengirim data.';
+                    }
+                })
+                .catch(() => {
+                    if (!messageBox) return;
+                    messageBox.style.display = 'block';
+                    messageBox.style.background = '#fef2f2';
+                    messageBox.style.border = '1px solid #fecaca';
+                    messageBox.style.color = '#991b1b';
+                    messageBox.textContent = 'Gagal mengirim data.';
+                })
+                .finally(() => {
+                    if (submitBtn) submitBtn.disabled = false;
+                });
+            });
+        }
     </script>
 </body>
 </html>

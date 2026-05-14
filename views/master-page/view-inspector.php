@@ -1012,7 +1012,14 @@ $submissionCount = rand(10, 100);
                     'X-CSRF-Token': csrf ? csrf.getAttribute('content') : ''
                 }
             })
-            .then(r => r.json())
+            .then(async (r) => {
+                const raw = await r.text();
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return { success: r.ok, message: r.ok ? '' : 'Invalid server response' };
+                }
+            })
             .then(data => {
                 if (data.success) {
                     window.location.href = '<?= Url::to(['index']) ?>';
@@ -1034,9 +1041,16 @@ $submissionCount = rand(10, 100);
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-Requested-With': 'XMLHttpRequest',
                 'X-CSRF-Token': csrf ? csrf.getAttribute('content') : ''
+                }
+        })
+        .then(async (r) => {
+            const raw = await r.text();
+            try {
+                return JSON.parse(raw);
+            } catch (e) {
+                return { success: r.ok, message: r.ok ? '' : 'Invalid server response' };
             }
         })
-        .then(r => r.json())
         .then(data => {
             if (data.success) {
                 location.reload();
@@ -1060,7 +1074,14 @@ $submissionCount = rand(10, 100);
                     'X-CSRF-Token': csrf ? csrf.getAttribute('content') : ''
                 }
             })
-            .then(r => r.json())
+            .then(async (r) => {
+                const raw = await r.text();
+                try {
+                    return JSON.parse(raw);
+                } catch (e) {
+                    return { success: r.ok, message: r.ok ? '' : 'Invalid server response' };
+                }
+            })
             .then(data => {
                 if (data.success) {
                     window.location.href = '<?= Url::to(['index']) ?>';

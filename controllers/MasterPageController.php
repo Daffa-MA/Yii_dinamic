@@ -4,9 +4,11 @@ namespace app\controllers;
 
 use Yii;
 use app\models\Form;
+use app\models\MasterForm;
 use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\services\PageService;
+use app\services\DynamicFormPreviewService;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
@@ -213,6 +215,11 @@ class MasterPageController extends Controller
     {
         $result = $this->pageService->deletePage($id);
 
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return $result;
+        }
+
         if ($result['success']) {
             Yii::$app->session->setFlash('success', $result['message']);
         } else {
@@ -228,6 +235,11 @@ class MasterPageController extends Controller
     public function actionToggle($id)
     {
         $result = $this->pageService->toggleStatus($id);
+
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+            return $result;
+        }
 
         if ($result['success']) {
             Yii::$app->session->setFlash('success', $result['message']);
@@ -293,7 +305,7 @@ class MasterPageController extends Controller
         $menus = MasterMenu::find()->where(['page_id' => $id])->all();
 
         // Preview URL
-        $previewUrl = '/page/' . $page->slug;
+        $previewUrl = Yii::$app->urlManager->createUrl(['master-page/preview-live', 'id' => $page->id]);
         $editUrl = ['dynamic-update', 'id' => $page->id];
         $liveUrl = $previewUrl;
 
@@ -422,17 +434,10 @@ class MasterPageController extends Controller
      */
     private function findAvailableForms()
     {
-        $query = Form::find()
-            ->orderBy(['id' => SORT_ASC]);
-
-        if (ProjectSchema::supportsProjectContext()) {
-            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
-            if ($activeProjectId !== null) {
-                $query->andWhere(['project_id' => $activeProjectId]);
-            }
-        }
-
-        $rows = $query->all();
+        // Use MasterForm scoped query so forms are resolved from active database + active project.
+        $rows = MasterForm::findScoped()
+            ->orderBy(['id' => SORT_ASC])
+            ->all();
 
         $forms = [];
         foreach ($rows as $row) {
@@ -441,9 +446,9 @@ class MasterPageController extends Controller
                 continue;
             }
 
-            $name = trim((string) ($row->name ?? ''));
-            if ($name === '' && isset($row->form_name)) {
-                $name = trim((string) $row->form_name);
+            $name = trim((string) ($row->form_name ?? ''));
+            if ($name === '' && isset($row->name)) {
+                $name = trim((string) $row->name);
             }
             if ($name === '') {
                 $name = 'Form #' . $id;
@@ -456,6 +461,19 @@ class MasterPageController extends Controller
         }
 
         return $forms;
+    }
+
+    public function actionFormPreview($id, $showTitle = 1, $interactive = 0)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        try {
+            $previewService = new DynamicFormPreviewService();
+            $html = $previewService->renderByScopedId((int)$id, (bool)$showTitle, (bool)$interactive);
+            return ['success' => true, 'html' => $html];
+        } catch (\Throwable $e) {
+            Yii::error('Form preview failed: ' . $e->getMessage(), 'master-page-form-preview');
+            return ['success' => false, 'message' => 'Gagal memuat preview form.'];
+        }
     }
 
     /**
@@ -645,16 +663,51 @@ class MasterPageController extends Controller
      */
     public function actionViewDynamic($slug)
     {
-        $page = MasterPage::findOne(['slug' => $slug, 'is_active' => 1]);
+        $page = MasterPage::findOne(['slug' => $slug]);
 
         if (!$page) {
             throw new NotFoundHttpException('Halaman tidak ditemukan.');
+        }
+
+        if ((int)$page->is_active !== 1) {
+            $this->layout = 'main';
+            $noticeHtml = '
+                <div style="max-width:760px;margin:64px auto;padding:28px;border:1px solid #e2e8f0;border-radius:14px;background:#ffffff;box-shadow:0 10px 30px rgba(15,23,42,.06);">
+                    <div style="font-size:20px;font-weight:700;color:#0f172a;margin-bottom:8px;">Halaman belum dipublikasikan</div>
+                    <div style="font-size:14px;color:#475569;line-height:1.6;">
+                        Halaman ini sedang berstatus nonaktif (unpublish), sehingga tidak ditampilkan sebagai halaman publik.
+                    </div>
+                </div>';
+
+            return $this->render('@app/views/master-page/_dynamic_render', [
+                'layoutJson' => '[]',
+                'customHtml' => $noticeHtml,
+                'customCss' => null,
+                'customJs' => null,
+                'pageType' => 'custom_code',
+            ]);
         }
 
         $layoutJson = !empty($page->layout_json) ? $page->layout_json : '[]';
 
         $this->layout = 'main';
         
+        return $this->render('@app/views/master-page/_dynamic_render', [
+            'layoutJson' => $layoutJson,
+            'customHtml' => $page->custom_html ?? null,
+            'customCss' => $page->custom_css ?? null,
+            'customJs' => $page->custom_js ?? null,
+            'pageType' => $page->page_type ?? 'builder',
+        ]);
+    }
+
+    public function actionPreviewLive($id)
+    {
+        $page = $this->findModel((int)$id);
+        $layoutJson = !empty($page->layout_json) ? $page->layout_json : '[]';
+
+        $this->layout = 'main';
+
         return $this->render('@app/views/master-page/_dynamic_render', [
             'layoutJson' => $layoutJson,
             'customHtml' => $page->custom_html ?? null,

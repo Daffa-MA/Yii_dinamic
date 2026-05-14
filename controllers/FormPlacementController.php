@@ -9,6 +9,8 @@ use yii\web\Response;
 use app\models\FormPlacement;
 use app\models\SidebarMenu;
 use app\models\MasterForm;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 
 /**
  * FormPlacement Controller
@@ -16,6 +18,49 @@ use app\models\MasterForm;
  */
 class FormPlacementController extends Controller
 {
+    private function getActiveProjectId(): ?int
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        return (new ActiveProjectContext())->getActiveProjectId();
+    }
+
+    private function findScopedForm($formId): ?MasterForm
+    {
+        $query = MasterForm::find()->where(['id' => (int)$formId]);
+        if (ProjectSchema::supportsProjectContext() && MasterForm::getTableSchema() && isset(MasterForm::getTableSchema()->columns['project_id'])) {
+            $activeProjectId = $this->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $query->andWhere(['project_id' => $activeProjectId]);
+            }
+        }
+
+        return $query->one();
+    }
+
+    public function beforeAction($action)
+    {
+        if (!parent::beforeAction($action)) {
+            return false;
+        }
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            return true;
+        }
+
+        $activeProjectId = $this->getActiveProjectId();
+        if ($activeProjectId === null) {
+            Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
+            Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola form placement.');
+            $this->redirect(['project/index']);
+            return false;
+        }
+
+        return true;
+    }
+
     public function behaviors()
     {
         return [
@@ -59,7 +104,7 @@ class FormPlacementController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
         
         try {
-            $form = MasterForm::findOne($form_id);
+            $form = $this->findScopedForm($form_id);
             if (!$form) {
                 throw new NotFoundHttpException('Form not found');
             }
@@ -114,6 +159,15 @@ class FormPlacementController extends Controller
         
         try {
             $placement = FormPlacement::find()->where(['form_id' => $form_id])->one();
+            if ($placement !== null) {
+                $placementForm = $this->findScopedForm($placement->form_id);
+                if ($placementForm === null) {
+                    return [
+                        'success' => false,
+                        'error' => 'Form not found',
+                    ];
+                }
+            }
             
             return [
                 'success' => true,
@@ -142,7 +196,7 @@ class FormPlacementController extends Controller
             $menu->user_id = Yii::$app->user->id;
             
             if (isset($post['form_id'])) {
-                $form = MasterForm::findOne($post['form_id']);
+                $form = $this->findScopedForm($post['form_id']);
                 if ($form) {
                     $menu->route = '/form/' . ($post['page_slug'] ?? $form->slug);
                 }

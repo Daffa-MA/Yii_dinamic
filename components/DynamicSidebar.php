@@ -5,6 +5,8 @@ namespace app\components;
 use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\MasterForm;
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 use Yii;
 use yii\base\Component;
 use yii\helpers\Url;
@@ -123,9 +125,17 @@ class DynamicSidebar extends Component
 
         $page = MasterPage::findOne(['master_menu' => ['id' => $menuId]]);
         if ($page) {
-            $forms = MasterForm::find()
-                ->where(['page_id' => $page->id, 'is_active' => 1])
-                ->all();
+            $query = MasterForm::find()
+                ->where(['page_id' => $page->id, 'is_active' => 1]);
+
+            if (ProjectSchema::supportsProjectContext() && MasterForm::getTableSchema() && isset(MasterForm::getTableSchema()->columns['project_id'])) {
+                $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+                if ($activeProjectId !== null) {
+                    $query->andWhere(['project_id' => $activeProjectId]);
+                }
+            }
+
+            $forms = $query->all();
             $this->_formCache[$menuId] = $forms;
             return $forms;
         }

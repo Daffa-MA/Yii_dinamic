@@ -2,6 +2,8 @@
 
 namespace app\models;
 
+use app\components\ActiveProjectContext;
+use app\components\ProjectSchema;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
@@ -11,6 +13,7 @@ use yii\helpers\ArrayHelper;
  *
  * @property int $id
  * @property int|null $page_id
+ * @property int|null $project_id
  * @property int|null $table_id
  * @property string $form_name
  * @property array $form_data
@@ -31,7 +34,7 @@ class MasterForm extends ActiveRecord
 
     public static function getDb()
     {
-        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+        return Yii::$app->get('db', false) ?: parent::getDb();
     }
 
     public function rules()
@@ -41,7 +44,7 @@ class MasterForm extends ActiveRecord
             [['form_data'], 'safe'],
             [['form_name'], 'string', 'max' => 255],
             [['slug'], 'string', 'max' => 100],
-            [['page_id', 'table_id'], 'integer', 'skipOnEmpty' => true],
+            [['page_id', 'table_id', 'project_id'], 'integer', 'skipOnEmpty' => true],
         ];
     }
 
@@ -50,6 +53,7 @@ class MasterForm extends ActiveRecord
         return [
             'id' => 'ID',
             'page_id' => 'Page',
+            'project_id' => 'Project',
             'table_id' => 'Target Table',
             'form_name' => 'Form Name',
             'form_data' => 'Form Data',
@@ -80,6 +84,11 @@ class MasterForm extends ActiveRecord
     {
         return $this->hasOne(MasterPage::class, ['id' => 'page_id']);
     }
+
+    public function getProject()
+    {
+        return $this->hasOne(Project::class, ['id' => 'project_id']);
+    }
     
     public function getTable()
     {
@@ -104,10 +113,18 @@ class MasterForm extends ActiveRecord
 
     public static function getActiveForms()
     {
-        return self::find()
+        $query = self::find()
             ->where(['is_active' => 1])
-            ->orderBy(['form_name' => SORT_ASC])
-            ->all();
+            ->orderBy(['form_name' => SORT_ASC]);
+
+        if (ProjectSchema::supportsProjectContext() && self::getTableSchema() && isset(self::getTableSchema()->columns['project_id'])) {
+            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $query->andWhere(['project_id' => $activeProjectId]);
+            }
+        }
+
+        return $query->all();
     }
 
     public static function getFormOptions()
@@ -117,6 +134,16 @@ class MasterForm extends ActiveRecord
 
     public static function findBySlug($slug)
     {
-        return self::findOne(['slug' => $slug, 'is_active' => 1]);
+        $query = self::find()
+            ->where(['slug' => $slug, 'is_active' => 1]);
+
+        if (ProjectSchema::supportsProjectContext() && self::getTableSchema() && isset(self::getTableSchema()->columns['project_id'])) {
+            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $query->andWhere(['project_id' => $activeProjectId]);
+            }
+        }
+
+        return $query->one();
     }
 }

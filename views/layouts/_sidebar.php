@@ -49,8 +49,9 @@ foreach ($systemBuilderRoutes as $prefix => $menuKey) {
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
 
-// Detect if we're on project-list page (minimal sidebar)
+// Hardcoded selector pages must stay isolated from workspace DB/theme switching.
 $isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
+$shouldResolveWorkspaceDatabase = !$isProjectListPage;
 $sidebarVariant = $isProjectListPage ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
 
@@ -64,9 +65,12 @@ $logoutLabel = $isMinimalSidebar ? 'Keluar Workspace' : 'Sign Out';
 $activeProjectLabel = $isMinimalSidebar ? 'Project Aktif' : 'Active Project';
 $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
 
-// Resolve database context first so we can query the correct database
-$dbContext = new \app\components\ActiveDatabaseContext();
-$dbContext->resolveAndApply();
+// Resolve database context only for dynamic workspace layouts.
+// Project selector pages must remain on the neutral/default database.
+if ($shouldResolveWorkspaceDatabase) {
+    $dbContext = new \app\components\ActiveDatabaseContext();
+    $dbContext->resolveAndApply();
+}
 
 if (!Yii::$app->user->isGuest) {
     if (ProjectSchema::supportsProjectContext()) {
@@ -819,21 +823,145 @@ if (!function_exists('renderDynamicSidebarTree')) {
         color: #991b1b;
     }
 
+    /* Hardcoded minimal sidebar for project list */
+    body.project-page-v4 .app-sidebar {
+        background: linear-gradient(180deg, #0b1220 0%, #111827 56%, #0f172a 100%);
+        border-right: 1px solid rgba(148, 163, 184, 0.12);
+        box-shadow: 12px 0 32px rgba(2, 6, 23, 0.28);
+        color: #e5e7eb;
+    }
+
+    body.project-page-v4 .app-sidebar-toggle {
+        background: linear-gradient(135deg, #1f2937 0%, #0f172a 100%);
+        border-color: rgba(148, 163, 184, 0.18);
+        color: #e5e7eb;
+    }
+
+    body.project-page-v4 .app-sidebar-toggle:hover {
+        background: #172033;
+    }
+
+    body.project-page-v4 .app-sidebar-header {
+        border-bottom-color: rgba(148, 163, 184, 0.12);
+    }
+
+    body.project-page-v4 .app-sidebar-header-badge {
+        background: rgba(148, 163, 184, 0.08);
+        border-color: rgba(148, 163, 184, 0.14);
+        color: #cbd5e1;
+    }
+
+    body.project-page-v4 .app-sidebar-header-text h2 {
+        color: #f8fafc;
+    }
+
+    body.project-page-v4 .app-sidebar-header-text p {
+        color: #94a3b8;
+    }
+
+    body.project-page-v4 .app-sidebar-context {
+        border-bottom-color: rgba(148, 163, 184, 0.12);
+    }
+
+    body.project-page-v4 .app-sidebar-context-item-label {
+        color: #94a3b8;
+    }
+
+    body.project-page-v4 .app-sidebar-context-item {
+        background: rgba(15, 23, 42, 0.72);
+        border-color: rgba(148, 163, 184, 0.12);
+        color: #e5e7eb;
+    }
+
+    body.project-page-v4 .app-sidebar-context-item .material-symbols-outlined {
+        color: #cbd5e1;
+        background: rgba(148, 163, 184, 0.12);
+    }
+
+    body.project-page-v4 .app-sidebar-link {
+        color: #cbd5e1;
+        border-color: rgba(148, 163, 184, 0.04);
+    }
+
+    body.project-page-v4 .app-sidebar-link .material-symbols-outlined {
+        color: #94a3b8;
+        background: rgba(148, 163, 184, 0.08);
+    }
+
+    body.project-page-v4 .app-sidebar-link:hover {
+        background: rgba(148, 163, 184, 0.10);
+        color: #f8fafc;
+    }
+
+    body.project-page-v4 .app-sidebar-link:hover .material-symbols-outlined {
+        color: #f8fafc;
+        background: rgba(148, 163, 184, 0.16);
+    }
+
+    body.project-page-v4 .app-sidebar-link.active,
+    body.project-page-v4 .app-sidebar-link.is-active {
+        background: linear-gradient(135deg, #1f2937 0%, #334155 100%);
+        color: #f8fafc !important;
+        font-weight: 600;
+        border: none;
+        box-shadow: 0 10px 24px rgba(2, 6, 23, 0.28);
+        transform: translateX(3px);
+    }
+
+    body.project-page-v4 .app-sidebar-link.active .material-symbols-outlined,
+    body.project-page-v4 .app-sidebar-link.is-active .material-symbols-outlined {
+        color: #f8fafc !important;
+        background: rgba(255, 255, 255, 0.12);
+    }
+
+    body.project-page-v4 .app-sidebar-link.parent-has-active {
+        background: rgba(148, 163, 184, 0.08);
+        color: #e2e8f0;
+    }
+
+    body.project-page-v4 .app-sidebar-link.parent-has-active .material-symbols-outlined {
+        color: #cbd5e1;
+        background: rgba(148, 163, 184, 0.10);
+    }
+
+    body.project-page-v4 .app-sidebar-footer {
+        border-top-color: rgba(148, 163, 184, 0.12);
+        background: linear-gradient(180deg, rgba(15, 23, 42, 0.18) 0%, rgba(15, 23, 42, 0.34) 100%);
+    }
+
+    body.project-page-v4 .app-sidebar-logout {
+        background: rgba(15, 23, 42, 0.72);
+        border-color: rgba(148, 163, 184, 0.12);
+        color: #cbd5e1;
+    }
+
+    body.project-page-v4 .app-sidebar-logout .material-symbols-outlined {
+        color: #fb7185;
+        background: rgba(251, 113, 133, 0.12);
+    }
+
+    body.project-page-v4 .app-sidebar-logout:hover {
+        background: rgba(30, 41, 59, 0.96);
+        border-color: rgba(148, 163, 184, 0.16);
+        color: #f8fafc;
+    }
+
 </style>
 
 <?php
-$sidebarBgStart = $cssVars['sidebar-bg-start'] ?? '#07111f';
-$sidebarBgEnd = $cssVars['sidebar-bg-end'] ?? '#111827';
-$sidebarBorderColor = $cssVars['sidebar-border-color'] ?? 'rgba(148, 163, 184, 0.16)';
-$sidebarTextColor = $cssVars['sidebar-text-color'] ?? '#e2e8f0';
-$sidebarTextMuted = $cssVars['sidebar-text-muted'] ?? '#94a3b8';
-$sidebarHoverBg = $cssVars['sidebar-hover-bg'] ?? 'rgba(255, 255, 255, 0.08)';
-$sidebarHoverText = $cssVars['sidebar-hover-text'] ?? '#ffffff';
-$sidebarActiveBgStart = $cssVars['sidebar-active-bg-start'] ?? '#2563eb';
-$sidebarActiveBgEnd = $cssVars['sidebar-active-bg-end'] ?? '#06b6d4';
-$sidebarActiveText = $cssVars['sidebar-active-text'] ?? '#ffffff';
-$sidebarActiveShadow = $cssVars['sidebar-active-shadow'] ?? '0 8px 24px rgba(37, 99, 235, 0.28)';
-$logoBg = $cssVars['workspace-logo-bg'] ?? '#4f46e5';
+$sidebarBgStart = $isMinimalSidebar ? '#0b1220' : ($cssVars['sidebar-bg-start'] ?? '#07111f');
+$sidebarBgEnd = $isMinimalSidebar ? '#111827' : ($cssVars['sidebar-bg-end'] ?? '#111827');
+$sidebarBorderColor = $isMinimalSidebar ? 'rgba(148, 163, 184, 0.12)' : ($cssVars['sidebar-border-color'] ?? 'rgba(148, 163, 184, 0.16)');
+$sidebarTextColor = $isMinimalSidebar ? '#e5e7eb' : ($cssVars['sidebar-text-color'] ?? '#e2e8f0');
+$sidebarTextMuted = $isMinimalSidebar ? '#94a3b8' : ($cssVars['sidebar-text-muted'] ?? '#94a3b8');
+$sidebarHoverBg = $isMinimalSidebar ? 'rgba(148, 163, 184, 0.10)' : ($cssVars['sidebar-hover-bg'] ?? 'rgba(255, 255, 255, 0.08)');
+$sidebarHoverText = $isMinimalSidebar ? '#f8fafc' : ($cssVars['sidebar-hover-text'] ?? '#ffffff');
+$sidebarActiveBgStart = $isMinimalSidebar ? '#1f2937' : ($cssVars['sidebar-active-bg-start'] ?? '#2563eb');
+$sidebarActiveBgEnd = $isMinimalSidebar ? '#334155' : ($cssVars['sidebar-active-bg-end'] ?? '#06b6d4');
+$sidebarActiveText = $isMinimalSidebar ? '#f8fafc' : ($cssVars['sidebar-active-text'] ?? '#ffffff');
+$sidebarActiveShadow = $isMinimalSidebar ? '0 10px 24px rgba(2, 6, 23, 0.28)' : ($cssVars['sidebar-active-shadow'] ?? '0 8px 24px rgba(37, 99, 235, 0.28)');
+$logoBg = $isMinimalSidebar ? '#334155' : ($cssVars['workspace-logo-bg'] ?? '#4f46e5');
+$logoImage = $cssVars['workspace-logo-image'] ?? null;
 ?>
 
 <aside class="app-sidebar" style="background: linear-gradient(180deg, <?= Html::encode($sidebarBgStart) ?> 0%, <?= Html::encode($sidebarBgEnd) ?> 100%); border-color: <?= Html::encode($sidebarBorderColor) ?>; color: <?= Html::encode($sidebarTextColor) ?>;">
@@ -843,12 +971,16 @@ $logoBg = $cssVars['workspace-logo-bg'] ?? '#4f46e5';
 
     <!-- Header -->
     <div class="app-sidebar-header" style="border-color: <?= Html::encode($sidebarBorderColor) ?>;">
-        <div class="app-sidebar-header-icon" style="background: linear-gradient(135deg, <?= Html::encode($logoBg) ?> 0%, <?= Html::encode($logoBg) ?> 100%);">
-            <span class="material-symbols-outlined"><?= Html::encode($cssVars['workspace-logo-icon'] ?? 'folder_open') ?></span>
+        <div id="sidebar-logo-box" class="app-sidebar-header-icon" style="width: <?= Html::encode($workspaceSettings->workspace_logo_width ?? 44) ?>px; height: <?= Html::encode($workspaceSettings->workspace_logo_height ?? 44) ?>px; background: <?= !empty($logoImage) ? 'transparent' : 'linear-gradient(135deg, ' . Html::encode($logoBg) . ' 0%, ' . Html::encode($logoBg) . ' 100%)' ?>; box-shadow: <?= !empty($logoImage) ? 'none' : '0 12px 24px rgba(79, 70, 229, 0.28)' ?>; font-size: <?= round((($workspaceSettings->workspace_logo_width ?? 44) / 44) * 22) ?>px;">
+            <?php if (!empty($logoImage)): ?>
+                <img id="sidebar-logo-image" src="<?= Yii::getAlias('@web/uploads/workspace/') . Html::encode($logoImage) ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 14px;">
+            <?php else: ?>
+                <span id="sidebar-logo-icon" class="material-symbols-outlined"><?= Html::encode($cssVars['workspace-logo-icon'] ?? 'folder_open') ?></span>
+            <?php endif; ?>
         </div>
         <div class="app-sidebar-header-text">
             <span class="app-sidebar-header-badge"><?= Html::encode($headerBadge) ?></span>
-            <h2 style="color: #f8fafc;"><?= Html::encode($headerTitle) ?></h2>
+            <h2 style="color: <?= Html::encode($isMinimalSidebar ? '#f8fafc' : '#f8fafc') ?>;"><?= Html::encode($headerTitle) ?></h2>
             <p style="color: <?= Html::encode($sidebarTextMuted) ?>;"><?= Html::encode($headerSubtitle) ?></p>
         </div>
     </div>
@@ -1224,10 +1356,6 @@ $logoBg = $cssVars['workspace-logo-bg'] ?? '#4f46e5';
                     <span class="material-symbols-outlined">list_alt</span>
                     <span class="app-sidebar-link-text">Master Menu</span>
                 </a>
-                <a href="<?= \yii\helpers\Url::to(['workspace-settings/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'workspace-settings/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                    <span class="material-symbols-outlined">palette</span>
-                    <span class="app-sidebar-link-text">Workspace Settings</span>
-                </a>
                 <a href="<?= \yii\helpers\Url::to(['master-page/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-page/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">description</span>
                     <span class="app-sidebar-link-text">Master Page</span>
@@ -1239,6 +1367,10 @@ $logoBg = $cssVars['workspace-logo-bg'] ?? '#4f46e5';
                 <a href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'table-builder/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">table_chart</span>
                     <span class="app-sidebar-link-text">Master Table</span>
+                </a>
+                <a href="<?= \yii\helpers\Url::to(['workspace-settings/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'workspace-settings/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
+                    <span class="material-symbols-outlined">palette</span>
+                    <span class="app-sidebar-link-text">Workspace Settings</span>
                 </a>
             <?php endif; ?>
     </nav>

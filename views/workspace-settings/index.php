@@ -12,13 +12,16 @@ $cssVars = $model->getCssVars();
 
 <style>
     .ws-page {
-        background: #f1f5f9;
+        background:
+            radial-gradient(circle at top right, rgba(79, 70, 229, 0.06), transparent 24%),
+            radial-gradient(circle at left top, rgba(15, 23, 42, 0.04), transparent 22%),
+            #f4f7fb;
         min-height: 100vh;
-        padding: 32px 24px;
+        padding: 28px 20px 40px;
     }
     
     .ws-container {
-        max-width: 1200px;
+        max-width: 1240px;
         margin: 0 auto;
         width: 100%;
     }
@@ -28,46 +31,50 @@ $cssVars = $model->getCssVars();
         align-items: center;
         gap: 8px;
         font-size: 13px;
-        margin-bottom: 20px;
+        margin-bottom: 18px;
+        color: #64748b;
     }
     
     .ws-breadcrumb a {
         color: #64748b;
         text-decoration: none;
-        transition: color 0.2s;
+        transition: color 0.2s ease;
     }
     
-    .ws-breadcrumb a:hover { color: #4f46e5; }
+    .ws-breadcrumb a:hover { color: #334155; }
     .ws-breadcrumb .separator { color: #cbd5e1; }
-    .ws-breadcrumb .current { color: #0f172a; font-weight: 500; }
+    .ws-breadcrumb .current { color: #0f172a; font-weight: 600; }
     
     .ws-header {
-        margin-bottom: 32px;
+        margin-bottom: 26px;
     }
     
     .ws-header-badge {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 6px 12px;
-        background: rgba(99, 102, 241, 0.1);
-        border: 1px solid rgba(99, 102, 241, 0.2);
-        border-radius: 8px;
-        color: #4f46e5;
+        padding: 6px 11px;
+        background: rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 999px;
+        color: #334155;
         font-size: 12px;
         font-weight: 600;
-        margin-bottom: 12px;
+        margin-bottom: 10px;
     }
     
     .ws-header h1 {
-        font-size: 28px;
-        font-weight: 700;
+        font-size: 30px;
+        font-weight: 750;
         color: #0f172a;
-        margin: 0 0 8px;
+        margin: 0 0 10px;
+        letter-spacing: -0.03em;
     }
     
     .ws-header p {
+        max-width: 58rem;
         font-size: 14px;
+        line-height: 1.7;
         color: #64748b;
         margin: 0;
     }
@@ -75,13 +82,13 @@ $cssVars = $model->getCssVars();
     .ws-layout {
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 22px;
     }
     
     .ws-top-row {
         display: grid;
-        grid-template-columns: 340px 1fr;
-        gap: 24px;
+        grid-template-columns: 320px 1fr;
+        gap: 22px;
         align-items: start;
     }
     
@@ -98,16 +105,17 @@ $cssVars = $model->getCssVars();
     }
     
     .ws-preview-card {
-        background: linear-gradient(135deg, #07111f 0%, #1e1b4b 50%, #111827 100%);
-        border-radius: 24px;
+        background: linear-gradient(135deg, <?= Html::encode($model->sidebar_bg_start ?? '#f8fafc') ?> 0%, <?= Html::encode($model->sidebar_bg_end ?? '#f1f5f9') ?> 100%);
+        border-radius: 22px;
         min-height: 280px;
         display: flex;
         flex-direction: column;
         justify-content: flex-end;
-        padding: 32px;
-        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        padding: 30px;
+        box-shadow: 0 22px 40px -16px rgba(15, 23, 42, 0.42);
         position: relative;
         overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
     }
     
     .ws-preview-card::before {
@@ -117,7 +125,7 @@ $cssVars = $model->getCssVars();
         left: 0;
         right: 0;
         height: 60%;
-        background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.5) 100%);
+        background: linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.18) 100%);
         pointer-events: none;
     }
     
@@ -127,8 +135,8 @@ $cssVars = $model->getCssVars();
     }
     
     .ws-preview-logo {
-        width: 56px;
-        height: 56px;
+        width: <?= Html::encode($model->workspace_logo_width ?? 56) ?>px;
+        height: <?= Html::encode($model->workspace_logo_height ?? 56) ?>px;
         border-radius: 16px;
         display: flex;
         align-items: center;
@@ -148,45 +156,43 @@ $cssVars = $model->getCssVars();
         align-items: center;
         gap: 6px;
         padding: 6px 14px;
-        background: rgba(255,255,255,0.15);
-        backdrop-filter: blur(8px);
-        border: 1px solid rgba(255,255,255,0.2);
+        background: <?= Html::encode($model->sidebar_active_bg_start ?? '#4f46e5') ?>;
         border-radius: 20px;
         font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: rgba(255,255,255,0.9);
+        color: <?= Html::encode($model->sidebar_active_text ?? '#ffffff') ?>;
         margin-bottom: 12px;
     }
     
     .ws-preview-title {
         font-size: 28px;
         font-weight: 800;
-        color: white;
+        color: <?= Html::encode($model->sidebar_text_color ?? '#475569') ?>;
         margin: 0 0 8px;
         line-height: 1.2;
     }
     
     .ws-preview-subtitle {
         font-size: 14px;
-        color: rgba(255,255,255,0.7);
+        color: <?= Html::encode($model->sidebar_text_muted ?? '#64748b') ?>;
         margin: 0;
     }
     
     .ws-preview-stats {
         display: flex;
         gap: 24px;
-        margin-top: 32px;
-        padding-top: 24px;
-        border-top: 1px solid rgba(255,255,255,0.1);
+        margin-top: 28px;
+        padding-top: 22px;
+        border-top: 1px solid <?= Html::encode($model->sidebar_border_color ?? 'rgba(148, 163, 184, 0.16)') ?>;
     }
     
     .ws-preview-stat-label {
         font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: rgba(255,255,255,0.5);
+        color: <?= Html::encode($model->sidebar_text_muted ?? '#64748b') ?>;
         font-weight: 600;
         margin-bottom: 4px;
     }
@@ -194,28 +200,29 @@ $cssVars = $model->getCssVars();
     .ws-preview-stat-value {
         font-size: 18px;
         font-weight: 700;
-        color: white;
+        color: <?= Html::encode($model->sidebar_text_color ?? '#475569') ?>;
     }
     
     .ws-nav-card {
-        background: white;
-        border-radius: 20px;
-        padding: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border: 1px solid #f1f5f9;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 18px;
+        padding: 10px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        backdrop-filter: blur(10px);
     }
     
     .ws-nav-item {
         display: flex;
         align-items: center;
         gap: 12px;
-        padding: 14px 16px;
-        border-radius: 14px;
-        color: #64748b;
+        padding: 13px 15px;
+        border-radius: 13px;
+        color: #475569;
         text-decoration: none;
         font-size: 14px;
         font-weight: 500;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
         cursor: pointer;
         border: none;
         background: none;
@@ -224,14 +231,14 @@ $cssVars = $model->getCssVars();
     }
     
     .ws-nav-item:hover {
-        background: #f8fafc;
+        background: rgba(241, 245, 249, 0.88);
         color: #0f172a;
     }
     
     .ws-nav-item.active {
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(135deg, #334155 0%, #1f2937 100%);
         color: white;
-        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18);
     }
     
     .ws-nav-item .material-symbols-outlined {
@@ -245,11 +252,11 @@ $cssVars = $model->getCssVars();
     }
     
     .ws-card {
-        background: white;
+        background: rgba(255, 255, 255, 0.95);
         border-radius: 20px;
-        padding: 28px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        border: 1px solid #f1f5f9;
+        padding: 26px;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+        border: 1px solid rgba(226, 232, 240, 0.9);
         scroll-margin-top: 80px;
     }
     
@@ -285,9 +292,9 @@ $cssVars = $model->getCssVars();
         display: flex;
         align-items: center;
         gap: 16px;
-        margin-bottom: 24px;
-        padding-bottom: 20px;
-        border-bottom: 1px solid #f1f5f9;
+        margin-bottom: 22px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid #eef2f7;
     }
     
     .ws-card-icon {
@@ -297,8 +304,8 @@ $cssVars = $model->getCssVars();
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, rgba(79, 102, 241, 0.12) 0%, rgba(99, 102, 241, 0.18) 100%);
-        color: #4f46e5;
+        background: linear-gradient(135deg, rgba(51, 65, 85, 0.10) 0%, rgba(15, 23, 42, 0.08) 100%);
+        color: #334155;
         flex-shrink: 0;
     }
     
@@ -310,14 +317,14 @@ $cssVars = $model->getCssVars();
     
     .ws-card-title {
         font-size: 16px;
-        font-weight: 600;
+        font-weight: 700;
         color: #0f172a;
         margin: 0;
     }
     
     .ws-card-subtitle {
         font-size: 13px;
-        color: #94a3b8;
+        color: #64748b;
         margin: 4px 0 0;
     }
     
@@ -326,7 +333,7 @@ $cssVars = $model->getCssVars();
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        color: #94a3b8;
+        color: #64748b;
         margin: 0 0 16px;
         display: flex;
         align-items: center;
@@ -337,7 +344,7 @@ $cssVars = $model->getCssVars();
         content: '';
         flex: 1;
         height: 1px;
-        background: #f1f5f9;
+        background: #eef2f7;
     }
     
     .ws-form-row {
@@ -364,25 +371,25 @@ $cssVars = $model->getCssVars();
     
     .ws-form-group label {
         font-size: 13px;
-        font-weight: 500;
+        font-weight: 600;
         color: #374151;
     }
     
     .ws-form-control {
-        height: 46px;
+        height: 44px;
         padding: 0 16px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dde5ee;
         border-radius: 12px;
         font-size: 14px;
         color: #0f172a;
         background: white;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
     }
     
     .ws-form-control:focus {
         outline: none;
-        border-color: #4f46e5;
-        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        border-color: #64748b;
+        box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.10);
     }
     
     .ws-form-control::placeholder {
@@ -420,7 +427,7 @@ $cssVars = $model->getCssVars();
     .ws-color-picker input[type="color"] {
         width: 46px;
         height: 46px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dde5ee;
         border-radius: 12px;
         padding: 4px;
         cursor: pointer;
@@ -441,10 +448,11 @@ $cssVars = $model->getCssVars();
         flex-direction: column;
         align-items: center;
         gap: 12px;
-        margin-top: 24px;
-        padding: 24px;
+        margin-top: 22px;
+        padding: 22px;
         background: #f8fafc;
-        border-radius: 16px;
+        border-radius: 18px;
+        border: 1px solid #eef2f7;
     }
     
     .ws-logo-preview-box {
@@ -469,9 +477,200 @@ $cssVars = $model->getCssVars();
         font-weight: 500;
     }
     
+    .ws-logo-mode-tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 18px;
+    }
+    
+    .ws-logo-tab {
+        flex: 1;
+        padding: 10px 16px;
+        border: 1px solid #dde5ee;
+        background: #f8fafc;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .ws-logo-tab:hover {
+        background: #eef2f7;
+        color: #0f172a;
+    }
+    
+    .ws-logo-tab.active {
+        background: linear-gradient(135deg, #334155 0%, #1f2937 100%);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.18);
+    }
+    
+    .ws-logo-mode-content {
+        transition: all 0.3s;
+    }
+    
+    .ws-logo-upload-area {
+        border: 1.5px dashed #d8e1ea;
+        border-radius: 16px;
+        padding: 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #f8fafc;
+    }
+    
+    .ws-logo-upload-area:hover {
+        border-color: #94a3b8;
+        background: rgba(248, 250, 252, 0.9);
+    }
+    
+    .ws-logo-upload-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .ws-logo-upload-placeholder .material-symbols-outlined {
+        font-size: 48px;
+        color: #94a3b8;
+    }
+    
+    .ws-logo-upload-placeholder p {
+        font-size: 14px;
+        font-weight: 600;
+        color: #475569;
+        margin: 0;
+    }
+    
+    .ws-logo-upload-hint {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+    
+    .ws-logo-image-preview {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .ws-logo-image-preview {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+    }
+    
+    .ws-logo-image-preview img {
+        max-width: 180px;
+        max-height: 180px;
+        border-radius: 14px;
+        object-fit: contain;
+        transition: all 0.2s ease;
+        cursor: grab;
+        border: 2px solid #e2e8f0;
+    }
+    
+    .ws-logo-image-preview img:active {
+        cursor: grabbing;
+    }
+    
+    .ws-logo-image-preview.resizing img {
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15);
+    }
+    
+    .ws-logo-resize-handle {
+        position: absolute;
+        bottom: -6px;
+        right: -6px;
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        border-radius: 8px;
+        border: 2px solid white;
+        cursor: se-resize;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        user-select: none;
+        touch-action: none;
+    }
+    
+    .ws-logo-image-preview:hover .ws-logo-resize-handle {
+        opacity: 1;
+    }
+    
+    .ws-logo-resize-handle::after {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-bottom: 2px solid white;
+        border-right: 2px solid white;
+        transform: rotate(-45deg);
+    }
+    
+    .ws-logo-remove-btn {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid white;
+        background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+        color: white;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        transition: all 0.2s;
+    }
+    
+    .ws-logo-remove-btn:hover {
+        background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.4);
+    }
+    
+    .ws-logo-remove-btn .material-symbols-outlined {
+        font-size: 18px;
+    }
+    
+    .ws-logo-upload-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px;
+        background: rgba(51, 65, 85, 0.08);
+        border-radius: 10px;
+        margin-top: 12px;
+        font-size: 13px;
+        color: #334155;
+    }
+    
+    .ws-logo-upload-spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #e2e8f0;
+        border-top-color: #334155;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
     .ws-divider {
         height: 1px;
-        background: #f1f5f9;
+        background: #eef2f7;
         margin: 28px 0;
     }
     
@@ -491,33 +690,96 @@ $cssVars = $model->getCssVars();
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: all 0.2s ease;
         border: none;
     }
     
     .ws-btn .material-symbols-outlined { font-size: 18px; }
     
     .ws-btn-primary {
-        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        background: linear-gradient(135deg, #334155 0%, #1f2937 100%);
         color: white;
-        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+        box-shadow: 0 10px 20px rgba(15, 23, 42, 0.16);
     }
     
     .ws-btn-primary:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.45);
+        box-shadow: 0 14px 24px rgba(15, 23, 42, 0.20);
     }
     
     .ws-btn-secondary {
         background: white;
         color: #64748b;
-        border: 1px solid #e5e7eb;
+        border: 1px solid #dde5ee;
     }
-    
+     
     .ws-btn-secondary:hover {
         background: #f8fafc;
         color: #0f172a;
-        border-color: #d1d5db;
+        border-color: #cbd5e1;
+    }
+     
+    .ws-logo-sizing-controls {
+        margin-top: 24px;
+        padding: 22px;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.04) 0%, rgba(99, 102, 241, 0.04) 100%);
+        border: 1px solid rgba(79, 70, 229, 0.12);
+        border-radius: 16px;
+    }
+     
+    .ws-size-slider {
+        width: 100%;
+        height: 8px;
+        border-radius: 10px;
+        background: linear-gradient(to right, #e2e8f0, #cbd5e1);
+        outline: none;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+     
+    .ws-size-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        border: 2px solid white;
+        transition: all 0.2s ease;
+    }
+     
+    .ws-size-slider::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+    }
+     
+    .ws-size-slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        border: 2px solid white;
+        transition: all 0.2s ease;
+    }
+     
+    .ws-size-slider::-moz-range-thumb:hover {
+        transform: scale(1.15);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+    }
+     
+    .ws-size-slider::-moz-range-track {
+        background: transparent;
+        border: none;
+    }
+     
+    .ws-size-slider::-moz-range-progress {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        height: 8px;
+        border-radius: 10px;
     }
 </style>
 
@@ -536,10 +798,10 @@ $cssVars = $model->getCssVars();
         <div class="ws-header">
             <div class="ws-header-badge">
                 <span class="material-symbols-outlined">settings</span>
-                Configuration
+                Tampilan Workspace
             </div>
             <h1>Workspace Settings</h1>
-            <p>Customize the appearance and behavior of your workspace interface.</p>
+            <p>Atur logo, warna sidebar, state aktif, dan navigasi workspace dari satu tempat dengan tampilan yang lebih tenang dan rapi.</p>
         </div>
         
         <?php $form = ActiveForm::begin(['id' => 'workspace-settings-form', 'action' => ['save']]); ?>
@@ -549,8 +811,12 @@ $cssVars = $model->getCssVars();
                 <div class="ws-preview-wrapper">
                     <div class="ws-preview-card">
                         <div class="ws-preview-content">
-                            <div class="ws-preview-logo" id="preview-logo-box" style="background: linear-gradient(135deg, <?= Html::encode($model->workspace_logo_bg) ?> 0%, <?= Html::encode($model->workspace_logo_bg) ?> 100%);">
-                                <span class="material-symbols-outlined" id="preview-logo-icon"><?= Html::encode($model->workspace_logo_icon) ?></span>
+                            <div class="ws-preview-logo" id="preview-logo-box" style="<?= !empty($model->workspace_logo_image) ? 'background: none;' : 'background: linear-gradient(135deg, ' . Html::encode($model->workspace_logo_bg) . ' 0%, ' . Html::encode($model->workspace_logo_bg) . ' 100%);' ?>">
+                                <?php if (!empty($model->workspace_logo_image)): ?>
+                                    <img src="<?= Yii::getAlias('@web/uploads/workspace/') . Html::encode($model->workspace_logo_image) ?>" alt="Logo" id="preview-logo-img" style="width: 100%; height: 100%; object-fit: contain; border-radius: 0;">
+                                <?php else: ?>
+                                    <span class="material-symbols-outlined" id="preview-logo-icon"><?= Html::encode($model->workspace_logo_icon) ?></span>
+                                <?php endif; ?>
                             </div>
                             <div class="ws-preview-badge">
                                 <span class="material-symbols-outlined" style="font-size: 14px;">dashboard</span>
@@ -615,46 +881,101 @@ $cssVars = $model->getCssVars();
                             </div>
                             <div class="ws-card-title-group">
                                 <h3 class="ws-card-title">Workspace Logo</h3>
-                                <p class="ws-card-subtitle">Customize the workspace icon appearance</p>
+                                <p class="ws-card-subtitle">Logo dan identitas visual workspace</p>
                             </div>
                         </div>
                         
-                        <div class="ws-form-row">
-                            <div class="ws-form-group">
-                                <label for="workspacesettings-workspace_logo_icon">Icon Name</label>
-                                <select class="ws-form-control" name="WorkspaceSettings[workspace_logo_icon]" id="logo-icon-select">
-                                    <option value="folder_open" <?= $model->workspace_logo_icon === 'folder_open' ? 'selected' : '' ?>>folder_open</option>
-                                    <option value="dashboard" <?= $model->workspace_logo_icon === 'dashboard' ? 'selected' : '' ?>>dashboard</option>
-                                    <option value="workspace_premium" <?= $model->workspace_logo_icon === 'workspace_premium' ? 'selected' : '' ?>>workspace_premium</option>
-                                    <option value="apps" <?= $model->workspace_logo_icon === 'apps' ? 'selected' : '' ?>>apps</option>
-                                    <option value="grid_view" <?= $model->workspace_logo_icon === 'grid_view' ? 'selected' : '' ?>>grid_view</option>
-                                    <option value="home" <?= $model->workspace_logo_icon === 'home' ? 'selected' : '' ?>>home</option>
-                                    <option value="inbox" <?= $model->workspace_logo_icon === 'inbox' ? 'selected' : '' ?>>inbox</option>
-                                    <option value="inventory_2" <?= $model->workspace_logo_icon === 'inventory_2' ? 'selected' : '' ?>>inventory_2</option>
-                                    <option value="category" <?= $model->workspace_logo_icon === 'category' ? 'selected' : '' ?>>category</option>
-                                    <option value="store" <?= $model->workspace_logo_icon === 'store' ? 'selected' : '' ?>>store</option>
-                                    <option value="account_tree" <?= $model->workspace_logo_icon === 'account_tree' ? 'selected' : '' ?>>account_tree</option>
-                                    <option value="hub" <?= $model->workspace_logo_icon === 'hub' ? 'selected' : '' ?>>hub</option>
-                                    <option value="layers" <?= $model->workspace_logo_icon === 'layers' ? 'selected' : '' ?>>layers</option>
-                                    <option value="extension" <?= $model->workspace_logo_icon === 'extension' ? 'selected' : '' ?>>extension</option>
-                                    <option value="waving_hand" <?= $model->workspace_logo_icon === 'waving_hand' ? 'selected' : '' ?>>waving_hand</option>
-                                </select>
-                            </div>
-                            <div class="ws-form-group">
-                                <label>Icon Background</label>
-                                <div class="ws-color-picker">
-                                    <input type="color" id="logo-bg-color" name="WorkspaceSettings[workspace_logo_bg]" value="<?= Html::encode($model->workspace_logo_bg) ?>">
-                                    <input type="text" class="ws-form-control color-text" name="WorkspaceSettings[workspace_logo_bg]" value="<?= Html::encode($model->workspace_logo_bg) ?>">
+                        <div class="ws-logo-mode-tabs">
+                            <button type="button" class="ws-logo-tab active" data-mode="icon">Icon Mode</button>
+                            <button type="button" class="ws-logo-tab" data-mode="image">Image Upload</button>
+                        </div>
+                        
+                        <div id="logo-mode-icon" class="ws-logo-mode-content">
+                            <div class="ws-form-row">
+                                <div class="ws-form-group">
+                                    <label for="workspacesettings-workspace_logo_icon">Icon Name</label>
+                                    <select class="ws-form-control" name="WorkspaceSettings[workspace_logo_icon]" id="logo-icon-select">
+                                        <option value="folder_open" <?= $model->workspace_logo_icon === 'folder_open' ? 'selected' : '' ?>>folder_open</option>
+                                        <option value="dashboard" <?= $model->workspace_logo_icon === 'dashboard' ? 'selected' : '' ?>>dashboard</option>
+                                        <option value="workspace_premium" <?= $model->workspace_logo_icon === 'workspace_premium' ? 'selected' : '' ?>>workspace_premium</option>
+                                        <option value="apps" <?= $model->workspace_logo_icon === 'apps' ? 'selected' : '' ?>>apps</option>
+                                        <option value="grid_view" <?= $model->workspace_logo_icon === 'grid_view' ? 'selected' : '' ?>>grid_view</option>
+                                        <option value="home" <?= $model->workspace_logo_icon === 'home' ? 'selected' : '' ?>>home</option>
+                                        <option value="inbox" <?= $model->workspace_logo_icon === 'inbox' ? 'selected' : '' ?>>inbox</option>
+                                        <option value="inventory_2" <?= $model->workspace_logo_icon === 'inventory_2' ? 'selected' : '' ?>>inventory_2</option>
+                                        <option value="category" <?= $model->workspace_logo_icon === 'category' ? 'selected' : '' ?>>category</option>
+                                        <option value="store" <?= $model->workspace_logo_icon === 'store' ? 'selected' : '' ?>>store</option>
+                                        <option value="account_tree" <?= $model->workspace_logo_icon === 'account_tree' ? 'selected' : '' ?>>account_tree</option>
+                                        <option value="hub" <?= $model->workspace_logo_icon === 'hub' ? 'selected' : '' ?>>hub</option>
+                                        <option value="layers" <?= $model->workspace_logo_icon === 'layers' ? 'selected' : '' ?>>layers</option>
+                                        <option value="extension" <?= $model->workspace_logo_icon === 'extension' ? 'selected' : '' ?>>extension</option>
+                                        <option value="waving_hand" <?= $model->workspace_logo_icon === 'waving_hand' ? 'selected' : '' ?>>waving_hand</option>
+                                    </select>
+                                </div>
+                                <div class="ws-form-group">
+                                    <label>Icon Background</label>
+                                    <div class="ws-color-picker">
+                                        <input type="color" id="logo-bg-color" name="WorkspaceSettings[workspace_logo_bg]" value="<?= Html::encode($model->workspace_logo_bg) ?>">
+                                        <input type="text" class="ws-form-control color-text" name="WorkspaceSettings[workspace_logo_bg]" value="<?= Html::encode($model->workspace_logo_bg) ?>">
+                                    </div>
                                 </div>
                             </div>
+                            
+                            <div class="ws-logo-preview">
+                                <div class="ws-logo-preview-box" id="logo-preview-box" style="background: linear-gradient(135deg, <?= Html::encode($model->workspace_logo_bg) ?> 0%, <?= Html::encode($model->workspace_logo_bg) ?> 100%);">
+                                    <span class="material-symbols-outlined" id="logo-preview-icon"><?= Html::encode($model->workspace_logo_icon) ?></span>
+                                </div>
+                                <span class="ws-logo-preview-label">Live Preview</span>
+                            </div>
                         </div>
                         
-                        <div class="ws-logo-preview">
-                            <div class="ws-logo-preview-box" id="logo-preview-box" style="background: linear-gradient(135deg, <?= Html::encode($model->workspace_logo_bg) ?> 0%, <?= Html::encode($model->workspace_logo_bg) ?> 100%);">
-                                <span class="material-symbols-outlined" id="logo-preview-icon"><?= Html::encode($model->workspace_logo_icon) ?></span>
+                        <div id="logo-mode-image" class="ws-logo-mode-content" style="display: none;">
+                            <div class="ws-logo-upload-area" id="logo-upload-area">
+                                <?php if (!empty($model->workspace_logo_image)): ?>
+                                    <div class="ws-logo-image-preview" id="logo-image-preview-container">
+                                        <img src="<?= Yii::getAlias('@web/uploads/workspace/') . Html::encode($model->workspace_logo_image) ?>" alt="Workspace Logo" id="uploaded-logo-preview">
+                                        <div class="ws-logo-resize-handle" id="logo-resize-handle"></div>
+                                        <button type="button" class="ws-logo-remove-btn" id="remove-logo-btn">
+                                            <span class="material-symbols-outlined">close</span>
+                                        </button>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="ws-logo-upload-placeholder">
+                                        <span class="material-symbols-outlined">cloud_upload</span>
+                                        <p>Drop your logo here or click to upload</p>
+                                        <span class="ws-logo-upload-hint">JPG, PNG, WEBP (max 2MB)</span>
+                                    </div>
+                                <?php endif; ?>
+                                <input type="file" id="logo-image-input" accept=".jpg,.jpeg,.png,.webp" style="display: none;">
                             </div>
-                            <span class="ws-logo-preview-label">Live Preview</span>
+                            
+                            <div id="logo-sizing-controls" class="ws-logo-sizing-controls" style="<?= empty($model->workspace_logo_image) ? 'display: none;' : '' ?>">
+                                <div class="ws-section-title">Logo Size</div>
+                                <div class="ws-form-row ws-form-row-2">
+                                    <div class="ws-form-group">
+                                        <label for="logo-width">Width (px)</label>
+                                        <input type="number" id="logo-width" class="ws-form-control logo-size-input" value="<?= Html::encode($model->workspace_logo_width ?? 120) ?>" min="40" max="300">
+                                    </div>
+                                    <div class="ws-form-group">
+                                        <label for="logo-height">Height (px)</label>
+                                        <input type="number" id="logo-height" class="ws-form-control logo-size-input" value="<?= Html::encode($model->workspace_logo_height ?? 120) ?>" min="40" max="300">
+                                    </div>
+                                </div>
+                                <div class="ws-form-group">
+                                    <label for="logo-size-slider">Quick Size: <span id="size-percentage">100</span>%</label>
+                                    <input type="range" id="logo-size-slider" class="ws-size-slider" value="100" min="30" max="250" step="1">
+                                </div>
+                            </div>
+                            
+                            <div class="ws-logo-upload-status" id="logo-upload-status" style="display: none;">
+                                <span class="ws-logo-upload-spinner"></span>
+                                <span>Uploading...</span>
+                            </div>
                         </div>
+                        
+                        <input type="hidden" name="WorkspaceSettings[workspace_logo_image]" id="workspace-logo-image-input" value="<?= Html::encode($model->workspace_logo_image ?? '') ?>">
+                        <input type="hidden" name="WorkspaceSettings[workspace_logo_width]" id="workspace-logo-width-input" value="<?= Html::encode($model->workspace_logo_width ?? 120) ?>">
+                        <input type="hidden" name="WorkspaceSettings[workspace_logo_height]" id="workspace-logo-height-input" value="<?= Html::encode($model->workspace_logo_height ?? 120) ?>">
                     </div>
                     
                     <div class="ws-card" id="section-workspace">
@@ -664,7 +985,7 @@ $cssVars = $model->getCssVars();
                             </div>
                             <div class="ws-card-title-group">
                                 <h3 class="ws-card-title">Workspace Identity</h3>
-                                <p class="ws-card-subtitle">Basic information about your workspace</p>
+                                <p class="ws-card-subtitle">Nama, subtitle, dan label utama workspace</p>
                             </div>
                         </div>
                         
@@ -703,7 +1024,7 @@ $cssVars = $model->getCssVars();
                             </div>
                             <div class="ws-card-title-group">
                                 <h3 class="ws-card-title">Sidebar Background</h3>
-                                <p class="ws-card-subtitle">Configure sidebar gradient colors</p>
+                                <p class="ws-card-subtitle">Warna dasar sidebar dan teks pendukung</p>
                             </div>
                         </div>
                         
@@ -726,7 +1047,7 @@ $cssVars = $model->getCssVars();
                             <div class="ws-color-group">
                                 <label>Border Color</label>
                                 <div class="ws-color-picker">
-                                    <input type="color" name="WorkspaceSettings[sidebar_border_color]" value="#1e293b">
+                                    <input type="color" name="WorkspaceSettings[sidebar_border_color]" value="#cbd5e1">
                                     <input type="text" class="ws-form-control color-text" name="WorkspaceSettings[sidebar_border_color]" value="<?= Html::encode($model->sidebar_border_color) ?>">
                                 </div>
                             </div>
@@ -760,7 +1081,7 @@ $cssVars = $model->getCssVars();
                             </div>
                             <div class="ws-card-title-group">
                                 <h3 class="ws-card-title">Active State</h3>
-                                <p class="ws-card-subtitle">Styling for the currently active menu item</p>
+                                <p class="ws-card-subtitle">Tampilan menu yang sedang aktif</p>
                             </div>
                         </div>
                         
@@ -806,7 +1127,7 @@ $cssVars = $model->getCssVars();
                             </div>
                             <div class="ws-card-title-group">
                                 <h3 class="ws-card-title">Hover State</h3>
-                                <p class="ws-card-subtitle">Styling when hovering over menu items</p>
+                                <p class="ws-card-subtitle">Efek saat pointer berada di menu</p>
                             </div>
                         </div>
                         
@@ -814,7 +1135,7 @@ $cssVars = $model->getCssVars();
                             <div class="ws-color-group">
                                 <label>Hover Background</label>
                                 <div class="ws-color-picker">
-                                    <input type="color" name="WorkspaceSettings[sidebar_hover_bg]" value="#ffffff">
+                                    <input type="color" name="WorkspaceSettings[sidebar_hover_bg]" value="#e2e8f0">
                                     <input type="text" class="ws-form-control color-text" name="WorkspaceSettings[sidebar_hover_bg]" value="<?= Html::encode($model->sidebar_hover_bg) ?>">
                                 </div>
                             </div>
@@ -835,7 +1156,7 @@ $cssVars = $model->getCssVars();
                             </div>
                             <div class="ws-card-title-group">
                                 <h3 class="ws-card-title">Top Navigation</h3>
-                                <p class="ws-card-subtitle">Configure the top navigation bar appearance</p>
+                                <p class="ws-card-subtitle">Warna dan batas top navigation</p>
                             </div>
                         </div>
                         
@@ -951,29 +1272,317 @@ document.addEventListener('DOMContentLoaded', function() {
             if (target) target.textContent = this.value || this.placeholder;
         });
     });
-    
+
+    const logoTabs = document.querySelectorAll('.ws-logo-tab');
+    const logoModeIcon = document.getElementById('logo-mode-icon');
+    const logoModeImage = document.getElementById('logo-mode-image');
+    const logoImageInput = document.getElementById('logo-image-input');
+    const logoUploadArea = document.getElementById('logo-upload-area');
+    const logoUploadStatus = document.getElementById('logo-upload-status');
+    const logoImageHiddenInput = document.getElementById('workspace-logo-image-input');
+    const previewLogoBox = document.getElementById('preview-logo-box');
+    const previewLogoImg = document.getElementById('preview-logo-img');
+    const previewLogoIcon = document.getElementById('preview-logo-icon');
+    const logoPreviewBox = document.getElementById('logo-preview-box');
+    const logoPreviewIcon = document.getElementById('logo-preview-icon');
+    const sidebarLogoBox = document.getElementById('sidebar-logo-box');
+
+    function getCurrentLogoImageUrl() {
+        const logoFile = logoImageHiddenInput ? logoImageHiddenInput.value : '';
+        return logoFile ? '<?= Yii::getAlias('@web/uploads/workspace/') ?>' + logoFile : '';
+    }
+
+    function clampLogoSize(value) {
+        const parsed = parseInt(value, 10);
+        if (isNaN(parsed)) return 120;
+        return Math.max(40, Math.min(300, parsed));
+    }
+
+    function updateSidebarLogoBox(width, height, imageUrl, icon, bgColor) {
+        if (!sidebarLogoBox) return;
+
+        sidebarLogoBox.style.width = width + 'px';
+        sidebarLogoBox.style.height = height + 'px';
+        sidebarLogoBox.style.fontSize = Math.round((width / 44) * 22) + 'px';
+
+        if (imageUrl) {
+            sidebarLogoBox.style.background = 'transparent';
+            sidebarLogoBox.style.boxShadow = 'none';
+            sidebarLogoBox.innerHTML = '<img id="sidebar-logo-image" src="' + imageUrl + '" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 14px;">';
+            return;
+        }
+
+        sidebarLogoBox.style.background = 'linear-gradient(135deg, ' + bgColor + ' 0%, ' + bgColor + ' 100%)';
+        sidebarLogoBox.style.boxShadow = '0 12px 24px rgba(79, 70, 229, 0.28)';
+        sidebarLogoBox.innerHTML = '<span id="sidebar-logo-icon" class="material-symbols-outlined">' + icon + '</span>';
+    }
+
+    function updateLogoPreviewBox(box, iconNode, imgNode, width, height, imageUrl, icon, bgColor) {
+        if (!box) return;
+
+        box.style.width = width + 'px';
+        box.style.height = height + 'px';
+
+        if (imageUrl) {
+            box.style.background = 'none';
+            box.innerHTML = '<img src="' + imageUrl + '" alt="Workspace Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 0;">';
+            return;
+        }
+
+        box.style.background = 'linear-gradient(135deg, ' + bgColor + ' 0%, ' + bgColor + ' 100%)';
+        box.innerHTML = '<span class="material-symbols-outlined">' + icon + '</span>';
+    }
+
+    function updateAllLogoViews(options) {
+        const width = clampLogoSize(options.width);
+        const height = clampLogoSize(options.height);
+        const imageUrl = typeof options.imageUrl === 'string' ? options.imageUrl : getCurrentLogoImageUrl();
+        const bgColor = options.bgColor || document.querySelector('input[name="WorkspaceSettings[workspace_logo_bg]"]')?.value || '#4f46e5';
+        const icon = options.icon || document.getElementById('logo-icon-select')?.value || 'folder_open';
+
+        if (previewLogoBox) {
+            updateLogoPreviewBox(previewLogoBox, previewLogoIcon, previewLogoImg, width, height, imageUrl, icon, bgColor);
+        }
+
+        if (logoPreviewBox) {
+            updateLogoPreviewBox(logoPreviewBox, logoPreviewIcon, null, width, height, imageUrl, icon, bgColor);
+        }
+
+        updateSidebarLogoBox(width, height, imageUrl, icon, bgColor);
+    }
+
+    function updateSizingInputs(width, height) {
+        width = clampLogoSize(width);
+        height = clampLogoSize(height);
+
+        const widthInput = document.getElementById('logo-width');
+        const heightInput = document.getElementById('logo-height');
+
+        if (widthInput) widthInput.value = width;
+        if (heightInput) heightInput.value = height;
+
+        const baseSize = 120;
+        const percentage = Math.round((width / baseSize) * 100);
+        const sizePercentage = document.getElementById('size-percentage');
+        if (sizePercentage) sizePercentage.textContent = percentage;
+
+        const slider = document.getElementById('logo-size-slider');
+        if (slider) slider.value = Math.max(30, Math.min(250, percentage));
+
+        const widthHiddenInput = document.getElementById('workspace-logo-width-input');
+        const heightHiddenInput = document.getElementById('workspace-logo-height-input');
+        if (widthHiddenInput) widthHiddenInput.value = width;
+        if (heightHiddenInput) heightHiddenInput.value = height;
+
+        updateAllLogoViews({
+            width: width,
+            height: height
+        });
+    }
+
     document.querySelectorAll('input[type="color"]').forEach(colorInput => {
         colorInput.addEventListener('input', function() {
-            const textInput = this.closest('.ws-color-picker').querySelector('.color-text');
+            const textInput = this.closest('.ws-color-picker')?.querySelector('.color-text');
             if (textInput) textInput.value = this.value;
-            
-            const previewBox = document.getElementById('preview-logo-box');
-            const logoPreviewBox = document.getElementById('logo-preview-box');
-            if ((this.id === 'logo-bg-color' || this.name === 'WorkspaceSettings[workspace_logo_bg]') && previewBox) {
-                const color = this.value;
-                previewBox.style.background = 'linear-gradient(135deg, ' + color + ' 0%, ' + color + ' 100%)';
-                if (logoPreviewBox) logoPreviewBox.style.background = 'linear-gradient(135deg, ' + color + ' 0%, ' + color + ' 100%)';
+
+            if (this.id === 'logo-bg-color' || this.name === 'WorkspaceSettings[workspace_logo_bg]') {
+                updateAllLogoViews({
+                    width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
+                    height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
+                    bgColor: this.value
+                });
             }
         });
     });
-    
+
     const iconSelect = document.getElementById('logo-icon-select');
     if (iconSelect) {
         iconSelect.addEventListener('change', function() {
-            const previewIcon = document.getElementById('preview-logo-icon');
-            const logoPreviewIcon = document.getElementById('logo-preview-icon');
-            if (previewIcon) previewIcon.textContent = this.value;
-            if (logoPreviewIcon) logoPreviewIcon.textContent = this.value;
+            updateAllLogoViews({
+                width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
+                height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
+                icon: this.value
+            });
+        });
+    }
+
+    function updateLogoTabState(mode) {
+        logoTabs.forEach(tab => {
+            tab.classList.toggle('active', tab.dataset.mode === mode);
+        });
+        if (logoModeIcon && logoModeImage) {
+            logoModeIcon.style.display = mode === 'icon' ? 'block' : 'none';
+            logoModeImage.style.display = mode === 'image' ? 'block' : 'none';
+        }
+    }
+    
+    logoTabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            updateLogoTabState(this.dataset.mode);
+        });
+    });
+    
+    const currentLogoImage = logoImageHiddenInput?.value;
+    if (currentLogoImage) {
+        updateLogoTabState('image');
+    }
+    
+    if (logoUploadArea && logoImageInput) {
+        logoUploadArea.addEventListener('click', function() {
+            logoImageInput.click();
+        });
+        
+        logoUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#4f46e5';
+            this.style.background = 'rgba(79, 70, 229, 0.08)';
+        });
+        
+        logoUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#cbd5e1';
+            this.style.background = '#f8fafc';
+        });
+        
+        logoUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#cbd5e1';
+            this.style.background = '#f8fafc';
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleLogoUpload(files[0]);
+            }
+        });
+        
+        logoImageInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleLogoUpload(this.files[0]);
+            }
+        });
+    }
+    
+    function handleLogoUpload(file) {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            alert('Invalid file type. Please upload JPG, PNG, or WEBP.');
+            return;
+        }
+        
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File too large. Maximum size is 2MB.');
+            return;
+        }
+        
+        if (logoUploadStatus) {
+            logoUploadStatus.style.display = 'flex';
+        }
+        
+        const formData = new FormData();
+        formData.append('workspace_logo_image', file);
+        
+        fetch('<?= \yii\helpers\Url::to(['workspace-settings/upload-logo']) ?>', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (logoUploadStatus) {
+                logoUploadStatus.style.display = 'none';
+            }
+            
+            if (data.success) {
+                logoImageHiddenInput.value = data.logoFile;
+                
+                const uploadArea = document.getElementById('logo-upload-area');
+                if (uploadArea) {
+                    uploadArea.innerHTML = `
+                        <div class="ws-logo-image-preview" id="logo-image-preview-container">
+                            <img src="${data.logoUrl}" alt="Workspace Logo" id="uploaded-logo-preview">
+                            <div class="ws-logo-resize-handle" id="logo-resize-handle"></div>
+                            <button type="button" class="ws-logo-remove-btn" id="remove-logo-btn">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                    `;
+                    
+                    document.getElementById('remove-logo-btn').addEventListener('click', handleLogoRemove);
+                    initializeLogoResize();
+                    showSizingControls();
+                }
+                
+                updateAllLogoViews({
+                    width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
+                    height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
+                    imageUrl: data.logoUrl
+                });
+            } else {
+                alert(data.message || 'Failed to upload logo');
+            }
+        })
+        .catch(error => {
+            if (logoUploadStatus) {
+                logoUploadStatus.style.display = 'none';
+            }
+            alert('Upload failed: ' + error.message);
+        });
+    }
+    
+    function handleLogoRemove(e) {
+        e.stopPropagation();
+        
+        if (!confirm('Remove the uploaded logo?')) return;
+        
+        fetch('<?= \yii\helpers\Url::to(['workspace-settings/remove-logo']) ?>', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                logoImageHiddenInput.value = '';
+                
+                const uploadArea = document.getElementById('logo-upload-area');
+                if (uploadArea) {
+                    uploadArea.innerHTML = `
+                        <div class="ws-logo-upload-placeholder">
+                            <span class="material-symbols-outlined">cloud_upload</span>
+                            <p>Drop your logo here or click to upload</p>
+                            <span class="ws-logo-upload-hint">JPG, PNG, WEBP (max 2MB)</span>
+                        </div>
+                    `;
+                }
+                
+                updateAllLogoViews({
+                    width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
+                    height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
+                    imageUrl: null
+                });
+                hideSizingControls();
+                updateLogoTabState('icon');
+            }
+        })
+        .catch(error => {
+            alert('Failed to remove logo: ' + error.message);
+        });
+    }
+    
+    const removeLogoBtn = document.getElementById('remove-logo-btn');
+    if (removeLogoBtn) {
+        removeLogoBtn.addEventListener('click', handleLogoRemove);
+    }
+    
+    const storedLogoImage = logoImageHiddenInput?.value;
+    if (storedLogoImage) {
+        updateAllLogoViews({
+            width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
+            height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
+            imageUrl: '<?= Yii::getAlias('@web/uploads/workspace/') ?>' + storedLogoImage
         });
     }
     
@@ -982,13 +1591,13 @@ document.addEventListener('DOMContentLoaded', function() {
             const colorInput = this.closest('.ws-color-picker').querySelector('input[type="color"]');
             if (colorInput && /^#[0-9A-Fa-f]{6}$/.test(this.value)) {
                 colorInput.value = this.value;
-                
-                const previewBox = document.getElementById('preview-logo-box');
-                const logoPreviewBox = document.getElementById('logo-preview-box');
-                if (this.name === 'WorkspaceSettings[workspace_logo_bg]' && previewBox) {
-                    const color = this.value;
-                    previewBox.style.background = 'linear-gradient(135deg, ' + color + ' 0%, ' + color + ' 100%)';
-                    if (logoPreviewBox) logoPreviewBox.style.background = 'linear-gradient(135deg, ' + color + ' 0%, ' + color + ' 100%)';
+
+                if (this.name === 'WorkspaceSettings[workspace_logo_bg]') {
+                    updateAllLogoViews({
+                        width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
+                        height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
+                        bgColor: this.value
+                    });
                 }
             }
         });
@@ -1031,5 +1640,140 @@ document.addEventListener('DOMContentLoaded', function() {
             isScrolling = false;
         }, 300);
     }, { passive: true });
+    
+    // Logo Resizing and Sizing Controls
+    let isResizing = false;
+    let startX, startY, startWidth, startHeight;
+
+    function initializeLogoResize() {
+        const resizeHandle = document.getElementById('logo-resize-handle');
+        const logoImg = document.getElementById('uploaded-logo-preview');
+        const previewContainer = document.getElementById('logo-image-preview-container');
+
+        if (!resizeHandle || !logoImg) return;
+
+        resizeHandle.addEventListener('mousedown', startResize);
+        resizeHandle.addEventListener('touchstart', startResize);
+
+        function startResize(e) {
+            e.preventDefault();
+            isResizing = true;
+            startX = e.clientX || e.touches?.[0]?.clientX || 0;
+            startY = e.clientY || e.touches?.[0]?.clientY || 0;
+            startWidth = logoImg.offsetWidth;
+            startHeight = logoImg.offsetHeight;
+
+            if (previewContainer) {
+                previewContainer.classList.add('resizing');
+            }
+
+            document.addEventListener('mousemove', doResize);
+            document.addEventListener('touchmove', doResize, { passive: false });
+            document.addEventListener('mouseup', stopResize);
+            document.addEventListener('touchend', stopResize);
+        }
+
+        function doResize(e) {
+            if (!isResizing) return;
+
+            e.preventDefault();
+            const currentX = e.clientX || e.touches?.[0]?.clientX || 0;
+            const currentY = e.clientY || e.touches?.[0]?.clientY || 0;
+
+            const diffX = currentX - startX;
+            const diffY = currentY - startY;
+            const diff = Math.max(diffX, diffY);
+            const newWidth = Math.max(40, Math.min(300, startWidth + diff));
+            const newHeight = Math.max(40, Math.min(300, startHeight + diff));
+
+            logoImg.style.maxWidth = newWidth + 'px';
+            logoImg.style.maxHeight = newHeight + 'px';
+            updateSizingInputs(newWidth, newHeight);
+        }
+
+        function stopResize() {
+            isResizing = false;
+            if (previewContainer) {
+                previewContainer.classList.remove('resizing');
+            }
+
+            document.removeEventListener('mousemove', doResize);
+            document.removeEventListener('touchmove', doResize);
+            document.removeEventListener('mouseup', stopResize);
+            document.removeEventListener('touchend', stopResize);
+        }
+    }
+
+    function showSizingControls() {
+        const controls = document.getElementById('logo-sizing-controls');
+        if (controls) {
+            controls.style.display = 'block';
+        }
+    }
+
+    function hideSizingControls() {
+        const controls = document.getElementById('logo-sizing-controls');
+        if (controls) {
+            controls.style.display = 'none';
+        }
+    }
+
+    const widthInput = document.getElementById('logo-width');
+    const heightInput = document.getElementById('logo-height');
+    const sizeSlider = document.getElementById('logo-size-slider');
+    const widthHiddenInput = document.getElementById('workspace-logo-width-input');
+    const heightHiddenInput = document.getElementById('workspace-logo-height-input');
+
+    if (widthInput) {
+        widthInput.addEventListener('input', function() {
+            updateSizingInputs(this.value, heightInput ? heightInput.value : 120);
+        });
+    }
+
+    if (heightInput) {
+        heightInput.addEventListener('input', function() {
+            updateSizingInputs(widthInput ? widthInput.value : 120, this.value);
+        });
+    }
+
+    if (sizeSlider) {
+        sizeSlider.addEventListener('input', function() {
+            const baseSize = 120;
+            const percentage = parseInt(this.value, 10) || 100;
+            const newSize = Math.round((percentage / 100) * baseSize);
+            updateSizingInputs(newSize, newSize);
+        });
+    }
+
+    const existingLogo = document.getElementById('uploaded-logo-preview');
+    if (existingLogo) {
+        initializeLogoResize();
+        showSizingControls();
+    }
+
+    updateSizingInputs(widthHiddenInput ? widthHiddenInput.value : (widthInput ? widthInput.value : 120), heightHiddenInput ? heightHiddenInput.value : (heightInput ? heightInput.value : 120));
+
+    // Ensure hidden inputs are updated before form submit
+    const form = document.getElementById('workspace-settings-form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const widthInput = document.getElementById('logo-width');
+            const heightInput = document.getElementById('logo-height');
+            const widthHiddenInput = document.getElementById('workspace-logo-width-input');
+            const heightHiddenInput = document.getElementById('workspace-logo-height-input');
+             
+            if (widthInput && widthHiddenInput) {
+                let val = parseInt(widthInput.value) || 120;
+                val = Math.max(40, Math.min(300, val));
+                widthHiddenInput.value = val;
+            }
+             
+            if (heightInput && heightHiddenInput) {
+                let val = parseInt(heightInput.value) || 120;
+                val = Math.max(40, Math.min(300, val));
+                heightHiddenInput.value = val;
+            }
+        });
+    }
 });
 </script>

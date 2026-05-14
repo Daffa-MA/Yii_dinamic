@@ -10,7 +10,6 @@ $this->title = 'Database Tables';
 $this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
-$this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 
 $tableCount = count($tables);
 $createdCount = count(array_filter($tables, static function ($item) {
@@ -24,6 +23,9 @@ $databaseInfo = $databaseInfo ?? [];
 $databaseName = $databaseInfo['name'] ?? null;
 $databaseHost = $databaseInfo['host'] ?? null;
 $databasePort = $databaseInfo['port'] ?? null;
+$tableBuilderSuccess = Yii::$app->session->getFlash('tableBuilderSuccess');
+$tableBuilderError = Yii::$app->session->getFlash('tableBuilderError');
+$tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 ?>
 
 <style>
@@ -447,31 +449,25 @@ main#main > .container > .alert {
 </style>
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
-
-<nav class="app-shell-nav fixed top-0 right-0 z-50 flex items-center justify-between px-8 h-20 bg-gradient-to-r from-[#ffffff]/80 via-[#f8fafd]/80 to-[#f0f4f9]/80 backdrop-blur-xl shadow-[0_20px_40px_rgba(11,28,48,0.06)]" style="left: var(--app-sidebar-width, 16rem); transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-    <div class="flex items-center gap-6">
-        <div class="flex items-center bg-surface-container-high px-4 py-2 rounded-full gap-3 min-w-[320px]">
-            <span class="material-symbols-outlined text-outline text-[20px]">table_chart</span>
-            <span class="text-sm text-on-surface-variant font-medium">Database Tables</span>
-        </div>
-        <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
-            'class' => 'text-on-surface-variant hover:text-on-surface px-4 py-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center gap-2 text-sm font-medium no-underline',
-            'encode' => false
-        ]) ?>
-    </div>
-    <div class="flex items-center gap-4">
-        <?= Html::a('<span class="material-symbols-outlined text-[18px]">add</span> Create Table', ['table-builder/create'], [
-            'class' => 'bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold flex items-center gap-2 hover:shadow-lg transition-all active:scale-95 text-sm no-underline'
-        ]) ?>
-    </div>
-</nav>
-
-
-
 <main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
     <div class="max-w-[1400px] mx-auto px-8 py-8">
         <div class="table-index-page">
             <div class="page-shell">
+        <?php if (!empty($tableBuilderSuccess)): ?>
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                <?= Html::encode(is_array($tableBuilderSuccess) ? implode(' ', $tableBuilderSuccess) : $tableBuilderSuccess) ?>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($tableBuilderError)): ?>
+            <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                <?= Html::encode(is_array($tableBuilderError) ? implode(' ', $tableBuilderError) : $tableBuilderError) ?>
+            </div>
+        <?php endif; ?>
+        <?php if (!empty($tableBuilderWarning)): ?>
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                <?= Html::encode(is_array($tableBuilderWarning) ? implode(' ', $tableBuilderWarning) : $tableBuilderWarning) ?>
+            </div>
+        <?php endif; ?>
         <section class="hero">
             <div class="hero-top">
                 <div class="hero-title">
@@ -485,6 +481,10 @@ main#main > .container > .alert {
                 </div>
 
                 <div class="hero-actions">
+                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                        'class' => 'btn-clean',
+                        'encode' => false,
+                    ]) ?>
                     <?= Html::a('Create Table', ['table-builder/create'], ['class' => 'btn-clean btn-primary-clean']) ?>
                 </div>
             </div>

@@ -55,6 +55,28 @@ $breadcrumbs[] = ['label' => $pageTitle];
         gap: 16px;
     }
     
+    .app-topnav-projects-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--ws-topnav-border-color);
+        background: #ffffff;
+        color: var(--ws-topnav-text-color);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .app-topnav-projects-btn:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #1e293b;
+    }
+    
     .app-topnav-breadcrumb {
         display: flex;
         align-items: center;
@@ -222,6 +244,11 @@ $breadcrumbs[] = ['label' => $pageTitle];
 
 <div class="app-topnav">
     <div class="app-topnav-left">
+        <a href="/project-list" class="app-topnav-projects-btn" title="Back to Projects">
+            <span class="material-symbols-outlined">folder</span>
+            Projects
+        </a>
+        
         <div class="app-topnav-breadcrumb">
             <?php foreach ($breadcrumbs as $i => $crumb): ?>
                 <?php if ($i > 0): ?>

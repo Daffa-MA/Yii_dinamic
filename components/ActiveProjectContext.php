@@ -4,6 +4,7 @@ namespace app\components;
 
 use Yii;
 use app\models\Project;
+use app\components\CommanderAuthContext;
 
 class ActiveProjectContext
 {
@@ -22,6 +23,10 @@ class ActiveProjectContext
         $projectId = (int)Yii::$app->session->get(self::SESSION_KEY, 0);
         if ($projectId <= 0) {
             return null;
+        }
+
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return $projectId;
         }
 
         $isOwned = Project::find()
@@ -47,6 +52,10 @@ class ActiveProjectContext
             return null;
         }
 
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return Project::findOne(['id' => $projectId]);
+        }
+
         return Project::findOne(['id' => $projectId, 'user_id' => Yii::$app->user->id]);
     }
 
@@ -58,6 +67,11 @@ class ActiveProjectContext
 
         if (!ProjectSchema::supportsProjectContext()) {
             return false;
+        }
+
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            Yii::$app->session->set(self::SESSION_KEY, $projectId);
+            return true;
         }
 
         $isOwned = Project::find()
@@ -81,6 +95,10 @@ class ActiveProjectContext
     {
         if (Yii::$app->user->isGuest) {
             return false;
+        }
+
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return Project::find()->exists();
         }
 
         if (!ProjectSchema::supportsProjectContext()) {

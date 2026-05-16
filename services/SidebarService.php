@@ -26,14 +26,7 @@ class SidebarService
      */
     public function getMenuTree(bool $activeOnly = true): array
     {
-        // Query menu dari database
-        $menus = MasterMenu::find()
-            ->where($activeOnly ? ['is_active' => 1] : [])
-            ->orderBy(['order' => SORT_ASC, 'sort_order' => SORT_ASC])
-            ->all();
-        
-        // Build tree structure
-        return $this->buildTree($menus);
+        return MasterMenu::getMenuTree($activeOnly);
     }
 
     /**
@@ -46,21 +39,7 @@ class SidebarService
      */
     public function getMenuTreeByProject(int $projectId, bool $activeOnly = true): array
     {
-        // Query menu dari database dengan filter project_id
-        $query = MasterMenu::find();
-        
-        $conditions = ['project_id' => $projectId];
-        if ($activeOnly) {
-            $conditions['is_active'] = 1;
-        }
-        
-        $menus = $query
-            ->where($conditions)
-            ->orderBy(['sort_order' => SORT_ASC, 'order' => SORT_ASC])
-            ->all();
-        
-        // Build tree structure
-        return $this->buildTree($menus);
+        return MasterMenu::getMenuTree($activeOnly);
     }
 
     /**

@@ -143,6 +143,29 @@ if ($currentRoute === 'site/dashboard') {
 
     <main class="dashboard-main" id="main">
         <div class="container-fluid">
+            <?php foreach (Yii::$app->session->getAllFlashes() as $type => $message): ?>
+                <?php
+                $color = 'rgba(59, 130, 246, 0.12)';
+                $textColor = '#1e3a8a';
+                $borderColor = 'rgba(59, 130, 246, 0.22)';
+                if ($type === 'success') {
+                    $color = 'rgba(16, 185, 129, 0.12)';
+                    $textColor = '#065f46';
+                    $borderColor = 'rgba(16, 185, 129, 0.22)';
+                } elseif ($type === 'error') {
+                    $color = 'rgba(239, 68, 68, 0.12)';
+                    $textColor = '#7f1d1d';
+                    $borderColor = 'rgba(239, 68, 68, 0.22)';
+                } elseif ($type === 'warning') {
+                    $color = 'rgba(245, 158, 11, 0.12)';
+                    $textColor = '#78350f';
+                    $borderColor = 'rgba(245, 158, 11, 0.22)';
+                }
+                ?>
+                <div style="margin:0 0 1rem;padding:.9rem 1rem;border-radius:16px;background:<?= Html::encode($color) ?>;color:<?= Html::encode($textColor) ?>;border:1px solid <?= Html::encode($borderColor) ?>;font-weight:600;box-shadow:0 8px 24px rgba(15,23,42,.05);">
+                    <?= is_array($message) ? implode(' ', array_map('yii\helpers\Html::encode', $message)) : Html::encode((string)$message) ?>
+                </div>
+            <?php endforeach; ?>
             <?= $content ?>
         </div>
     </main>

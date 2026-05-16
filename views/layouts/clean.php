@@ -14,7 +14,7 @@ $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, 
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
 
-$this->title = 'Login - Architectural Editor';
+$this->title = 'Commander Login';
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html class="light" lang="en">
@@ -71,16 +71,14 @@ $this->title = 'Login - Architectural Editor';
     <!-- Main Content -->
     <main class="flex-grow flex flex-col items-center justify-center px-4 py-8">
         
-        <!-- Logo Section -->
         <div class="mb-8 text-center">
-            <div class="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4">
-                <span class="material-symbols-outlined text-on-primary text-3xl">architecture</span>
+            <div class="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-card">
+                <span class="material-symbols-outlined text-on-primary text-3xl">lock</span>
             </div>
-            <h1 class="text-[32px] font-bold text-on-surface mb-1" style="line-height: 1.2; letter-spacing: -0.02em;">Architectural Editor</h1>
-            <p class="text-base text-secondary">Masuk ke dashboard Anda</p>
+            <h1 class="text-[32px] font-bold text-on-surface mb-1" style="line-height: 1.2; letter-spacing: -0.02em;">Commander</h1>
+            <p class="text-base text-secondary">Masuk ke pusat project dan workspace</p>
         </div>
-        
-        <!-- Login Card -->
+
         <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-8 w-full max-w-container shadow-card">
             <?= $content ?>
         </div>

@@ -1,6 +1,8 @@
 <?php
 use yii\bootstrap5\Html;
 use app\components\ProjectSchema;
+use app\components\ProjectAuthContext;
+use app\components\CommanderAuthContext;
 use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\WorkspaceSettings;
@@ -48,6 +50,8 @@ foreach ($systemBuilderRoutes as $prefix => $menuKey) {
 
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
+$activeProjectId = null;
+$projectAuthUser = null;
 
 // Hardcoded selector pages must stay isolated from workspace DB/theme switching.
 $isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
@@ -57,11 +61,10 @@ $isMinimalSidebar = $sidebarVariant === 'minimal';
 
 // Use workspace settings or defaults
 $headerBadge = $isMinimalSidebar ? $cssVars['workspace-badge'] ?? 'Project Hub' : ($cssVars['workspace-badge'] ?? 'Workspace');
-$headerTitle = $isMinimalSidebar ? 'Navigasi Project' : ($cssVars['workspace-title'] ?? 'Projects');
+$headerTitle = $isMinimalSidebar ? 'Navigasi Project' : ($cssVars['workspace-title'] ?? 'Project List');
 $headerSubtitle = $isMinimalSidebar ? 'Pintu masuk workspace' : ($cssVars['workspace-subtitle'] ?? 'Beranda & navigasi');
-$projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Projects';
+$projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Project List';
 $profileNavLabel = $isMinimalSidebar ? 'Akun Saya' : 'Profile';
-$logoutLabel = $isMinimalSidebar ? 'Keluar Workspace' : 'Sign Out';
 $activeProjectLabel = $isMinimalSidebar ? 'Project Aktif' : 'Active Project';
 $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
 
@@ -77,9 +80,14 @@ if (!Yii::$app->user->isGuest) {
         $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
         if ($activeProjectId !== null) {
             $activeProject = \app\models\Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+            $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
         }
     }
 }
+
+$commanderAuth = new CommanderAuthContext();
+$logoutUrl = \yii\helpers\Url::to(['site/logout']);
+$projectListUrl = \yii\helpers\Url::to(['project/index']);
 
 $menuItems = [];
 try {
@@ -1349,7 +1357,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
             <?php if ($sidebarVariant === 'full'): ?>
                 <div style="border-top: 1px solid <?= Html::encode($sidebarBorderColor) ?>; margin: 12px 0;"></div>
                 <div class="app-sidebar-system-builder" style="padding: 0 14px;">
-                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: <?= Html::encode($sidebarTextMuted) ?>;">System Builder</span>
+                    <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: <?= Html::encode($sidebarTextMuted) ?>;">Admin Tools</span>
                 </div>
                 <a href="<?= \yii\helpers\Url::to(['master-menu/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-menu/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                     <span class="material-symbols-outlined">list_alt</span>
@@ -1376,26 +1384,25 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
 
 <!-- Footer -->
     <div class="app-sidebar-footer <?= $sidebarVariant === 'minimal' ? 'mt-auto' : '' ?>">
-        <?php if ($sidebarVariant === 'minimal'): ?>
-            <!-- Minimal mode - Red logout button -->
-            <?= Html::beginForm(['/site/logout'], 'post') ?>
-                <button type="submit" class="w-full flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium">
-                    <span class="material-symbols-outlined">logout</span>
-                    <span><?= Html::encode($logoutLabel) ?></span>
-                </button>
-            <?= Html::endForm() ?>
-        <?php else: ?>
+        <div style="display:grid;gap:8px;margin-bottom:10px;">
             <?= Html::a(
-                '<span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">' . Html::encode($logoutLabel) . '</span>',
-                ['site/logout'],
+                '<span class="material-symbols-outlined">folder</span><span class="app-sidebar-link-text">Kembali ke Project List</span>',
+                $projectListUrl,
                 [
                     'class' => 'app-sidebar-logout',
                     'style' => 'color: ' . Html::encode($sidebarTextColor),
-                    'data' => ['method' => 'post'],
                     'encode' => false
                 ]
             ) ?>
-        <?php endif; ?>
+        </div>
+
+        <div style="display:grid;gap:8px;">
+            <?= Html::beginForm($logoutUrl, 'post') ?>
+                <button type="submit" class="app-sidebar-logout" style="color: <?= Html::encode($sidebarTextColor) ?>; width:100%; text-align:left;">
+                    <span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">Logout</span>
+                </button>
+            <?= Html::endForm() ?>
+        </div>
     </div>
 </aside>
 

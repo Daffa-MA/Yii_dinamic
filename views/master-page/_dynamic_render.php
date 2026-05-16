@@ -5,9 +5,12 @@
  * @var string|null $customCss
  * @var string|null $customJs
  * @var string $pageType
+ * @var string|null $pageKey
  */
 
 $isCustomCode = ($pageType ?? 'builder') === 'custom_code';
+$pageKey = $pageKey ?? 'page';
+$permissionRegistry = new \app\components\ProjectPermissionRegistry();
 
 // Prioritize persisted full-page custom source when available.
 if (!empty(trim((string) $customHtml))) {
@@ -35,6 +38,8 @@ $state = json_decode($layoutJson, true);
 if (!is_array($state)) {
     $state = [];
 }
+
+$state = $permissionRegistry->filterPageState($state, $pageKey);
 ?>
 <style>
     .dynamic-page-container {

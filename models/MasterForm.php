@@ -5,6 +5,7 @@ namespace app\models;
 use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
 use app\components\DatabaseSchemaInitializer;
+use app\components\ProjectPermissionRegistry;
 use app\components\ProjectSchema;
 use app\models\MasterFormField;
 use app\models\MasterFormLayout;
@@ -140,6 +141,17 @@ class MasterForm extends ActiveRecord
         return parent::beforeSave($insert);
     }
 
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+
+        try {
+            (new ProjectPermissionRegistry())->syncFormPermissions($this);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to sync form permissions: ' . $e->getMessage(), 'permission-registry');
+        }
+    }
+
     public function getPage()
     {
         return $this->hasOne(MasterPage::class, ['id' => 'page_id']);
@@ -192,7 +204,7 @@ class MasterForm extends ActiveRecord
             ->where(['is_active' => 1])
             ->orderBy(['form_name' => SORT_ASC]);
 
-        return $query->all();
+        return (new ProjectPermissionRegistry())->filterForms($query->all());
     }
 
     public static function getFormOptions()

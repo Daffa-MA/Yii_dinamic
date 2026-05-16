@@ -20,6 +20,15 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44
 
 $initialState = $initialState ?? [];
 $forms = $forms ?? [];
+$permissionContext = $permissionContext ?? [];
+$canAccessBuilder = (bool)($permissionContext['canAccessBuilder'] ?? true);
+$canAccessPalette = (bool)($permissionContext['canAccessPalette'] ?? $canAccessBuilder);
+$canAccessTools = (bool)($permissionContext['canAccessTools'] ?? $canAccessBuilder);
+$canDragComponents = (bool)($permissionContext['canDragComponents'] ?? $canAccessPalette);
+$canAccessActions = (bool)($permissionContext['canAccessActions'] ?? $canAccessBuilder);
+$canAccessForms = (bool)($permissionContext['canAccessForms'] ?? $canAccessBuilder);
+$canCreatePage = (bool)($permissionContext['canCreatePage'] ?? $canAccessActions);
+$canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 ?>
 
 <!-- TEMPLATE SELECTOR MODAL -->
@@ -748,12 +757,16 @@ $forms = $forms ?? [];
                     Template dipilih: <span id="templateSelectedName">-</span>
                 </div>
                 <div class="template-action-buttons">
-                    <button class="btn-preview" onclick="startBlankTemplate()">
-                        <i class="ti ti-file-plus"></i> Mulai Kosong
-                    </button>
-                    <button class="btn-save" onclick="confirmTemplate()" id="templateUseBtn" disabled>
-                        <i class="ti ti-check"></i> Pakai Template
-                    </button>
+                    <?php if ($canCreatePage): ?>
+                        <button class="btn-preview" onclick="startBlankTemplate()">
+                            <i class="ti ti-file-plus"></i> Mulai Kosong
+                        </button>
+                    <?php endif; ?>
+                    <?php if ($canCreatePage || $canEditPage): ?>
+                        <button class="btn-save" onclick="confirmTemplate()" id="templateUseBtn" disabled>
+                            <i class="ti ti-check"></i> Pakai Template
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -790,9 +803,11 @@ $forms = $forms ?? [];
                 </div>
                 <div class="template-preview-actions">
                     <button class="btn-preview" onclick="closeTemplatePreview()">Tutup</button>
-                    <button class="btn-save" onclick="selectPreviewTemplate()">
-                        <i class="ti ti-check"></i> Pilih Template Ini
-                    </button>
+                    <?php if ($canCreatePage || $canEditPage): ?>
+                        <button class="btn-save" onclick="selectPreviewTemplate()">
+                            <i class="ti ti-check"></i> Pilih Template Ini
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -1918,8 +1933,15 @@ $forms = $forms ?? [];
 </style>
 
 <!-- BUILDER INTERFACE -->
+<?php if (!$canAccessBuilder): ?>
+    <div style="max-width:720px;margin:4rem auto;padding:2rem;border-radius:24px;background:#fff;border:1px solid rgba(148,163,184,.18);box-shadow:0 18px 40px rgba(15,23,42,.06);">
+        <h2 style="margin:0 0 .5rem;font-size:1.5rem;font-weight:900;color:#0f172a;">Builder tidak tersedia</h2>
+        <p style="margin:0;color:#64748b;line-height:1.7;">Role Anda tidak memiliki akses ke builder. Menu, toolbar, dan palette disembunyikan total.</p>
+    </div>
+<?php else: ?>
 <div class="page-builder" id="builderInterface" style="<?= ($model->isNewRecord && empty($initialState)) ? 'display:none;' : '' ?>">
     <!-- LEFT PANEL: Component Library -->
+    <?php if ($canAccessPalette): ?>
     <div class="builder-sidebar-left">
         <div class="sidebar-header">
             <span class="material-symbols-outlined" style="font-size:20px;vertical-align:middle;margin-right:8px">widgets</span>
@@ -1963,10 +1985,12 @@ $forms = $forms ?? [];
         </div>
 
         <div class="component-section-title">Advanced</div>
+        <?php if ($canAccessForms): ?>
         <div class="component-item" data-type="form">
             <span class="material-symbols-outlined">dynamic_form</span>
             <span>Form Builder</span>
         </div>
+        <?php endif; ?>
         <div class="component-item" data-type="card">
             <span class="material-symbols-outlined">square</span>
             <span>Card</span>
@@ -1980,10 +2004,12 @@ $forms = $forms ?? [];
             <span>Spacer</span>
         </div>
     </div>
+    <?php endif; ?>
 
     <!-- CANVAS: Main Area with Unified Responsive -->
     <div class="builder-canvas">
         <!-- Responsive Switcher - DI ATAS canvas -->
+        <?php if ($canAccessTools): ?>
         <div class="canvas-toolbar">
             <div class="canvas-toolbar-left">
                 <span class="material-symbols-outlined" style="color:#6366f1">dashboard</span>
@@ -2010,6 +2036,7 @@ $forms = $forms ?? [];
                 <span style="color:#94a3b8;font-size:12px;">Drop komponen untuk membangun halaman</span>
             </div>
         </div>
+        <?php endif; ?>
 
         <!-- Canvas Wrapper with Responsive Frame -->
         <div class="canvas-wrapper">
@@ -2023,7 +2050,9 @@ $forms = $forms ?? [];
     <div class="builder-properties">
         <div class="prop-tabs" style="display: flex; background: #f8fafc; border-bottom: 1px solid #e5e7eb;">
             <button class="prop-tab-btn active" data-tab="design" style="flex: 1; padding: 12px; border: none; background: none; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid #3b82f6;">Design</button>
-            <button class="prop-tab-btn" data-tab="code" style="flex: 1; padding: 12px; border: none; background: none; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent;">Custom Code</button>
+            <?php if ($canAccessTools): ?>
+                <button class="prop-tab-btn" data-tab="code" style="flex: 1; padding: 12px; border: none; background: none; font-size: 12px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent;">Custom Code</button>
+            <?php endif; ?>
         </div>
 
         <div id="properties-design-tab" class="prop-tab-content active">
@@ -2035,12 +2064,14 @@ $forms = $forms ?? [];
             </div>
         </div>
 
+        <?php if ($canAccessTools): ?>
         <div id="properties-code-tab" class="prop-tab-content" style="display: none; flex: 1; flex-direction: column;">
             <div class="code-editor-header">
                 <div class="code-scope-buttons">
                     <button class="code-scope-btn active" data-scope="component">Component Code</button>
                     <button class="code-scope-btn" data-scope="page">Page Source</button>
                 </div>
+                <?php if ($canAccessTools): ?>
                 <div class="code-editor-tools" id="component-code-tools">
                     <div class="code-lang-buttons">
                         <button class="code-lang-btn active" data-lang="html" onclick="switchCodeLang('html')">HTML</button>
@@ -2052,16 +2083,30 @@ $forms = $forms ?? [];
                         Reset Base
                     </button>
                 </div>
+                <?php endif; ?>
             </div>
             <div id="code-mode-hint" class="code-mode-hint">Edit custom code untuk komponen yang dipilih (HTML/CSS/JS terpisah).</div>
             <div id="monaco-editor-container" style="flex: 1; min-height: 400px; background: #1e1e1e;"></div>
         </div>
+        <?php endif; ?>
     </div>
 </div>
+<?php endif; ?>
 
 <script>
     // Ensure template modal handlers exist before inline onclick attributes execute.
     // This avoids runtime errors like: "confirmTemplate is not defined".
+    window.builderPermissionContext = <?= json_encode([
+        'canAccessBuilder' => $canAccessBuilder,
+        'canAccessPalette' => $canAccessPalette,
+        'canAccessTools' => $canAccessTools,
+        'canDragComponents' => $canDragComponents,
+        'canAccessActions' => $canAccessActions,
+        'canAccessForms' => $canAccessForms,
+        'canCreatePage' => $canCreatePage,
+        'canEditPage' => $canEditPage,
+    ]) ?>;
+
     function selectTemplate(id) {
         selectedTemplateId = id;
         renderTemplates();
@@ -2271,17 +2316,21 @@ $forms = $forms ?? [];
 
         if (window.sortableInstance) {
             window.sortableInstance.destroy();
+            window.sortableInstance = null;
         }
-        window.sortableInstance = new window.Sortable(canvas, {
-            animation: 150,
-            handle: '.block-action-btn.move',
-            ghostClass: 'sortable-ghost',
-            onEnd: function(evt) {
-                const item = window.pageState.splice(evt.oldIndex, 1)[0];
-                window.pageState.splice(evt.newIndex, 0, item);
-                renderBuilder(window.pageState);
-            }
-        });
+
+        if (window.builderPermissionContext?.canDragComponents) {
+            window.sortableInstance = new window.Sortable(canvas, {
+                animation: 150,
+                handle: '.block-action-btn.move',
+                ghostClass: 'sortable-ghost',
+                onEnd: function(evt) {
+                    const item = window.pageState.splice(evt.oldIndex, 1)[0];
+                    window.pageState.splice(evt.newIndex, 0, item);
+                    renderBuilder(window.pageState);
+                }
+            });
+        }
 
         scheduleLivePreviewUpdate();
         scheduleFullPageSourceSyncFromBuilder();
@@ -2294,26 +2343,37 @@ $forms = $forms ?? [];
         div.dataset.type = block.type;
         if (block.id === selectedBlockId) div.classList.add('selected');
 
+        const canAccessActions = !!window.builderPermissionContext?.canAccessActions;
+        const canDragComponents = !!window.builderPermissionContext?.canDragComponents;
+        const moveButton = canDragComponents
+            ? '<button class="block-action-btn move" title="Move"><span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">drag_indicator</span></button>'
+            : '';
+        const actionButtons = canAccessActions
+            ? `${moveButton}<button class="block-action-btn duplicate" title="Duplicate"><span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">content_copy</span></button><button class="block-action-btn delete" title="Delete"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>`
+            : '';
+
         div.innerHTML = `
-        <div class="block-actions">
-            <button class="block-action-btn move" title="Move"><span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">drag_indicator</span></button>
-            <button class="block-action-btn duplicate" title="Duplicate"><span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8">content_copy</span></button>
-            <button class="block-action-btn delete" title="Delete"><span class="material-symbols-outlined" style="font-size:16px">delete</span></button>
-        </div>
+        ${canAccessActions ? `<div class="block-actions">${actionButtons}</div>` : ''}
         <div class="block-content" onclick="selectBlock('${block.id}')">
             ${renderBlockContent(block)}
         </div>
     `;
 
-        div.querySelector('.delete').addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteBlock(block.id);
-        });
+        const deleteButton = div.querySelector('.delete');
+        if (deleteButton) {
+            deleteButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteBlock(block.id);
+            });
+        }
 
-        div.querySelector('.duplicate').addEventListener('click', (e) => {
-            e.stopPropagation();
-            duplicateBlock(block);
-        });
+        const duplicateButton = div.querySelector('.duplicate');
+        if (duplicateButton) {
+            duplicateButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                duplicateBlock(block);
+            });
+        }
 
         return div;
     }
@@ -4914,6 +4974,10 @@ $forms = $forms ?? [];
 
     // Initialize on load
     document.addEventListener('DOMContentLoaded', async () => {
+        if (!window.builderPermissionContext?.canAccessBuilder) {
+            return;
+        }
+
         const hasExisting = <?= json_encode(!empty($initialState)) ?>;
         const isNewRecord = <?= json_encode($model->isNewRecord) ?>;
 
@@ -4942,29 +5006,31 @@ $forms = $forms ?? [];
             window.requestAnimationFrame(() => renderTemplates());
         }
 
-        // Setup drag & drop
-        document.querySelectorAll('.component-item').forEach(item => {
-            item.draggable = true;
-            item.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('type', item.dataset.type);
-            });
-        });
-
+        // Setup drag & drop only when the role can manipulate components.
         const canvas = document.getElementById('canvas');
-        canvas?.addEventListener('dragover', (e) => {
-            if (activeCodeScope === 'page') return;
-            e.preventDefault();
-            canvas.style.borderColor = '#6366f1';
-        });
-        canvas?.addEventListener('dragleave', () => {
-            canvas.style.borderColor = 'transparent';
-        });
-        canvas?.addEventListener('drop', (e) => {
-            if (activeCodeScope === 'page') return;
-            e.preventDefault();
-            const type = e.dataTransfer.getData('type');
-            if (type) addBlock(type);
-        });
+        if (window.builderPermissionContext?.canDragComponents) {
+            document.querySelectorAll('.component-item').forEach(item => {
+                item.draggable = true;
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('type', item.dataset.type);
+                });
+            });
+
+            canvas?.addEventListener('dragover', (e) => {
+                if (activeCodeScope === 'page') return;
+                e.preventDefault();
+                canvas.style.borderColor = '#6366f1';
+            });
+            canvas?.addEventListener('dragleave', () => {
+                canvas.style.borderColor = 'transparent';
+            });
+            canvas?.addEventListener('drop', (e) => {
+                if (activeCodeScope === 'page') return;
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                if (type) addBlock(type);
+            });
+        }
 
         syncCodeScopeUI();
     });
@@ -5605,20 +5671,22 @@ ${html || ''}
 </script>
 
 <!-- Builder Toolbar -->
-<div class="builder-toolbar">
+<div class="builder-toolbar" style="<?= $canAccessActions ? '' : 'display:none;' ?>">
     <div class="builder-toolbar-title">
         <span class="material-symbols-outlined">dashboard</span>
         Dynamic Page Builder
     </div>
     <div class="builder-toolbar-actions">
-        <button class="btn-preview" onclick="previewPage()">
-            <span class="material-symbols-outlined">visibility</span>
-            Preview
-        </button>
-        <button class="btn-save" onclick="savePage()">
-            <span class="material-symbols-outlined">save</span>
-            Simpan
-        </button>
+        <?php if ($canAccessActions): ?>
+            <button class="btn-preview" onclick="previewPage()">
+                <span class="material-symbols-outlined">visibility</span>
+                Preview
+            </button>
+            <button class="btn-save" onclick="savePage()">
+                <span class="material-symbols-outlined">save</span>
+                Simpan
+            </button>
+        <?php endif; ?>
     </div>
 </div>
 

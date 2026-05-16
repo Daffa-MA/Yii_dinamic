@@ -83,6 +83,7 @@ class DatabaseSchemaInitializer
     {
         $this->createMasterPageTable();
         $this->createMasterMenuTable();
+        $this->createProjectAuthTables();
         $this->createMasterFormTable();
         $this->createMasterFormFieldsTable();
         $this->createMasterFormLayoutsTable();
@@ -90,6 +91,159 @@ class DatabaseSchemaInitializer
         $this->createWorkspaceSettingsTable();
         $this->ensureColumnsExist();
         $this->ensureMasterPageColumnsExist();
+        $this->ensureProjectAuthColumnsExist();
+    }
+
+    private function createProjectAuthTables(): void
+    {
+        $this->createUsersTable();
+        $this->createRolesTable();
+        $this->createPermissionsTable();
+        $this->createRolePermissionsTable();
+        $this->createUserRolesTable();
+        $this->createRoleAccessTable();
+    }
+
+    private function createUsersTable(): void
+    {
+        if ($this->connection->getTableSchema('users', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('users', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'name' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+            'username' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
+            'email' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull()->unique(),
+            'password_hash' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+            'role' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->notNull()->defaultValue('visitor'),
+            'status' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull()->defaultValue(1),
+            'must_change_password' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(0),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-users-username', 'users', 'username', true)->execute();
+        $this->connection->createCommand()->createIndex('idx-users-email', 'users', 'email', true)->execute();
+        $this->connection->createCommand()->createIndex('idx-users-role', 'users', 'role')->execute();
+        $this->connection->createCommand()->createIndex('idx-users-status', 'users', 'status')->execute();
+    }
+
+    private function createRolesTable(): void
+    {
+        if ($this->connection->getTableSchema('roles', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('roles', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'name' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
+            'description' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'is_system' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(0),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ])->execute();
+    }
+
+    private function createPermissionsTable(): void
+    {
+        if ($this->connection->getTableSchema('permissions', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('permissions', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'permission_key' => $this->connection->schema->createColumnSchemaBuilder('string', 150)->notNull()->unique(),
+            'label' => $this->connection->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+            'permission_type' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->notNull()->defaultValue('feature'),
+            'description' => $this->connection->schema->createColumnSchemaBuilder('string', 255),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-permissions-type', 'permissions', 'permission_type')->execute();
+    }
+
+    private function createRolePermissionsTable(): void
+    {
+        if ($this->connection->getTableSchema('role_permissions', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('role_permissions', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'role_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull(),
+            'permission_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull(),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-role_permissions-role_id', 'role_permissions', 'role_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-role_permissions-permission_id', 'role_permissions', 'permission_id')->execute();
+        $this->connection->createCommand()->createIndex('uq-role_permissions-role_permission', 'role_permissions', ['role_id', 'permission_id'], true)->execute();
+    }
+
+    private function createUserRolesTable(): void
+    {
+        if ($this->connection->getTableSchema('user_roles', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('user_roles', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'user_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull(),
+            'role_id' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull(),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-user_roles-user_id', 'user_roles', 'user_id')->execute();
+        $this->connection->createCommand()->createIndex('idx-user_roles-role_id', 'user_roles', 'role_id')->execute();
+        $this->connection->createCommand()->createIndex('uq-user_roles-user_role', 'user_roles', ['user_id', 'role_id'], true)->execute();
+    }
+
+    private function createRoleAccessTable(): void
+    {
+        if ($this->connection->getTableSchema('role_access', true) !== null) {
+            return;
+        }
+
+        $this->connection->createCommand()->createTable('role_access', [
+            'id' => $this->connection->schema->createColumnSchemaBuilder('pk'),
+            'role' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->notNull(),
+            'access_type' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->notNull(),
+            'access_key' => $this->connection->schema->createColumnSchemaBuilder('string', 150)->notNull(),
+            'can_access' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
+            'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+        ])->execute();
+
+        $this->connection->createCommand()->createIndex('idx-role_access-role', 'role_access', 'role')->execute();
+        $this->connection->createCommand()->createIndex('idx-role_access-type', 'role_access', 'access_type')->execute();
+        $this->connection->createCommand()->createIndex('idx-role_access-key', 'role_access', 'access_key')->execute();
+        $this->connection->createCommand()->createIndex('uq-role_access-role-type-key', 'role_access', ['role', 'access_type', 'access_key'], true)->execute();
+    }
+
+    private function ensureProjectAuthColumnsExist(): void
+    {
+        $usersSchema = $this->connection->getTableSchema('users', true);
+        if ($usersSchema !== null) {
+            $columnsToAdd = [
+                'name' => ['type' => 'string', 'length' => 255],
+                'email' => ['type' => 'string', 'length' => 255],
+                'role' => ['type' => 'string', 'length' => 50, 'default' => 'visitor'],
+                'status' => ['type' => 'integer', 'default' => 1],
+                'must_change_password' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
+            ];
+
+            foreach ($columnsToAdd as $column => $config) {
+                if (!isset($usersSchema->columns[$column])) {
+                    $columnSchema = $this->connection->schema->createColumnSchemaBuilder($config['type'], $config['length'] ?? null);
+                    if (array_key_exists('default', $config)) {
+                        $columnSchema->defaultValue($config['default']);
+                    }
+                    $this->connection->createCommand()->addColumn('users', $column, $columnSchema)->execute();
+                }
+            }
+        }
     }
 
     private function createMasterFormTable(): void
@@ -627,6 +781,87 @@ class DatabaseSchemaInitializer
     {
         $this->insertDefaultPages();
         $this->insertDefaultMenus();
+        $this->insertDefaultProjectAccessData();
+    }
+
+    private function insertDefaultProjectAccessData(): void
+    {
+        $now = date('Y-m-d H:i:s');
+        $userCount = (int)(new \yii\db\Query())->from('users')->count('*', $this->connection);
+        if ($userCount === 0) {
+            $adminPassword = Yii::$app->security->generatePasswordHash('admin123');
+            $this->connection->createCommand()->insert('users', [
+                'name' => 'Administrator',
+                'username' => 'superadmin',
+                'email' => 'admin@local',
+                'password_hash' => $adminPassword,
+                'role' => 'superadmin',
+                'status' => 1,
+                'must_change_password' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])->execute();
+        } else {
+            $superAdminExists = (new \yii\db\Query())
+                ->from('users')
+                ->where(['username' => 'superadmin'])
+                ->exists($this->connection);
+            if (!$superAdminExists) {
+                $legacyAdmin = (new \yii\db\Query())
+                    ->from('users')
+                    ->where(['username' => 'admin'])
+                    ->one($this->connection);
+                if (!empty($legacyAdmin)) {
+                    $this->connection->createCommand()->update('users', [
+                        'username' => 'superadmin',
+                        'role' => 'superadmin',
+                    ], ['id' => (int)$legacyAdmin['id']])->execute();
+                }
+            }
+        }
+
+        $roleCount = (int)(new \yii\db\Query())->from('roles')->count('*', $this->connection);
+        if ($roleCount === 0) {
+            $this->connection->createCommand()->batchInsert(
+                'roles',
+                ['name', 'description', 'is_system', 'created_at', 'updated_at'],
+                [
+                    ['admin', 'System administrator', 1, $now, $now],
+                    ['visitor', 'Default visitor role', 1, $now, $now],
+                ]
+            )->execute();
+        }
+
+        try {
+            $adminRoleId = (new \yii\db\Query())
+                ->select('id')
+                ->from('roles')
+                ->where(['name' => 'admin'])
+                ->scalar($this->connection);
+
+            $adminUserId = (new \yii\db\Query())
+                ->select('id')
+                ->from('users')
+                ->where(['username' => 'admin'])
+                ->scalar($this->connection);
+
+            if ($adminRoleId && $adminUserId) {
+                $hasMapping = (new \yii\db\Query())
+                    ->from('user_roles')
+                    ->where(['user_id' => (int)$adminUserId, 'role_id' => (int)$adminRoleId])
+                    ->exists($this->connection);
+
+                if (!$hasMapping) {
+                    $this->connection->createCommand()->insert('user_roles', [
+                        'user_id' => (int)$adminUserId,
+                        'role_id' => (int)$adminRoleId,
+                        'created_at' => $now,
+                    ])->execute();
+                }
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to seed default role mapping: ' . $e->getMessage(), 'app');
+        }
     }
 
     /**

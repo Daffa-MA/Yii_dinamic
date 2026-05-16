@@ -19,6 +19,7 @@ use app\models\DbTable;
 use app\models\Project;
 use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
+use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
 
 class FormController extends Controller
@@ -984,6 +985,7 @@ class FormController extends Controller
     {
         $activeProjectId = $this->getActiveProjectId();
         $schemaColumn = Form::getSchemaStorageColumn();
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 
         $submissionCountSubQuery = FormSubmission::find()
             ->select(['form_id', 'submission_count' => 'COUNT(*)'])
@@ -1000,8 +1002,10 @@ class FormController extends Controller
                 'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
             ])
             ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
-            ->where(['f.user_id' => Yii::$app->user->id])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
+        if (!$isCommanderSuperAdmin) {
+            $query->where(['f.user_id' => Yii::$app->user->id]);
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $query->andWhere(['f.project_id' => $activeProjectId]);
         }
@@ -1941,6 +1945,7 @@ class FormController extends Controller
     protected function findModel($id, $checkOwnership = true)
     {
         $id = (int)$id;
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 
         if (!$checkOwnership) {
             $model = Form::findOne($id);
@@ -1952,8 +1957,10 @@ class FormController extends Controller
 
         $criteria = [
             'id' => $id,
-            'user_id' => Yii::$app->user->id,
         ];
+        if (!$isCommanderSuperAdmin) {
+            $criteria['user_id'] = Yii::$app->user->id;
+        }
 
         $activeProjectId = $this->getActiveProjectId();
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {

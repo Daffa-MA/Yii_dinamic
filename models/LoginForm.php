@@ -1,6 +1,7 @@
 <?php
 namespace app\models;
 
+use app\components\CommanderAuthContext;
 use Yii;
 use yii\base\Model;
 
@@ -49,7 +50,15 @@ class LoginForm extends Model
     public function login()
     {
         if ($this->validate()) {
-            return Yii::$app->user->login($this->getUser(), $this->rememberMe ? 3600*24*30 : 0);
+            $user = $this->getUser();
+            if ($user === null) {
+                return false;
+            }
+
+            if (Yii::$app->user->login($user, $this->rememberMe ? 3600 * 24 * 30 : 0)) {
+                (new CommanderAuthContext())->login($user);
+                return true;
+            }
         }
         return false;
     }

@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use app\components\ProjectPermissionRegistry;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
@@ -184,6 +185,17 @@ class MasterPage extends ActiveRecord
         return parent::beforeSave($insert);
     }
 
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+
+        try {
+            (new ProjectPermissionRegistry())->syncPagePermissions($this);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to sync page permissions: ' . $e->getMessage(), 'permission-registry');
+        }
+    }
+
     public function getMasterForms()
     {
         return $this->hasMany(MasterForm::class, ['page_id' => 'id']);
@@ -247,10 +259,12 @@ class MasterPage extends ActiveRecord
 
     public static function getActivePages()
     {
-        return self::find()
+        $pages = self::find()
             ->where(['is_active' => 1])
             ->orderBy(['id' => SORT_ASC])
             ->all();
+
+        return (new ProjectPermissionRegistry())->filterPages($pages);
     }
 
     public function getFormList()

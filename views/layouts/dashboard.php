@@ -34,7 +34,7 @@ $customProps = [
     'topnav-text-color' => $cssVars['topnav-text-color'] ?? '#1e293b',
 ];
 
-$customPropsStyle = '.dashboard-layout, .dynamic-workspace-layout {';
+$customPropsStyle = '.dashboard-layout, .dynamic-workspace-layout, body.dashboard-main-page {';
 foreach ($customProps as $key => $value) {
     $customPropsStyle .= "--ws-{$key}: " . Html::encode($value) . "; ";
 }

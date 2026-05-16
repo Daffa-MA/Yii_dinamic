@@ -1483,6 +1483,13 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
     
+    // Add click handler for code scope buttons
+    document.querySelectorAll('.code-scope-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setCodeScope(this.dataset.scope);
+        });
+    });
+    
     // Render Fields
     function renderFields() {
         if (formFields.length === 0) {

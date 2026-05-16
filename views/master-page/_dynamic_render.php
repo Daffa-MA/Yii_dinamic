@@ -169,8 +169,17 @@ function renderBlockSafe(block) {
             wrap.style.textAlign = props.align || 'center';
             
             const a = document.createElement('a');
-            a.href = props.url || '#';
+            const buttonUrl = props.url || '';
             const style = props.style || 'primary';
+            
+            // Handle empty/null URL - prevent navigation
+            if (!buttonUrl || buttonUrl === '#' || buttonUrl === '#nothing') {
+                a.href = 'javascript:void(0)';
+                a.dataset.noNavigate = '1';
+            } else {
+                a.href = buttonUrl;
+                a.target = '_blank';
+            }
             
             a.style.display = props.fullWidth ? 'block' : 'inline-block';
             a.style.padding = props.size === 'lg' ? '12px 32px' : (props.size === 'sm' ? '8px 16px' : '10px 24px');
@@ -178,6 +187,7 @@ function renderBlockSafe(block) {
             a.style.textDecoration = 'none';
             a.style.fontWeight = '600';
             a.style.fontSize = '14px';
+            a.style.cursor = 'pointer';
             
             if (style === 'primary') {
                 a.style.backgroundColor = '#4f46e5';
@@ -193,6 +203,15 @@ function renderBlockSafe(block) {
             }
             
             a.textContent = props.text || '';
+            
+            // Prevent parent navigation for buttons without valid URL
+            a.addEventListener('click', function(e) {
+                if (this.dataset.noNavigate === '1') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            });
+            
             wrap.appendChild(a);
             return wrap;
         }
@@ -314,6 +333,22 @@ document.addEventListener('DOMContentLoaded', function() {
     for (const block of window.dynamicPageState) {
         container.appendChild(renderBlockSafe(block));
     }
+
+    // Prevent all links from navigating within iframe (prevents 404)
+    container.querySelectorAll('a').forEach(link => {
+        const href = link.getAttribute('href');
+        // If link is empty, '#', or not an external URL, prevent navigation
+        if (!href || href === '#' || href === 'javascript:void(0)' || !href.startsWith('http')) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        } else {
+            // External links should open in new tab
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        }
+    });
 
     hydrateDynamicForms(container);
 });

@@ -23,6 +23,18 @@ class WorkspaceSettings extends \yii\base\Model
     public $workspace_logo_image = null;
     public $workspace_logo_width = 120;
     public $workspace_logo_height = 120;
+    public $login_title = 'Login Aplikasi';
+    public $login_subtitle = 'Masuk ke aplikasi Anda';
+    public $login_background_start = '#07111f';
+    public $login_background_end = '#111827';
+    public $login_background_image = null;
+    public $login_background_upload = null;
+    public $login_button_color = '#2563eb';
+    public $login_card_color = 'rgba(255, 255, 255, 0.96)';
+    public $login_text_color = '#0f172a';
+    public $login_accent_color = '#4f46e5';
+    public $login_border_radius = 28;
+    public $login_theme = 'dark';
 
     public $sidebar_bg_start = '#07111f';
     public $sidebar_bg_end = '#111827';
@@ -67,6 +79,17 @@ class WorkspaceSettings extends \yii\base\Model
                 'workspace_logo_image' => null,
                 'workspace_logo_width' => 120,
                 'workspace_logo_height' => 120,
+                'login_title' => 'Login Aplikasi',
+                'login_subtitle' => 'Masuk ke aplikasi Anda',
+                'login_background_start' => '#07111f',
+                'login_background_end' => '#111827',
+                'login_background_image' => null,
+                'login_button_color' => '#2563eb',
+                'login_card_color' => 'rgba(255, 255, 255, 0.96)',
+                'login_text_color' => '#0f172a',
+                'login_accent_color' => '#4f46e5',
+                'login_border_radius' => 28,
+                'login_theme' => 'dark',
                 'sidebar_bg_start' => '#f8fafc',
                 'sidebar_bg_end' => '#f1f5f9',
                 'sidebar_border_color' => 'rgba(148, 163, 184, 0.16)',
@@ -100,11 +123,16 @@ class WorkspaceSettings extends \yii\base\Model
     {
         return [
             [['workspace_logo_width', 'workspace_logo_height'], 'integer', 'min' => 40, 'max' => 300],
-            [['workspace_title', 'workspace_subtitle', 'workspace_badge', 'workspace_logo_icon', 'workspace_logo_bg'], 'string', 'max' => 255],
+            [['login_border_radius'], 'integer', 'min' => 0, 'max' => 64],
+            [['login_theme'], 'in', 'range' => ['light', 'dark']],
+            [['workspace_title', 'workspace_subtitle', 'workspace_badge', 'workspace_logo_icon', 'workspace_logo_bg', 'login_title', 'login_subtitle'], 'string', 'max' => 255],
             [['workspace_logo_image'], 'string', 'max' => 500],
-            [['workspace_logo_bg', 'sidebar_bg_start', 'sidebar_bg_end', 'sidebar_border_color', 'sidebar_text_color', 'sidebar_text_muted'], 'string', 'max' => 100],
+            [['workspace_logo_bg', 'sidebar_bg_start', 'sidebar_bg_end', 'sidebar_border_color', 'sidebar_text_color', 'sidebar_text_muted', 'login_background_start', 'login_background_end', 'login_button_color', 'login_text_color', 'login_accent_color'], 'string', 'max' => 100],
             [['sidebar_hover_bg', 'sidebar_hover_text', 'sidebar_active_bg_start', 'sidebar_active_bg_end', 'sidebar_active_text', 'sidebar_active_shadow'], 'string', 'max' => 100],
             [['topnav_bg', 'topnav_border_color', 'topnav_text_color', 'light_sidebar_bg', 'light_sidebar_border'], 'string', 'max' => 100],
+            [['login_background_image'], 'string', 'max' => 500],
+            [['login_background_upload'], 'file', 'skipOnEmpty' => true, 'extensions' => ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'ogg'], 'checkExtensionByMimeType' => false, 'maxSize' => 20 * 1024 * 1024],
+            [['login_card_color'], 'string', 'max' => 100],
         ];
     }
 
@@ -116,6 +144,18 @@ class WorkspaceSettings extends \yii\base\Model
             'workspace_badge' => 'Badge Workspace',
             'workspace_logo_width' => 'Logo Width',
             'workspace_logo_height' => 'Logo Height',
+            'login_title' => 'Login Title',
+            'login_subtitle' => 'Login Subtitle',
+            'login_background_start' => 'Login Background Start',
+            'login_background_end' => 'Login Background End',
+            'login_background_image' => 'Login Background Image',
+            'login_background_upload' => 'Upload Login Background',
+            'login_button_color' => 'Login Button Color',
+            'login_card_color' => 'Login Card Color',
+            'login_text_color' => 'Login Text Color',
+            'login_accent_color' => 'Login Accent Color',
+            'login_border_radius' => 'Login Border Radius',
+            'login_theme' => 'Login Theme',
 
             'sidebar_bg_start' => 'Sidebar Background Start',
             'sidebar_bg_end' => 'Sidebar Background End',
@@ -334,6 +374,31 @@ class WorkspaceSettings extends \yii\base\Model
         ];
     }
 
+    public function getLoginBackgroundAsset(): array
+    {
+        $value = trim((string)($this->login_background_image ?? ''));
+        if ($value === '') {
+            return [
+                'url' => '',
+                'type' => 'none',
+                'is_remote' => false,
+            ];
+        }
+
+        $isRemote = (bool)preg_match('#^https?://#i', $value);
+        $url = $isRemote ? $value : Yii::getAlias('@web/uploads/workspace/') . ltrim($value, '/');
+        $path = parse_url($value, PHP_URL_PATH);
+        $source = is_string($path) && $path !== '' ? $path : $value;
+        $ext = strtolower(pathinfo($source, PATHINFO_EXTENSION));
+        $type = in_array($ext, ['mp4', 'webm', 'ogg'], true) ? 'video' : (in_array($ext, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'], true) ? 'image' : 'image');
+
+        return [
+            'url' => $url,
+            'type' => $type,
+            'is_remote' => $isRemote,
+        ];
+    }
+
     private function resolveScopeKey($key = null): string
     {
         $scopeKey = trim((string)$key);
@@ -374,6 +439,17 @@ class WorkspaceSettings extends \yii\base\Model
             'workspace_logo_image' => $this->workspace_logo_image,
             'workspace_logo_width' => $this->workspace_logo_width,
             'workspace_logo_height' => $this->workspace_logo_height,
+            'login_title' => $this->login_title,
+            'login_subtitle' => $this->login_subtitle,
+            'login_background_start' => $this->login_background_start,
+            'login_background_end' => $this->login_background_end,
+            'login_background_image' => $this->login_background_image,
+            'login_button_color' => $this->login_button_color,
+            'login_card_color' => $this->login_card_color,
+            'login_text_color' => $this->login_text_color,
+            'login_accent_color' => $this->login_accent_color,
+            'login_border_radius' => $this->login_border_radius,
+            'login_theme' => $this->login_theme,
 
             'sidebar_bg_start' => $this->sidebar_bg_start,
             'sidebar_bg_end' => $this->sidebar_bg_end,
@@ -434,6 +510,7 @@ class WorkspaceSettings extends \yii\base\Model
     {
         $connection = Yii::$app->db;
         if ($connection->getTableSchema(self::DB_TABLE, true) !== null) {
+            $this->ensureLoginColumnsExist($connection);
             return;
         }
 
@@ -446,6 +523,17 @@ class WorkspaceSettings extends \yii\base\Model
             'workspace_logo_icon' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('folder_open'),
             'workspace_logo_bg' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
             'workspace_logo_image' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
+            'login_title' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Login Aplikasi'),
+            'login_subtitle' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Masuk ke aplikasi Anda'),
+            'login_background_start' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),
+            'login_background_end' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#111827'),
+            'login_background_image' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
+            'login_button_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#2563eb'),
+            'login_card_color' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(255, 255, 255, 0.96)'),
+            'login_text_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#0f172a'),
+            'login_accent_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
+            'login_border_radius' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(28),
+            'login_theme' => $connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('dark'),
             'sidebar_bg_start' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),
             'sidebar_bg_end' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#111827'),
             'sidebar_border_color' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(148, 163, 184, 0.16)'),
@@ -473,6 +561,8 @@ class WorkspaceSettings extends \yii\base\Model
             'updated_at' => $connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
         ])->execute();
 
+        $this->ensureLoginColumnsExist($connection);
+
         $connection->createCommand()->createIndex('idx-workspace_settings-key', self::DB_TABLE, 'setting_key', true)->execute();
 
         $connection->createCommand()->insert(self::DB_TABLE, [
@@ -483,6 +573,17 @@ class WorkspaceSettings extends \yii\base\Model
             'workspace_logo_icon' => self::getDefaults()['workspace_logo_icon'],
             'workspace_logo_bg' => self::getDefaults()['workspace_logo_bg'],
             'workspace_logo_image' => self::getDefaults()['workspace_logo_image'],
+            'login_title' => self::getDefaults()['login_title'],
+            'login_subtitle' => self::getDefaults()['login_subtitle'],
+            'login_background_start' => self::getDefaults()['login_background_start'],
+            'login_background_end' => self::getDefaults()['login_background_end'],
+            'login_background_image' => self::getDefaults()['login_background_image'],
+            'login_button_color' => self::getDefaults()['login_button_color'],
+            'login_card_color' => self::getDefaults()['login_card_color'],
+            'login_text_color' => self::getDefaults()['login_text_color'],
+            'login_accent_color' => self::getDefaults()['login_accent_color'],
+            'login_border_radius' => self::getDefaults()['login_border_radius'],
+            'login_theme' => self::getDefaults()['login_theme'],
             'sidebar_bg_start' => self::getDefaults()['sidebar_bg_start'],
             'sidebar_bg_end' => self::getDefaults()['sidebar_bg_end'],
             'sidebar_border_color' => self::getDefaults()['sidebar_border_color'],
@@ -507,6 +608,36 @@ class WorkspaceSettings extends \yii\base\Model
             'footer_logout_bg' => self::getDefaults()['footer_logout_bg'],
             'footer_logout_hover_bg' => self::getDefaults()['footer_logout_hover_bg'],
         ])->execute();
+    }
+
+    private function ensureLoginColumnsExist(Connection $connection): void
+    {
+        $schema = $connection->schema->getTableSchema(self::DB_TABLE, true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columns = [
+            'login_title' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Login Aplikasi'),
+            'login_subtitle' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Masuk ke aplikasi Anda'),
+            'login_background_start' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),
+            'login_background_end' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#111827'),
+            'login_background_image' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
+            'login_button_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#2563eb'),
+            'login_card_color' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(255, 255, 255, 0.96)'),
+            'login_text_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#0f172a'),
+            'login_accent_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
+            'login_border_radius' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(28),
+            'login_theme' => $connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('dark'),
+        ];
+
+        foreach ($columns as $columnName => $columnDefinition) {
+            if (!isset($schema->columns[$columnName])) {
+                $connection->createCommand()->addColumn(self::DB_TABLE, $columnName, $columnDefinition)->execute();
+                $connection->schema->refreshTableSchema(self::DB_TABLE);
+                $schema = $connection->schema->getTableSchema(self::DB_TABLE, true);
+            }
+        }
     }
 
     private function resolveCurrentDatabaseName(Connection $connection): string

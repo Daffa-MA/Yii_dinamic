@@ -2,8 +2,11 @@
 
 namespace app\models;
 
+use app\components\ProjectPermissionRegistry;
+use app\components\ProjectPermissionService;
 use Yii;
 use yii\db\ActiveRecord;
+use yii\helpers\Inflector;
 
 class MasterMenu extends ActiveRecord
 {
@@ -558,6 +561,11 @@ public function __set($name, $value)
         } elseif ($this->type === self::TYPE_BUTTON) {
             $this->form_id = null;
         }
+
+        if (empty($this->menu_key)) {
+            $seedValue = !empty($this->route) ? $this->route : ($this->name ?? ('menu-' . ($this->id ?? time())));
+            $this->menu_key = Inflector::slug((string)$seedValue, '-');
+        }
         
         \Yii::info('beforeSave AFTER CLEAN - type: ' . $this->type . ', form_id: ' . ($this->form_id ?? 'NULL') . ', page_id: ' . ($this->page_id ?? 'NULL'), 'menu-debug');
         
@@ -568,6 +576,18 @@ public function __set($name, $value)
         }
         $this->updated_at = date('Y-m-d H:i:s');
         return parent::beforeSave($insert);
+    }
+
+    public function afterSave($insert, $changedAttributes)
+    {
+        parent::afterSave($insert, $changedAttributes);
+
+        try {
+            $registry = new ProjectPermissionRegistry();
+            $registry->syncMenuPermissions($this);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to sync menu permissions: ' . $e->getMessage(), 'permission-registry');
+        }
     }
 
     public function toggleStatus()
@@ -691,18 +711,15 @@ public function __set($name, $value)
 
     public function isVisibleForCurrentUser(): bool
     {
-        $roles = $this->visibility_roles;
-        
-        if (empty($roles)) {
-            return true;
-        }
-        
-        $userRoles = Yii::$app->authManager->getRolesByUser(Yii::$app->user->id);
-        $userRoleNames = array_keys($userRoles);
-        
-        $allowedRoles = array_map('trim', explode(',', $roles));
-        
-        return !empty(array_intersect($userRoleNames, $allowedRoles));
+        return (new ProjectPermissionService())->canAccessMenu([
+            'name' => $this->name,
+            'type' => $this->type,
+            'route' => $this->route,
+            'page_id' => $this->page_id,
+            'form_id' => $this->form_id,
+            'menu_key' => $this->menu_key,
+            'visibility_roles' => $this->visibility_roles,
+        ]);
     }
 
     public function getVisibilityCondition(): ?array
@@ -888,7 +905,8 @@ public function __set($name, $value)
             $items = array_values($items);
         }
         
-        return self::buildTree($items);
+        $tree = self::buildTree($items);
+        return (new ProjectPermissionRegistry())->filterMenuTree($tree);
     }
 
     private static function buildTree($items, $parentId = null)

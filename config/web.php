@@ -8,7 +8,7 @@ $config = [
     'id' => 'basic',
     'name' => 'Architectural Editor',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => ['log', 'app\\components\\ProjectAccessBootstrap'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -105,6 +105,10 @@ $config = [
                 'project-list/select/<id:\d+>' => 'project/select',
                 'project-list/firebase-users' => 'project/firebase-users',
                 'project/profile' => 'project/profile',
+                'project/login/<id:\d+>' => 'project/login',
+                'project/login' => 'project/login',
+                'project/change-password' => 'project/change-password',
+                'project/logout' => 'project/logout',
 
                 // Multi-project Dashboard routes (NEW - untuk dynamic)
                 'dashboard' => 'dashboard/index',
@@ -163,6 +167,8 @@ $config = [
 
                 // Workspace Settings routes
                 'settings/workspace' => 'workspace-settings/index',
+                'settings/workspace/permissions' => 'workspace-settings/permissions',
+                'settings/workspace/permission-inspector' => 'workspace-settings/permission-inspector',
                 'settings/workspace/save' => 'workspace-settings/save',
                 'settings/workspace/reset' => 'workspace-settings/reset',
             ],

@@ -11,6 +11,7 @@ use app\services\PageService;
 use app\services\DynamicFormPreviewService;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
+use app\components\ProjectPermissionService;
 use app\components\ProjectSchema;
 use yii\data\ActiveDataProvider;
 use yii\web\Controller;
@@ -438,6 +439,7 @@ class MasterPageController extends Controller
             ->orderBy(['id' => SORT_ASC])
             ->all();
 
+        $permissionService = new ProjectPermissionService();
         $forms = [];
         foreach ($rows as $row) {
             $id = (int) ($row->id ?? 0);
@@ -453,6 +455,10 @@ class MasterPageController extends Controller
                 $name = 'Form #' . $id;
             }
 
+            if (!$permissionService->canAccessForm($row)) {
+                continue;
+            }
+
             $forms[] = [
                 'id' => $id,
                 'name' => $name,
@@ -460,6 +466,37 @@ class MasterPageController extends Controller
         }
 
         return $forms;
+    }
+
+    private function buildBuilderPermissionContext(?MasterPage $model = null): array
+    {
+        $permissionService = new ProjectPermissionService();
+        $pageKey = $model !== null ? ($model->slug ?: $model->name ?: (string)$model->id) : 'page';
+        $pageKey = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', (string)$pageKey), '-'));
+        $pageKey = $pageKey !== '' ? $pageKey : 'page';
+
+        $builderKeys = [
+            'builder.global.access',
+            'builder.palette.access',
+            'builder.tools.access',
+            'builder.drag.access',
+            'builder.actions.access',
+            'builder.forms.access',
+            'builder.page.' . $pageKey . '.access',
+        ];
+
+        return [
+            'pageKey' => $pageKey,
+            'canAccessBuilder' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'builder.page.' . $pageKey . '.access']),
+            'canAccessPalette' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'builder.palette.access', 'builder.page.' . $pageKey . '.access']),
+            'canAccessTools' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'builder.tools.access', 'builder.page.' . $pageKey . '.access']),
+            'canDragComponents' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'builder.drag.access', 'builder.page.' . $pageKey . '.access']),
+            'canAccessActions' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'builder.actions.access', 'builder.page.' . $pageKey . '.access']),
+            'canAccessForms' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'builder.forms.access', 'builder.page.' . $pageKey . '.access']),
+            'canCreatePage' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'action.page.create']),
+            'canEditPage' => $permissionService->canAccessPermissionKeys(['builder.global.access', 'action.page.edit', 'builder.page.' . $pageKey . '.access']),
+            'canManageComponents' => $permissionService->canAccessPermissionKeys($builderKeys),
+        ];
     }
 
     public function actionFormPreview($id, $showTitle = 1, $interactive = 0)
@@ -578,6 +615,7 @@ class MasterPageController extends Controller
             'model' => $model,
             'initialState' => !empty($model->layout_json) ? json_decode($model->layout_json, true) : [],
             'forms' => $this->findAvailableForms(),
+            'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
     }
 
@@ -631,6 +669,7 @@ if ($model->save(false)) {
             'model' => $model,
             'initialState' => !empty($model->layout_json) ? json_decode($model->layout_json, true) : [],
             'forms' => $this->findAvailableForms(),
+            'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
     }
 
@@ -699,6 +738,7 @@ if ($model->save(false)) {
             'customCss' => $page->custom_css ?? null,
             'customJs' => $page->custom_js ?? null,
             'pageType' => $page->page_type ?? 'builder',
+            'pageKey' => $page->slug ?? (string)$page->id,
         ]);
     }
 
@@ -715,6 +755,7 @@ if ($model->save(false)) {
             'customCss' => $page->custom_css ?? null,
             'customJs' => $page->custom_js ?? null,
             'pageType' => $page->page_type ?? 'builder',
+            'pageKey' => $page->slug ?? (string)$page->id,
         ]);
     }
 }

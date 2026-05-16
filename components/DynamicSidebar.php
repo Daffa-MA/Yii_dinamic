@@ -6,6 +6,8 @@ use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\MasterForm;
 use app\components\ActiveProjectContext;
+use app\components\ProjectAuthContext;
+use app\components\ProjectPermissionService;
 use app\components\ProjectSchema;
 use Yii;
 use yii\base\Component;
@@ -447,9 +449,21 @@ class DynamicSidebar extends Component
             return false;
         }
         
-        // For now, just check if user is logged in and has matching roles
-        // You can extend this with actual role checking
-        return true;
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser();
+        if ($user !== null) {
+            $currentRole = strtolower(trim((string)$user->role));
+            if ($currentRole === 'admin') {
+                return true;
+            }
+
+            $allowedRoles = array_map('trim', explode(',', strtolower((string)$roles)));
+            if (in_array($currentRole, $allowedRoles, true)) {
+                return true;
+            }
+        }
+
+        return (new ProjectPermissionService())->canAccessMenu($item);
     }
 
     private function getCurrentRoute()
@@ -488,17 +502,25 @@ class DynamicSidebar extends Component
 
     public function getFlatMenu()
     {
-        return MasterMenu::find()
+        $items = MasterMenu::find()
             ->where(['is_active' => MasterMenu::STATUS_ACTIVE])
             ->orderBy(['sort_order' => SORT_ASC])
             ->all();
+
+        return array_values(array_filter($items, function ($item) {
+            return $this->isVisible($item->getRenderConfig());
+        }));
     }
 
     public function getActiveMenus()
     {
-        return MasterMenu::find()
+        $items = MasterMenu::find()
             ->where(['is_active' => MasterMenu::STATUS_ACTIVE])
             ->orderBy(['sort_order' => SORT_ASC])
             ->all();
+
+        return array_values(array_filter($items, function ($item) {
+            return $this->isVisible($item->getRenderConfig());
+        }));
     }
 }

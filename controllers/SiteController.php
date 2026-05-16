@@ -11,6 +11,7 @@ use app\models\DbTable;
 use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
 
 class SiteController extends Controller
@@ -28,7 +29,6 @@ class SiteController extends Controller
     
     private function redirectAfterAuthentication()
     {
-        // Always redirect to projects page first after login
         return $this->redirect(['project/index']);
     }
 
@@ -98,10 +98,13 @@ class SiteController extends Controller
         }
 
         $userId = Yii::$app->user->id;
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
         $activeProject = null;
         $projectDatabaseName = null;
         if ($projectContextEnabled && $activeProjectId !== null) {
-            $activeProject = Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
+            $activeProject = $isCommanderSuperAdmin
+                ? Project::findOne(['id' => $activeProjectId])
+                : Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
             // Get the project's database name
             if ($activeProject !== null) {
                 $projectController = new ProjectController('project', Yii::$app);
@@ -114,9 +117,9 @@ class SiteController extends Controller
             $cacheSuffix .= '-project-' . $activeProjectId;
         }
 
-        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId, $activeProjectId, $projectContextEnabled) {
-            $formFilter = ['user_id' => $userId];
-            $submissionFormFilter = ['forms.user_id' => $userId];
+        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId, $activeProjectId, $projectContextEnabled, $isCommanderSuperAdmin) {
+            $formFilter = $isCommanderSuperAdmin ? [] : ['user_id' => $userId];
+            $submissionFormFilter = $isCommanderSuperAdmin ? [] : ['forms.user_id' => $userId];
             if ($projectContextEnabled && $activeProjectId !== null) {
                 $formFilter['project_id'] = $activeProjectId;
                 $submissionFormFilter['forms.project_id'] = $activeProjectId;
@@ -146,9 +149,11 @@ class SiteController extends Controller
 
         $recentFormsQuery = Form::find()
             ->select(['id'])
-            ->where(['user_id' => $userId])
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
             ->limit(5);
+        if (!$isCommanderSuperAdmin) {
+            $recentFormsQuery->where(['user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $recentFormsQuery->andWhere(['project_id' => $activeProjectId]);
         }
@@ -171,7 +176,9 @@ class SiteController extends Controller
             ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC])
             ->limit(6);
-        $formsQuery->where(['f.user_id' => $userId]);
+        if (!$isCommanderSuperAdmin) {
+            $formsQuery->where(['f.user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $formsQuery->andWhere(['f.project_id' => $activeProjectId]);
         }
@@ -187,7 +194,9 @@ class SiteController extends Controller
             ])
             ->orderBy(['created_at' => SORT_DESC])
             ->limit(10);
-        $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
+        if (!$isCommanderSuperAdmin) {
+            $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $recentSubmissionsQuery->andWhere(['forms.project_id' => $activeProjectId]);
         }
@@ -213,7 +222,10 @@ class SiteController extends Controller
 
         // Use project database name if available, otherwise use the general active database
         $displayDatabase = $projectDatabaseName ?: ($databaseContext['activeDatabase'] ?? 'default');
-        $databaseTableQuery = DbTable::find()->where(['user_id' => $userId]);
+        $databaseTableQuery = DbTable::find();
+        if (!$isCommanderSuperAdmin) {
+            $databaseTableQuery->where(['user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
         }
@@ -259,17 +271,10 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
-        // Destroy identity from session
+        (new ActiveProjectContext())->clear();
+        (new CommanderAuthContext())->logout();
         Yii::$app->user->logout(true);
-
-        // Clear session completely
         Yii::$app->session->destroy();
-
-        // Clear cookies
-        $cookies = Yii::$app->response->cookies;
-        $cookies->remove('_identity');
-        $cookies->remove('_csrf');
-
         return $this->redirect(['site/login']);
     }
 

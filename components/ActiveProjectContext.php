@@ -9,20 +9,26 @@ use app\components\CommanderAuthContext;
 class ActiveProjectContext
 {
     public const SESSION_KEY = 'active_project_id';
+    public const SESSION_KEY_DOMAIN = 'resolved_domain_project_id';
 
     public function getActiveProjectId(): ?int
     {
-        if (Yii::$app->user->isGuest) {
-            return null;
-        }
-
         if (!ProjectSchema::supportsProjectContext()) {
             return null;
         }
 
         $projectId = (int)Yii::$app->session->get(self::SESSION_KEY, 0);
         if ($projectId <= 0) {
+            $domainProjectId = (int)Yii::$app->session->get(self::SESSION_KEY_DOMAIN, 0);
+            if ($domainProjectId > 0) {
+                return $domainProjectId;
+            }
             return null;
+        }
+
+        if (Yii::$app->user->isGuest) {
+            $domainProjectId = (int)Yii::$app->session->get(self::SESSION_KEY_DOMAIN, 0);
+            return $domainProjectId > 0 ? $domainProjectId : null;
         }
 
         if ((new CommanderAuthContext())->isSuperAdmin()) {
@@ -52,6 +58,10 @@ class ActiveProjectContext
             return null;
         }
 
+        if (Yii::$app->user->isGuest) {
+            return Project::findOne(['id' => $projectId]);
+        }
+
         if ((new CommanderAuthContext())->isSuperAdmin()) {
             return Project::findOne(['id' => $projectId]);
         }
@@ -71,6 +81,7 @@ class ActiveProjectContext
 
         if ((new CommanderAuthContext())->isSuperAdmin()) {
             Yii::$app->session->set(self::SESSION_KEY, $projectId);
+            Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
             return true;
         }
 
@@ -83,12 +94,27 @@ class ActiveProjectContext
         }
 
         Yii::$app->session->set(self::SESSION_KEY, $projectId);
+        Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
         return true;
     }
 
     public function clear(): void
     {
         Yii::$app->session->remove(self::SESSION_KEY);
+        Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
+    }
+
+    public function setResolvedDomainProject(int $projectId): void
+    {
+        if ($projectId > 0) {
+            Yii::$app->session->set(self::SESSION_KEY_DOMAIN, $projectId);
+        }
+    }
+
+    public function getResolvedDomainProjectId(): ?int
+    {
+        $projectId = (int)Yii::$app->session->get(self::SESSION_KEY_DOMAIN, 0);
+        return $projectId > 0 ? $projectId : null;
     }
 
     public function userHasProjects(): bool

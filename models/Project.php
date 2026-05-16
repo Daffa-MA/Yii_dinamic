@@ -17,6 +17,83 @@ use yii\db\ActiveRecord;
  */
 class Project extends ActiveRecord
 {
+    public static function ensureProjectStructure(): void
+    {
+        $db = Yii::$app->get('metadataDb', false) ?: parent::getDb();
+        $schema = $db->schema->getTableSchema(static::tableName(), true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columns = [
+            'custom_domain' => $db->schema->createColumnSchemaBuilder('string', 190)->null(),
+            'domain_status' => $db->schema->createColumnSchemaBuilder('string', 20)->null(),
+            'domain_verified_at' => $db->schema->createColumnSchemaBuilder('datetime')->null(),
+        ];
+
+        foreach ($columns as $columnName => $columnSchema) {
+            if (!isset($schema->columns[$columnName])) {
+                $db->createCommand()->addColumn(static::tableName(), $columnName, $columnSchema)->execute();
+                $db->schema->refreshTableSchema(static::tableName());
+                $schema = $db->schema->getTableSchema(static::tableName(), true);
+            }
+        }
+    }
+
+    public static function normalizeCustomDomain(?string $value): ?string
+    {
+        $value = trim((string)$value);
+        if ($value === '') {
+            return null;
+        }
+
+        $value = strtolower($value);
+        $value = preg_replace('#^https?://#', '', $value) ?? $value;
+        $value = preg_replace('#/.*$#', '', $value) ?? $value;
+        $value = trim($value);
+        $value = trim($value, '.');
+
+        return $value === '' ? null : $value;
+    }
+
+    public static function findByCustomDomain(string $host): ?self
+    {
+        self::ensureProjectStructure();
+
+        $host = self::normalizeCustomDomain($host) ?? '';
+        if ($host === '') {
+            return null;
+        }
+
+        $project = static::find()
+            ->where(['custom_domain' => $host])
+            ->andWhere(['or',
+                ['domain_status' => 'active'],
+                ['domain_status' => null],
+                ['domain_status' => ''],
+            ])
+            ->one();
+
+        if ($project !== null) {
+            return $project;
+        }
+
+        if (strpos($host, 'www.') === 0) {
+            $host = substr($host, 4);
+        } else {
+            $host = 'www.' . $host;
+        }
+
+        return static::find()
+            ->where(['custom_domain' => $host])
+            ->andWhere(['or',
+                ['domain_status' => 'active'],
+                ['domain_status' => null],
+                ['domain_status' => ''],
+            ])
+            ->one();
+    }
+
     /**
      * @inheritdoc
      */
@@ -41,12 +118,24 @@ class Project extends ActiveRecord
             [['user_id', 'name'], 'required'],
             [['user_id'], 'integer'],
             [['description'], 'string'],
+            [['custom_domain'], 'string', 'max' => 190],
+            [['domain_status'], 'string', 'max' => 20],
+            [['domain_verified_at'], 'safe'],
             [['name'], 'string', 'max' => 150],
             [['name'], 'trim'],
             [['name'], 'filter', 'filter' => static function ($value) {
                 return $value === '' ? null : $value;
             }],
+            [['custom_domain'], 'filter', 'filter' => static function ($value) {
+                return self::normalizeCustomDomain(is_string($value) ? $value : (string)$value);
+            }],
+            [['domain_status'], 'filter', 'filter' => static function ($value) {
+                $value = strtolower(trim((string)$value));
+                return $value === '' ? null : $value;
+            }],
+            [['domain_status'], 'in', 'range' => ['active', 'pending', 'error', null, ''], 'skipOnEmpty' => true],
             [['name'], 'unique', 'targetAttribute' => ['user_id', 'name'], 'message' => 'Project name already exists.'],
+            [['custom_domain'], 'unique', 'targetAttribute' => ['custom_domain'], 'message' => 'Domain already used by another project.', 'skipOnEmpty' => true],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];
     }
@@ -58,6 +147,9 @@ class Project extends ActiveRecord
             'user_id' => 'User ID',
             'name' => 'Project Name',
             'description' => 'Description',
+            'custom_domain' => 'Custom Domain',
+            'domain_status' => 'Domain Status',
+            'domain_verified_at' => 'Domain Verified At',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];

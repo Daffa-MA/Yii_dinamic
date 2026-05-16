@@ -944,7 +944,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                     </div>
                                     <div>
                                         <h2 class="projects-panel-title">Buat Project Baru</h2>
-                                        <p class="projects-panel-subtitle">Isi nama dan deskripsi singkat untuk membuat workspace baru.</p>
+                                        <p class="projects-panel-subtitle">Isi nama, database otomatis, dan custom domain untuk membuat workspace baru.</p>
                                     </div>
                                 </div>
                             </div>
@@ -967,6 +967,53 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                 >
                                 <?php if ($model->hasErrors('name')): ?>
                                     <div class="projects-field-error"><?= Html::encode($model->getFirstError('name')) ?></div>
+                                <?php endif; ?>
+                            </div>
+
+                            <div class="projects-field">
+                                <label for="project-database">Database</label>
+                                <?php
+                                $databasePreview = strtolower(trim((string)($model->name ?? '')));
+                                $databasePreview = preg_replace('/[^a-z0-9]+/i', '_', $databasePreview) ?? '';
+                                $databasePreview = trim($databasePreview, '_');
+                                if ($databasePreview === '') {
+                                    $databasePreview = 'project';
+                                }
+                                if (preg_match('/^[0-9]/', $databasePreview) === 1) {
+                                    $databasePreview = 'project_' . $databasePreview;
+                                }
+                                ?>
+                                <input
+                                    type="text"
+                                    id="project-database"
+                                    class="form-control projects-input"
+                                    value="<?= Html::encode($databasePreview) ?>"
+                                    readonly
+                                >
+                                <div class="projects-submit-hint" style="margin-top:8px;">
+                                    <span class="material-symbols-outlined">dns</span>
+                                    <span>Database dibuat otomatis dari nama project.</span>
+                                </div>
+                            </div>
+
+                            <div class="projects-field">
+                                <label for="project-custom-domain">Custom Domain</label>
+                                <input
+                                    type="text"
+                                    id="project-custom-domain"
+                                    name="Project[custom_domain]"
+                                    value="<?= Html::encode($model->custom_domain ?? '') ?>"
+                                    class="form-control projects-input"
+                                    placeholder="testing.domain.com"
+                                    maxlength="190"
+                                    autocomplete="off"
+                                >
+                                <div class="projects-submit-hint" style="margin-top:8px;">
+                                    <span class="material-symbols-outlined">language</span>
+                                    <span>Opsional. Jika diisi, workspace akan otomatis terbuka lewat domain ini.</span>
+                                </div>
+                                <?php if ($model->hasErrors('custom_domain')): ?>
+                                    <div class="projects-field-error"><?= Html::encode($model->getFirstError('custom_domain')) ?></div>
                                 <?php endif; ?>
                             </div>
 
@@ -1058,6 +1105,12 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                                         <span class="material-symbols-outlined">dns</span>
                                                         <span class="projects-meta-pill-text"><?= Html::encode($projectDatabases[(int) $project->id] ?? '-') ?></span>
                                                     </span>
+                                                    <?php if (!empty($project->custom_domain)): ?>
+                                                        <span class="projects-meta-pill">
+                                                            <span class="material-symbols-outlined">language</span>
+                                                            <span class="projects-meta-pill-text"><?= Html::encode($project->custom_domain) ?></span>
+                                                        </span>
+                                                    <?php endif; ?>
                                                     <span class="projects-meta-pill">
                                                         <span class="material-symbols-outlined">deployed_code</span>
                                                         <span class="projects-meta-pill-text">Project #<?= (int) $project->id ?></span>
@@ -1076,6 +1129,15 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                                 ]
                                             ) ?>
                                             
+                                            <?= Html::a(
+                                                '<span class="material-symbols-outlined">tune</span><span>Settings</span>',
+                                                ['project/update', 'id' => $project->id],
+                                                [
+                                                    'class' => 'projects-button projects-button-secondary',
+                                                    'encode' => false,
+                                                ]
+                                            ) ?>
+
                                             <?= Html::a(
                                                 '<span class="material-symbols-outlined">delete</span><span>Hapus</span>',
                                                 ['project/delete', 'id' => $project->id],
@@ -1108,3 +1170,33 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         </div>
     </section>
 </div>
+
+<?php
+$this->registerJs(<<<JS
+(function () {
+    const nameInput = document.getElementById('project-name');
+    const databaseInput = document.getElementById('project-database');
+    if (!nameInput || !databaseInput) {
+        return;
+    }
+
+    const buildDatabaseName = (value) => {
+        let normalized = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+        if (!normalized) {
+            normalized = 'project';
+        }
+        if (/^[0-9]/.test(normalized)) {
+            normalized = 'project_' + normalized;
+        }
+        return normalized;
+    };
+
+    const updateDatabasePreview = () => {
+        databaseInput.value = buildDatabaseName(nameInput.value);
+    };
+
+    nameInput.addEventListener('input', updateDatabasePreview);
+    updateDatabasePreview();
+})();
+JS);
+?>

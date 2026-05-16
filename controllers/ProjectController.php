@@ -122,6 +122,11 @@ class ProjectController extends Controller
             return Project::findOne($projectId);
         }
 
+        $resolvedDomainProjectId = (new ActiveProjectContext())->getResolvedDomainProjectId();
+        if ($resolvedDomainProjectId !== null && $resolvedDomainProjectId === $projectId) {
+            return Project::findOne($projectId);
+        }
+
         return Project::findOne([
             'id' => $projectId,
             'user_id' => Yii::$app->user->id,
@@ -358,6 +363,7 @@ private function insertDefaultCmsData($newDb): void
             return $this->redirect(['site/dashboard']);
         }
 
+        Project::ensureProjectStructure();
         $context = new ActiveProjectContext();
         $model = new Project();
         $model->user_id = Yii::$app->user->id;
@@ -365,6 +371,14 @@ private function insertDefaultCmsData($newDb): void
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
                 $model->user_id = Yii::$app->user->id;
+                $model->custom_domain = Project::normalizeCustomDomain((string)$model->custom_domain);
+                if ($model->custom_domain !== null) {
+                    $model->domain_status = 'active';
+                    $model->domain_verified_at = date('Y-m-d H:i:s');
+                } else {
+                    $model->domain_status = null;
+                    $model->domain_verified_at = null;
+                }
 
                 if ($model->save()) {
                     try {
@@ -384,7 +398,10 @@ private function insertDefaultCmsData($newDb): void
                     $serverHint = $dbHostHint !== ''
                         ? "Database baru '{$databaseName}' dibuat di server MySQL {$dbHostHint}. Di phpMyAdmin, pastikan Anda terhubung ke host yang sama agar database tampil di sidebar kiri (refresh daftar database bila perlu)."
                         : "Database baru '{$databaseName}' sudah dibuat. Di phpMyAdmin, pastikan koneksi ke server MySQL yang sama dengan aplikasi ini, lalu refresh daftar database.";
-                    Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}");
+                    $domainHint = $model->custom_domain !== null
+                        ? " Custom domain '{$model->custom_domain}' tersimpan dan aktif."
+                        : '';
+                    Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}{$domainHint}");
 
                     return $this->redirectToProjectLogin((int)$model->id, ['site/dashboard']);
                 }
@@ -457,6 +474,43 @@ private function insertDefaultCmsData($newDb): void
         }
 
         return $this->redirectToProjectLogin((int)$project->id, ['site/dashboard']);
+    }
+
+    public function actionUpdate($id)
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini.');
+            return $this->redirect(['project/index']);
+        }
+
+        Project::ensureProjectStructure();
+
+        $project = $this->findAccessibleProject((int)$id);
+        if ($project === null) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        if (Yii::$app->request->isPost && $project->load(Yii::$app->request->post())) {
+            $project->custom_domain = Project::normalizeCustomDomain((string)$project->custom_domain);
+            if ($project->custom_domain !== null) {
+                $project->domain_status = 'active';
+                $project->domain_verified_at = date('Y-m-d H:i:s');
+            } else {
+                $project->domain_status = null;
+                $project->domain_verified_at = null;
+            }
+
+            if ($project->save()) {
+                Yii::$app->session->setFlash('success', 'Project settings berhasil disimpan.');
+                return $this->redirect(['project/update', 'id' => $project->id]);
+            }
+
+            Yii::$app->session->setFlash('error', implode(', ', $project->getFirstErrors()) ?: 'Gagal menyimpan project settings.');
+        }
+
+        return $this->render('update', [
+            'project' => $project,
+        ]);
     }
 
     public function actionDelete($id)

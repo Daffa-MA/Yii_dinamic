@@ -25,6 +25,16 @@ if ($model->table_id) {
     $tableName = $dbTable ? $dbTable->name : null;
 }
 
+// Debug custom code detection
+$hasCustomCode = !empty($renderPayload['hasOverride']);
+$customHtml = $renderPayload['customHtml'] ?? '';
+$customCss = $renderPayload['customCss'] ?? '';
+$customJs = $renderPayload['customJs'] ?? '';
+$isCustomCodeMode = !empty($model->custom_code_mode);
+
+// Determine if we should render custom code or form builder
+$shouldRenderCustom = $hasCustomCode && ($isCustomCodeMode || !empty($customHtml));
+
 $this->title = 'Preview: ' . $formName;
 ?>
 
@@ -336,30 +346,43 @@ $this->title = 'Preview: ' . $formName;
     </div>
     <?php endif; ?>
     
+    <!-- DEBUG: Show custom code detection status -->
+    <?php if (YII_DEBUG): ?>
+    <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; font-family: monospace; color: #666;">
+        <strong>DEBUG INFO:</strong><br>
+        hasCustomCode: <?= $hasCustomCode ? 'YES' : 'NO' ?> | 
+        isCustomCodeMode: <?= $isCustomCodeMode ? 'YES' : 'NO' ?> | 
+        shouldRenderCustom: <?= $shouldRenderCustom ? 'YES' : 'NO' ?> | 
+        fieldsCount: <?= count($fields) ?> | 
+        customHtml length: <?= strlen($customHtml) ?>
+    </div>
+    <?php endif; ?>
+    
     <div class="preview-card">
         <div class="preview-card-header">
             <h2 class="preview-card-title"><?= Html::encode($formName) ?></h2>
         </div>
         
         <div class="preview-card-body">
-            <?php if (!empty($renderPayload['hasOverride'])): ?>
-                <?php if (!empty($renderPayload['customCss'])): ?>
-                    <style><?= $renderPayload['customCss'] ?></style>
+            <?php if ($shouldRenderCustom): ?>
+                <!-- Custom Code Mode: Render only custom HTML/CSS/JS -->
+                <?php if (!empty($customCss)): ?>
+                    <style><?= $customCss ?></style>
                 <?php endif; ?>
                 <div class="mb-3">
-                    <?= $renderPayload['customHtml'] ?>
+                    <?= $customHtml ?>
                 </div>
-                <?php if (!empty($renderPayload['customJs'])): ?>
+                <?php if (!empty($customJs)): ?>
                     <script>
                         (function(){
-                            const run = function(){ <?= $renderPayload['customJs'] ?> };
+                            const run = function(){ <?= $customJs ?> };
                             try { run(); } catch (e) { console.error(e); }
                         })();
                     </script>
                 <?php endif; ?>
-            <?php endif; ?>
-
-            <?php if (!empty($fields)): ?>
+            <?php else: ?>
+                <!-- Default Form Builder Mode: Render form fields -->
+                <?php if (!empty($fields)): ?>
                 <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', ['id' => 'preview-form']) ?>
                 <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->getCsrfToken() ?>">
                 
@@ -475,11 +498,12 @@ $this->title = 'Preview: ' . $formName;
                 <?php endif; ?>
                 
                 <?= Html::endForm() ?>
-            <?php else: ?>
-                <div class="preview-empty">
-                    <span class="material-symbols-outlined">inbox</span>
-                    <p>No fields defined yet.</p>
-                </div>
+                <?php else: ?>
+                    <div class="preview-empty">
+                        <span class="material-symbols-outlined">inbox</span>
+                        <p>No fields defined yet.</p>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>

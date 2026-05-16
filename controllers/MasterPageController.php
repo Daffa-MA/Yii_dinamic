@@ -134,20 +134,18 @@ class MasterPageController extends Controller
      */
     public function actionVisualSave()
     {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
         $pageId = Yii::$app->request->post('pageId');
         $title = Yii::$app->request->post('title');
         $slug = Yii::$app->request->post('slug');
         $content = Yii::$app->request->post('content');
 
         if (!$pageId) {
-            return ['success' => false, 'message' => 'Page ID is required'];
+            return $this->redirect(['visual-update', 'id' => $pageId ?? 0, 'saveError' => 1]);
         }
 
         $page = MasterPage::findOne($pageId);
         if (!$page) {
-            return ['success' => false, 'message' => 'Page not found'];
+            return $this->redirect(['visual-update', 'id' => $pageId, 'saveError' => 1]);
         }
 
         $page->title = $title ?: $page->title;
@@ -155,10 +153,11 @@ class MasterPageController extends Controller
         $page->layout_json = $content;
 
         if ($page->save(false)) {
-            return ['success' => true, 'message' => 'Page saved successfully', 'pageId' => $page->id];
+            Yii::$app->session->setFlash('success', 'Halaman berhasil disimpan!');
+            return $this->redirect(['index']);
         }
 
-        return ['success' => false, 'message' => 'Failed to save page'];
+        return $this->redirect(['visual-update', 'id' => $pageId, 'saveError' => 1]);
     }
 
     /**
@@ -618,12 +617,14 @@ class MasterPageController extends Controller
                 $model->custom_js = $postData['MasterPage']['custom_js'];
             }
 
-            if ($model->save(false)) {
-                Yii::$app->session->setFlash('success', 'Halaman berhasil disimpan!');
-                return $this->redirect(['index']);
-            } else {
-                Yii::$app->session->setFlash('error', 'Gagal menyimpan halaman. Errors: ' . json_encode($model->getErrors()));
-            }
+if ($model->save(false)) {
+                    Yii::$app->session->setFlash('success', 'Halaman berhasil diperbarui!');
+                    return $this->redirect(['index']);
+                } else {
+                    Yii::$app->session->setFlash('error', 'Gagal memperbarui halaman. Errors: ' . json_encode($model->getErrors()));
+                    // Redirect with error flag to reopen save dialog
+                    return $this->redirect(['dynamic-update', 'id' => $id, 'saveError' => 1]);
+                }
         }
 
         return $this->render('dynamic-builder', [

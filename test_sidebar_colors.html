@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sidebar Colors - CSS Specificity Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 40px;
+            background: #f8fafc;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 30px;
+        }
+        
+        .demo-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+        }
+        
+        .demo-section h2 {
+            color: #334155;
+            margin-top: 0;
+            font-size: 18px;
+        }
+        
+        .demo-box {
+            background: linear-gradient(180deg, #07111f 0%, #111827 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 15px;
+        }
+        
+        /* BEFORE FIX - CSS class with color property */
+        .header-text-before h3 {
+            font-size: 15px;
+            font-weight: 800;
+            margin: 0;
+            color: #94a3b8; /* This overrides inline style */
+        }
+        
+        .header-text-before p {
+            font-size: 12px;
+            margin: 4px 0 0;
+            color: #64748b; /* This overrides inline style */
+        }
+        
+        /* AFTER FIX - CSS class WITHOUT color property */
+        .header-text-after h3 {
+            font-size: 15px;
+            font-weight: 800;
+            margin: 0;
+            /* color removed - using inline style */
+        }
+        
+        .header-text-after p {
+            font-size: 12px;
+            margin: 4px 0 0;
+            /* color removed - using inline style */
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status.fail {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .code {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            margin-top: 10px;
+            overflow-x: auto;
+        }
+        
+        .explanation {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .color-swatch {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 Test Sidebar Colors - CSS Specificity Demo</h1>
+        <p class="subtitle">Demonstrasi masalah dan solusi untuk warna teks sidebar header</p>
+        
+        <!-- BEFORE FIX -->
+        <div class="demo-section">
+            <h2>❌ SEBELUM FIX - Inline Style Tidak Berfungsi</h2>
+            <p>CSS class memiliki property <code>color</code> yang override inline style</p>
+            
+            <div class="demo-box">
+                <div class="header-text-before">
+                    <span class="badge" style="color: #0066f5 !important;">WORKSPACE</span>
+                    <h3 style="color: #1e60be !important;">Projects</h3>
+                    <p style="color: #0066f5 !important;">Beranda & navigasi</p>
+                </div>
+            </div>
+            
+            <div class="explanation">
+                <strong>Yang Terjadi:</strong><br>
+                • Inline style: <code>style="color: #1e60be !important"</code> (biru)<br>
+                • CSS class: <code>.header-text-before h3 { color: #94a3b8; }</code> (abu-abu)<br>
+                • <strong>Hasil: Warna abu-abu (#94a3b8)</strong> karena CSS class override inline style<br>
+                <span class="status fail">GAGAL</span> - Warna tidak sesuai setting
+            </div>
+            
+            <div class="code">
+/* CSS Class dengan property color */
+.header-text-before h3 {
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0;
+    color: #94a3b8; /* ← Ini yang override inline style */
+}
+
+/* HTML dengan inline style */
+&lt;h3 style="color: #1e60be !important;"&gt;Projects&lt;/h3&gt;
+            </div>
+        </div>
+        
+        <!-- AFTER FIX -->
+        <div class="demo-section">
+            <h2>✅ SESUDAH FIX - Inline Style Berfungsi</h2>
+            <p>CSS class TIDAK memiliki property <code>color</code>, inline style berfungsi</p>
+            
+            <div class="demo-box">
+                <div class="header-text-after">
+                    <span class="badge" style="color: #0066f5 !important;">WORKSPACE</span>
+                    <h3 style="color: #1e60be !important;">Projects</h3>
+                    <p style="color: #0066f5 !important;">Beranda & navigasi</p>
+                </div>
+            </div>
+            
+            <div class="explanation">
+                <strong>Yang Terjadi:</strong><br>
+                • Inline style: <code>style="color: #1e60be !important"</code> (biru)<br>
+                • CSS class: <code>.header-text-after h3 { /* color removed */ }</code><br>
+                • <strong>Hasil: Warna biru (#1e60be)</strong> sesuai inline style<br>
+                <span class="status success">BERHASIL</span> - Warna sesuai setting
+            </div>
+            
+            <div class="code">
+/* CSS Class TANPA property color */
+.header-text-after h3 {
+    font-size: 15px;
+    font-weight: 800;
+    margin: 0;
+    /* color removed - using inline style */
+}
+
+/* HTML dengan inline style */
+&lt;h3 style="color: #1e60be !important;"&gt;Projects&lt;/h3&gt;
+            </div>
+        </div>
+        
+        <!-- COLOR REFERENCE -->
+        <div class="demo-section">
+            <h2>🎨 Referensi Warna</h2>
+            <p>
+                <span class="color-swatch" style="background: #1e60be;"></span>
+                <strong>#1e60be</strong> - Text Color (biru, dari Workspace Settings)
+            </p>
+            <p>
+                <span class="color-swatch" style="background: #0066f5;"></span>
+                <strong>#0066f5</strong> - Muted Text Color (biru terang, dari Workspace Settings)
+            </p>
+            <p>
+                <span class="color-swatch" style="background: #94a3b8;"></span>
+                <strong>#94a3b8</strong> - Default Gray (abu-abu, hardcoded di CSS class)
+            </p>
+        </div>
+        
+        <!-- TECHNICAL EXPLANATION -->
+        <div class="demo-section">
+            <h2>📚 Penjelasan Teknis</h2>
+            
+            <h3 style="font-size: 16px; margin-top: 20px;">CSS Specificity</h3>
+            <p>Urutan prioritas CSS (dari tertinggi ke terendah):</p>
+            <ol>
+                <li><strong>Inline style dengan !important</strong> - Prioritas tertinggi</li>
+                <li>ID selector dengan !important</li>
+                <li>Class selector dengan !important</li>
+                <li>Inline style tanpa !important</li>
+                <li>ID selector</li>
+                <li>Class selector</li>
+                <li>Element selector</li>
+            </ol>
+            
+            <h3 style="font-size: 16px; margin-top: 20px;">Mengapa Sebelumnya Tidak Berfungsi?</h3>
+            <p>
+                Walaupun inline style menggunakan <code>!important</code>, CSS class selector 
+                <code>.header-text-before h3</code> tetap override karena:
+            </p>
+            <ul>
+                <li>CSS class didefinisikan SETELAH inline style di cascade order</li>
+                <li>Browser menerapkan CSS dalam urutan yang didefinisikan</li>
+                <li>Property <code>color</code> di CSS class "menimpa" inline style</li>
+            </ul>
+            
+            <h3 style="font-size: 16px; margin-top: 20px;">Solusi</h3>
+            <p>
+                Dengan menghapus property <code>color</code> dari CSS class, tidak ada yang 
+                override inline style, sehingga warna dari Workspace Settings berfungsi.
+            </p>
+        </div>
+        
+        <!-- VERIFICATION STEPS -->
+        <div class="demo-section">
+            <h2>✓ Langkah Verifikasi di Aplikasi</h2>
+            <ol>
+                <li><strong>Hard refresh browser</strong> (Ctrl + Shift + R)</li>
+                <li><strong>View Page Source</strong> (Ctrl + U)</li>
+                <li>Cari <code>&lt;!-- CACHE BUSTER: v2.0</code></li>
+                <li>Lihat debug comments untuk memastikan warna yang benar</li>
+                <li><strong>Inspect Element</strong> (F12) pada teks "Projects"</li>
+                <li>Pastikan computed style menunjukkan warna yang benar</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

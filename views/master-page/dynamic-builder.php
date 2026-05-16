@@ -820,6 +820,142 @@ $forms = $forms ?? [];
         font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
     }
 
+    /* Button URL Validation Styles */
+    .text-red-500 { color: #ef4444 !important; }
+    .text-gray-500 { color: #6b7280 !important; }
+    .text-green-500 { color: #22c55e !important; }
+    .border-red-500 { border-color: #ef4444 !important; }
+    .prop-input.url-warning { 
+        border-color: #ef4444 !important;
+        background-color: #fef2f2 !important;
+    }
+    .prop-input.url-valid { 
+        border-color: #22c55e !important;
+        background-color: #f0fdf4 !important;
+    }
+
+    /* Custom Warning Modal */
+    .warning-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s ease;
+    }
+    .warning-modal-overlay.open {
+        opacity: 1;
+        visibility: visible;
+    }
+    .warning-modal {
+        background: white;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 480px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        transform: scale(0.95);
+        transition: transform 0.2s ease;
+    }
+    .warning-modal-overlay.open .warning-modal {
+        transform: scale(1);
+    }
+    .warning-modal-header {
+        padding: 24px 24px 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    .warning-modal-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        background: #fef3c7;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .warning-modal-icon svg {
+        width: 24px;
+        height: 24px;
+        color: #f59e0b;
+    }
+    .warning-modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        margin: 0 0 4px;
+    }
+    .warning-modal-subtitle {
+        font-size: 14px;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.5;
+    }
+    .warning-modal-body {
+        padding: 16px 24px;
+    }
+    .warning-modal-list {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 12px 16px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .warning-modal-list-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 0;
+        border-bottom: 1px solid #fecaca;
+        font-size: 14px;
+        color: #991b1b;
+    }
+    .warning-modal-list-item:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .warning-modal-list-item::before {
+        content: "⚠️";
+        font-size: 12px;
+    }
+    .warning-modal-footer {
+        padding: 0 24px 24px;
+        display: flex;
+        gap: 12px;
+        justify-content: flex-end;
+    }
+    .warning-modal-btn {
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.15s ease;
+    }
+    .warning-modal-btn-cancel {
+        background: #f3f4f6;
+        color: #374151;
+    }
+    .warning-modal-btn-cancel:hover {
+        background: #e5e7eb;
+    }
+    .warning-modal-btn-proceed {
+        background: #6366f1;
+        color: white;
+    }
+    .warning-modal-btn-proceed:hover {
+        background: #4f46e5;
+    }
+
     .page-builder {
         height: calc(100vh - 56px);
         display: flex;
@@ -2206,7 +2342,9 @@ $forms = $forms ?? [];
                     lg: '16px 32px'
                 };
                 const style = props.style || 'primary';
-                return `<div style="text-align:${props.align || 'center'};padding:12px"><button style="background:${colors[style]};color:white;border:none;border-radius:8px;padding:${sizes[props.size || 'md']};cursor:pointer;font-weight:600;font-size:14px;width:${props.fullWidth ? '100%' : 'auto'}">${props.text || 'Button'}</button></div>`;
+                const hasUrl = props.url && props.url.trim() !== '';
+                const urlWarning = !hasUrl ? '<span style="display:block;font-size:10px;color:#ef4444;margin-top:4px">⚠️ URL kosong</span>' : '';
+                return `<div style="text-align:${props.align || 'center'};padding:12px;${!hasUrl ? 'border:1px dashed #ef4444;border-radius:8px;background:#fef2f2;' : ''}">${!hasUrl ? '<div style="color:#ef4444;font-size:11px;margin-bottom:4px">⚠️ URL belum diatur</div>' : ''}<button style="background:${colors[style]};color:white;border:none;border-radius:8px;padding:${sizes[props.size || 'md']};cursor:pointer;font-weight:600;font-size:14px;width:${props.fullWidth ? '100%' : 'auto'}">${props.text || 'Button'}</button>${urlWarning}</div>`;
             case 'card':
                 return `<div style="border-radius:12px;padding:${props.padding || '20'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
             case 'spacer':
@@ -2472,8 +2610,10 @@ $forms = $forms ?? [];
                 </div>
                 <div class="prop-group">
                     <label>URL / Link</label>
-                    <input type="text" class="prop-input" value="${props.url || ''}" onchange="updateProp('${blockId}', 'url', this.value)">
-                    <small>Contoh: https://example.com atau /page/path</small>
+                    <input type="text" class="prop-input" id="button-url-input-${blockId}" value="${props.url || ''}" onchange="validateButtonUrl('${blockId}', this.value)">
+                    <small id="button-url-help-${blockId}" class="${!props.url ? 'text-red-500' : 'text-gray-500'}">
+                        ${!props.url ? '⚠️ Warning: URL kosong - tombol tidak akan navigasi' : 'Contoh: https://example.com atau /page/path'}
+                    </small>
                 </div>
             </div>
             <div class="prop-section">
@@ -2709,6 +2849,31 @@ $forms = $forms ?? [];
             renderBuilder(window.pageState);
             renderProperties(blockId);
         }
+    }
+
+    function validateButtonUrl(blockId, value) {
+        const helpText = document.getElementById('button-url-help-' + blockId);
+        const input = document.getElementById('button-url-input-' + blockId);
+        
+        if (!value || value.trim() === '') {
+            if (helpText) {
+                helpText.className = 'text-red-500';
+                helpText.textContent = '⚠️ Warning: URL kosong - tombol tidak akan navigasi';
+            }
+            if (input) {
+                input.classList.add('url-warning');
+                input.classList.remove('url-valid');
+            }
+        } else if (helpText) {
+            helpText.className = 'text-gray-500';
+            helpText.textContent = '✓ URL valid: ' + value;
+            if (input) {
+                input.classList.remove('url-warning');
+                input.classList.add('url-valid');
+            }
+        }
+        
+        updateProp(blockId, 'url', value);
     }
 
     // Template Modal
@@ -5473,16 +5638,58 @@ ${html || ''}
     </div>
 </div>
 
+<!-- Warning Modal for Button URL Validation -->
+<div id="warningModalOverlay" class="warning-modal-overlay">
+    <div class="warning-modal">
+        <div class="warning-modal-header">
+            <div class="warning-modal-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div>
+                <h3 class="warning-modal-title">Peringatan URL Kosong</h3>
+                <p class="warning-modal-subtitle">Beberapa button belum memiliki URL yang valid</p>
+            </div>
+        </div>
+        <div class="warning-modal-body">
+            <div id="warningModalList" class="warning-modal-list"></div>
+        </div>
+        <div class="warning-modal-footer">
+            <button type="button" class="warning-modal-btn warning-modal-btn-cancel" onclick="closeWarningModal()">Perbaiki Dulu</button>
+            <button type="button" class="warning-modal-btn warning-modal-btn-proceed" id="warningModalProceedBtn">Tetap Simpan</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // Save Page
     const defaultPageTitle = <?= json_encode((string) ($model->title ?? '')) ?>;
+    
+    // Check for saveError flag in URL to reopen dialog if there was an error
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('saveError') === '1') {
+        // Remove the param so it doesn't persist
+        window.history.replaceState({}, '', window.location.pathname + window.location.hash);
+        // Open save dialog after a short delay to ensure page is fully loaded
+        setTimeout(function() {
+            openSaveDialog(true); // true = restore from sessionStorage
+        }, 100);
+    }
 
-    function openSaveDialog() {
+    function openSaveDialog(restoreFromStorage = false) {
         const overlay = document.getElementById('saveDialogOverlay');
         const input = document.getElementById('saveTitleInput');
         if (!overlay || !input) return;
 
-        input.value = defaultPageTitle || '';
+        // Try to restore from sessionStorage if this is a retry after error
+        if (restoreFromStorage) {
+            const savedTitle = sessionStorage.getItem('pageBuilderPendingTitle');
+            input.value = savedTitle || defaultPageTitle || '';
+        } else {
+            input.value = defaultPageTitle || '';
+        }
+        
         overlay.classList.add('open');
         setTimeout(() => {
             input.focus();
@@ -5492,7 +5699,10 @@ ${html || ''}
 
     function closeSaveDialog() {
         const overlay = document.getElementById('saveDialogOverlay');
+        const input = document.getElementById('saveTitleInput');
         if (overlay) overlay.classList.remove('open');
+        // Clear stored title on close
+        sessionStorage.removeItem('pageBuilderPendingTitle');
     }
 
     function handleSaveDialogOverlay(event) {
@@ -5501,13 +5711,34 @@ ${html || ''}
         }
     }
 
+    function validateBeforeSave() {
+        // URL validation disabled - always return empty array
+        return [];
+    }
+
+    function showWarningModal(buttonsWithoutUrl, onProceed) {
+        // Disabled
+    }
+
+    function closeWarningModal() {
+        // Disabled
+    }
+
     function submitSavePage() {
+        // Skip URL validation - proceed directly to save
+        doSubmitSavePage();
+    }
+    
+    function doSubmitSavePage() {
         const input = document.getElementById('saveTitleInput');
         const title = (input?.value || '').trim();
         if (!title) {
             if (input) input.focus();
             return;
         }
+        
+        // Save title to sessionStorage so we can restore if there's an error
+        sessionStorage.setItem('pageBuilderPendingTitle', title);
 
         const form = document.createElement('form');
         form.method = 'POST';
@@ -5558,7 +5789,8 @@ ${html || ''}
         customJsInput.value = '';
         form.appendChild(customJsInput);
 
-        closeSaveDialog();
+        // Don't close dialog - let form submission handle it
+        // If there's an error, the dialog will stay open
         document.body.appendChild(form);
         form.submit();
     }

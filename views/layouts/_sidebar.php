@@ -254,7 +254,7 @@ if (!function_exists('renderDynamicSidebarTree')) {
 
 ?>
 
-<style>
+<style data-sidebar-version="2.0">
     .app-sidebar-nav * {
         pointer-events: auto !important;
     }
@@ -388,25 +388,25 @@ if (!function_exists('renderDynamicSidebarTree')) {
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.08);
         border: 1px solid rgba(148, 163, 184, 0.18);
-        color: #cbd5e1;
         font-size: 10px;
         font-weight: 700;
         letter-spacing: 0.08em;
         text-transform: uppercase;
+        /* color removed - using inline style */
     }
 
     .app-sidebar-header-text h2 {
         font-size: 15px;
         font-weight: 800;
-        color: #f8fafc;
         margin: 0;
+        /* color removed - using inline style */
     }
 
     .app-sidebar-header-text p {
         font-size: 12px;
-        color: var(--ws-sidebar-text-muted);
         margin: 4px 0 0;
         transition: opacity 0.2s ease, transform 0.2s ease;
+        /* color removed - using inline style */
     }
 
     .app-sidebar-header-text {
@@ -501,7 +501,7 @@ if (!function_exists('renderDynamicSidebarTree')) {
         align-items: center;
         justify-content: center;
         font-size: 18px;
-        color: #94a3b8;
+        color: var(--ws-sidebar-text-color);
         background: rgba(255, 255, 255, 0.05);
         border-radius: 8px;
         transition: all 0.2s ease;
@@ -719,15 +719,6 @@ if (!function_exists('renderDynamicSidebarTree')) {
     body.dashboard-main-page .app-sidebar-header-badge {
         background: rgba(59, 130, 246, 0.08);
         border-color: rgba(59, 130, 246, 0.24);
-        color: #1d4ed8;
-    }
-
-    body.dashboard-main-page .app-sidebar-header-text h2 {
-        color: #0f172a;
-    }
-
-    body.dashboard-main-page .app-sidebar-header-text p {
-        color: #64748b;
     }
 
     body.dashboard-main-page .app-sidebar-context {
@@ -750,22 +741,22 @@ if (!function_exists('renderDynamicSidebarTree')) {
     }
 
     body.dashboard-main-page .app-sidebar-link {
-        color: #475569;
+        /* color removed - using inline style from workspace settings */
         border-color: rgba(148, 163, 184, 0.06);
     }
 
-    body.dashboard-main-page .app-sidebar-link .material-symbols-outlined {
-        color: #64748b;
+body.dashboard-main-page .app-sidebar-link .material-symbols-outlined {
+        color: var(--ws-sidebar-text-color);
         background: rgba(148, 163, 184, 0.08);
     }
-
+    
     body.dashboard-main-page .app-sidebar-link:hover {
         background: rgba(148, 163, 184, 0.08);
-        color: #0f172a;
+        color: var(--ws-sidebar-hover-text);
     }
-
+    
     body.dashboard-main-page .app-sidebar-link:hover .material-symbols-outlined {
-        color: #1d4ed8;
+        color: var(--ws-sidebar-hover-text);
         background: rgba(59, 130, 246, 0.12);
     }
 
@@ -848,15 +839,6 @@ if (!function_exists('renderDynamicSidebarTree')) {
     body.project-page-v4 .app-sidebar-header-badge {
         background: rgba(148, 163, 184, 0.08);
         border-color: rgba(148, 163, 184, 0.14);
-        color: #cbd5e1;
-    }
-
-    body.project-page-v4 .app-sidebar-header-text h2 {
-        color: #f8fafc;
-    }
-
-    body.project-page-v4 .app-sidebar-header-text p {
-        color: #94a3b8;
     }
 
     body.project-page-v4 .app-sidebar-context {
@@ -879,22 +861,22 @@ if (!function_exists('renderDynamicSidebarTree')) {
     }
 
     body.project-page-v4 .app-sidebar-link {
-        color: #cbd5e1;
+        /* color removed - using inline style from workspace settings */
         border-color: rgba(148, 163, 184, 0.04);
     }
 
-    body.project-page-v4 .app-sidebar-link .material-symbols-outlined {
-        color: #94a3b8;
+body.project-page-v4 .app-sidebar-link .material-symbols-outlined {
+        color: var(--ws-sidebar-text-color);
         background: rgba(148, 163, 184, 0.08);
     }
-
+    
     body.project-page-v4 .app-sidebar-link:hover {
         background: rgba(148, 163, 184, 0.10);
-        color: #f8fafc;
+        color: var(--ws-sidebar-hover-text);
     }
-
+    
     body.project-page-v4 .app-sidebar-link:hover .material-symbols-outlined {
-        color: #f8fafc;
+        color: var(--ws-sidebar-hover-text);
         background: rgba(148, 163, 184, 0.16);
     }
 
@@ -962,7 +944,24 @@ $sidebarActiveText = $isMinimalSidebar ? '#f8fafc' : ($cssVars['sidebar-active-t
 $sidebarActiveShadow = $isMinimalSidebar ? '0 10px 24px rgba(2, 6, 23, 0.28)' : ($cssVars['sidebar-active-shadow'] ?? '0 8px 24px rgba(37, 99, 235, 0.28)');
 $logoBg = $isMinimalSidebar ? '#334155' : ($cssVars['workspace-logo-bg'] ?? '#4f46e5');
 $logoImage = $cssVars['workspace-logo-image'] ?? null;
+
+// Debug: Log color values
+Yii::info('Sidebar Text Color: ' . $sidebarTextColor, 'sidebar-debug');
+Yii::info('Sidebar Text Muted: ' . $sidebarTextMuted, 'sidebar-debug');
+Yii::info('CSS Vars sidebar-text-color: ' . ($cssVars['sidebar-text-color'] ?? 'NOT SET'), 'sidebar-debug');
+Yii::info('CSS Vars sidebar-text-muted: ' . ($cssVars['sidebar-text-muted'] ?? 'NOT SET'), 'sidebar-debug');
+Yii::info('Is Minimal Sidebar: ' . ($isMinimalSidebar ? 'YES' : 'NO'), 'sidebar-debug');
+Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
 ?>
+
+<!-- Debug Info: Text Colors -->
+<!-- sidebarTextColor: <?= Html::encode($sidebarTextColor) ?> -->
+<!-- sidebarTextMuted: <?= Html::encode($sidebarTextMuted) ?> -->
+<!-- cssVars sidebar-text-color: <?= Html::encode($cssVars['sidebar-text-color'] ?? 'NOT SET') ?> -->
+<!-- cssVars sidebar-text-muted: <?= Html::encode($cssVars['sidebar-text-muted'] ?? 'NOT SET') ?> -->
+<!-- isMinimalSidebar: <?= $isMinimalSidebar ? 'YES' : 'NO' ?> -->
+<!-- Current Route: <?= Html::encode($currentRoute) ?> -->
+<!-- CACHE BUSTER: v2.0 - <?= date('Y-m-d H:i:s') ?> -->
 
 <aside class="app-sidebar" style="background: linear-gradient(180deg, <?= Html::encode($sidebarBgStart) ?> 0%, <?= Html::encode($sidebarBgEnd) ?> 100%); border-color: <?= Html::encode($sidebarBorderColor) ?>; color: <?= Html::encode($sidebarTextColor) ?>;">
     <button type="button" class="app-sidebar-toggle" data-sidebar-toggle aria-label="Tutup sidebar" aria-expanded="true" title="Tutup sidebar">
@@ -979,9 +978,9 @@ $logoImage = $cssVars['workspace-logo-image'] ?? null;
             <?php endif; ?>
         </div>
         <div class="app-sidebar-header-text">
-            <span class="app-sidebar-header-badge"><?= Html::encode($headerBadge) ?></span>
-            <h2 style="color: <?= Html::encode($isMinimalSidebar ? '#f8fafc' : '#f8fafc') ?>;"><?= Html::encode($headerTitle) ?></h2>
-            <p style="color: <?= Html::encode($sidebarTextMuted) ?>;"><?= Html::encode($headerSubtitle) ?></p>
+            <span class="app-sidebar-header-badge" style="color: <?= Html::encode($sidebarTextMuted) ?> !important; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(148, 163, 184, 0.18);"><?= Html::encode($headerBadge) ?></span>
+            <h2 style="color: <?= Html::encode($sidebarTextColor) ?> !important; font-size: 15px; font-weight: 800; margin: 0;"><?= Html::encode($headerTitle) ?></h2>
+            <p style="color: <?= Html::encode($sidebarTextMuted) ?> !important; font-size: 12px; margin: 4px 0 0;"><?= Html::encode($headerSubtitle) ?></p>
         </div>
     </div>
 
@@ -1180,7 +1179,7 @@ $logoImage = $cssVars['workspace-logo-image'] ?? null;
             };
             
             // Render menu item with EXACT route matching only
-            $renderMenuItem = function($item, &$menuMap) use (&$renderMenuItem, $isMenuActive, $hasActiveChild) {
+            $renderMenuItem = function($item, &$menuMap) use (&$renderMenuItem, $isMenuActive, $hasActiveChild, $sidebarTextColor) {
                 $icon = $item['icon'] ?: 'folder';
                 $type = $item['type'] ?? 'page';
                 $route = $item['route'] ?? '';
@@ -1216,7 +1215,7 @@ $logoImage = $cssVars['workspace-logo-image'] ?? null;
                 }
                 
                 if ($hasChildren) {
-                    echo '<a href="#" class="' . Html::encode($linkClass) . '" data-menu-id="' . $itemId . '">';
+                    echo '<a href="#" class="' . Html::encode($linkClass) . '" data-menu-id="' . $itemId . '" style="color: ' . Html::encode($sidebarTextColor) . ' !important;">';
                     echo '<span class="material-symbols-outlined">' . Html::encode($icon) . '</span>';
                     echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
                     echo '<span class="app-sidebar-chevron material-symbols-outlined" style="margin-left:auto">expand_more</span>';
@@ -1230,7 +1229,7 @@ $logoImage = $cssVars['workspace-logo-image'] ?? null;
                     echo '</div>';
                 } else {
                     $urlFinal = is_array($url) ? \yii\helpers\Url::to($url) : $url;
-                    echo '<a href="' . Html::encode($urlFinal) . '" class="' . Html::encode($linkClass) . '" data-menu-id="' . $itemId . '">';
+                    echo '<a href="' . Html::encode($urlFinal) . '" class="' . Html::encode($linkClass) . '" data-menu-id="' . $itemId . '" style="color: ' . Html::encode($sidebarTextColor) . ' !important;">';
                     echo '<span class="material-symbols-outlined">' . Html::encode($icon) . '</span>';
                     echo '<span class="app-sidebar-link-text">' . Html::encode($item['name']) . '</span>';
                     echo '</a>';

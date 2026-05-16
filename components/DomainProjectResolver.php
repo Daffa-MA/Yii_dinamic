@@ -20,6 +20,17 @@ class DomainProjectResolver implements BootstrapInterface
         'project/login',
         'project/access-denied',
         'project/change-password',
+        'project/logout',
+        'project-list',
+    ];
+
+    private const DEFAULT_HOSTS = [
+        'localhost',
+        '127.0.0.1',
+    ];
+
+    private const DEFAULT_HOST_SUFFIXES = [
+        '.sslip.io',
     ];
 
     public function bootstrap($app)
@@ -30,15 +41,22 @@ class DomainProjectResolver implements BootstrapInterface
                 return;
             }
 
+            $route = trim((string)Yii::$app->requestedRoute, '/');
+            $isIgnoredRoute = $this->isIgnoredRoute($route);
+
             $project = Project::findByCustomDomain($host);
             if ($project === null) {
-                if ($this->shouldFallbackToProjectList($host)) {
-                    $route = trim((string)Yii::$app->requestedRoute, '/');
-                    if ($route === '' || $route === 'site/index' || $route === 'site/login' || $route === 'project/index') {
+                if ($this->isInfrastructureHost($host)) {
+                    return;
+                }
+
+                if ($this->shouldFallbackToProjectList($route)) {
+                    $targetUrl = Url::to(['project/index']);
+                    if ($this->shouldRedirectTo($targetUrl)) {
                         $event->isValid = false;
                         $event->handled = true;
                         Yii::$app->session->setFlash('warning', 'Project untuk domain ini belum diatur.');
-                        Yii::$app->response->redirect(Url::to(['project/index']));
+                        Yii::$app->response->redirect($targetUrl);
                     }
                 }
                 return;
@@ -52,35 +70,33 @@ class DomainProjectResolver implements BootstrapInterface
                 (new ActiveDatabaseContext())->resolveAndApply();
             }
 
-            $route = trim((string)Yii::$app->requestedRoute, '/');
+            if ($isIgnoredRoute) {
+                return;
+            }
+
             $authContext = new ProjectAuthContext();
             if ($route === '' || $route === 'site/index' || $route === 'site/login') {
-                $event->isValid = false;
-                $event->handled = true;
-
                 if ((new CommanderAuthContext())->isSuperAdmin()) {
-                    Yii::$app->response->redirect(Url::to(['site/dashboard']));
+                    $this->redirectSafely($event, Url::to(['site/dashboard']));
                     return;
                 }
 
                 if ($authContext->isAuthenticated((int)$project->id)) {
-                    Yii::$app->response->redirect(Url::to(['site/dashboard']));
+                    $this->redirectSafely($event, Url::to(['site/dashboard']));
                     return;
                 }
 
-                Yii::$app->response->redirect(Url::to(['project/login', 'id' => (int)$project->id]));
+                $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]));
                 return;
             }
 
             if ($route === 'project/index' && !(new CommanderAuthContext())->isSuperAdmin()) {
-                $event->isValid = false;
-                $event->handled = true;
                 if ($authContext->isAuthenticated((int)$project->id)) {
-                    Yii::$app->response->redirect(Url::to(['site/dashboard']));
+                    $this->redirectSafely($event, Url::to(['site/dashboard']));
                     return;
                 }
 
-                Yii::$app->response->redirect(Url::to(['project/login', 'id' => (int)$project->id]));
+                $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]));
             }
         });
     }
@@ -98,12 +114,69 @@ class DomainProjectResolver implements BootstrapInterface
         return $host;
     }
 
-    private function shouldFallbackToProjectList(string $host): bool
+    private function shouldFallbackToProjectList(string $route): bool
     {
-        if ($host === 'localhost' || $host === '127.0.0.1') {
+        return $route === '' || $route === 'site/index' || $route === 'site/login' || $route === 'project/index';
+    }
+
+    private function isIgnoredRoute(string $route): bool
+    {
+        if ($route === '') {
             return false;
         }
 
-        return strpos($host, '.') !== false;
+        foreach (self::PUBLIC_ROUTES as $publicRoute) {
+            if ($route === $publicRoute || strpos($route, $publicRoute . '/') === 0) {
+                return true;
+            }
+        }
+
+        if ($route === 'assets' || strpos($route, 'assets/') === 0) {
+            return true;
+        }
+
+        if ($route === 'debug' || strpos($route, 'debug/') === 0) {
+            return true;
+        }
+
+        if ($route === 'gii' || strpos($route, 'gii/') === 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function isInfrastructureHost(string $host): bool
+    {
+        if (in_array($host, self::DEFAULT_HOSTS, true)) {
+            return true;
+        }
+
+        foreach (self::DEFAULT_HOST_SUFFIXES as $suffix) {
+            if ($suffix !== '' && substr($host, -strlen($suffix)) === $suffix) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function shouldRedirectTo(string $targetUrl): bool
+    {
+        $currentUrl = trim((string)Yii::$app->request->url, '/');
+        $targetUrl = trim($targetUrl, '/');
+
+        return $currentUrl !== $targetUrl;
+    }
+
+    private function redirectSafely(ActionEvent $event, string $targetUrl): void
+    {
+        if (!$this->shouldRedirectTo($targetUrl)) {
+            return;
+        }
+
+        $event->isValid = false;
+        $event->handled = true;
+        Yii::$app->response->redirect($targetUrl);
     }
 }

@@ -1481,7 +1481,106 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.code-scope-btn').forEach(function(btn) {
             btn.classList.toggle('active', btn.dataset.scope === scope);
         });
+        
+        // Handle code scope switching
+        if (scope === 'page') {
+            // Generate and display page source
+            if (monacoEditor) {
+                const pageSource = generatePageSource();
+                isSyncingCode = true;
+                monacoEditor.setValue(pageSource);
+                isSyncingCode = false;
+                
+                // Update language to HTML and hide component-specific tools
+                if (typeof monaco !== 'undefined') {
+                    var model = monacoEditor.getModel();
+                    if (model) {
+                        monaco.editor.setModelLanguage(model, 'html');
+                    }
+                }
+                document.getElementById('component-code-tools').style.display = 'none';
+            }
+        } else if (scope === 'component') {
+            // Show component code
+            if (monacoEditor && formFields[selectedIndex]) {
+                loadFieldCodeFromState();
+                document.getElementById('component-code-tools').style.display = 'flex';
+            }
+        }
     };
+    
+    // Generate full page HTML source from all fields
+    function generatePageSource() {
+        const lines = [];
+        lines.push('<!-- Generated Form Layout -->');
+        lines.push('<form class="auto-generated-form" method="POST">');
+        lines.push('  <div class="form-container" style="max-width: 600px; margin: 0 auto;">');
+        
+        formFields.forEach((field, index) => {
+            if (field.excluded) return;
+            lines.push('');
+            lines.push('    <!-- Field ' + (index + 1) + ': ' + field.label + ' -->');
+            
+            if (field.customHtml) {
+                lines.push('    ' + field.customHtml.split('\n').join('\n    '));
+            } else {
+                // Use base template
+                const baseCode = getFieldBaseCode(field.type, 'html');
+                lines.push('    ' + baseCode.split('\n').join('\n    '));
+            }
+        });
+        
+        lines.push('');
+        lines.push('    <!-- Submit Button -->');
+        lines.push('    <div style="margin-top: 24px;">');
+        lines.push('      <button type="submit" class="btn-submit" style="width: 100%; padding: 12px 16px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">');
+        lines.push('        Submit');
+        lines.push('      </button>');
+        lines.push('    </div>');
+        lines.push('  </div>');
+        lines.push('</form>');
+        lines.push('');
+        lines.push('<!-- Embedded Styles -->');
+        lines.push('<style>');
+        lines.push('.form-container { padding: 24px; background: #ffffff; border-radius: 12px; }');
+        
+        // Collect all custom CSS
+        formFields.forEach((field, index) => {
+            if (field.customCss) {
+                lines.push('');
+                lines.push('/* Field ' + (index + 1) + ' */');
+                lines.push(field.customCss);
+            } else {
+                const baseCode = getFieldBaseCode(field.type, 'css');
+                if (baseCode) {
+                    lines.push('');
+                    lines.push('/* Field ' + (index + 1) + ' Default Styles */');
+                    lines.push(baseCode);
+                }
+            }
+        });
+        
+        lines.push('</style>');
+        
+        // Check if there's any JS
+        const hasJs = formFields.some(f => f.customJs);
+        if (hasJs) {
+            lines.push('');
+            lines.push('<!-- Embedded Scripts -->');
+            lines.push('<script>');
+            formFields.forEach((field, index) => {
+                if (field.customJs) {
+                    lines.push('');
+                    lines.push('// Field ' + (index + 1) + ' - ' + field.label);
+                    lines.push(field.customJs);
+                }
+            });
+            lines.push('<\\/script>');
+        }
+        
+        return lines.join('\n');
+    }
+    
     
     // Add click handler for code scope buttons
     document.querySelectorAll('.code-scope-btn').forEach(function(btn) {

@@ -8,10 +8,9 @@ $this->title = 'My Yii Application';
 
 // Register CSRF meta tag
 $this->registerCsrfMetaTags();
-
-// Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
+
 ?>
 
 <!-- Tailwind CSS v3 -->

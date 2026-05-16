@@ -52,7 +52,6 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);
 
 $currentRoute = Yii::$app->controller->route;
-$skipTailwindCdn = in_array($currentRoute, ['master-page/dynamic-create', 'master-page/dynamic-update'], true);
 $activeMenu = 'dashboard';
 if ($currentRoute === 'site/dashboard') {
     $activeMenu = 'dashboard';
@@ -72,38 +71,36 @@ if ($currentRoute === 'site/dashboard') {
     <?= Html::csrfMetaTags() ?>
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
-    <?php if (!$skipTailwindCdn): ?>
-        <script src="https://cdn.tailwindcss.com/3.4.1"></script>
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            'on-surface': '#0b1c30',
-                            'on-surface-variant': '#464555',
-                            'surface': '#fafbfe',
-                            'surface-container-lowest': '#ffffff',
-                            'surface-container-low': '#f8fafd',
-                            'surface-container': '#f0f4f9',
-                            'surface-container-high': '#e8eef7',
-                            'primary-container': '#4f46e5',
-                            'primary': '#3525cd',
-                            'secondary': '#006c49',
-                            'tertiary': '#7e3000',
-                            'surface-tint': '#4d44e3',
-                            'outline-variant': '#c7c4d8',
-                            'outline': '#777587',
-                            'error': '#ba1a1a',
-                        },
-                        fontFamily: {
-                            headline: ['Manrope', 'sans-serif'],
-                            body: ['Inter', 'sans-serif'],
-                        }
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'on-surface': '#0b1c30',
+                        'on-surface-variant': '#464555',
+                        'surface': '#fafbfe',
+                        'surface-container-lowest': '#ffffff',
+                        'surface-container-low': '#f8fafd',
+                        'surface-container': '#f0f4f9',
+                        'surface-container-high': '#e8eef7',
+                        'primary-container': '#4f46e5',
+                        'primary': '#3525cd',
+                        'secondary': '#006c49',
+                        'tertiary': '#7e3000',
+                        'surface-tint': '#4d44e3',
+                        'outline-variant': '#c7c4d8',
+                        'outline': '#777587',
+                        'error': '#ba1a1a',
+                    },
+                    fontFamily: {
+                        headline: ['Manrope', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
                     }
                 }
-            };
-        </script>
-    <?php endif; ?>
+            }
+        };
+    </script>
     <style>
         .material-symbols-outlined {
             font-family: 'Material Symbols Outlined';

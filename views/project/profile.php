@@ -12,6 +12,7 @@ use yii\bootstrap5\ActiveForm;
 $this->title = 'My Profile - ' . Html::encode($project->name);
 $this->registerJs("document.body.classList.add('project-page-v4');", \yii\web\View::POS_READY);
 
+// Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 ?>

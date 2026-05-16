@@ -28,8 +28,6 @@ function routesMatchExactly($currentRoute, $menuRoute) {
     return $current === $target;
 }
 
-$this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
-
 $activeMenu = $activeMenu ?? '';
 $currentRoute = Yii::$app->controller->route;
 
@@ -86,6 +84,8 @@ if (!Yii::$app->user->isGuest) {
 }
 
 $commanderAuth = new CommanderAuthContext();
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
+
 $logoutUrl = \yii\helpers\Url::to(['site/logout']);
 $projectListUrl = \yii\helpers\Url::to(['project/index']);
 

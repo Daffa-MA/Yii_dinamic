@@ -12,6 +12,7 @@
 use yii\bootstrap5\Html;
 use yii\helpers\Url;
 use yii\widgets\LinkPager;
+use app\models\Project;
 
 $this->title = 'Workspace Project';
 $this->registerJs("document.body.classList.add('project-page-v4');", \yii\web\View::POS_READY);
@@ -944,7 +945,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                     </div>
                                     <div>
                                         <h2 class="projects-panel-title">Buat Project Baru</h2>
-                                        <p class="projects-panel-subtitle">Isi nama, database otomatis, dan custom domain untuk membuat workspace baru.</p>
+                                        <p class="projects-panel-subtitle">Isi nama project. Database dan domain otomatis dibuat oleh sistem.</p>
                                     </div>
                                 </div>
                             </div>
@@ -997,24 +998,32 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                             </div>
 
                             <div class="projects-field">
-                                <label for="project-custom-domain">Custom Domain</label>
+                                <label for="project-domain-preview">Domain Otomatis</label>
+                                <?php
+                                $projectDomainSuffix = Project::getProjectDomainSuffix();
+                                $projectSlugPreview = strtolower(trim((string)($model->name ?? '')));
+                                $projectSlugPreview = preg_replace('/[^a-z0-9]+/i', '-', $projectSlugPreview) ?? '';
+                                $projectSlugPreview = preg_replace('/-+/', '-', $projectSlugPreview) ?? $projectSlugPreview;
+                                $projectSlugPreview = trim($projectSlugPreview, '-');
+                                if ($projectSlugPreview === '') {
+                                    $projectSlugPreview = 'project';
+                                }
+                                if (preg_match('/^[0-9]/', $projectSlugPreview) === 1) {
+                                    $projectSlugPreview = 'project-' . $projectSlugPreview;
+                                }
+                                $domainPreview = $projectSlugPreview . '.' . $projectDomainSuffix;
+                                ?>
                                 <input
                                     type="text"
-                                    id="project-custom-domain"
-                                    name="Project[custom_domain]"
-                                    value="<?= Html::encode($model->custom_domain ?? '') ?>"
+                                    id="project-domain-preview"
                                     class="form-control projects-input"
-                                    placeholder="testing.domain.com"
-                                    maxlength="190"
-                                    autocomplete="off"
+                                    value="<?= Html::encode($domainPreview) ?>"
+                                    readonly
                                 >
                                 <div class="projects-submit-hint" style="margin-top:8px;">
                                     <span class="material-symbols-outlined">language</span>
-                                    <span>Opsional. Jika diisi, workspace akan otomatis terbuka lewat domain ini.</span>
+                                    <span>Domain dibuat otomatis dari slug project dan wildcard sslip.io.</span>
                                 </div>
-                                <?php if ($model->hasErrors('custom_domain')): ?>
-                                    <div class="projects-field-error"><?= Html::encode($model->getFirstError('custom_domain')) ?></div>
-                                <?php endif; ?>
                             </div>
 
                             <div class="projects-field">
@@ -1128,6 +1137,19 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                                     'encode' => false,
                                                 ]
                                             ) ?>
+
+                                            <?php if (!empty($project->custom_domain)): ?>
+                                                <?= Html::a(
+                                                    '<span class="material-symbols-outlined">language</span><span>Open Domain</span>',
+                                                    'https://' . $project->custom_domain,
+                                                    [
+                                                        'class' => 'projects-button projects-button-secondary',
+                                                        'encode' => false,
+                                                        'target' => '_blank',
+                                                        'rel' => 'noopener noreferrer',
+                                                    ]
+                                                ) ?>
+                                            <?php endif; ?>
                                             
                                             <?= Html::a(
                                                 '<span class="material-symbols-outlined">tune</span><span>Settings</span>',
@@ -1191,12 +1213,34 @@ $this->registerJs(<<<JS
         return normalized;
     };
 
+    const buildProjectSlug = (value) => {
+        let normalized = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        if (!normalized) {
+            normalized = 'project';
+        }
+        if (/^[0-9]/.test(normalized)) {
+            normalized = 'project-' + normalized;
+        }
+        return normalized;
+    };
+
     const updateDatabasePreview = () => {
         databaseInput.value = buildDatabaseName(nameInput.value);
     };
 
+    const domainInput = document.getElementById('project-domain-preview');
+    const domainSuffix = '<?= Html::encode($projectDomainSuffix) ?>';
+    const updateDomainPreview = () => {
+        if (!domainInput) {
+            return;
+        }
+        domainInput.value = buildProjectSlug(nameInput.value) + '.' + domainSuffix;
+    };
+
     nameInput.addEventListener('input', updateDatabasePreview);
+    nameInput.addEventListener('input', updateDomainPreview);
     updateDatabasePreview();
+    updateDomainPreview();
 })();
 JS);
 ?>

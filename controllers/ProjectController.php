@@ -371,14 +371,10 @@ private function insertDefaultCmsData($newDb): void
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
                 $model->user_id = Yii::$app->user->id;
-                $model->custom_domain = Project::normalizeCustomDomain((string)$model->custom_domain);
-                if ($model->custom_domain !== null) {
-                    $model->domain_status = 'active';
-                    $model->domain_verified_at = date('Y-m-d H:i:s');
-                } else {
-                    $model->domain_status = null;
-                    $model->domain_verified_at = null;
-                }
+                $model->slug = Project::buildProjectSlug((string)$model->name);
+                $model->custom_domain = Project::buildProjectDomainFromSlug((string)$model->slug);
+                $model->domain_status = 'active';
+                $model->domain_verified_at = date('Y-m-d H:i:s');
 
                 if ($model->save()) {
                     try {
@@ -398,9 +394,7 @@ private function insertDefaultCmsData($newDb): void
                     $serverHint = $dbHostHint !== ''
                         ? "Database baru '{$databaseName}' dibuat di server MySQL {$dbHostHint}. Di phpMyAdmin, pastikan Anda terhubung ke host yang sama agar database tampil di sidebar kiri (refresh daftar database bila perlu)."
                         : "Database baru '{$databaseName}' sudah dibuat. Di phpMyAdmin, pastikan koneksi ke server MySQL yang sama dengan aplikasi ini, lalu refresh daftar database.";
-                    $domainHint = $model->custom_domain !== null
-                        ? " Custom domain '{$model->custom_domain}' tersimpan dan aktif."
-                        : '';
+                    $domainHint = " Domain otomatis '{$model->custom_domain}' tersimpan dan aktif.";
                     Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}{$domainHint}");
 
                     return $this->redirectToProjectLogin((int)$model->id, ['site/dashboard']);
@@ -491,14 +485,10 @@ private function insertDefaultCmsData($newDb): void
         }
 
         if (Yii::$app->request->isPost && $project->load(Yii::$app->request->post())) {
-            $project->custom_domain = Project::normalizeCustomDomain((string)$project->custom_domain);
-            if ($project->custom_domain !== null) {
-                $project->domain_status = 'active';
-                $project->domain_verified_at = date('Y-m-d H:i:s');
-            } else {
-                $project->domain_status = null;
-                $project->domain_verified_at = null;
-            }
+            $project->slug = Project::buildProjectSlug((string)$project->name, (int)$project->id);
+            $project->custom_domain = Project::buildProjectDomainFromSlug((string)$project->slug);
+            $project->domain_status = 'active';
+            $project->domain_verified_at = date('Y-m-d H:i:s');
 
             if ($project->save()) {
                 Yii::$app->session->setFlash('success', 'Project settings berhasil disimpan.');

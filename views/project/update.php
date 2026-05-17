@@ -6,10 +6,14 @@
 use yii\bootstrap5\ActiveForm;
 use yii\helpers\Html;
 use yii\helpers\Url;
+use app\models\Project;
 
 $this->title = 'Project Settings';
 
 $customDomain = trim((string)($project->custom_domain ?? ''));
+$projectSlug = trim((string)($project->slug ?? ''));
+$projectDomainSuffix = Project::getProjectDomainSuffix();
+$domainPreview = $projectSlug !== '' ? $projectSlug . '.' . $projectDomainSuffix : $customDomain;
 $domainStatus = strtolower(trim((string)($project->domain_status ?? '')));
 $statusLabel = $customDomain === ''
     ? 'Belum diatur'
@@ -31,7 +35,7 @@ $form = ActiveForm::begin([
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
         <div>
             <h1 class="h3 mb-1">Project Settings</h1>
-            <p class="text-secondary mb-0">Atur nama project dan custom domain untuk workspace ini.</p>
+                        <p class="text-secondary mb-0">Atur nama project. Domain workspace dibuat otomatis oleh sistem.</p>
         </div>
         <?= Html::a('Kembali', ['project/index'], ['class' => 'btn btn-outline-secondary']) ?>
     </div>
@@ -73,14 +77,15 @@ $form = ActiveForm::begin([
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" for="project-custom-domain">Custom Domain</label>
-                        <?= $form->field($project, 'custom_domain')->textInput([
-                            'id' => 'project-custom-domain',
-                            'class' => 'form-control form-control-lg',
-                            'placeholder' => 'contoh: testing.domain.com',
-                            'autocomplete' => 'off',
-                        ])->label(false) ?>
-                        <div class="form-text">Isi domain atau subdomain yang diarahkan ke workspace ini.</div>
+                        <label class="form-label fw-semibold" for="project-domain-preview">Domain Workspace</label>
+                        <input
+                            type="text"
+                            id="project-domain-preview"
+                            class="form-control form-control-lg"
+                            value="<?= Html::encode($domainPreview) ?>"
+                            readonly
+                        >
+                        <div class="form-text">Domain otomatis mengikuti slug project dan wildcard sslip.io.</div>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2">

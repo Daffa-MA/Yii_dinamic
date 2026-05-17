@@ -13,7 +13,14 @@ $this->title = 'Project Settings';
 $customDomain = trim((string)($project->custom_domain ?? ''));
 $projectSlug = trim((string)($project->slug ?? ''));
 $projectDomainSuffix = Project::getProjectDomainSuffix();
-$domainPreview = $projectSlug !== '' ? $projectSlug . '.' . $projectDomainSuffix : $customDomain;
+$projectDomainPrefix = trim((string)($project->custom_domain_prefix ?? ''));
+if ($projectDomainPrefix === '') {
+    $projectDomainPrefix = Project::extractProjectDomainPrefix($customDomain);
+}
+if ($projectDomainPrefix === '') {
+    $projectDomainPrefix = $projectSlug !== '' ? $projectSlug : 'project';
+}
+$domainPreview = $projectDomainPrefix . '.' . $projectDomainSuffix;
 $domainStatus = strtolower(trim((string)($project->domain_status ?? '')));
 $statusLabel = $customDomain === ''
     ? 'Belum diatur'
@@ -77,15 +84,30 @@ $form = ActiveForm::begin([
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-semibold" for="project-domain-preview">Domain Workspace</label>
-                        <input
-                            type="text"
-                            id="project-domain-preview"
-                            class="form-control form-control-lg"
-                            value="<?= Html::encode($domainPreview) ?>"
-                            readonly
-                        >
-                        <div class="form-text">Domain otomatis mengikuti slug project dan wildcard sslip.io.</div>
+                        <label class="form-label fw-semibold" for="project-domain-prefix">Domain Workspace</label>
+                        <?php if (!empty($isCommanderSuperAdmin)): ?>
+                            <div class="input-group input-group-lg">
+                                <input
+                                    type="text"
+                                    id="project-domain-prefix"
+                                    name="Project[custom_domain_prefix]"
+                                    class="form-control"
+                                    value="<?= Html::encode($projectDomainPrefix) ?>"
+                                    placeholder="subdomain"
+                                >
+                                <span class="input-group-text"><?= Html::encode($projectDomainSuffix) ?></span>
+                            </div>
+                        <?php else: ?>
+                            <input
+                                type="text"
+                                id="project-domain-preview"
+                                class="form-control form-control-lg"
+                                value="<?= Html::encode($domainPreview) ?>"
+                                readonly
+                            >
+                        <?php endif; ?>
+                        <div class="form-text">Superadmin cukup mengubah bagian depan domain. Bagian .<?= Html::encode($projectDomainSuffix) ?> otomatis dan tidak bisa diubah.</div>
+                        <div class="form-text">Format: <?= Html::encode($projectDomainPrefix) ?>.<?= Html::encode($projectDomainSuffix) ?></div>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2">

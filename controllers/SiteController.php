@@ -12,6 +12,7 @@ use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 use app\components\ProjectSchema;
 
 class SiteController extends Controller
@@ -83,10 +84,11 @@ class SiteController extends Controller
      */
     public function actionDashboard()
     {
+        $domainContext = new DomainContext();
         $projectContext = new ActiveProjectContext();
         $projectContextEnabled = ProjectSchema::supportsProjectContext();
-        $activeProjectId = $projectContextEnabled ? $projectContext->getActiveProjectId() : null;
-        if ($projectContextEnabled && $activeProjectId === null) {
+        $activeProjectId = (!$domainContext->isRootDomain() && $projectContextEnabled) ? $projectContext->getActiveProjectId() : null;
+        if (!$domainContext->isRootDomain() && $projectContextEnabled && $activeProjectId === null) {
             Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
             Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table/form.');
             return $this->redirect(['project/index']);

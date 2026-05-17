@@ -47,6 +47,10 @@ class ProjectAccessBootstrap implements BootstrapInterface
     public function bootstrap($app)
     {
         $app->on(Application::EVENT_BEFORE_ACTION, function (ActionEvent $event) {
+            if ((new DomainContext())->isRootDomain()) {
+                return;
+            }
+
             $route = trim((string)Yii::$app->requestedRoute, '/');
             if ($this->isPublicRoute($route)) {
                 return;

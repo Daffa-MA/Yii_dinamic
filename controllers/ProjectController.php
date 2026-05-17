@@ -102,6 +102,37 @@ class ProjectController extends Controller
         return (new CommanderAuthContext())->isSuperAdmin();
     }
 
+    private function resolveProjectDomainPrefix(Project $project): string
+    {
+        $defaultPrefix = Project::normalizeSlug((string)$project->slug);
+        if ($defaultPrefix === '') {
+            $defaultPrefix = Project::normalizeSlug((string)$project->name);
+        }
+
+        if ($defaultPrefix === '') {
+            $defaultPrefix = 'project';
+        }
+
+        if (!$this->isCommanderSuperAdmin()) {
+            return $defaultPrefix;
+        }
+
+        $customPrefix = Project::normalizeDomainPrefix((string)$project->custom_domain_prefix);
+        if ($customPrefix === '') {
+            $customPrefix = Project::extractProjectDomainPrefix((string)$project->custom_domain);
+        }
+
+        if ($customPrefix === '') {
+            return $defaultPrefix;
+        }
+
+        if (strlen($customPrefix) > 63) {
+            $customPrefix = substr($customPrefix, 0, 63);
+        }
+
+        return $customPrefix;
+    }
+
     private function buildAccessibleProjectQuery(): \yii\db\ActiveQuery
     {
         $query = Project::find();
@@ -371,12 +402,16 @@ private function insertDefaultCmsData($newDb): void
         $context = new ActiveProjectContext();
         $model = new Project();
         $model->user_id = Yii::$app->user->id;
+        $isCommanderSuperAdmin = $this->isCommanderSuperAdmin();
+        $model->custom_domain_prefix = Project::normalizeSlug((string)($model->custom_domain_prefix ?: $model->name));
 
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
                 $model->user_id = Yii::$app->user->id;
                 $model->slug = Project::buildProjectSlug((string)$model->name);
-                $model->custom_domain = Project::buildProjectDomainFromSlug((string)$model->slug);
+                $domainPrefix = $this->resolveProjectDomainPrefix($model);
+                $model->custom_domain_prefix = $domainPrefix;
+                $model->custom_domain = Project::buildProjectDomainFromPrefix($domainPrefix);
                 $model->domain_status = 'active';
                 $model->domain_verified_at = date('Y-m-d H:i:s');
 
@@ -439,6 +474,7 @@ private function insertDefaultCmsData($newDb): void
             'projectCount' => $totalCount,
             'projectDatabases' => $projectDatabases,
             'pagination' => $pagination,
+            'isCommanderSuperAdmin' => $isCommanderSuperAdmin,
         ]);
     }
 
@@ -490,7 +526,9 @@ private function insertDefaultCmsData($newDb): void
 
         if (Yii::$app->request->isPost && $project->load(Yii::$app->request->post())) {
             $project->slug = Project::buildProjectSlug((string)$project->name, (int)$project->id);
-            $project->custom_domain = Project::buildProjectDomainFromSlug((string)$project->slug);
+            $domainPrefix = $this->resolveProjectDomainPrefix($project);
+            $project->custom_domain_prefix = $domainPrefix;
+            $project->custom_domain = Project::buildProjectDomainFromPrefix($domainPrefix);
             $project->domain_status = 'active';
             $project->domain_verified_at = date('Y-m-d H:i:s');
 
@@ -502,8 +540,13 @@ private function insertDefaultCmsData($newDb): void
             Yii::$app->session->setFlash('error', implode(', ', $project->getFirstErrors()) ?: 'Gagal menyimpan project settings.');
         }
 
+        if (trim((string)$project->custom_domain_prefix) === '') {
+            $project->custom_domain_prefix = Project::extractProjectDomainPrefix((string)$project->custom_domain);
+        }
+
         return $this->render('update', [
             'project' => $project,
+            'isCommanderSuperAdmin' => $this->isCommanderSuperAdmin(),
         ]);
     }
 

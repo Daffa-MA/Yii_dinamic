@@ -998,31 +998,47 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                             </div>
 
                             <div class="projects-field">
-                                <label for="project-domain-preview">Domain Otomatis</label>
+                                <label for="project-domain-prefix">Domain Workspace</label>
                                 <?php
                                 $projectDomainSuffix = Project::getProjectDomainSuffix();
-                                $projectSlugPreview = strtolower(trim((string)($model->name ?? '')));
-                                $projectSlugPreview = preg_replace('/[^a-z0-9]+/i', '-', $projectSlugPreview) ?? '';
-                                $projectSlugPreview = preg_replace('/-+/', '-', $projectSlugPreview) ?? $projectSlugPreview;
-                                $projectSlugPreview = trim($projectSlugPreview, '-');
-                                if ($projectSlugPreview === '') {
-                                    $projectSlugPreview = 'project';
+                                $projectDomainPrefix = trim((string)($model->custom_domain_prefix ?? ''));
+                                if ($projectDomainPrefix === '') {
+                                    $projectDomainPrefix = Project::normalizeSlug((string)($model->name ?? ''));
                                 }
-                                if (preg_match('/^[0-9]/', $projectSlugPreview) === 1) {
-                                    $projectSlugPreview = 'project-' . $projectSlugPreview;
+                                if ($projectDomainPrefix === '') {
+                                    $projectDomainPrefix = 'project';
                                 }
-                                $domainPreview = $projectSlugPreview . '.' . $projectDomainSuffix;
+                                $domainPreview = $projectDomainPrefix . '.' . $projectDomainSuffix;
                                 ?>
-                                <input
-                                    type="text"
-                                    id="project-domain-preview"
-                                    class="form-control projects-input"
-                                    value="<?= Html::encode($domainPreview) ?>"
-                                    readonly
-                                >
+                                <?php if (!empty($isCommanderSuperAdmin)): ?>
+                                    <div class="input-group">
+                                        <input
+                                            type="text"
+                                            id="project-domain-prefix"
+                                            name="Project[custom_domain_prefix]"
+                                            class="form-control projects-input"
+                                            value="<?= Html::encode($projectDomainPrefix) ?>"
+                                            placeholder="subdomain"
+                                        >
+                                        <span class="input-group-text"><?= Html::encode($projectDomainSuffix) ?></span>
+                                    </div>
+                                    <input type="hidden" id="project-domain-preview" value="<?= Html::encode($domainPreview) ?>">
+                                <?php else: ?>
+                                    <input
+                                        type="text"
+                                        id="project-domain-preview"
+                                        class="form-control projects-input"
+                                        value="<?= Html::encode($domainPreview) ?>"
+                                        readonly
+                                    >
+                                <?php endif; ?>
                                 <div class="projects-submit-hint" style="margin-top:8px;">
                                     <span class="material-symbols-outlined">language</span>
-                                    <span>Domain dibuat otomatis dari slug project dan wildcard sslip.io.</span>
+                                    <span>Superadmin cukup mengubah bagian depan domain. Bagian .<?= Html::encode($projectDomainSuffix) ?> otomatis dan tidak bisa diubah.</span>
+                                </div>
+                                <div class="projects-submit-hint">
+                                    <span class="material-symbols-outlined">info</span>
+                                    <span>Format: <?= Html::encode($projectDomainPrefix) ?>.<?= Html::encode($projectDomainSuffix) ?></span>
                                 </div>
                             </div>
 
@@ -1229,15 +1245,48 @@ $this->registerJs(<<<JS
     };
 
     const domainInput = document.getElementById('project-domain-preview');
+    const domainPrefixInput = document.getElementById('project-domain-prefix');
+    let domainPrefixTouched = domainPrefixInput
+        ? String(domainPrefixInput.value || '').trim() !== '' &&
+            String(domainPrefixInput.value || '').trim() !== buildProjectSlug(nameInput.value)
+        : false;
     const domainSuffix = '<?= Html::encode($projectDomainSuffix) ?>';
     const updateDomainPreview = () => {
         if (!domainInput) {
             return;
         }
-        domainInput.value = buildProjectSlug(nameInput.value) + '.' + domainSuffix;
+        if (domainPrefixInput && !domainPrefixTouched) {
+            domainPrefixInput.value = buildProjectSlug(nameInput.value);
+        }
+        const prefixSource = domainPrefixInput ? domainPrefixInput.value : buildProjectSlug(nameInput.value);
+        const prefixValue = prefixSource ? String(prefixSource).trim().toLowerCase() : '';
+        let normalizedPrefix = prefixValue
+            .replace(/^https?:\/\//, '')
+            .replace(/\/.*$/, '')
+            .replace(/[^a-z0-9.-]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/\.+/g, '.')
+            .replace(/^-+|-+$/g, '')
+            .replace(/^\.+|\.+$/g, '');
+        if (!normalizedPrefix) {
+            normalizedPrefix = buildProjectSlug(nameInput.value);
+        }
+        if (/^[0-9]/.test(normalizedPrefix)) {
+            normalizedPrefix = 'project-' + normalizedPrefix;
+        }
+        if (normalizedPrefix.length > 63) {
+            normalizedPrefix = normalizedPrefix.slice(0, 63).replace(/-+$/g, '');
+        }
+        domainInput.value = normalizedPrefix + '.' + domainSuffix;
     };
 
     nameInput.addEventListener('input', updateDatabasePreview);
+    if (domainPrefixInput) {
+        domainPrefixInput.addEventListener('input', () => {
+            domainPrefixTouched = true;
+            updateDomainPreview();
+        });
+    }
     nameInput.addEventListener('input', updateDomainPreview);
     updateDatabasePreview();
     updateDomainPreview();

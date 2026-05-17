@@ -74,10 +74,12 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
             <span class="material-symbols-outlined text-outline text-[20px]">search</span>
             <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search published forms..." type="text" />
         </div>
-        <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
-            'class' => 'text-on-surface-variant hover:text-on-surface px-4 py-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center gap-2 text-sm font-medium no-underline',
-            'encode' => false
-        ]) ?>
+        <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+            <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                'class' => 'text-on-surface-variant hover:text-on-surface px-4 py-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center gap-2 text-sm font-medium no-underline',
+                'encode' => false
+            ]) ?>
+        <?php endif; ?>
     </div>
     <div class="flex items-center gap-4">
         <button class="material-symbols-outlined text-on-surface-variant hover:bg-slate-100 p-2 rounded-full transition-colors">notifications</button>

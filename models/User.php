@@ -37,6 +37,22 @@ class User extends ActiveRecord implements IdentityInterface
                 $schema = $db->schema->getTableSchema(static::tableName(), true);
             }
         }
+
+        if (isset($schema->columns['role'])) {
+            $db->createCommand()->update(
+                static::tableName(),
+                ['role' => 'superadmin'],
+                ['and',
+                    ['username' => ['admin', 'superadmin']],
+                    ['or',
+                        ['role' => null],
+                        ['role' => ''],
+                        ['role' => 'user'],
+                        ['role' => 'admin'],
+                    ],
+                ]
+            )->execute();
+        }
     }
 
     /**
@@ -164,6 +180,7 @@ class User extends ActiveRecord implements IdentityInterface
     public function isSuperAdmin(): bool
     {
         $role = strtolower(trim((string)($this->role ?? '')));
-        return in_array($role, ['super_admin', 'superadmin', 'admin'], true) || strtolower(trim((string)($this->username ?? ''))) === 'admin';
+        $username = strtolower(trim((string)($this->username ?? '')));
+        return in_array($role, ['super_admin', 'superadmin'], true) || ($username === 'superadmin' && $role === '');
     }
 }

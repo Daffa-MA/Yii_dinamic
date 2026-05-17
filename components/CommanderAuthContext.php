@@ -86,7 +86,7 @@ class CommanderAuthContext
     {
         $role = strtolower(trim($role));
         $username = strtolower(trim($username));
-        if ($role === 'super_admin' || $role === 'superadmin' || $role === 'admin' || $username === 'admin') {
+        if ($role === 'super_admin' || $role === 'superadmin' || ($username === 'superadmin' && $role === '')) {
             return 'superadmin';
         }
 

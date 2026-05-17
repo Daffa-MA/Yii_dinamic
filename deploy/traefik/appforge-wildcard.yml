@@ -1,0 +1,66 @@
+# Traefik dynamic configuration for Coolify servers.
+# Install this file on the Coolify server in the Traefik dynamic config directory,
+# then reload/restart the Coolify proxy.
+#
+# Replace APPFORGE_YII_INTERNAL_HOST with the Yii app container DNS name or a
+# stable Docker network alias reachable from the Traefik container.
+
+http:
+  middlewares:
+    appforge-redirect-to-https:
+      redirectScheme:
+        scheme: https
+    appforge-gzip:
+      compress: {}
+
+  routers:
+    appforge-root-http:
+      rule: "Host(`appforge.web.id`)"
+      entryPoints:
+        - http
+      middlewares:
+        - appforge-redirect-to-https
+      service: noop
+      priority: 100
+
+    appforge-wildcard-http:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.appforge\\.web\\.id$`)"
+      entryPoints:
+        - http
+      middlewares:
+        - appforge-redirect-to-https
+      service: noop
+      priority: 90
+
+    appforge-root-https:
+      rule: "Host(`appforge.web.id`)"
+      entryPoints:
+        - https
+      middlewares:
+        - appforge-gzip
+      service: appforge-yii
+      tls:
+        certResolver: letsencrypt
+      priority: 100
+
+    appforge-wildcard-https:
+      rule: "HostRegexp(`^[a-z0-9-]+\\.appforge\\.web\\.id$`)"
+      entryPoints:
+        - https
+      middlewares:
+        - appforge-gzip
+      service: appforge-yii
+      tls:
+        certResolver: letsencrypt
+      priority: 90
+
+  services:
+    appforge-yii:
+      loadBalancer:
+        servers:
+          - url: "http://APPFORGE_YII_INTERNAL_HOST:8000"
+
+    noop:
+      loadBalancer:
+        servers:
+          - url: ""

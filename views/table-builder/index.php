@@ -481,10 +481,12 @@ main#main > .container > .alert {
                 </div>
 
                 <div class="hero-actions">
-                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
-                        'class' => 'btn-clean',
-                        'encode' => false,
-                    ]) ?>
+                    <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                            'class' => 'btn-clean',
+                            'encode' => false,
+                        ]) ?>
+                    <?php endif; ?>
                     <?= Html::a('Create Table', ['table-builder/create'], ['class' => 'btn-clean btn-primary-clean']) ?>
                 </div>
             </div>

@@ -4,6 +4,7 @@ namespace app\controllers;
 
 use Yii;
 use yii\web\Controller;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use yii\db\Expression;
 use yii\db\Query;
@@ -379,6 +380,10 @@ private function insertDefaultCmsData($newDb): void
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
+                        'actions' => ['index'],
+                        'allow' => true,
+                    ],
+                    [
                         'actions' => ['login', 'access-denied', 'change-password', 'logout'],
                         'allow' => true,
                     ],
@@ -393,6 +398,10 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionIndex()
     {
+        if (!$this->isCommanderSuperAdmin()) {
+            throw new ForbiddenHttpException('Akses project list hanya untuk Commander superadmin.');
+        }
+
         if (!ProjectSchema::supportsProjectContext()) {
             Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini. Jalankan migrasi terbaru untuk mengaktifkan fitur project.');
             return $this->redirect(['site/dashboard']);

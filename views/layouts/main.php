@@ -4,6 +4,7 @@
 /** @var string $content */
 
 use app\assets\AppAsset;
+use app\components\CommanderAuthContext;
 use app\widgets\Alert;
 use yii\bootstrap5\Breadcrumbs;
 use yii\bootstrap5\Html;
@@ -20,7 +21,8 @@ $this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
 
 $isGuest = Yii::$app->user->isGuest;
-$brandUrl = $isGuest ? ['site/index'] : ['project/index'];
+$canOpenProjectList = (new CommanderAuthContext())->isSuperAdmin();
+$brandUrl = $isGuest ? ['site/index'] : ($canOpenProjectList ? ['project/index'] : ['site/dashboard']);
 $footerPrimaryLinks = $isGuest
     ? [
         ['label' => 'Beranda', 'url' => ['site/index']],
@@ -29,11 +31,13 @@ $footerPrimaryLinks = $isGuest
         ['label' => 'Masuk', 'url' => ['site/login']],
     ]
     : [
-        ['label' => 'Projects', 'url' => ['project/index']],
         ['label' => 'Dashboard', 'url' => ['site/dashboard']],
         ['label' => 'Forms', 'url' => ['form/index']],
         ['label' => 'Tables', 'url' => ['table-builder/index']],
     ];
+if (!$isGuest && $canOpenProjectList) {
+    array_unshift($footerPrimaryLinks, ['label' => 'Projects', 'url' => ['project/index']]);
+}
 $footerWorkspaceLinks = $isGuest
     ? [
         ['label' => 'Keunggulan', 'url' => ['site/about']],

@@ -84,6 +84,7 @@ if (!Yii::$app->user->isGuest) {
 }
 
 $commanderAuth = new CommanderAuthContext();
+$canOpenProjectList = $commanderAuth->isSuperAdmin();
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $logoutUrl = \yii\helpers\Url::to(['site/logout']);
@@ -1384,17 +1385,19 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
 
 <!-- Footer -->
     <div class="app-sidebar-footer <?= $sidebarVariant === 'minimal' ? 'mt-auto' : '' ?>">
-        <div style="display:grid;gap:8px;margin-bottom:10px;">
-            <?= Html::a(
-                '<span class="material-symbols-outlined">folder</span><span class="app-sidebar-link-text">Kembali ke Project List</span>',
-                $projectListUrl,
-                [
-                    'class' => 'app-sidebar-logout',
-                    'style' => 'color: ' . Html::encode($sidebarTextColor),
-                    'encode' => false
-                ]
-            ) ?>
-        </div>
+        <?php if ($canOpenProjectList): ?>
+            <div style="display:grid;gap:8px;margin-bottom:10px;">
+                <?= Html::a(
+                    '<span class="material-symbols-outlined">folder</span><span class="app-sidebar-link-text">Kembali ke Project List</span>',
+                    $projectListUrl,
+                    [
+                        'class' => 'app-sidebar-logout',
+                        'style' => 'color: ' . Html::encode($sidebarTextColor),
+                        'encode' => false
+                    ]
+                ) ?>
+            </div>
+        <?php endif; ?>
 
         <div style="display:grid;gap:8px;">
             <?= Html::beginForm($logoutUrl, 'post') ?>

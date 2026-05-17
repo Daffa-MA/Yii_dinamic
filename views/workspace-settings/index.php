@@ -895,7 +895,9 @@ $loginBackgroundAsset = $model->getLoginBackgroundAsset();
             <p>Atur logo, warna sidebar, state aktif, dan navigasi workspace dari satu tempat dengan tampilan yang lebih tenang dan rapi.</p>
             <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
 <a href="<?= \yii\helpers\Url::to(['permissions']) ?>" class="btn btn-dark" style="border-radius:14px;padding:10px 16px;font-weight:700;">Akses Workspace</a>
-                <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="btn btn-outline-secondary" style="border-radius:14px;padding:10px 16px;font-weight:700;">Kembali ke Project List</a>
+                <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                    <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="btn btn-outline-secondary" style="border-radius:14px;padding:10px 16px;font-weight:700;">Kembali ke Project List</a>
+                <?php endif; ?>
             </div>
         </div>
         

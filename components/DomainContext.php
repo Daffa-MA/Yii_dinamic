@@ -52,6 +52,30 @@ class DomainContext
         return $suffix !== '' && substr($host, -strlen('.' . $suffix)) === '.' . $suffix;
     }
 
+    public function extractWorkspacePrefix(?string $host = null): string
+    {
+        $host = $this->normalizeHost($host ?? $this->currentHost());
+        if ($host === '' || $this->isRootDomain($host)) {
+            return '';
+        }
+
+        $suffixes = array_filter(array_unique([
+            $this->rootDomain(),
+            $this->projectDomainSuffix(),
+        ]));
+
+        foreach ($suffixes as $suffix) {
+            $suffix = $this->normalizeHost($suffix);
+            $needle = '.' . $suffix;
+            if ($suffix !== '' && substr($host, -strlen($needle)) === $needle) {
+                $prefix = substr($host, 0, -strlen($needle));
+                return Project::normalizeDomainPrefix($prefix);
+            }
+        }
+
+        return '';
+    }
+
     public function normalizeHost(string $host): string
     {
         $host = strtolower(trim($host));

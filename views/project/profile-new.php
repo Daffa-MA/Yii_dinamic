@@ -392,9 +392,11 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                     <?= Html::a('<span class="material-symbols-outlined" style="font-size: 1.25rem;">table_chart</span> View Tables', ['table-builder/index'], [
                         'class' => 'profile-btn profile-btn-secondary'
                     ]) ?>
-                    <?= Html::a('<span class="material-symbols-outlined" style="font-size: 1.25rem;">home</span> Back to Projects', ['project/index'], [
-                        'class' => 'profile-btn profile-btn-secondary'
-                    ]) ?>
+                    <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                        <?= Html::a('<span class="material-symbols-outlined" style="font-size: 1.25rem;">home</span> Back to Projects', ['project/index'], [
+                            'class' => 'profile-btn profile-btn-secondary'
+                        ]) ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>

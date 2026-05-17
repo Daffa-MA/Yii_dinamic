@@ -1,6 +1,18 @@
-version: '3.8'
 services:
   php:
     build: .
     ports:
       - '8000:8000'
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.services.appforge-yii.loadbalancer.server.port=8000'
+      - 'traefik.http.routers.appforge-yii-root.rule=Host(`appforge.web.id`)'
+      - 'traefik.http.routers.appforge-yii-root.entrypoints=https'
+      - 'traefik.http.routers.appforge-yii-root.tls=true'
+      - 'traefik.http.routers.appforge-yii-root.service=appforge-yii'
+      - 'traefik.http.routers.appforge-yii-root.priority=100'
+      - 'traefik.http.routers.appforge-yii-wildcard.rule=HostRegexp(`[a-z0-9-]+\\.appforge\\.web\\.id`)'
+      - 'traefik.http.routers.appforge-yii-wildcard.entrypoints=https'
+      - 'traefik.http.routers.appforge-yii-wildcard.tls=true'
+      - 'traefik.http.routers.appforge-yii-wildcard.service=appforge-yii'
+      - 'traefik.http.routers.appforge-yii-wildcard.priority=90'

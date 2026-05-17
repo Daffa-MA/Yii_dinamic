@@ -792,32 +792,42 @@ class DatabaseSchemaInitializer
             $adminPassword = Yii::$app->security->generatePasswordHash('admin123');
             $this->connection->createCommand()->insert('users', [
                 'name' => 'Administrator',
-                'username' => 'superadmin',
+                'username' => 'admin',
                 'email' => 'admin@local',
                 'password_hash' => $adminPassword,
-                'role' => 'superadmin',
+                'role' => 'admin',
                 'status' => 1,
                 'must_change_password' => 1,
                 'created_at' => $now,
                 'updated_at' => $now,
             ])->execute();
         } else {
+            $adminExists = (new \yii\db\Query())
+                ->from('users')
+                ->where(['username' => 'admin'])
+                ->exists($this->connection);
             $superAdminExists = (new \yii\db\Query())
                 ->from('users')
                 ->where(['username' => 'superadmin'])
                 ->exists($this->connection);
-            if (!$superAdminExists) {
-                $legacyAdmin = (new \yii\db\Query())
+            if ($superAdminExists && !$adminExists) {
+                $legacySuperAdmin = (new \yii\db\Query())
                     ->from('users')
-                    ->where(['username' => 'admin'])
+                    ->where(['username' => 'superadmin'])
                     ->one($this->connection);
-                if (!empty($legacyAdmin)) {
+                if (!empty($legacySuperAdmin)) {
                     $this->connection->createCommand()->update('users', [
-                        'username' => 'superadmin',
-                        'role' => 'superadmin',
-                    ], ['id' => (int)$legacyAdmin['id']])->execute();
+                        'username' => 'admin',
+                        'role' => 'admin',
+                    ], ['id' => (int)$legacySuperAdmin['id']])->execute();
                 }
             }
+
+            $this->connection->createCommand()->update(
+                'users',
+                ['role' => 'admin'],
+                ['role' => ['superadmin', 'super_admin']]
+            )->execute();
         }
 
         $roleCount = (int)(new \yii\db\Query())->from('roles')->count('*', $this->connection);

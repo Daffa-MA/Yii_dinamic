@@ -772,7 +772,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         <?= Html::a('<span>Create Table</span><span class="material-symbols-outlined">arrow_forward</span>', ['table-builder/create'], ['class' => 'profile-quick-link']) ?>
                         <?= Html::a('<span>View Forms</span><span class="material-symbols-outlined">arrow_forward</span>', ['form/index'], ['class' => 'profile-quick-link']) ?>
                         <?= Html::a('<span>View Tables</span><span class="material-symbols-outlined">arrow_forward</span>', ['table-builder/index'], ['class' => 'profile-quick-link']) ?>
-                        <?= Html::a('<span>Back to Projects</span><span class="material-symbols-outlined">arrow_forward</span>', ['project/index'], ['class' => 'profile-quick-link']) ?>
+                        <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                            <?= Html::a('<span>Back to Projects</span><span class="material-symbols-outlined">arrow_forward</span>', ['project/index'], ['class' => 'profile-quick-link']) ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

@@ -353,13 +353,19 @@ CSS);
             </div>
 
             <div class="project-login-helper">
-                Default admin: <strong>superadmin / admin123</strong>. Saat login pertama, user akan dipaksa mengganti password sebelum masuk workspace.
+                Default admin: <strong>admin / admin123</strong>. Saat login pertama, user akan dipaksa mengganti password sebelum masuk workspace.
             </div>
 
-            <div class="project-login-footer">
-                <?= Html::a('Kembali ke project list', ['project/index']) ?>
-                <span><?= Html::encode($workspaceTitle) ?></span>
-            </div>
+            <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                <div class="project-login-footer">
+                    <?= Html::a('Kembali ke project list', ['project/index']) ?>
+                    <span><?= Html::encode($workspaceTitle) ?></span>
+                </div>
+            <?php else: ?>
+                <div class="project-login-footer">
+                    <span><?= Html::encode($workspaceTitle) ?></span>
+                </div>
+            <?php endif; ?>
 
             <?php ActiveForm::end(); ?>
         </div>

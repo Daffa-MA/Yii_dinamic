@@ -30,6 +30,7 @@ $profileUsername = 'User';
 $profileRole = 'Member';
 $profileAvatar = 'U';
 $commanderAuth = new CommanderAuthContext();
+$canOpenProjectList = $commanderAuth->isSuperAdmin();
 if ($projectAuthUser !== null) {
     $profileUsername = (string)$projectAuthUser->username;
     $profileRole = $projectAuthUser->role !== '' ? ucfirst(str_replace(['_', '-'], ' ', (string)$projectAuthUser->role)) : 'Member';
@@ -265,10 +266,12 @@ if ($projectAuthUser !== null) {
 
 <div class="app-topnav">
     <div class="app-topnav-left">
-        <a href="/project-list" class="app-topnav-projects-btn" title="Kembali ke Project List">
-            <span class="material-symbols-outlined">folder</span>
-            Kembali ke Project List
-        </a>
+        <?php if ($canOpenProjectList): ?>
+            <a href="/project-list" class="app-topnav-projects-btn" title="Kembali ke Project List">
+                <span class="material-symbols-outlined">folder</span>
+                Kembali ke Project List
+            </a>
+        <?php endif; ?>
         
         <div class="app-topnav-breadcrumb">
             <?php foreach ($breadcrumbs as $i => $crumb): ?>

@@ -348,6 +348,10 @@ private function insertDefaultCmsData($newDb): void
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
+                        'actions' => ['login', 'access-denied', 'change-password', 'logout'],
+                        'allow' => true,
+                    ],
+                    [
                         'allow' => true,
                         'roles' => ['@'],
                     ],

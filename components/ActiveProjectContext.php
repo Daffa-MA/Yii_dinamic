@@ -17,18 +17,21 @@ class ActiveProjectContext
             return null;
         }
 
-        $projectId = (int)Yii::$app->session->get(self::SESSION_KEY, 0);
-        if ($projectId <= 0) {
+        $domainContext = new DomainContext();
+        if ($domainContext->isWorkspaceDomain()) {
             $domainProjectId = (int)Yii::$app->session->get(self::SESSION_KEY_DOMAIN, 0);
             if ($domainProjectId > 0) {
                 return $domainProjectId;
             }
+        }
+
+        $projectId = (int)Yii::$app->session->get(self::SESSION_KEY, 0);
+        if ($projectId <= 0) {
             return null;
         }
 
         if (Yii::$app->user->isGuest) {
-            $domainProjectId = (int)Yii::$app->session->get(self::SESSION_KEY_DOMAIN, 0);
-            return $domainProjectId > 0 ? $domainProjectId : null;
+            return null;
         }
 
         if ((new CommanderAuthContext())->isSuperAdmin()) {
@@ -101,6 +104,11 @@ class ActiveProjectContext
     public function clear(): void
     {
         Yii::$app->session->remove(self::SESSION_KEY);
+        Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
+    }
+
+    public function clearResolvedDomainProject(): void
+    {
         Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
     }
 

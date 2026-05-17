@@ -8,11 +8,11 @@ use Yii;
 
 class ProjectAuthContext
 {
-    public const SESSION_KEY_PREFIX = 'project_app_auth';
+    public const SESSION_KEY_PREFIX = 'project_auth';
 
     public function getSessionKey(int $projectId): string
     {
-        return self::SESSION_KEY_PREFIX . ':' . $projectId;
+        return self::SESSION_KEY_PREFIX . '_' . $projectId;
     }
 
     public function getActiveProjectId(): ?int
@@ -107,20 +107,22 @@ class ProjectAuthContext
     private function getSessionData(int $projectId): array
     {
         $data = Yii::$app->session->get($this->getSessionKey($projectId), []);
+        if (!is_array($data) || empty($data)) {
+            $data = Yii::$app->session->get('project_app_auth:' . $projectId, []);
+        }
+
         return is_array($data) ? $data : [];
     }
 
     private function loadUser(int $projectId, int $userId): ?ProjectUser
     {
-        $project = Project::findOne(['id' => $projectId, 'user_id' => Yii::$app->user->id]);
+        $project = Project::findOne(['id' => $projectId]);
         if ($project === null) {
             return null;
         }
 
         $context = new ActiveProjectContext();
-        if (!$context->setActiveProject($projectId)) {
-            return null;
-        }
+        $context->setResolvedDomainProject($projectId);
 
         (new ActiveDatabaseContext())->resolveAndApply();
         $user = ProjectUser::findOne(['id' => $userId]);

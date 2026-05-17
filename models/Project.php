@@ -77,9 +77,14 @@ class Project extends ActiveRecord
 
     public static function getProjectDomainSuffix(): string
     {
-        $suffix = trim((string)(Yii::$app->params['projectDomainSuffix'] ?? '43.133.139.146.sslip.io'));
+        $configured = getenv('APP_PROJECT_DOMAIN_SUFFIX');
+        if ($configured === false || trim($configured) === '') {
+            $configured = (string)(Yii::$app->params['projectDomainSuffix'] ?? 'appforge.web.id');
+        }
+
+        $suffix = trim((string)$configured);
         $suffix = trim($suffix, '.');
-        return $suffix !== '' ? $suffix : '43.133.139.146.sslip.io';
+        return $suffix !== '' ? $suffix : 'appforge.web.id';
     }
 
     public static function buildProjectSlug(string $name, ?int $ignoreProjectId = null): string

@@ -547,6 +547,7 @@ private function insertDefaultCmsData($newDb): void
         return $this->render('update', [
             'project' => $project,
             'isCommanderSuperAdmin' => $this->isCommanderSuperAdmin(),
+            'databaseName' => $this->resolveProjectDatabaseName($project),
         ]);
     }
 

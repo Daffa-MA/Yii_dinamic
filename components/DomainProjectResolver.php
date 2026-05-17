@@ -7,6 +7,7 @@ use Yii;
 use yii\base\ActionEvent;
 use yii\base\Application;
 use yii\base\BootstrapInterface;
+use yii\helpers\Html;
 use yii\helpers\Url;
 
 class DomainProjectResolver implements BootstrapInterface
@@ -29,9 +30,7 @@ class DomainProjectResolver implements BootstrapInterface
         '127.0.0.1',
     ];
 
-    private const DEFAULT_HOST_SUFFIXES = [
-        '.sslip.io',
-    ];
+    private const DEFAULT_HOST_SUFFIXES = [];
 
     public function bootstrap($app)
     {
@@ -55,23 +54,27 @@ class DomainProjectResolver implements BootstrapInterface
                 return;
             }
 
+            $prefix = $domainContext->extractWorkspacePrefix($host);
             $project = Project::findByCustomDomain($host);
+            DomainDebugLogger::log($host, $prefix, $project, $project === null ? 'workspace_project_not_found' : 'workspace_project_resolved');
             if ($project === null) {
                 if ($this->isInfrastructureHost($host)) {
                     return;
                 }
 
-                if ($this->shouldFallbackToProjectList($route)) {
-                    $targetUrl = Url::to(['project/index']);
-                    if ($this->redirectSafely($event, $targetUrl, 'workspace_domain_without_project')) {
-                        Yii::$app->session->setFlash('warning', 'Project untuk domain ini belum diatur.');
-                    }
+                if ($domainContext->isWorkspaceDomain($host)) {
+                    $this->renderWorkspaceNotFound($event, $host, $prefix);
                 }
                 return;
             }
 
             $context = new ActiveProjectContext();
             $context->setResolvedDomainProject((int)$project->id);
+            try {
+                (new ActiveDatabaseContext())->resolveAndApply();
+            } catch (\Throwable $e) {
+                DomainDebugLogger::log($host, $prefix, $project, 'active_database_apply_failed: ' . $e->getMessage());
+            }
 
             if ((new CommanderAuthContext())->isSuperAdmin()) {
                 $context->setActiveProject((int)$project->id);
@@ -107,24 +110,6 @@ class DomainProjectResolver implements BootstrapInterface
                 $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]), 'workspace_project_list_login_required', (int)$project->id);
             }
         });
-    }
-
-    private function normalizeHost(string $host): string
-    {
-        $host = strtolower(trim($host));
-        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
-        $host = trim($host);
-
-        if (strpos($host, 'www.') === 0) {
-            $host = substr($host, 4);
-        }
-
-        return $host;
-    }
-
-    private function shouldFallbackToProjectList(string $route): bool
-    {
-        return $route === '' || $route === 'site/index' || $route === 'site/login' || $route === 'project/index';
     }
 
     private function isIgnoredRoute(string $route): bool
@@ -189,5 +174,26 @@ class DomainProjectResolver implements BootstrapInterface
         RedirectDebugLogger::log($reason, $targetUrl, $projectId);
         Yii::$app->response->redirect($targetUrl);
         return true;
+    }
+
+    private function renderWorkspaceNotFound(ActionEvent $event, string $host, string $prefix): void
+    {
+        $event->isValid = false;
+        $event->handled = true;
+
+        Yii::$app->response->statusCode = 404;
+        Yii::$app->response->content = '<!doctype html><html lang="id"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<title>Workspace not found</title>'
+            . '<style>body{margin:0;font-family:"Avenir Next","Segoe UI",sans-serif;background:#f6f5f0;color:#171717;}'
+            . '.wrap{min-height:100vh;display:grid;place-items:center;padding:32px}.card{max-width:680px;width:100%;background:#fff;border:1px solid #e5e1d8;border-radius:28px;box-shadow:0 24px 80px rgba(23,23,23,.08);padding:36px}'
+            . '.eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#8a6f2a;margin-bottom:14px}.title{font-size:34px;line-height:1.05;margin:0 0 12px}.text{color:#606060;margin:0 0 24px;line-height:1.6}'
+            . '.row{display:flex;gap:12px;border-top:1px solid #eee9df;padding-top:16px;margin-top:16px}.label{width:100px;color:#777;font-size:13px}.value{font-weight:700;word-break:break-all}</style></head><body>'
+            . '<main class="wrap"><section class="card"><div class="eyebrow">Domain Debug</div>'
+            . '<h1 class="title">Workspace not found</h1>'
+            . '<p class="text">Domain ini sudah masuk ke resolver workspace, tetapi tidak ada project aktif yang cocok dengan prefix domain.</p>'
+            . '<div class="row"><div class="label">Host</div><div class="value">' . Html::encode($host) . '</div></div>'
+            . '<div class="row"><div class="label">Prefix</div><div class="value">' . Html::encode($prefix !== '' ? $prefix : '-') . '</div></div>'
+            . '</section></main></body></html>';
     }
 }

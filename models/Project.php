@@ -17,8 +17,6 @@ use yii\db\ActiveRecord;
  */
 class Project extends ActiveRecord
 {
-    public $custom_domain_prefix;
-
     public static function ensureProjectStructure(): void
     {
         $db = Yii::$app->get('metadataDb', false) ?: parent::getDb();
@@ -30,6 +28,7 @@ class Project extends ActiveRecord
         $columns = [
             'slug' => $db->schema->createColumnSchemaBuilder('string', 190)->null(),
             'custom_domain' => $db->schema->createColumnSchemaBuilder('string', 190)->null(),
+            'custom_domain_prefix' => $db->schema->createColumnSchemaBuilder('string', 63)->null(),
             'domain_status' => $db->schema->createColumnSchemaBuilder('string', 20)->null(),
             'domain_verified_at' => $db->schema->createColumnSchemaBuilder('datetime')->null(),
         ];
@@ -217,6 +216,24 @@ class Project extends ActiveRecord
             return null;
         }
 
+        $project = static::findByDomainPrefix($hostPrefix);
+        if ($project !== null) {
+            return $project;
+        }
+
+        $project = static::find()
+            ->where(['custom_domain' => self::buildProjectDomainFromPrefix($hostPrefix)])
+            ->andWhere(['or',
+                ['domain_status' => 'active'],
+                ['domain_status' => null],
+                ['domain_status' => ''],
+            ])
+            ->one();
+
+        if ($project !== null) {
+            return $project;
+        }
+
         $projects = static::find()
             ->andWhere(['or',
                 ['domain_status' => 'active'],
@@ -244,6 +261,25 @@ class Project extends ActiveRecord
 
         return static::find()
             ->where(['custom_domain' => $host])
+            ->andWhere(['or',
+                ['domain_status' => 'active'],
+                ['domain_status' => null],
+                ['domain_status' => ''],
+            ])
+            ->one();
+    }
+
+    public static function findByDomainPrefix(string $prefix): ?self
+    {
+        self::ensureProjectStructure();
+
+        $prefix = self::normalizeDomainPrefix($prefix);
+        if ($prefix === '') {
+            return null;
+        }
+
+        return static::find()
+            ->where(['custom_domain_prefix' => $prefix])
             ->andWhere(['or',
                 ['domain_status' => 'active'],
                 ['domain_status' => null],
@@ -370,7 +406,16 @@ class Project extends ActiveRecord
             }
         }
 
-        if (static::find()->where(['custom_domain' => self::buildProjectDomainFromPrefix($prefix)])->andFilterWhere(['<>', 'id', (int)$this->id])->exists()) {
+        $domainQuery = static::find()
+            ->where(['or',
+                ['custom_domain_prefix' => $prefix],
+                ['custom_domain' => self::buildProjectDomainFromPrefix($prefix)],
+            ]);
+        if (!$this->getIsNewRecord() && (int)$this->id > 0) {
+            $domainQuery->andWhere(['<>', 'id', (int)$this->id]);
+        }
+
+        if ($domainQuery->exists()) {
             $this->addError($attribute, 'Domain prefix already used by another project.');
         }
     }

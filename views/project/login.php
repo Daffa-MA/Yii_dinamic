@@ -246,7 +246,7 @@ $this->registerCss(<<<CSS
     letter-spacing: 0.02em;
     box-shadow: 0 18px 32px rgba(37,99,235,0.24);
 }
-.project-login-helper {
+    .project-login-helper {
     margin-top: .9rem;
     padding: .85rem 1rem;
     border-radius: 16px;
@@ -309,10 +309,6 @@ CSS);
                 <span>Aplikasi</span>
                 <strong><?= Html::encode($project->name) ?></strong>
             </div>
-            <div class="project-login-meta-card">
-                <span>Database</span>
-                <strong><?= Html::encode(Yii::$app->db->createCommand('SELECT DATABASE()')->queryScalar() ?: '-') ?></strong>
-            </div>
         </div>
     </section>
 
@@ -350,10 +346,6 @@ CSS);
                 <input type="hidden" name="return_url" value="<?= Html::encode($returnUrl) ?>">
 
                 <button type="submit" class="project-login-submit">Masuk ke Aplikasi</button>
-            </div>
-
-            <div class="project-login-helper">
-                Default admin: <strong>admin / admin123</strong>. Saat login pertama, user akan dipaksa mengganti password sebelum masuk workspace.
             </div>
 
             <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>

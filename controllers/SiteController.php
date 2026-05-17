@@ -48,6 +48,35 @@ class SiteController extends Controller
                         'allow' => true,
                         'roles' => ['@'],
                     ],
+                    [
+                        'actions' => ['dashboard', 'profile', 'change-password'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            $domainContext = new DomainContext();
+                            if ($domainContext->isRootDomain()) {
+                                return false;
+                            }
+
+                            if (!ProjectSchema::supportsProjectContext()) {
+                                return false;
+                            }
+
+                            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+                            return $activeProjectId !== null && (new \app\components\ProjectAuthContext())->isAuthenticated($activeProjectId);
+                        },
+                    ],
+                    [
+                        'actions' => ['logout'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            if (Yii::$app->user->isGuest) {
+                                $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+                                return $activeProjectId !== null && (new \app\components\ProjectAuthContext())->isAuthenticated($activeProjectId);
+                            }
+
+                            return true;
+                        },
+                    ],
                 ],
             ],
             'verbs' => [

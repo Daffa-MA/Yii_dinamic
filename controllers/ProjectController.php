@@ -19,6 +19,7 @@ use app\models\ProjectUser;
 use app\models\User;
 use app\models\WorkspaceSettings;
 use app\components\ActiveDatabaseContext;
+use app\components\DomainContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
@@ -808,7 +809,26 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionLogout()
     {
-        return $this->redirect(['site/logout']);
+        $context = new ActiveProjectContext();
+        $projectId = $context->getActiveProjectId() ?? (int)Yii::$app->request->get('id', 0);
+
+        if ($projectId <= 0) {
+            $domainContext = new DomainContext();
+            if ($domainContext->isWorkspaceDomain()) {
+                $project = Project::findByCustomDomain($domainContext->currentHost());
+                if ($project !== null) {
+                    $projectId = (int)$project->id;
+                }
+            }
+        }
+
+        if ($projectId > 0) {
+            (new ProjectAuthContext())->logout($projectId);
+            $context->clear();
+            return $this->redirect(['project/login']);
+        }
+
+        return $this->redirect(['project/index']);
     }
 
     public function actionAccessDenied($id = null)

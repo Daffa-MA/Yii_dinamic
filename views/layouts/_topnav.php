@@ -3,6 +3,7 @@ use yii\helpers\Html;
 use app\models\WorkspaceSettings;
 use app\components\ProjectAuthContext;
 use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 
 $workspaceSettings = new WorkspaceSettings();
 $workspaceSettings->loadFromSession();
@@ -10,11 +11,12 @@ $cssVars = $workspaceSettings->getCssVars();
 
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
+$activeProjectId = null;
 $projectAuthUser = null;
-if (!Yii::$app->user->isGuest && \app\components\ProjectSchema::supportsProjectContext()) {
+if (\app\components\ProjectSchema::supportsProjectContext()) {
     $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
     if ($activeProjectId !== null) {
-        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId]);
         $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
     }
 }
@@ -33,15 +35,18 @@ $commanderAuth = new CommanderAuthContext();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
 if ($projectAuthUser !== null) {
     $profileUsername = (string)$projectAuthUser->username;
-    $profileRole = $projectAuthUser->role !== '' ? ucfirst(str_replace(['_', '-'], ' ', (string)$projectAuthUser->role)) : 'Member';
+    $profileRole = $projectAuthUser->role !== '' ? ucfirst(str_replace(['_', '-'], ' ', (string)$projectAuthUser->role)) : 'Admin';
     $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
 } elseif ($commanderAuth->isAuthenticated() && Yii::$app->user->identity !== null) {
     $profileUsername = (string)(Yii::$app->user->identity->username ?? 'User');
     $commanderRole = $commanderAuth->getRole();
     $profileRole = $commanderRole === 'superadmin'
-        ? 'Super Admin'
+        ? 'Commander Mode'
         : ucfirst(str_replace(['_', '-'], ' ', $commanderRole !== '' ? $commanderRole : 'Commander'));
     $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
+} elseif ((new DomainContext())->isWorkspaceDomain() && $activeProjectId !== null) {
+    $profileUsername = 'Workspace';
+    $profileRole = 'Active Session';
 }
 ?>
 

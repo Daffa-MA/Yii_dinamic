@@ -36,13 +36,24 @@ class DomainProjectResolver implements BootstrapInterface
     public function bootstrap($app)
     {
         $app->on(Application::EVENT_BEFORE_ACTION, function (ActionEvent $event) {
-            $host = $this->normalizeHost((string)Yii::$app->request->getHostName());
+            $domainContext = new DomainContext();
+            $host = $domainContext->currentHost();
             if ($host === '') {
                 return;
             }
 
             $route = trim((string)Yii::$app->requestedRoute, '/');
             $isIgnoredRoute = $this->isIgnoredRoute($route);
+
+            if ($domainContext->isRootDomain($host)) {
+                (new ActiveProjectContext())->clearResolvedDomainProject();
+                return;
+            }
+
+            if (!$domainContext->isWorkspaceDomain($host) && !$this->isInfrastructureHost($host)) {
+                RedirectDebugLogger::log('non_workspace_host_no_project_autodetect');
+                return;
+            }
 
             $project = Project::findByCustomDomain($host);
             if ($project === null) {
@@ -52,11 +63,8 @@ class DomainProjectResolver implements BootstrapInterface
 
                 if ($this->shouldFallbackToProjectList($route)) {
                     $targetUrl = Url::to(['project/index']);
-                    if ($this->shouldRedirectTo($targetUrl)) {
-                        $event->isValid = false;
-                        $event->handled = true;
+                    if ($this->redirectSafely($event, $targetUrl, 'workspace_domain_without_project')) {
                         Yii::$app->session->setFlash('warning', 'Project untuk domain ini belum diatur.');
-                        Yii::$app->response->redirect($targetUrl);
                     }
                 }
                 return;
@@ -65,7 +73,7 @@ class DomainProjectResolver implements BootstrapInterface
             $context = new ActiveProjectContext();
             $context->setResolvedDomainProject((int)$project->id);
 
-            if (!Yii::$app->user->isGuest || (new CommanderAuthContext())->isSuperAdmin()) {
+            if ((new CommanderAuthContext())->isSuperAdmin()) {
                 $context->setActiveProject((int)$project->id);
                 (new ActiveDatabaseContext())->resolveAndApply();
             }
@@ -77,26 +85,26 @@ class DomainProjectResolver implements BootstrapInterface
             $authContext = new ProjectAuthContext();
             if ($route === '' || $route === 'site/index' || $route === 'site/login') {
                 if ((new CommanderAuthContext())->isSuperAdmin()) {
-                    $this->redirectSafely($event, Url::to(['site/dashboard']));
+                    $this->redirectSafely($event, Url::to(['site/dashboard']), 'workspace_superadmin_dashboard', (int)$project->id);
                     return;
                 }
 
                 if ($authContext->isAuthenticated((int)$project->id)) {
-                    $this->redirectSafely($event, Url::to(['site/dashboard']));
+                    $this->redirectSafely($event, Url::to(['site/dashboard']), 'workspace_project_authenticated_dashboard', (int)$project->id);
                     return;
                 }
 
-                $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]));
+                $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]), 'workspace_project_login_required', (int)$project->id);
                 return;
             }
 
             if ($route === 'project/index' && !(new CommanderAuthContext())->isSuperAdmin()) {
                 if ($authContext->isAuthenticated((int)$project->id)) {
-                    $this->redirectSafely($event, Url::to(['site/dashboard']));
+                    $this->redirectSafely($event, Url::to(['site/dashboard']), 'workspace_project_list_authenticated_dashboard', (int)$project->id);
                     return;
                 }
 
-                $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]));
+                $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]), 'workspace_project_list_login_required', (int)$project->id);
             }
         });
     }
@@ -169,14 +177,17 @@ class DomainProjectResolver implements BootstrapInterface
         return $currentUrl !== $targetUrl;
     }
 
-    private function redirectSafely(ActionEvent $event, string $targetUrl): void
+    private function redirectSafely(ActionEvent $event, string $targetUrl, string $reason, ?int $projectId = null): bool
     {
         if (!$this->shouldRedirectTo($targetUrl)) {
-            return;
+            RedirectDebugLogger::log($reason . '_skipped_same_url', $targetUrl, $projectId);
+            return false;
         }
 
         $event->isValid = false;
         $event->handled = true;
+        RedirectDebugLogger::log($reason, $targetUrl, $projectId);
         Yii::$app->response->redirect($targetUrl);
+        return true;
     }
 }

@@ -58,9 +58,7 @@ class ProjectAccessBootstrap implements BootstrapInterface
             }
 
             if ($activeProjectId === null) {
-                $event->isValid = false;
-                $event->handled = true;
-                Yii::$app->response->redirect(Url::to(['project/index']));
+                $this->redirectSafely($event, Url::to(['project/index']), 'protected_route_without_active_project');
                 return;
             }
 
@@ -78,24 +76,20 @@ class ProjectAccessBootstrap implements BootstrapInterface
                 }
 
                 if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
-                    $event->isValid = false;
-                    $event->handled = true;
                     Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
-                    Yii::$app->response->redirect(Url::to(['project/access-denied', 'id' => $activeProjectId]));
+                    $this->redirectSafely($event, Url::to(['project/access-denied', 'id' => $activeProjectId]), 'project_route_access_denied', $activeProjectId);
                     return;
                 }
 
                 return;
             }
 
-            $event->isValid = false;
-            $event->handled = true;
             $loginUrl = Url::to([
                 'project/login',
                 'id' => $activeProjectId,
                 'return_url' => Yii::$app->request->url,
             ]);
-            Yii::$app->response->redirect($loginUrl);
+            $this->redirectSafely($event, $loginUrl, 'project_auth_required', $activeProjectId, $authContext->getSessionKey($activeProjectId));
         });
     }
 
@@ -123,5 +117,22 @@ class ProjectAccessBootstrap implements BootstrapInterface
         }
 
         return false;
+    }
+
+    private function redirectSafely(ActionEvent $event, string $targetUrl, string $reason, ?int $projectId = null, string $sessionKey = ''): void
+    {
+        $currentUrl = trim((string)Yii::$app->request->url, '/');
+        $targetPath = trim((string)parse_url($targetUrl, PHP_URL_PATH), '/');
+        $targetUrlComparable = trim($targetUrl, '/');
+
+        if ($currentUrl === $targetPath || $currentUrl === $targetUrlComparable) {
+            RedirectDebugLogger::log($reason . '_skipped_same_url', $targetUrl, $projectId, $sessionKey);
+            return;
+        }
+
+        $event->isValid = false;
+        $event->handled = true;
+        RedirectDebugLogger::log($reason, $targetUrl, $projectId, $sessionKey);
+        Yii::$app->response->redirect($targetUrl);
     }
 }

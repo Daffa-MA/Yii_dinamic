@@ -4,6 +4,22 @@
  * Session MUST start di paling atas!
  */
 
+if (
+    isset($_SERVER['HTTP_X_FORWARDED_PROTO'])
+    && strtolower(trim(explode(',', (string) $_SERVER['HTTP_X_FORWARDED_PROTO'])[0])) === 'https'
+) {
+    $_SERVER['HTTPS'] = 'on';
+    $_SERVER['SERVER_PORT'] = 443;
+    $_SERVER['REQUEST_SCHEME'] = 'https';
+} elseif (
+    isset($_SERVER['HTTP_X_FORWARDED_SSL'])
+    && strtolower(trim((string) $_SERVER['HTTP_X_FORWARDED_SSL'])) === 'on'
+) {
+    $_SERVER['HTTPS'] = 'on';
+    $_SERVER['SERVER_PORT'] = 443;
+    $_SERVER['REQUEST_SCHEME'] = 'https';
+}
+
 // Kalau session belum ada, buat baru
 if (session_status() === PHP_SESSION_NONE) {
     $sessionPath = __DIR__ . '/../runtime/session';

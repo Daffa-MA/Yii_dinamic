@@ -3,6 +3,7 @@ use yii\bootstrap5\Html;
 use app\components\ProjectSchema;
 use app\components\ProjectAuthContext;
 use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\WorkspaceSettings;
@@ -73,21 +74,20 @@ if ($shouldResolveWorkspaceDatabase) {
     $dbContext->resolveAndApply();
 }
 
-if (!Yii::$app->user->isGuest) {
-    if (ProjectSchema::supportsProjectContext()) {
-        $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
-        if ($activeProjectId !== null) {
-            $activeProject = \app\models\Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
-            $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
-        }
+if (ProjectSchema::supportsProjectContext()) {
+    $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
+    if ($activeProjectId !== null) {
+        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId]);
+        $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
     }
 }
 
 $commanderAuth = new CommanderAuthContext();
+$domainContext = new DomainContext();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
-$logoutUrl = \yii\helpers\Url::to(['site/logout']);
+$logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['project/logout']) : \yii\helpers\Url::to(['site/logout']);
 $projectListUrl = \yii\helpers\Url::to(['project/index']);
 
 $menuItems = [];

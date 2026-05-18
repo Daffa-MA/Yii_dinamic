@@ -8,6 +8,7 @@ use app\models\MasterFormField;
 use app\models\MasterFormLayout;
 use app\models\MasterFormActivityLog;
 use app\models\MasterPage;
+use app\models\MasterMenu;
 use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
@@ -508,7 +509,10 @@ class MasterFormController extends Controller
                         'id' => $tableId,
                     ])
                     ->andWhere(['project_id' => (int)$model->project_id]);
-                $dbTable = $dbTableQuery->one();
+                $scopedDbTable = $dbTableQuery->one();
+                if ($scopedDbTable !== null) {
+                    $dbTable = $scopedDbTable;
+                }
             }
             if (!$dbTable) {
                 $message = 'Target table metadata not found.';
@@ -690,7 +694,16 @@ class MasterFormController extends Controller
             return true;
         }
 
-        $pageId = (int)Yii::$app->request->post('page_id', 0);
+        $pageId = (int)Yii::$app->request->post('page_id', Yii::$app->request->get('page_id', 0));
+        if ($pageId <= 0) {
+            $menuId = (int)Yii::$app->request->post('menu_id', Yii::$app->request->get('menu_id', 0));
+            if ($menuId > 0) {
+                $menu = MasterMenu::findOne($menuId);
+                if ($menu !== null && !empty($menu->page_id)) {
+                    $pageId = (int)$menu->page_id;
+                }
+            }
+        }
         if ($formId <= 0 || $pageId <= 0) {
             return false;
         }
@@ -700,7 +713,12 @@ class MasterFormController extends Controller
             return false;
         }
 
-        return (new ProjectPermissionService())->canUseFormAsPageContent($formId, $pageId, $projectId);
+        $page = MasterPage::findOne($pageId);
+        if (!$page instanceof MasterPage) {
+            return false;
+        }
+
+        return (new ProjectPermissionService())->canAccessPage($page, $projectId);
     }
     
 }

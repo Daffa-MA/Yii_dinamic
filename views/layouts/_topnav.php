@@ -36,6 +36,7 @@ $domainContext = new DomainContext();
 $isRootDomain = $domainContext->isRootDomain();
 $isWorkspaceDomain = $domainContext->isWorkspaceDomain();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
+$projectListUrl = $domainContext->projectListUrl();
 if ($isRootDomain) {
     $commanderUser = $commanderAuth->getUser();
     if ($commanderUser !== null) {
@@ -297,7 +298,7 @@ if ($isRootDomain) {
 <div class="app-topnav">
     <div class="app-topnav-left">
         <?php if ($canOpenProjectList): ?>
-            <a href="/project-list" class="app-topnav-projects-btn" title="Kembali ke Project List">
+            <a href="<?= Html::encode($projectListUrl) ?>" class="app-topnav-projects-btn" title="Kembali ke Project List">
                 <span class="material-symbols-outlined">folder</span>
                 Kembali ke Project List
             </a>

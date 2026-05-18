@@ -56,6 +56,11 @@ class DomainProjectResolver implements BootstrapInterface
                 return;
             }
 
+            if ($domainContext->isWorkspaceDomain($host) && $this->isProjectListRequest()) {
+                $this->redirectSafely($event, $domainContext->projectListUrl(), 'workspace_project_list_forced_to_commander_root');
+                return;
+            }
+
             $prefix = $domainContext->extractWorkspacePrefix($host);
             $project = Project::findByCustomDomain($host);
             DomainDebugLogger::log($host, $prefix, $project, $project === null ? 'workspace_project_not_found' : 'workspace_project_resolved');
@@ -152,6 +157,12 @@ class DomainProjectResolver implements BootstrapInterface
         }
 
         return false;
+    }
+
+    private function isProjectListRequest(): bool
+    {
+        $path = trim((string)Yii::$app->request->pathInfo, '/');
+        return $path === 'project-list';
     }
 
     private function isInfrastructureHost(string $host): bool

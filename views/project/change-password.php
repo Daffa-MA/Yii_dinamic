@@ -281,7 +281,7 @@ CSS);
             <div class="project-login-footer">
                 <?= Html::a('Kembali ke login aplikasi', ['project/login', 'id' => $project->id, 'return_url' => $returnUrl]) ?>
                 <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
-                    <?= Html::a('Project list', ['project/index']) ?>
+                    <?= Html::a('Project list', (new \app\components\DomainContext())->projectListUrl()) ?>
                 <?php endif; ?>
             </div>
 

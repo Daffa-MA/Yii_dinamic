@@ -196,7 +196,7 @@ $content = $content ?? '';
                 </a>
                 
                 <!-- Projects -->
-                <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" 
+                <a href="<?= \yii\helpers\Html::encode((new \app\components\DomainContext())->projectListUrl()) ?>" 
                    class="admin-nav-item <?= strpos(Yii::$app->controller->route, 'project') === 0 ? 'active' : '' ?>">
                     <span class="material-symbols-outlined">folder_open</span>
                     <span>Projects</span>

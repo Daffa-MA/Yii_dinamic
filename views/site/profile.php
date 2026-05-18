@@ -286,7 +286,7 @@ $lastUpdated = $user !== null && !empty($user->updated_at) ? date('d M Y H:i', s
                 <h1 class="commander-profile-title">My Account</h1>
                 <p class="commander-profile-subtitle">Kelola informasi akun Commander Anda.</p>
             </div>
-            <?= Html::a('Back to Project List', ['project/index'], ['class' => 'commander-btn commander-btn-secondary']) ?>
+            <?= Html::a('Back to Project List', (new \app\components\DomainContext())->projectListUrl(), ['class' => 'commander-btn commander-btn-secondary']) ?>
         </header>
 
         <div class="commander-profile-grid">
@@ -349,7 +349,7 @@ $lastUpdated = $user !== null && !empty($user->updated_at) ? date('d M Y H:i', s
                     </div>
 
                     <div class="commander-actions">
-                        <?= Html::a('Back to Project List', ['project/index'], ['class' => 'commander-btn commander-btn-primary']) ?>
+                        <?= Html::a('Back to Project List', (new \app\components\DomainContext())->projectListUrl(), ['class' => 'commander-btn commander-btn-primary']) ?>
                         <?= Html::a('Logout', ['site/logout'], [
                             'class' => 'commander-btn commander-btn-secondary',
                             'data' => ['method' => 'post'],

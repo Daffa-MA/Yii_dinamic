@@ -393,7 +393,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         'class' => 'profile-btn profile-btn-secondary'
                     ]) ?>
                     <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
-                        <?= Html::a('<span class="material-symbols-outlined" style="font-size: 1.25rem;">home</span> Back to Projects', ['project/index'], [
+                        <?= Html::a('<span class="material-symbols-outlined" style="font-size: 1.25rem;">home</span> Back to Projects', (new \app\components\DomainContext())->projectListUrl(), [
                             'class' => 'profile-btn profile-btn-secondary'
                         ]) ?>
                     <?php endif; ?>

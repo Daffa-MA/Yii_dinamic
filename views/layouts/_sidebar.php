@@ -89,7 +89,7 @@ $projectPermissionService = new \app\components\ProjectPermissionService();
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['project/logout']) : \yii\helpers\Url::to(['site/logout']);
-$projectListUrl = \yii\helpers\Url::to(['project/index']);
+$projectListUrl = $domainContext->projectListUrl();
 
 $workspaceToolRoutes = [
     'master-menu/index' => ['route' => 'master-menu/index', 'label' => 'Master Menu', 'icon' => 'list_alt'],
@@ -1080,7 +1080,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
         <!-- Projects Page - Minimal: Hardcoded Only -->
         <?php if ($sidebarVariant === 'minimal'): ?>
             <!-- Projects (clickable) -->
-            <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'project/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
+            <a href="<?= Html::encode($projectListUrl) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'project/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                 <span class="material-symbols-outlined">folder_open</span>
                 <span class="app-sidebar-link-text"><?= Html::encode($projectNavLabel) ?></span>
             </a>

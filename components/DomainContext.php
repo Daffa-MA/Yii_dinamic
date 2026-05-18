@@ -4,6 +4,7 @@ namespace app\components;
 
 use app\models\Project;
 use Yii;
+use yii\helpers\Url;
 
 class DomainContext
 {
@@ -16,10 +17,35 @@ class DomainContext
     {
         $configured = getenv('APP_ROOT_DOMAIN');
         if ($configured === false || trim($configured) === '') {
-            $configured = (string)(Yii::$app->params['rootDomain'] ?? 'appforge.web.id');
+            $configured = (string)(
+                Yii::$app->params['commanderDomain']
+                ?? Yii::$app->params['rootDomain']
+                ?? Yii::$app->params['appDomainSuffix']
+                ?? 'appforge.web.id'
+            );
         }
 
         return $this->normalizeHost((string)$configured);
+    }
+
+    public function commanderUrl(string $path = ''): string
+    {
+        $domain = $this->rootDomain();
+        $path = '/' . ltrim($path, '/');
+
+        if ($domain === '') {
+            return $path;
+        }
+
+        $scheme = $this->isLocalHost($domain) && !Yii::$app->request->isSecureConnection ? 'http' : 'https';
+        return $scheme . '://' . $domain . $path;
+    }
+
+    public function projectListUrl(): string
+    {
+        return $this->isWorkspaceDomain()
+            ? $this->commanderUrl('/project-list')
+            : Url::to(['project/index']);
     }
 
     public function projectDomainSuffix(): string
@@ -87,5 +113,10 @@ class DomainContext
         }
 
         return $host;
+    }
+
+    private function isLocalHost(string $host): bool
+    {
+        return in_array($this->normalizeHost($host), ['localhost', '127.0.0.1'], true);
     }
 }

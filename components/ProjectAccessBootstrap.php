@@ -4,6 +4,7 @@ namespace app\components;
 
 use app\models\Project;
 use app\models\MasterMenu;
+use app\models\MasterPage;
 use Yii;
 use yii\base\ActionEvent;
 use yii\base\Application;
@@ -106,6 +107,17 @@ class ProjectAccessBootstrap implements BootstrapInterface
                     }
 
                     if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
+                        FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
+                            $activeProjectId,
+                            $this->resolveEmbeddedPageId(),
+                            (int)Yii::$app->request->get('id', Yii::$app->request->post('id', 0)),
+                            (string)Yii::$app->request->get('render_context', Yii::$app->request->post('render_context', '')),
+                            (int)Yii::$app->request->post('_embedded', 0) === 1 || (string)Yii::$app->request->get('render_context', '') === 'page_content',
+                            false,
+                            false,
+                            'ProjectAccessBootstrap',
+                            'route_permission_denied'
+                        ));
                         AuthContextDebugLogger::log('workspace_route_access_denied', $this->buildEmbeddedFormDebugContext($route, $activeProjectId, false, false, 'route_permission_denied'));
                         Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
                         $this->redirectSafely($event, Url::to(['project/access-denied', 'id' => $activeProjectId]), 'project_route_access_denied', $activeProjectId);
@@ -158,10 +170,48 @@ class ProjectAccessBootstrap implements BootstrapInterface
             return false;
         }
 
-        $formId = (int)Yii::$app->request->get('id', 0);
+        $formId = (int)Yii::$app->request->get('id', Yii::$app->request->post('id', 0));
         $pageId = $this->resolveEmbeddedPageId();
+        $permissionService = new ProjectPermissionService();
+        $pageAuthorized = false;
+        if ($pageId > 0) {
+            $page = MasterPage::findOne($pageId);
+            if ($page instanceof MasterPage) {
+                $pageAuthorized = $permissionService->canAccessPage($page, $activeProjectId);
+            }
+        }
+        $formAuthorized = $formId > 0 && $pageId > 0
+            ? ($permissionService->canUseFormAsPageContent($formId, $pageId, $activeProjectId)
+                || $permissionService->canUseLegacyFormAsPageContent($formId, $pageId, $activeProjectId))
+            : false;
 
-        return (new ProjectPermissionService())->canUseFormAsPageContent($formId, $pageId, $activeProjectId);
+        if ($pageAuthorized) {
+            FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
+                $activeProjectId,
+                $pageId,
+                $formId,
+                'page_content',
+                true,
+                $pageAuthorized,
+                $formAuthorized,
+                '',
+                'allowed_by_page_context'
+            ));
+            return true;
+        }
+
+        FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
+            $activeProjectId,
+            $pageId,
+            $formId,
+            'page_content',
+            true,
+            $pageAuthorized,
+            $formAuthorized,
+            'ProjectAccessBootstrap',
+            'embedded_submit_page_not_authorized'
+        ));
+        return false;
     }
 
     private function isAllowedEmbeddedPageFormPreview(string $route, int $activeProjectId): bool
@@ -176,12 +226,61 @@ class ProjectAccessBootstrap implements BootstrapInterface
 
         $formId = (int)Yii::$app->request->get('id', 0);
         $pageId = $this->resolveEmbeddedPageId();
+        $permissionService = new ProjectPermissionService();
+        $pageAuthorized = false;
+        if ($pageId > 0) {
+            $page = MasterPage::findOne($pageId);
+            if ($page instanceof MasterPage) {
+                $pageAuthorized = $permissionService->canAccessPage($page, $activeProjectId);
+            }
+        }
+        $formAuthorized = $formId > 0 && $pageId > 0
+            ? ($permissionService->canUseFormAsPageContent($formId, $pageId, $activeProjectId)
+                || $permissionService->canUseLegacyFormAsPageContent($formId, $pageId, $activeProjectId))
+            : false;
 
-        if ($formId <= 0 || $pageId <= 0) {
+        if ($pageId <= 0) {
+            FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
+                $activeProjectId,
+                $pageId,
+                $formId,
+                'page_content',
+                true,
+                false,
+                false,
+                'ProjectAccessBootstrap',
+                'embedded_preview_missing_page_context'
+            ));
             return false;
         }
 
-        return (new ProjectPermissionService())->canUseFormAsPageContent($formId, $pageId, $activeProjectId);
+        if ($pageAuthorized) {
+            FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
+                $activeProjectId,
+                $pageId,
+                $formId,
+                'page_content',
+                true,
+                $pageAuthorized,
+                $formAuthorized,
+                '',
+                'allowed_by_page_context'
+            ));
+            return true;
+        }
+
+        FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
+            $activeProjectId,
+            $pageId,
+            $formId,
+            'page_content',
+            true,
+            $pageAuthorized,
+            $formAuthorized,
+            'ProjectAccessBootstrap',
+            'embedded_preview_page_not_authorized'
+        ));
+        return false;
     }
 
     private function resolveEmbeddedPageId(): int
@@ -221,6 +320,35 @@ class ProjectAccessBootstrap implements BootstrapInterface
             'page_authorized' => $pageAuthorized,
             'form_authorized' => $formAuthorized,
             'reason' => $reason,
+        ];
+    }
+
+    private function buildFormAuthLogPayload(
+        int $projectId,
+        int $pageId,
+        int $formId,
+        string $renderContext,
+        bool $embedded,
+        bool $pageAuthorized,
+        bool $formAuthorized,
+        string $denySource,
+        string $denyReason
+    ): array {
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser($projectId);
+
+        return [
+            'host' => (new DomainContext())->currentHost(),
+            'project_id' => $projectId,
+            'role' => $user !== null ? strtolower(trim((string)$user->role)) : '',
+            'page_id' => $pageId,
+            'form_id' => $formId,
+            'render_context' => $renderContext,
+            'embedded' => $embedded,
+            'page_authorized' => $pageAuthorized,
+            'form_authorized' => $formAuthorized,
+            'deny_source' => $denySource,
+            'deny_reason' => $denyReason,
         ];
     }
 

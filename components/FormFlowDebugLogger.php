@@ -8,6 +8,7 @@ class FormFlowDebugLogger
 {
     private const RENDER_LOG = 'form-render-debug.log';
     private const SUBMIT_LOG = 'form-submit-debug.log';
+    private const AUTH_LOG = 'form-auth.log';
 
     public static function logRender(array $payload): void
     {
@@ -17,6 +18,11 @@ class FormFlowDebugLogger
     public static function logSubmit(array $payload): void
     {
         self::write(self::SUBMIT_LOG, $payload);
+    }
+
+    public static function logAuth(array $payload): void
+    {
+        self::write(self::AUTH_LOG, $payload);
     }
 
     private static function write(string $fileName, array $payload): void

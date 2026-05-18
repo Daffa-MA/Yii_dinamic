@@ -36,6 +36,52 @@ if (!function_exists('appTrustedProxyCidrs')) {
     }
 }
 
+if (!function_exists('appSessionCookieParams')) {
+    /**
+     * Returns cookie params that keep Commander auth available across subdomains
+     * while staying safe on localhost/dev hosts.
+     *
+     * @return array<string, mixed>
+     */
+    function appSessionCookieParams(): array
+    {
+        $params = [
+            'path' => '/',
+            'httpOnly' => true,
+        ];
+
+        $configured = getenv('APP_COOKIE_DOMAIN');
+        if (!is_string($configured) || trim($configured) === '') {
+            $configured = getenv('YII_COOKIE_DOMAIN');
+        }
+
+        if (is_string($configured) && trim($configured) !== '') {
+            $domain = trim($configured);
+            $params['domain'] = str_starts_with($domain, '.') ? $domain : '.' . ltrim($domain, '.');
+            return $params;
+        }
+
+        $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '')));
+        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+        if ($host === '' || $host === 'localhost' || $host === '127.0.0.1' || str_ends_with($host, '.local')) {
+            return $params;
+        }
+
+        $rootDomain = getenv('APP_ROOT_DOMAIN');
+        if ($rootDomain === false || trim($rootDomain) === '') {
+            $rootDomain = (string)($GLOBALS['params']['rootDomain'] ?? 'appforge.web.id');
+        }
+        $rootDomain = strtolower(trim((string)$rootDomain));
+        $rootDomain = trim($rootDomain, '.');
+
+        if ($rootDomain !== '' && ($host === $rootDomain || str_ends_with($host, '.' . $rootDomain))) {
+            $params['domain'] = '.' . $rootDomain;
+        }
+
+        return $params;
+    }
+}
+
 $config = [
     'id' => 'basic',
     'name' => 'Architectural Editor',
@@ -64,6 +110,7 @@ $config = [
         ],
         'session' => [
             'class' => 'app\components\NoSetPathSession',
+            'cookieParams' => appSessionCookieParams(),
         ],
         'user' => [
             'identityClass' => 'app\models\User',

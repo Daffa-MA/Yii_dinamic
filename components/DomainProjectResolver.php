@@ -45,7 +45,9 @@ class DomainProjectResolver implements BootstrapInterface
             $isIgnoredRoute = $this->isIgnoredRoute($route);
 
             if ($domainContext->isRootDomain($host)) {
-                (new ActiveProjectContext())->clearResolvedDomainProject();
+                $context = new ActiveProjectContext();
+                $context->clearResolvedDomainProject();
+                $context->setSuperAdminMode(false);
                 return;
             }
 
@@ -58,6 +60,9 @@ class DomainProjectResolver implements BootstrapInterface
             $project = Project::findByCustomDomain($host);
             DomainDebugLogger::log($host, $prefix, $project, $project === null ? 'workspace_project_not_found' : 'workspace_project_resolved');
             if ($project === null) {
+                $context = new ActiveProjectContext();
+                $context->clearResolvedDomainProject();
+                $context->setSuperAdminMode(false);
                 if ($this->isInfrastructureHost($host)) {
                     return;
                 }
@@ -78,8 +83,18 @@ class DomainProjectResolver implements BootstrapInterface
 
             if ((new CommanderAuthContext())->isSuperAdmin()) {
                 $context->setActiveProject((int)$project->id);
+                $context->setSuperAdminMode(true);
                 (new ActiveDatabaseContext())->resolveAndApply();
+            } else {
+                $context->setSuperAdminMode(false);
             }
+
+            AuthContextDebugLogger::log('domain_resolver_project_bound', [
+                'host' => $host,
+                'project_id' => (int)$project->id,
+                'route' => $route,
+                'superadmin' => (new CommanderAuthContext())->isSuperAdmin(),
+            ]);
 
             if ($isIgnoredRoute) {
                 return;

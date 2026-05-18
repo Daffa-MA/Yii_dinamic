@@ -25,6 +25,10 @@ use yii\helpers\ArrayHelper;
  * @property string|null $form_type
  * @property string|null $database_context
  * @property int|null $custom_code_mode
+ * @property string|null $custom_html
+ * @property string|null $custom_css
+ * @property string|null $custom_js
+ * @property int|null $use_custom_code
  * @property array $form_data
  * @property string $slug
  * @property int $is_active
@@ -89,10 +93,11 @@ class MasterForm extends ActiveRecord
         return [
             [['form_name', 'form_data'], 'required'],
             [['form_data'], 'safe'],
+            [['custom_html', 'custom_css', 'custom_js'], 'string'],
             [['form_name'], 'string', 'max' => 255],
             [['slug'], 'string', 'max' => 100],
             [['form_type', 'database_context'], 'string', 'max' => 100],
-            [['page_id', 'table_id', 'project_id', 'custom_code_mode', 'is_active'], 'integer', 'skipOnEmpty' => true],
+            [['page_id', 'table_id', 'project_id', 'custom_code_mode', 'use_custom_code', 'is_active'], 'integer', 'skipOnEmpty' => true],
         ];
     }
 
@@ -107,6 +112,10 @@ class MasterForm extends ActiveRecord
             'form_type' => 'Form Type',
             'database_context' => 'Database Context',
             'custom_code_mode' => 'Custom Code Mode',
+            'custom_html' => 'Custom HTML',
+            'custom_css' => 'Custom CSS',
+            'custom_js' => 'Custom JS',
+            'use_custom_code' => 'Use Custom Code',
             'form_data' => 'Form Data',
             'slug' => 'Slug',
             'is_active' => 'Status',
@@ -129,8 +138,14 @@ class MasterForm extends ActiveRecord
         if (empty($this->form_type)) {
             $this->form_type = 'dynamic';
         }
+        if ($this->hasAttribute('use_custom_code') && $this->use_custom_code === null) {
+            $this->use_custom_code = 0;
+        }
         if ($this->custom_code_mode === null) {
             $this->custom_code_mode = 0;
+        }
+        if ($this->hasAttribute('use_custom_code')) {
+            $this->custom_code_mode = !empty($this->use_custom_code) ? 1 : 0;
         }
         
         // Auto-generate slug if not provided

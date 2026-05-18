@@ -44,12 +44,20 @@ class FormRenderService
 
     public function buildRenderPayload(MasterForm $form, array $fields, ?MasterFormLayout $layout): array
     {
-        $customHtml = $layout ? CustomCodeSandbox::sanitizeHtml($layout->custom_html) : '';
-        $customCss = $layout ? CustomCodeSandbox::sanitizeCss($layout->custom_css) : '';
-        $customJs = $layout ? CustomCodeSandbox::sanitizeJs($layout->custom_js) : '';
+        $formCustomHtml = $form->hasAttribute('custom_html') ? (string)$form->custom_html : '';
+        $formCustomCss = $form->hasAttribute('custom_css') ? (string)$form->custom_css : '';
+        $formCustomJs = $form->hasAttribute('custom_js') ? (string)$form->custom_js : '';
+        $layoutCustomHtml = $layout ? (string)$layout->custom_html : '';
+        $layoutCustomCss = $layout ? (string)$layout->custom_css : '';
+        $layoutCustomJs = $layout ? (string)$layout->custom_js : '';
+        $customHtml = CustomCodeSandbox::sanitizeHtml($formCustomHtml !== '' ? $formCustomHtml : $layoutCustomHtml);
+        $customCss = CustomCodeSandbox::sanitizeCss($formCustomCss !== '' ? $formCustomCss : $layoutCustomCss);
+        $customJs = CustomCodeSandbox::sanitizeJs($formCustomJs !== '' ? $formCustomJs : $layoutCustomJs);
         $useCustomCode = $layout !== null
-            ? ($layout->hasAttribute('use_custom_code') && !empty($layout->use_custom_code)) || !empty($form->custom_code_mode)
-            : !empty($form->custom_code_mode);
+            ? ($layout->hasAttribute('use_custom_code') && !empty($layout->use_custom_code))
+                || ($form->hasAttribute('use_custom_code') && !empty($form->use_custom_code))
+                || !empty($form->custom_code_mode)
+            : ($form->hasAttribute('use_custom_code') && !empty($form->use_custom_code)) || !empty($form->custom_code_mode);
 
         $fields = array_map(static function (array $field): array {
             $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);

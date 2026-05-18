@@ -15,10 +15,11 @@ $this->params['breadcrumbs'][] = $this->title;
 $existingFields = !empty($model->form_data) ? json_encode($model->form_data) : '[]';
 $activeLayout = $model->getActiveLayout()->one();
 $existingUseCustomCode = !empty($model->custom_code_mode)
+    || ($model->hasAttribute('use_custom_code') && !empty($model->use_custom_code))
     || ($activeLayout && $activeLayout->hasAttribute('use_custom_code') && !empty($activeLayout->use_custom_code));
-$existingCustomHtml = $activeLayout ? (string)$activeLayout->custom_html : '';
-$existingCustomCss = $activeLayout ? (string)$activeLayout->custom_css : '';
-$existingCustomJs = $activeLayout ? (string)$activeLayout->custom_js : '';
+$existingCustomHtml = $model->hasAttribute('custom_html') && (string)$model->custom_html !== '' ? (string)$model->custom_html : ($activeLayout ? (string)$activeLayout->custom_html : '');
+$existingCustomCss = $model->hasAttribute('custom_css') && (string)$model->custom_css !== '' ? (string)$model->custom_css : ($activeLayout ? (string)$activeLayout->custom_css : '');
+$existingCustomJs = $model->hasAttribute('custom_js') && (string)$model->custom_js !== '' ? (string)$model->custom_js : ($activeLayout ? (string)$activeLayout->custom_js : '');
 
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_END]);
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js', ['position' => \yii\web\View::POS_END]);
@@ -1874,6 +1875,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cssInput) cssInput.value = useCustom ? fullFormCustomCss : '';
         if (jsInput) jsInput.value = useCustom ? fullFormCustomJs : '';
     }
+
+    function logSubmitPayload(form) {
+        if (!window.console || !console.debug) return;
+        const payload = new FormData(form);
+        console.debug('MasterForm custom code payload', {
+            use_custom_code: payload.get('MasterForm[use_custom_code]'),
+            custom_html_length: String(payload.get('MasterForm[custom_html]') || '').length,
+            custom_css_length: String(payload.get('MasterForm[custom_css]') || '').length,
+            custom_js_length: String(payload.get('MasterForm[custom_js]') || '').length
+        });
+    }
     
     // Generate full page HTML source from all fields
     function generatePageSource() {
@@ -2166,6 +2178,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             updateCustomCodeInputs();
         }
+        logSubmitPayload(this);
     });
 
     // Load tables

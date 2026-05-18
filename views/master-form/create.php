@@ -1858,6 +1858,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (cssInput) cssInput.value = useCustom ? fullFormCustomCss : '';
         if (jsInput) jsInput.value = useCustom ? fullFormCustomJs : '';
     }
+
+    function logSubmitPayload(form) {
+        if (!window.console || !console.debug) return;
+        const payload = new FormData(form);
+        console.debug('MasterForm custom code payload', {
+            use_custom_code: payload.get('MasterForm[use_custom_code]'),
+            custom_html_length: String(payload.get('MasterForm[custom_html]') || '').length,
+            custom_css_length: String(payload.get('MasterForm[custom_css]') || '').length,
+            custom_js_length: String(payload.get('MasterForm[custom_js]') || '').length
+        });
+    }
     
     // Generate full page HTML source from all fields
     function generatePageSource() {
@@ -2145,6 +2156,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             updateCustomCodeInputs();
         }
+        logSubmitPayload(this);
     });
 
     // Load tables

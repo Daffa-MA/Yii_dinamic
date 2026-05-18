@@ -14,6 +14,7 @@ use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
+use app\components\DatabaseSchemaInitializer;
 use app\components\ProjectSchema;
 use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
@@ -206,6 +207,27 @@ class MasterFormController extends Controller
         ];
     }
 
+    private function assignCustomCodeToModel(MasterForm $model, array $customCode): void
+    {
+        $useCustomCode = !empty($customCode['use_custom_code']) ? 1 : 0;
+
+        if ($model->hasAttribute('custom_html')) {
+            $model->custom_html = $useCustomCode ? (string)($customCode['custom_html'] ?? '') : '';
+        }
+        if ($model->hasAttribute('custom_css')) {
+            $model->custom_css = $useCustomCode ? (string)($customCode['custom_css'] ?? '') : '';
+        }
+        if ($model->hasAttribute('custom_js')) {
+            $model->custom_js = $useCustomCode ? (string)($customCode['custom_js'] ?? '') : '';
+        }
+        if ($model->hasAttribute('use_custom_code')) {
+            $model->use_custom_code = $useCustomCode;
+        }
+        if ($model->hasAttribute('custom_code_mode')) {
+            $model->custom_code_mode = $useCustomCode;
+        }
+    }
+
     private function syncFormArchitecture(MasterForm $model, ?array $customCode = null): void
     {
         $builderData = $this->normalizeBuilderData($model);
@@ -213,10 +235,10 @@ class MasterFormController extends Controller
         $previousLayout = $model->getActiveLayout()->one();
         if ($customCode === null) {
             $customCode = [
-                'use_custom_code' => !empty($model->custom_code_mode) ? 1 : 0,
-                'custom_html' => $previousLayout ? (string)$previousLayout->custom_html : '',
-                'custom_css' => $previousLayout ? (string)$previousLayout->custom_css : '',
-                'custom_js' => $previousLayout ? (string)$previousLayout->custom_js : '',
+                'use_custom_code' => $model->hasAttribute('use_custom_code') ? (!empty($model->use_custom_code) ? 1 : 0) : (!empty($model->custom_code_mode) ? 1 : 0),
+                'custom_html' => $model->hasAttribute('custom_html') ? (string)$model->custom_html : ($previousLayout ? (string)$previousLayout->custom_html : ''),
+                'custom_css' => $model->hasAttribute('custom_css') ? (string)$model->custom_css : ($previousLayout ? (string)$previousLayout->custom_css : ''),
+                'custom_js' => $model->hasAttribute('custom_js') ? (string)$model->custom_js : ($previousLayout ? (string)$previousLayout->custom_js : ''),
             ];
         }
 
@@ -277,8 +299,11 @@ class MasterFormController extends Controller
         $layout->sort_order = 0;
         $layout->save(false);
 
-        $model->custom_code_mode = !empty($customCode['use_custom_code']) ? 1 : 0;
-        $model->save(false, ['custom_code_mode']);
+        $this->assignCustomCodeToModel($model, $customCode);
+        $attributes = array_values(array_filter(['custom_html', 'custom_css', 'custom_js', 'use_custom_code', 'custom_code_mode'], fn($attribute) => $model->hasAttribute($attribute)));
+        if (!empty($attributes)) {
+            $model->save(false, $attributes);
+        }
     }
 
     public function beforeAction($action)
@@ -289,6 +314,7 @@ class MasterFormController extends Controller
 
         $dbContext = new ActiveDatabaseContext();
         $dbContext->resolveAndApply();
+        DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db);
         Yii::$app->db->schema->refresh();
 
         if (!ProjectSchema::supportsProjectContext()) {
@@ -359,6 +385,8 @@ class MasterFormController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
+            $customCode = $this->extractCustomCodePost();
+            $this->assignCustomCodeToModel($model, $customCode);
             $this->assignActiveProject($model);
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
@@ -380,7 +408,7 @@ class MasterFormController extends Controller
             }
             
             if ($model->save()) {
-                $this->syncFormArchitecture($model, $this->extractCustomCodePost());
+                $this->syncFormArchitecture($model, $customCode);
                 $this->activityLogService->log($model, 'form_created', 'success', 'Form created and synced.');
                 Yii::$app->session->setFlash('success', 'Form berhasil dibuat dan struktur fields/layout tersimpan.');
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -403,6 +431,8 @@ class MasterFormController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
+            $customCode = $this->extractCustomCodePost();
+            $this->assignCustomCodeToModel($model, $customCode);
             $this->assignActiveProject($model);
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
@@ -421,7 +451,7 @@ class MasterFormController extends Controller
             }
             
             if ($model->save()) {
-                $this->syncFormArchitecture($model, $this->extractCustomCodePost());
+                $this->syncFormArchitecture($model, $customCode);
                 $this->activityLogService->log($model, 'form_updated', 'success', 'Form updated and synced.');
                 Yii::$app->session->setFlash('success', 'Form berhasil diperbarui dan struktur fields/layout disinkronkan.');
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -452,6 +482,19 @@ class MasterFormController extends Controller
         $copy->form_data = $source->form_data;
         $copy->form_type = $source->form_type ?? 'dynamic';
         $copy->database_context = $source->database_context ?? null;
+        if ($copy->hasAttribute('custom_html') && $source->hasAttribute('custom_html')) {
+            $copy->custom_html = $source->custom_html;
+        }
+        if ($copy->hasAttribute('custom_css') && $source->hasAttribute('custom_css')) {
+            $copy->custom_css = $source->custom_css;
+        }
+        if ($copy->hasAttribute('custom_js') && $source->hasAttribute('custom_js')) {
+            $copy->custom_js = $source->custom_js;
+        }
+        if ($copy->hasAttribute('use_custom_code') && $source->hasAttribute('use_custom_code')) {
+            $copy->use_custom_code = $source->use_custom_code;
+        }
+        $copy->custom_code_mode = $source->custom_code_mode;
         $copy->page_id = $source->page_id;
         $copy->table_id = $source->table_id;
         $this->assignActiveProject($copy);

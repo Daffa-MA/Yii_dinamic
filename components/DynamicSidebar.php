@@ -439,16 +439,10 @@ class DynamicSidebar extends Component
 
     private function isVisible($item): bool
     {
-        $roles = $item['visibility_roles'] ?? '';
-        
-        if (empty($roles)) {
-            return true;
-        }
-        
-        if (Yii::$app->user->isGuest) {
+        if (Yii::$app->user->isGuest && !(new ProjectAuthContext())->getAuthenticatedUser()) {
             return false;
         }
-        
+
         $authContext = new ProjectAuthContext();
         $user = $authContext->getAuthenticatedUser();
         if ($user !== null) {
@@ -457,8 +451,9 @@ class DynamicSidebar extends Component
                 return true;
             }
 
+            $roles = trim((string)($item['visibility_roles'] ?? ''));
             $allowedRoles = array_map('trim', explode(',', strtolower((string)$roles)));
-            if (in_array($currentRole, $allowedRoles, true)) {
+            if ($roles !== '' && in_array($currentRole, $allowedRoles, true)) {
                 return true;
             }
         }

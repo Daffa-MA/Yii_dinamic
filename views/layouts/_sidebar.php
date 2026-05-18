@@ -85,10 +85,40 @@ if (ProjectSchema::supportsProjectContext()) {
 $commanderAuth = new CommanderAuthContext();
 $domainContext = new DomainContext();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
+$projectPermissionService = new \app\components\ProjectPermissionService();
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['project/logout']) : \yii\helpers\Url::to(['site/logout']);
 $projectListUrl = \yii\helpers\Url::to(['project/index']);
+
+$workspaceToolRoutes = [
+    'master-menu/index' => ['route' => 'master-menu/index', 'label' => 'Master Menu', 'icon' => 'list_alt'],
+    'master-page/index' => ['route' => 'master-page/index', 'label' => 'Master Page', 'icon' => 'description'],
+    'master-form/index' => ['route' => 'master-form/index', 'label' => 'Master Form', 'icon' => 'dynamic_form'],
+    'table-builder/index' => ['route' => 'table-builder/index', 'label' => 'Master Table', 'icon' => 'table_chart'],
+    'workspace-settings/index' => ['route' => 'workspace-settings/index', 'label' => 'Workspace Settings', 'icon' => 'palette'],
+];
+
+$workspaceToolItems = [];
+foreach ($workspaceToolRoutes as $tool) {
+    if ($canOpenProjectList || $projectPermissionService->canAccessRoute($tool['route'], $activeProjectId)) {
+        $workspaceToolItems[] = $tool;
+    }
+}
+$showWorkspaceTools = !empty($workspaceToolItems);
+
+$canAccessSidebarRoute = function ($route) use ($projectPermissionService, $activeProjectId, $canOpenProjectList): bool {
+    if ($canOpenProjectList) {
+        return true;
+    }
+
+    $normalizedRoute = trim((string)$route, '/');
+    if ($normalizedRoute === '') {
+        return false;
+    }
+
+    return $projectPermissionService->canAccessRoute($normalizedRoute, $activeProjectId);
+};
 
 $menuItems = [];
 try {
@@ -1261,6 +1291,28 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     ->orderBy(['sort_order' => SORT_ASC])
                     ->limit(100)
                     ->all();
+                $dynamicMenus = array_values(array_filter($dynamicMenus, function ($menu) use ($canAccessSidebarRoute) {
+                    if ($menu === null) {
+                        return false;
+                    }
+
+                    $route = (string)($menu->route ?? '');
+                    if ($route !== '' && $canAccessSidebarRoute($route)) {
+                        return true;
+                    }
+
+                    $children = method_exists($menu, 'getActiveChildren') ? $menu->getActiveChildren() : [];
+                    if (!empty($children)) {
+                        foreach ($children as $child) {
+                            $childRoute = (string)($child->route ?? '');
+                            if ($childRoute !== '' && $canAccessSidebarRoute($childRoute)) {
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
+                }));
             } catch (\Exception $e) {
                 $dynamicMenus = [];
             }
@@ -1271,6 +1323,10 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     ->with('form')
                     ->limit(50)
                     ->all();
+                $formPlacements = array_values(array_filter($formPlacements, function ($placement) use ($canAccessSidebarRoute) {
+                    $route = '/form-placement/view';
+                    return $canAccessSidebarRoute($route);
+                }));
             } catch (\Exception $e) {
                 $formPlacements = [];
             }
@@ -1355,31 +1411,17 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
             <?php endif; ?>
 <?php endif; ?>
             <!-- SYSTEM BUILDER - HARDCODED (di bawah menu dinamis) -->
-            <?php if ($sidebarVariant === 'full'): ?>
+            <?php if ($sidebarVariant === 'full' && $showWorkspaceTools): ?>
                 <div style="border-top: 1px solid <?= Html::encode($sidebarBorderColor) ?>; margin: 12px 0;"></div>
                 <div class="app-sidebar-system-builder" style="padding: 0 14px;">
                     <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: <?= Html::encode($sidebarTextMuted) ?>;">Admin Tools</span>
                 </div>
-                <a href="<?= \yii\helpers\Url::to(['master-menu/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-menu/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                    <span class="material-symbols-outlined">list_alt</span>
-                    <span class="app-sidebar-link-text">Master Menu</span>
-                </a>
-                <a href="<?= \yii\helpers\Url::to(['master-page/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-page/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                    <span class="material-symbols-outlined">description</span>
-                    <span class="app-sidebar-link-text">Master Page</span>
-                </a>
-                <a href="<?= \yii\helpers\Url::to(['master-form/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'master-form/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                    <span class="material-symbols-outlined">dynamic_form</span>
-                    <span class="app-sidebar-link-text">Master Form</span>
-                </a>
-                <a href="<?= \yii\helpers\Url::to(['table-builder/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'table-builder/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                    <span class="material-symbols-outlined">table_chart</span>
-                    <span class="app-sidebar-link-text">Master Table</span>
-                </a>
-                <a href="<?= \yii\helpers\Url::to(['workspace-settings/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'workspace-settings/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                    <span class="material-symbols-outlined">palette</span>
-                    <span class="app-sidebar-link-text">Workspace Settings</span>
-                </a>
+                <?php foreach ($workspaceToolItems as $tool): ?>
+                    <a href="<?= \yii\helpers\Url::to([$tool['route']]) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, $tool['route']) ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
+                        <span class="material-symbols-outlined"><?= Html::encode($tool['icon']) ?></span>
+                        <span class="app-sidebar-link-text"><?= Html::encode($tool['label']) ?></span>
+                    </a>
+                <?php endforeach; ?>
             <?php endif; ?>
     </nav>
 

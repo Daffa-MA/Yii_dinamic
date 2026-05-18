@@ -823,9 +823,23 @@ private function insertDefaultCmsData($newDb): void
             $debug['project_id'] = $projectId;
             $debug['host'] = Yii::$app->request->getHostName();
             $debug['route'] = Yii::$app->requestedRoute;
+            $debug['active_database'] = $this->resolveCurrentDatabaseName(Yii::$app->db);
             AuthContextDebugLogger::log('project_login_background_context', $debug);
         } catch (\Throwable $e) {
             Yii::warning('Project login background debug failed: ' . $e->getMessage(), __METHOD__);
+        }
+    }
+
+    private function resolveCurrentDatabaseName(\yii\db\Connection $connection): string
+    {
+        if (preg_match('/dbname=([^;]+)/i', $connection->dsn, $matches) === 1) {
+            return trim((string)$matches[1]);
+        }
+
+        try {
+            return trim((string)$connection->createCommand('SELECT DATABASE()')->queryScalar());
+        } catch (\Throwable $e) {
+            return '';
         }
     }
 

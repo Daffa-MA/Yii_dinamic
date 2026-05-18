@@ -17,6 +17,7 @@ use app\components\ProjectSchema;
 use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
 use app\helpers\FormSystemFieldHelper;
+use app\components\FormFlowDebugLogger;
 use app\services\FormActivityLogService;
 use app\services\FormEngineService;
 use app\services\FormRenderService;
@@ -58,6 +59,18 @@ class MasterFormController extends Controller
         }
 
         return (new ActiveProjectContext())->getActiveProjectId();
+    }
+
+    private function resolveTargetTableId(MasterForm $model): int
+    {
+        if ($model->hasAttribute('db_table_id')) {
+            $dbTableId = (int)$model->getAttribute('db_table_id');
+            if ($dbTableId > 0) {
+                return $dbTableId;
+            }
+        }
+
+        return (int)$model->table_id;
     }
 
     private function cleanSystemFieldsFromModel(MasterForm $model): bool
@@ -478,7 +491,7 @@ class MasterFormController extends Controller
             $schema = $this->formEngineService->getResolvedFormSchema($model);
             $fields = $schema['fields'];
             
-            $tableId = $model->table_id;
+            $tableId = $this->resolveTargetTableId($model);
             if (!$tableId) {
                 $message = 'Target table not configured for this form.';
                 if ($isAjax) {
@@ -488,21 +501,31 @@ class MasterFormController extends Controller
                 return $this->redirect(['preview', 'id' => $id]);
             }
             
-            $dbTable = DbTable::findOne($tableId);
-            if (ProjectSchema::supportsProjectContext() && $model->hasAttribute('project_id') && $model->project_id !== null) {
-                $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
+            $dbTable = DbTable::findOne(['id' => $tableId]);
+            if (ProjectSchema::supportsProjectContext() && $model->hasAttribute('project_id') && (int)$model->project_id > 0) {
                 $dbTableQuery = DbTable::find()
                     ->where([
                         'id' => $tableId,
                     ])
                     ->andWhere(['project_id' => (int)$model->project_id]);
-                if (!$isCommanderSuperAdmin) {
-                    $dbTableQuery->andWhere(['user_id' => Yii::$app->user->id]);
-                }
                 $dbTable = $dbTableQuery->one();
             }
             if (!$dbTable) {
                 $message = 'Target table metadata not found.';
+                FormFlowDebugLogger::logSubmit([
+                    'host' => Yii::$app->request->hostInfo,
+                    'project_id' => $this->getActiveProjectId(),
+                    'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                    'form_id' => (int)$model->id,
+                    'target_table_id' => $tableId,
+                    'resolved_table_name' => null,
+                    'metadata_found' => false,
+                    'metadata_source' => 'master_form.table_id',
+                    'submitted_fields' => array_keys($postData),
+                    'system_fields_applied' => [],
+                    'insert_result' => 'metadata_missing',
+                    'error' => $message,
+                ]);
                 if ($isAjax) {
                     return ['success' => false, 'message' => $message];
                 }
@@ -552,7 +575,9 @@ class MasterFormController extends Controller
                 }
             }
 
+            $preSystemInsertData = $insertData;
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
+            $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
             
             if (!empty($insertData)) {
                 try {
@@ -567,6 +592,20 @@ class MasterFormController extends Controller
                     \Yii::info("SQL: $sql", 'submit_debug');
                     
                     $cmd->execute();
+                    FormFlowDebugLogger::logSubmit([
+                        'host' => Yii::$app->request->hostInfo,
+                        'project_id' => $this->getActiveProjectId(),
+                        'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                        'form_id' => (int)$model->id,
+                        'target_table_id' => $tableId,
+                        'resolved_table_name' => $tableName,
+                        'metadata_found' => true,
+                        'metadata_source' => 'master_form.table_id',
+                        'submitted_fields' => array_keys($postData),
+                        'system_fields_applied' => $systemFieldsApplied,
+                        'insert_result' => 'success',
+                        'error' => null,
+                    ]);
                     
                     \Yii::info("Insert executed successfully", 'submit_debug');
                     
@@ -588,6 +627,20 @@ class MasterFormController extends Controller
                     ]);
                 } catch (\Exception $e) {
                     $message = 'Save failed: ' . $e->getMessage();
+                    FormFlowDebugLogger::logSubmit([
+                        'host' => Yii::$app->request->hostInfo,
+                        'project_id' => $this->getActiveProjectId(),
+                        'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                        'form_id' => (int)$model->id,
+                        'target_table_id' => $tableId,
+                        'resolved_table_name' => $tableName,
+                        'metadata_found' => true,
+                        'metadata_source' => 'master_form.table_id',
+                        'submitted_fields' => array_keys($postData),
+                        'system_fields_applied' => $systemFieldsApplied,
+                        'insert_result' => 'error',
+                        'error' => $e->getMessage(),
+                    ]);
                     if ($isAjax) {
                         return ['success' => false, 'message' => $message];
                     }
@@ -600,6 +653,20 @@ class MasterFormController extends Controller
                 $postedFieldNames = array_keys($postData);
                 $formFieldNames = array_column($fields, 'name');
                 $message = 'No data extracted.';
+                FormFlowDebugLogger::logSubmit([
+                    'host' => Yii::$app->request->hostInfo,
+                    'project_id' => $this->getActiveProjectId(),
+                    'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                    'form_id' => (int)$model->id,
+                    'target_table_id' => $tableId,
+                    'resolved_table_name' => $tableName,
+                    'metadata_found' => true,
+                    'metadata_source' => 'master_form.table_id',
+                    'submitted_fields' => $postedFieldNames,
+                    'system_fields_applied' => $systemFieldsApplied,
+                    'insert_result' => 'no_data',
+                    'error' => $message,
+                ]);
                 if ($isAjax) {
                     return ['success' => false, 'message' => $message];
                 }

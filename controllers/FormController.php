@@ -20,6 +20,7 @@ use app\models\Project;
 use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
 use app\components\CommanderAuthContext;
+use app\components\FormFlowDebugLogger;
 use app\components\ProjectAuthContext;
 use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
@@ -201,20 +202,36 @@ class FormController extends Controller
         return $tempForm->getSchema();
     }
 
-    private function resolveFormTargetTableId(Form $form): int
+    private function resolveFormTargetTableInfo(Form $form): array
     {
         if (method_exists($form, 'getEffectiveTableId')) {
-            return (int)($form->getEffectiveTableId() ?? 0);
+            $effectiveTableId = (int)($form->getEffectiveTableId() ?? 0);
+            if ($effectiveTableId > 0) {
+                return ['id' => $effectiveTableId, 'source' => 'effective_table_id'];
+            }
         }
 
         if ($form->hasAttribute('db_table_id')) {
             $newId = (int)$form->getAttribute('db_table_id');
             if ($newId > 0) {
-                return $newId;
+                return ['id' => $newId, 'source' => 'db_table_id'];
             }
         }
 
-        return (int)$form->table_id;
+        if ($form->hasAttribute('table_id')) {
+            $legacyId = (int)$form->getAttribute('table_id');
+            if ($legacyId > 0) {
+                return ['id' => $legacyId, 'source' => 'table_id'];
+            }
+        }
+
+        return ['id' => 0, 'source' => ''];
+    }
+
+    private function resolveFormTargetTableId(Form $form): int
+    {
+        $info = $this->resolveFormTargetTableInfo($form);
+        return (int)($info['id'] ?? 0);
     }
 
     private function shouldInsertDirectlyToTable(Form $form): bool
@@ -232,16 +249,14 @@ class FormController extends Controller
 
     private function findTargetTableForForm(Form $form): ?DbTable
     {
-        $tableId = $this->resolveFormTargetTableId($form);
+        $info = $this->resolveFormTargetTableInfo($form);
+        $tableId = (int)($info['id'] ?? 0);
         if ($tableId <= 0) {
             return null;
         }
 
-        $criteria = [
-            'id' => $tableId,
-            'user_id' => (int)$form->user_id,
-        ];
-        if (ProjectSchema::supportsProjectContext() && $form->hasAttribute('project_id')) {
+        $criteria = ['id' => $tableId];
+        if (ProjectSchema::supportsProjectContext() && $form->hasAttribute('project_id') && (int)$form->project_id > 0) {
             $criteria['project_id'] = (int)$form->project_id;
         }
 
@@ -727,20 +742,23 @@ class FormController extends Controller
     /**
      * Save submission into the selected custom table when mapping exists.
      */
-    private function persistSubmissionToCustomTable(Form $form, array $data, ?int $targetTableId = null): bool
+    private function persistSubmissionToCustomTable(Form $form, array $data, ?int $targetTableId = null, array &$debugContext = []): bool
     {
         $tableId = $targetTableId !== null ? (int)$targetTableId : $this->resolveFormTargetTableId($form);
         if ($tableId <= 0) {
             return false;
         }
 
-        $tableCriteria = ['id' => $tableId, 'user_id' => $form->user_id];
-        if (ProjectSchema::supportsProjectContext() && $form->hasAttribute('project_id')) {
-            $tableCriteria['project_id'] = $form->project_id;
+        $tableCriteria = ['id' => $tableId];
+        if (ProjectSchema::supportsProjectContext() && $form->hasAttribute('project_id') && (int)$form->project_id > 0) {
+            $tableCriteria['project_id'] = (int)$form->project_id;
         }
 
         $table = DbTable::findOne($tableCriteria);
         if ($table === null) {
+            $debugContext['metadata_found'] = false;
+            $debugContext['resolved_table_name'] = null;
+            $debugContext['insert_result'] = 'metadata_missing';
             throw new \RuntimeException('Target table metadata was not found.');
         }
         if (!(bool)$table->is_created) {
@@ -748,7 +766,7 @@ class FormController extends Controller
         }
 
         // Resolve physical DB from the form's project to avoid relying on current session context.
-        $projectId = $form->hasAttribute('project_id') ? (int)$form->project_id : null;
+        $projectId = $form->hasAttribute('project_id') && (int)$form->project_id > 0 ? (int)$form->project_id : null;
         $targetDb = $this->getPhysicalDb($projectId);
         $tableSchema = $targetDb->schema->getTableSchema($table->name, true);
 
@@ -821,13 +839,20 @@ class FormController extends Controller
             }
         }
 
+        $preSystemInsertData = $insertData;
         $insertData = SystemFieldService::applyCreateValues($insertData, $tableSchema->columns);
+        $debugContext['system_fields_applied'] = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
+        $debugContext['metadata_found'] = true;
+        $debugContext['resolved_table_name'] = $table->name;
+        $debugContext['metadata_source'] = $debugContext['metadata_source'] ?? ($targetTableId !== null ? 'provided_target_table_id' : 'resolved_target_table_id');
 
         if (empty($insertData)) {
+            $debugContext['insert_result'] = 'empty_data';
             return false;
         }
 
         $targetDb->createCommand()->insert($table->name, $insertData)->execute();
+        $debugContext['insert_result'] = 'success';
         return true;
     }
 
@@ -1432,24 +1457,51 @@ class FormController extends Controller
                 }
             }
 
-            $targetTableId = $this->resolveFormTargetTableId($model);
+            $targetTableInfo = $this->resolveFormTargetTableInfo($model);
+            $targetTableId = (int)($targetTableInfo['id'] ?? 0);
+            $targetTableSource = (string)($targetTableInfo['source'] ?? '');
             $insertDirectlyToTable = $this->shouldInsertDirectlyToTable($model);
+            $submitDebug = [
+                'host' => Yii::$app->request->hostInfo,
+                'project_id' => $this->getActiveProjectId(),
+                'active_db' => (string)($dbContext['activeDatabase'] ?? $db->dsn),
+                'render_context' => (string)Yii::$app->request->post('render_context', Yii::$app->request->get('render_context', '')),
+                'page_id' => (int)Yii::$app->request->post('page_id', Yii::$app->request->get('page_id', 0)),
+                'menu_id' => (int)Yii::$app->request->post('menu_id', Yii::$app->request->get('menu_id', 0)),
+                'role' => ($workspaceUser = $this->getWorkspaceAuthenticatedUser($this->getActiveProjectId())) !== null ? strtolower(trim((string)$workspaceUser->role)) : '',
+                'form_id' => (int)$model->id,
+                'target_table_id' => $targetTableId,
+                'resolved_table_name' => null,
+                'metadata_found' => false,
+                'metadata_source' => $targetTableSource,
+                'submitted_fields' => array_keys($data),
+                'system_fields_applied' => [],
+                'insert_result' => 'pending',
+                'error' => null,
+            ];
             $transaction = Yii::$app->db->beginTransaction();
             try {
                 $storedToTable = false;
                 if ($insertDirectlyToTable) {
                     if ($targetTableId <= 0) {
+                        $submitDebug['insert_result'] = 'missing_target_table';
+                        FormFlowDebugLogger::logSubmit($submitDebug);
                         throw new \RuntimeException('Form ini belum terhubung ke tabel database tujuan.');
                     }
 
                     try {
-                        $storedToTable = $this->persistSubmissionToCustomTable($model, $data, $targetTableId);
+                        $storedToTable = $this->persistSubmissionToCustomTable($model, $data, $targetTableId, $submitDebug);
                     } catch (\Throwable $persistError) {
                         Yii::error('Persist to custom table failed: ' . $persistError->getMessage(), 'app');
+                        $submitDebug['insert_result'] = 'error';
+                        $submitDebug['error'] = $persistError->getMessage();
+                        FormFlowDebugLogger::logSubmit($submitDebug);
                         throw new \RuntimeException('Gagal menyimpan ke tabel target: ' . $persistError->getMessage());
                     }
 
                     if (!$storedToTable) {
+                        $submitDebug['insert_result'] = 'no_matching_fields';
+                        FormFlowDebugLogger::logSubmit($submitDebug);
                         throw new \RuntimeException('Tidak ada field yang cocok untuk disimpan ke tabel target.');
                     }
                 }
@@ -1474,11 +1526,16 @@ class FormController extends Controller
                     if (!$submission->save()) {
                         $errors = $submission->getFirstErrors();
                         $errorMessage = !empty($errors) ? implode(', ', $errors) : 'Failed to submit form. Please try again.';
+                        $submitDebug['insert_result'] = 'error';
+                        $submitDebug['error'] = $errorMessage;
+                        FormFlowDebugLogger::logSubmit($submitDebug);
                         throw new \RuntimeException($errorMessage);
                     }
                 }
 
                 $transaction->commit();
+                $submitDebug['insert_result'] = 'success';
+                FormFlowDebugLogger::logSubmit($submitDebug);
 
                 if ($returnUrl !== null) {
                     Yii::$app->session->setFlash('success', 'Form "' . $model->name . '" berhasil dikirim.');
@@ -1490,6 +1547,9 @@ class FormController extends Controller
                 $transaction->rollBack();
                 Yii::warning('IntegrityException on form submit: ' . $e->getMessage(), 'app');
                 Yii::$app->session->setFlash('error', $this->buildFriendlyIntegrityErrorMessage($e, $model));
+                $submitDebug['insert_result'] = 'integrity_error';
+                $submitDebug['error'] = $e->getMessage();
+                FormFlowDebugLogger::logSubmit($submitDebug);
 
                 if ($returnUrl !== null) {
                     return $this->redirect($returnUrl);
@@ -1501,6 +1561,9 @@ class FormController extends Controller
             } catch (\Throwable $e) {
                 $transaction->rollBack();
                 Yii::$app->session->setFlash('error', $e->getMessage());
+                $submitDebug['insert_result'] = 'error';
+                $submitDebug['error'] = $e->getMessage();
+                FormFlowDebugLogger::logSubmit($submitDebug);
 
                 if ($returnUrl !== null) {
                     return $this->redirect($returnUrl);

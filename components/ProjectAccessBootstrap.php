@@ -3,6 +3,7 @@
 namespace app\components;
 
 use app\models\Project;
+use app\models\MasterMenu;
 use Yii;
 use yii\base\ActionEvent;
 use yii\base\Application;
@@ -99,21 +100,17 @@ class ProjectAccessBootstrap implements BootstrapInterface
                         Yii::$app->session->setFlash('warning', 'Anda masih menggunakan password default. Disarankan segera mengganti password.');
                     }
 
-                if ($this->isAllowedEmbeddedPageFormSubmit($route, $activeProjectId)) {
-                    AuthContextDebugLogger::log('workspace_embedded_page_form_allowed', [
-                        'route' => $route,
-                        'active_project_id' => $activeProjectId,
-                        'page_id' => (int)Yii::$app->request->post('page_id', 0),
-                        'form_id' => (int)Yii::$app->request->get('id', 0),
-                    ]);
-                    return;
-                }
+                    if ($this->isAllowedEmbeddedPageFormPreview($route, $activeProjectId) || $this->isAllowedEmbeddedPageFormSubmit($route, $activeProjectId)) {
+                        AuthContextDebugLogger::log('workspace_embedded_page_form_allowed', $this->buildEmbeddedFormDebugContext($route, $activeProjectId, true, true, 'page_content_authorized'));
+                        return;
+                    }
 
-                if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
-                    Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
-                    $this->redirectSafely($event, Url::to(['project/access-denied', 'id' => $activeProjectId]), 'project_route_access_denied', $activeProjectId);
-                    return;
-                }
+                    if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
+                        AuthContextDebugLogger::log('workspace_route_access_denied', $this->buildEmbeddedFormDebugContext($route, $activeProjectId, false, false, 'route_permission_denied'));
+                        Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
+                        $this->redirectSafely($event, Url::to(['project/access-denied', 'id' => $activeProjectId]), 'project_route_access_denied', $activeProjectId);
+                        return;
+                    }
 
                 AuthContextDebugLogger::log('workspace_project_auth_allowed', [
                     'route' => $route,
@@ -162,9 +159,69 @@ class ProjectAccessBootstrap implements BootstrapInterface
         }
 
         $formId = (int)Yii::$app->request->get('id', 0);
-        $pageId = (int)Yii::$app->request->post('page_id', 0);
+        $pageId = $this->resolveEmbeddedPageId();
 
         return (new ProjectPermissionService())->canUseFormAsPageContent($formId, $pageId, $activeProjectId);
+    }
+
+    private function isAllowedEmbeddedPageFormPreview(string $route, int $activeProjectId): bool
+    {
+        if ($route !== 'master-page/form-preview' || Yii::$app->request->isPost) {
+            return false;
+        }
+
+        if ((string)Yii::$app->request->get('render_context', '') !== 'page_content') {
+            return false;
+        }
+
+        $formId = (int)Yii::$app->request->get('id', 0);
+        $pageId = $this->resolveEmbeddedPageId();
+
+        if ($formId <= 0 || $pageId <= 0) {
+            return false;
+        }
+
+        return (new ProjectPermissionService())->canUseFormAsPageContent($formId, $pageId, $activeProjectId);
+    }
+
+    private function resolveEmbeddedPageId(): int
+    {
+        $pageId = (int)Yii::$app->request->get('page_id', Yii::$app->request->post('page_id', 0));
+        if ($pageId > 0) {
+            return $pageId;
+        }
+
+        $menuId = (int)Yii::$app->request->get('menu_id', Yii::$app->request->post('menu_id', 0));
+        if ($menuId <= 0) {
+            return 0;
+        }
+
+        $menu = MasterMenu::findOne($menuId);
+        if ($menu === null || empty($menu->page_id)) {
+            return 0;
+        }
+
+        return (int)$menu->page_id;
+    }
+
+    private function buildEmbeddedFormDebugContext(string $route, int $activeProjectId, bool $pageAuthorized, bool $formAuthorized, string $reason): array
+    {
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser($activeProjectId);
+
+        return [
+            'route' => $route,
+            'host' => (new DomainContext())->currentHost(),
+            'project_id' => $activeProjectId,
+            'role' => $user !== null ? strtolower(trim((string)$user->role)) : '',
+            'page_id' => $this->resolveEmbeddedPageId(),
+            'menu_id' => (int)Yii::$app->request->get('menu_id', Yii::$app->request->post('menu_id', 0)),
+            'form_id' => (int)Yii::$app->request->get('id', Yii::$app->request->post('id', 0)),
+            'render_context' => (string)Yii::$app->request->get('render_context', Yii::$app->request->post('render_context', '')),
+            'page_authorized' => $pageAuthorized,
+            'form_authorized' => $formAuthorized,
+            'reason' => $reason,
+        ];
     }
 
     private function isProtectedRoute(string $route): bool

@@ -47,8 +47,29 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     direction: ltr;
 }
 
+body.dashboard-main-page {
+    overflow: hidden;
+}
+
+.dashboard-main {
+    height: 100vh;
+    overflow: hidden;
+    box-sizing: border-box;
+    padding-bottom: 0;
+}
+
+.dashboard-main > .container-fluid {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .page-builder {
-    height: calc(100vh - 56px);
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 0;
     display: flex;
     background: #0f172a;
     overflow: hidden;
@@ -61,6 +82,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     flex-direction: column;
     flex-shrink: 0;
     border-right: 1px solid #e5e7eb;
+    min-height: 0;
     overflow-y: auto;
 }
 
@@ -141,19 +163,22 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     padding: 20px;
     min-height: 0;
     overflow-x: auto;
-    overflow-y: auto;
+    overflow-y: hidden;
     background: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
 .canvas-frame {
     width: 100%;
     max-width: 100%;
-    min-height: 600px;
+    height: 100%;
+    min-height: 0;
     background: #ffffff;
     border-radius: 12px;
     box-shadow: 0 8px 30px rgba(0,0,0,0.12);
     transition: width 0.25s ease, max-width 0.25s ease;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .canvas-frame.device-tablet {
@@ -167,20 +192,37 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
 }
 
 .canvas-content {
-    min-height: calc(100vh - 180px);
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 20px;
     background: #ffffff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.canvas-content > form {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.canvas-content > form > div:first-of-type {
+    flex-shrink: 0;
 }
 
 .builder-properties {
     width: 380px;
+    height: 100%;
     background: #ffffff;
     border-left: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    overflow-y: auto;
-    overflow-x: hidden;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .sidebar-header {
@@ -238,13 +280,24 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
 }
 
 .canvas-drop-zone {
-    min-height: calc(100vh - 120px);
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
     padding: 16px;
     background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    overflow: hidden;
+}
+
+#fields-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 4px;
 }
 
 .canvas-drop-zone.drag-over {
@@ -557,6 +610,58 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     accent-color: #6366f1;
 }
 
+.prop-options-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.prop-option-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 32px;
+    gap: 8px;
+    align-items: center;
+}
+
+.prop-option-remove,
+.prop-option-add {
+    border: 1px solid #e5e7eb;
+    background: #ffffff;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.prop-option-remove {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.prop-option-remove:hover {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.prop-option-add {
+    margin-top: 10px;
+    width: 100%;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.prop-option-add:hover {
+    background: #eef2ff;
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
 .no-selection {
     padding: 40px 20px;
     text-align: center;
@@ -577,6 +682,8 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     align-items: center;
     justify-content: space-between;
     padding: 0 24px;
+    flex-shrink: 0;
+    border-left: 1px solid #e5e7eb;
 }
 
 .builder-toolbar-title {
@@ -643,6 +750,10 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     border-radius: 18px;
     overflow: hidden;
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .builder-workspace-header {
@@ -662,9 +773,11 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
 }
 
 .builder-canvas-surface {
-    min-height: 360px;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 18px;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    overflow: hidden;
 }
 
 .btn-action {
@@ -692,10 +805,14 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
 }
 
 #properties-panel {
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     gap: 0;
     min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 16px;
 }
 
 #properties-panel > * {
@@ -706,6 +823,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     display: flex;
     background: #f8fafc;
     border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
 }
 
 .prop-tab-btn {
@@ -732,11 +850,20 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
 }
 
 .prop-tab-content {
-    flex: 1;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
+}
+
+#properties-code-tab {
+    min-height: 0;
+}
+
+#monaco-editor-container {
+    flex: 1 1 auto;
+    min-height: 0 !important;
 }
 
 .prop-tab-content:not(.active) {
@@ -1138,7 +1265,43 @@ document.addEventListener('DOMContentLoaded', function() {
             btn.classList.toggle('active', btn.dataset.device === device);
         });
     };
-    
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeAttr(value) {
+        return escapeHtml(value);
+    }
+
+    function normalizeChoiceOptions(field) {
+        if (!Array.isArray(field.options) || field.options.length === 0) {
+            field.options = [
+                { value: 'opt1', label: 'Opsi 1' },
+                { value: 'opt2', label: 'Opsi 2' }
+            ];
+        }
+        field.options = field.options.map((opt, index) => ({
+            value: opt.value ?? ('opt' + (index + 1)),
+            label: opt.label ?? ('Opsi ' + (index + 1))
+        }));
+        return field.options;
+    }
+
+    function attr(name, value) {
+        if (value === undefined || value === null || value === '') return '';
+        return ' ' + name + '="' + escapeAttr(value) + '"';
+    }
+
+    function boolAttr(name, enabled) {
+        return enabled ? ' ' + name : '';
+    }
+
     // Render Preview Input
     function renderPreview(field) {
         if (!field) return '';
@@ -1173,22 +1336,63 @@ document.addEventListener('DOMContentLoaded', function() {
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };
-        
+
+        const commonAttrs = attr('placeholder', field.placeholder || placeholders[type] || '') +
+            attr('value', field.default_value || '') +
+            attr('name', field.name || '') +
+            attr('minlength', field.min_length) +
+            attr('maxlength', field.max_length) +
+            attr('pattern', field.pattern) +
+            boolAttr('required', field.required) +
+            boolAttr('readonly', field.readonly) +
+            boolAttr('disabled', true);
+
         if (type === 'select') {
             let optionsHtml = '<option value="">-- Pilih --</option>';
             if (field.is_foreign_key && field.fk_options && field.fk_options.length > 0) {
                 field.fk_options.forEach(opt => {
-                    optionsHtml += '<option value="' + opt.value + '">' + opt.label + '</option>';
+                    optionsHtml += '<option value="' + escapeAttr(opt.value) + '"' + boolAttr('selected', String(field.default_value || '') === String(opt.value)) + '>' + escapeHtml(opt.label) + '</option>';
                 });
             } else if (field.options && field.options.length > 0) {
                 field.options.forEach(opt => {
-                    optionsHtml += '<option value="' + opt.value + '">' + opt.label + '</option>';
+                    optionsHtml += '<option value="' + escapeAttr(opt.value) + '"' + boolAttr('selected', String(field.default_value || '') === String(opt.value)) + '>' + escapeHtml(opt.label) + '</option>';
                 });
             }
-            return `<div class="field-preview"><select disabled>${optionsHtml}</select></div>`;
+            return '<div class="field-preview"><select' + attr('name', field.name || '') + boolAttr('required', field.required) + boolAttr('disabled', true) + '>' + optionsHtml + '</select></div>';
         }
-        
-        return `<div class="field-preview"><input type="${inputType[type] || 'text'}" placeholder="${placeholders[type] || ''}" disabled></div>`;
+
+        if (type === 'radio' || type === 'checkboxes') {
+            const options = normalizeChoiceOptions(field);
+            const optionHtml = options.map((opt, index) => {
+                const inputType = type === 'radio' ? 'radio' : 'checkbox';
+                return '<label style="display:flex;align-items:center;gap:8px;margin:6px 0;color:#475569;">' +
+                    '<input type="' + inputType + '" name="' + escapeAttr(field.name || field.id || 'option_group') + '"' + boolAttr('checked', String(field.default_value || '') === String(opt.value) || (index === 0 && type === 'radio' && !field.default_value)) + boolAttr('disabled', true) + '>' +
+                    '<span>' + escapeHtml(opt.label) + '</span>' +
+                    '</label>';
+            }).join('');
+            return '<div class="field-preview">' + optionHtml + '</div>';
+        }
+
+        if (type === 'textarea') {
+            return '<div class="field-preview"><textarea rows="' + escapeAttr(field.rows || 4) + '"' + commonAttrs + '>' + escapeHtml(field.default_value || '') + '</textarea></div>';
+        }
+
+        if (type === 'checkbox') {
+            return '<div class="field-preview"><label style="display:flex;align-items:center;gap:8px;color:#475569;"><input type="checkbox"' + attr('name', field.name || '') + boolAttr('checked', field.default_checked) + boolAttr('required', field.required) + boolAttr('disabled', true) + '><span>' + escapeHtml(field.labelText || field.label || 'Checkbox') + '</span></label></div>';
+        }
+
+        if (type === 'file') {
+            return '<div class="field-preview"><input type="file"' + attr('name', field.name || '') + attr('accept', field.accept) + boolAttr('multiple', field.multiple) + boolAttr('required', field.required) + boolAttr('disabled', true) + '></div>';
+        }
+
+        if (type === 'hidden') {
+            return '<div class="field-preview" style="background:#f8fafc;color:#64748b;">Hidden value: ' + escapeHtml(field.default_value || '(empty)') + '</div>';
+        }
+
+        const numericAttrs = type === 'number' ? attr('min', field.min) + attr('max', field.max) + attr('step', field.step) : '';
+        const dateAttrs = ['date', 'time', 'datetime'].includes(type) ? attr('min', field.min) + attr('max', field.max) : '';
+
+        return '<div class="field-preview"><input type="' + escapeAttr(inputType[type] || 'text') + '"' + commonAttrs + numericAttrs + dateAttrs + '></div>';
     }
     
     // Initialize Sortable
@@ -1240,11 +1444,11 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span></div>';
-        
+
         html += '<div class="prop-section"><div class="prop-section-title">Label & Name</div>';
-        html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + (field.label || '') + '" data-prop="label" onchange="updateFieldProp(\'label\', this.value)"></div>';
-        html += '<div class="prop-group"><label class="prop-label">Name (Database)</label><input type="text" class="prop-input" value="' + (field.name || '') + '" data-prop="name" onchange="updateFieldProp(\'name\', this.value)"></div>';
-        html += '<div class="prop-group"><label class="prop-label">Placeholder</label><input type="text" class="prop-input" value="' + (field.placeholder || '') + '" data-prop="placeholder" onchange="updateFieldProp(\'placeholder\', this.value)"></div></div>';
+        html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + escapeAttr(field.label || '') + '" data-prop="label" onchange="updateFieldProp(\'label\', this.value)"></div>';
+        html += '<div class="prop-group"><label class="prop-label">Name (Database)</label><input type="text" class="prop-input" value="' + escapeAttr(field.name || '') + '" data-prop="name" onchange="updateFieldProp(\'name\', this.value)"></div>';
+        html += '<div class="prop-group"><label class="prop-label">Placeholder</label><input type="text" class="prop-input" value="' + escapeAttr(field.placeholder || '') + '" data-prop="placeholder" onchange="updateFieldProp(\'placeholder\', this.value)"></div></div>';
         
         html += '<div class="prop-section"><div class="prop-section-title">Konfigurasi</div>';
         html += '<div class="prop-group"><label class="prop-label">Tipe Input</label><select class="prop-select" data-prop="type" onchange="updateFieldProp(\'type\', this.value)">';
@@ -1254,11 +1458,73 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<option value="' + t + '" ' + (field.type === t ? 'selected' : '') + '>' + labels[i] + '</option>';
         });
         html += '</select></div>';
-        html += '<div class="prop-group"><label class="prop-label">Default Value</label><input type="text" class="prop-input" value="' + (field.default_value || '') + '" data-prop="default_value" onchange="updateFieldProp(\'default_value\', this.value)"></div></div>';
-        
+        html += '<div class="prop-group"><label class="prop-label">Default Value</label><input type="text" class="prop-input" value="' + escapeAttr(field.default_value || '') + '" data-prop="default_value" onchange="updateFieldProp(\'default_value\', this.value)"></div></div>';
+
+        if (['text', 'email', 'password', 'tel', 'url'].includes(field.type)) {
+            html += '<div class="prop-section"><div class="prop-section-title">Input Rules</div>';
+            html += '<div class="prop-group"><label class="prop-label">Min Length</label><input type="number" class="prop-input" min="0" value="' + escapeAttr(field.min_length || '') + '" onchange="updateFieldProp(\'min_length\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Max Length</label><input type="number" class="prop-input" min="1" value="' + escapeAttr(field.max_length || '') + '" onchange="updateFieldProp(\'max_length\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Pattern Regex</label><input type="text" class="prop-input" value="' + escapeAttr(field.pattern || '') + '" placeholder="e.g. [A-Za-z0-9]+" onchange="updateFieldProp(\'pattern\', this.value)"></div>';
+            html += '</div>';
+        }
+
+        if (field.type === 'number') {
+            html += '<div class="prop-section"><div class="prop-section-title">Number Rules</div>';
+            html += '<div class="prop-group"><label class="prop-label">Min</label><input type="number" class="prop-input" value="' + escapeAttr(field.min || '') + '" onchange="updateFieldProp(\'min\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Max</label><input type="number" class="prop-input" value="' + escapeAttr(field.max || '') + '" onchange="updateFieldProp(\'max\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Step</label><input type="text" class="prop-input" value="' + escapeAttr(field.step || '') + '" placeholder="1, 0.01, any" onchange="updateFieldProp(\'step\', this.value)"></div>';
+            html += '</div>';
+        }
+
+        if (field.type === 'textarea') {
+            html += '<div class="prop-section"><div class="prop-section-title">Textarea</div>';
+            html += '<div class="prop-group"><label class="prop-label">Rows</label><input type="number" class="prop-input" min="2" max="20" value="' + escapeAttr(field.rows || 4) + '" onchange="updateFieldProp(\'rows\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Max Length</label><input type="number" class="prop-input" min="1" value="' + escapeAttr(field.max_length || '') + '" onchange="updateFieldProp(\'max_length\', this.value)"></div>';
+            html += '</div>';
+        }
+
+        if (['date', 'time', 'datetime'].includes(field.type)) {
+            html += '<div class="prop-section"><div class="prop-section-title">Range</div>';
+            html += '<div class="prop-group"><label class="prop-label">Min</label><input type="' + (field.type === 'datetime' ? 'datetime-local' : field.type) + '" class="prop-input" value="' + escapeAttr(field.min || '') + '" onchange="updateFieldProp(\'min\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Max</label><input type="' + (field.type === 'datetime' ? 'datetime-local' : field.type) + '" class="prop-input" value="' + escapeAttr(field.max || '') + '" onchange="updateFieldProp(\'max\', this.value)"></div>';
+            html += '</div>';
+        }
+
+        if (field.type === 'file') {
+            html += '<div class="prop-section"><div class="prop-section-title">File Upload</div>';
+            html += '<div class="prop-group"><label class="prop-label">Accept</label><input type="text" class="prop-input" value="' + escapeAttr(field.accept || '') + '" placeholder=".jpg,.png,application/pdf" onchange="updateFieldProp(\'accept\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.multiple ? 'checked' : '') + ' onchange="updateFieldProp(\'multiple\', this.checked)">Allow Multiple Files</label></div>';
+            html += '</div>';
+        }
+
+        if (field.type === 'checkbox') {
+            html += '<div class="prop-section"><div class="prop-section-title">Checkbox</div>';
+            html += '<div class="prop-group"><label class="prop-label">Checkbox Text</label><input type="text" class="prop-input" value="' + escapeAttr(field.labelText || '') + '" placeholder="Centang ini" onchange="updateFieldProp(\'labelText\', this.value)"></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.default_checked ? 'checked' : '') + ' onchange="updateFieldProp(\'default_checked\', this.checked)">Checked by Default</label></div>';
+            html += '</div>';
+        }
+
+        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key) {
+            const options = normalizeChoiceOptions(field);
+            html += '<div class="prop-section"><div class="prop-section-title">Options</div>';
+            html += '<div class="prop-group">';
+            html += '<div class="prop-options-list">';
+            options.forEach((opt, index) => {
+                html += '<div class="prop-option-row">';
+                html += '<input type="text" class="prop-input" value="' + escapeAttr(opt.label) + '" placeholder="Label" onchange="updateFieldOption(' + index + ', \'label\', this.value)">';
+                html += '<input type="text" class="prop-input" value="' + escapeAttr(opt.value) + '" placeholder="Value" onchange="updateFieldOption(' + index + ', \'value\', this.value)">';
+                html += '<button type="button" class="prop-option-remove" onclick="removeFieldOption(' + index + ')" title="Remove option"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>';
+                html += '</div>';
+            });
+            html += '</div>';
+            html += '<button type="button" class="prop-option-add" onclick="addFieldOption()">+ Add option</button>';
+            html += '</div></div>';
+        }
+
         html += '<div class="prop-section"><div class="prop-section-title">Validasi</div>';
         html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.required ? 'checked' : '') + ' data-prop="required" onchange="updateFieldProp(\'required\', this.checked)">Wajib Diisi (Required)</label></div>';
-        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.disabled ? 'checked' : '') + ' data-prop="disabled" onchange="updateFieldProp(\'disabled\', this.checked)">Disable / Read-only</label></div></div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.readonly ? 'checked' : '') + ' data-prop="readonly" onchange="updateFieldProp(\'readonly\', this.checked)">Read-only</label></div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.disabled ? 'checked' : '') + ' data-prop="disabled" onchange="updateFieldProp(\'disabled\', this.checked)">Disabled</label></div></div>';
         
         if (field.is_foreign_key) {
             html += '<div class="prop-section"><div class="prop-section-title">Foreign Key</div>';
@@ -1293,7 +1559,47 @@ document.addEventListener('DOMContentLoaded', function() {
     window.updateFieldProp = function(propName, value) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         formFields[selectedIndex][propName] = value;
+        if (propName === 'type') {
+            formFields[selectedIndex].inputType = getInputType(value);
+            if (['select', 'radio', 'checkboxes'].includes(value)) {
+                normalizeChoiceOptions(formFields[selectedIndex]);
+            }
+        }
         renderFields();
+        renderPropsPanel(formFields[selectedIndex]);
+        updateData();
+    };
+
+    window.updateFieldOption = function(index, key, value) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        normalizeChoiceOptions(field);
+        if (!field.options[index]) return;
+        field.options[index][key] = value;
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.addFieldOption = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const options = normalizeChoiceOptions(field);
+        const nextIndex = options.length + 1;
+        options.push({ value: 'opt' + nextIndex, label: 'Opsi ' + nextIndex });
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.removeFieldOption = function(index) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        normalizeChoiceOptions(field);
+        if (field.options.length <= 1) return;
+        field.options.splice(index, 1);
+        renderFields();
+        renderPropsPanel(field);
         updateData();
     };
 
@@ -1712,10 +2018,26 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update Data
     function updateData() {
+        const removedSystemFields = removeSystemFieldsFromState();
         const input = document.getElementById('form-data-input');
         if (input) {
             input.value = JSON.stringify(formFields);
         }
+        if (removedSystemFields) {
+            renderFields();
+            if (selectedIndex === null && propsPanel) {
+                propsPanel.innerHTML = '<div class="no-selection"><span class="material-symbols-outlined">touch_app</span><p style="font-size:14px">Pilih field untuk edit</p></div>';
+            }
+        }
+    }
+
+    function removeSystemFieldsFromState() {
+        const beforeCount = formFields.length;
+        formFields = formFields.filter(field => !isSystemField(field.name || field.field_name || field.field_key));
+        if (formFields.length !== beforeCount || (selectedIndex !== null && !formFields[selectedIndex])) {
+            selectedIndex = null;
+        }
+        return formFields.length !== beforeCount;
     }
     
     // Drag handlers
@@ -1821,14 +2143,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 let fkPromises = [];
                 
                 data.columns.forEach(col => {
-                    const colName = (col.name || '').toLowerCase();
                     const isPrimaryKey = !!(col.is_primary);
                     const isAutoIncrement = !!(col.is_auto_increment);
                     const isForeignKey = !!(col.is_foreign_key);
                     
-                    if (isPrimaryKey && (isAutoIncrement || colName === 'id')) {
+                    if (col.is_system_field || isSystemField(col.name) || (isPrimaryKey && isAutoIncrement)) {
                         return;
                     }
+
+                    const colName = (col.name || '').toLowerCase();
                     
                     let fieldType = 'text';
                     const colType = (col.base_type || col.type || '').toUpperCase();
@@ -1841,12 +2164,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (colName.includes('email')) fieldType = 'email';
                         else if (colName.includes('url') || colName.includes('website')) fieldType = 'url';
                         else if (colName.includes('phone') || colName.includes('telepon')) fieldType = 'tel';
-                    } else if (colType.includes('DATE') && colType.includes('TIME')) {
-                        fieldType = 'datetime';
-                    } else if (colType.includes('DATE')) {
-                        fieldType = 'date';
-                    } else if (colType.includes('TIME')) {
-                        fieldType = 'time';
+                    } else {
+                        fieldType = getFieldTypeFromColumnType(colType);
                     }
                     
                     const fieldId = 'field_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
@@ -1861,6 +2180,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         default_value: col.default_value || '',
                         excluded: false,
                         source_column_id: col.id,
+                        source_column_type: colType,
                         is_foreign_key: isForeignKey,
                         is_primary: isPrimaryKey,
                         is_auto_increment: isAutoIncrement,
@@ -1924,6 +2244,25 @@ document.addEventListener('DOMContentLoaded', function() {
             file: 'file', hidden: 'hidden'
         };
         return types[fieldType] || 'text';
+    }
+
+    function getFieldTypeFromColumnType(columnType) {
+        const normalizedType = String(columnType || '').trim().toUpperCase().match(/^[A-Z]+/)?.[0] || '';
+        if (normalizedType === 'DATE') return 'date';
+        if (normalizedType === 'TIME') return 'time';
+        if (normalizedType === 'DATETIME' || normalizedType === 'TIMESTAMP') return 'datetime';
+        return 'text';
+    }
+
+    function isSystemField(fieldName) {
+        const normalizedName = String(fieldName || '').trim().toLowerCase();
+        const systemFields = [
+            'created_at',
+            'updated_at',
+            'deleted_at'
+        ];
+
+        return systemFields.includes(normalizedName);
     }
 });
 </script>

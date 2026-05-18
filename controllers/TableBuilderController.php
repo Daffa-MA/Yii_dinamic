@@ -12,6 +12,7 @@ use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\ProjectSchema;
+use app\helpers\FormSystemFieldHelper;
 
 class TableBuilderController extends Controller
 {
@@ -1684,6 +1685,10 @@ class TableBuilderController extends Controller
             
             $columnData = [];
             foreach ($columns as $col) {
+                if (FormSystemFieldHelper::isSystemField($col->name)) {
+                    continue;
+                }
+
                 $columnData[] = [
                     'id' => $col->id,
                     'name' => $col->name,
@@ -1692,6 +1697,8 @@ class TableBuilderController extends Controller
                     'base_type' => $col->type,
                     'is_nullable' => (bool)$col->is_nullable,
                     'is_primary' => (bool)$col->is_primary,
+                    'is_system_field' => FormSystemFieldHelper::isSystemField($col->name),
+                    'is_auto_increment' => $col->hasAttribute('is_auto_increment') ? (bool)$col->getAttribute('is_auto_increment') : false,
                     'default_value' => $col->default_value,
                     'max_length' => $col->length,
                 ];
@@ -1781,6 +1788,10 @@ class TableBuilderController extends Controller
             
             $columnData = [];
             foreach ($columns as $col) {
+                if (FormSystemFieldHelper::isSystemField($col->name)) {
+                    continue;
+                }
+
                 $isFk = $col->hasAttribute('is_foreign_key') ? (bool)$col->getAttribute('is_foreign_key') : false;
                 $columnData[] = [
                     'id' => $col->id,

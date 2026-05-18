@@ -3,8 +3,10 @@
 namespace app\services;
 
 use app\models\MasterForm;
+use app\models\DbTableColumn;
 use app\models\MasterFormField;
 use app\models\MasterFormLayout;
+use app\helpers\FormSystemFieldHelper;
 use yii\helpers\Json;
 
 class FormEngineService
@@ -24,10 +26,17 @@ class FormEngineService
 
         $fieldRows = [];
         foreach ($fields as $field) {
+            $fieldName = $field->field_name ?: $field->field_key;
             $settings = $this->decodeJson($field->field_settings);
+            if ($this->isSystemFieldForForm(array_merge($settings, ['name' => $fieldName]), $form)) {
+                $field->delete();
+                $autoSynced = true;
+                continue;
+            }
+
             $fieldRows[] = array_merge($settings, [
                 'id' => $field->id,
-                'name' => $field->field_name ?: $field->field_key,
+                'name' => $fieldName,
                 'label' => $field->field_label,
                 'type' => $field->field_type,
                 'required' => (bool)$field->is_required,
@@ -48,19 +57,15 @@ class FormEngineService
 
     public function syncLegacyToRelational(MasterForm $form): void
     {
-        $formData = $form->getFormDataArray();
+        $formData = FormSystemFieldHelper::filterBuilderData($form->getFormDataArray());
         $fields = isset($formData['fields']) && is_array($formData['fields']) ? $formData['fields'] : (is_array($formData) ? $formData : []);
+        $fields = array_values(array_filter($fields, fn($field) => is_array($field) && !$this->isSystemFieldForForm($field, $form)));
         if (empty($fields)) {
             return;
         }
 
         MasterFormField::deleteAll(['form_id' => $form->id]);
         MasterFormLayout::deleteAll(['form_id' => $form->id]);
-
-        $customHtml = [];
-        $customCss = [];
-        $customJs = [];
-        $customCodeMode = 0;
 
         foreach ($fields as $index => $fieldData) {
             if (!is_array($fieldData)) {
@@ -71,6 +76,10 @@ class FormEngineService
             if ($fieldName === '') {
                 $fieldName = 'field_' . ($index + 1);
             }
+            if ($this->isSystemFieldForForm($fieldData, $form)) {
+                continue;
+            }
+
             $fieldType = (string)($fieldData['type'] ?? $fieldData['field_type'] ?? 'text');
 
             $field = new MasterFormField();
@@ -91,19 +100,6 @@ class FormEngineService
             $field->field_settings = Json::encode($fieldData);
             $field->sort_order = (int)$index;
             $field->save(false);
-
-            if (!empty($fieldData['customHtml'])) {
-                $customHtml[] = (string)$fieldData['customHtml'];
-                $customCodeMode = 1;
-            }
-            if (!empty($fieldData['customCss'])) {
-                $customCss[] = (string)$fieldData['customCss'];
-                $customCodeMode = 1;
-            }
-            if (!empty($fieldData['customJs'])) {
-                $customJs[] = (string)$fieldData['customJs'];
-                $customCodeMode = 1;
-            }
         }
 
         $layout = new MasterFormLayout();
@@ -111,15 +107,15 @@ class FormEngineService
         $layout->layout_name = $form->form_name . ' Layout';
         $layout->layout_type = (string)($form->form_type ?: 'builder');
         $layout->layout_json = Json::encode(['builder' => $formData]);
-        $layout->custom_html = implode("\n\n", $customHtml);
-        $layout->custom_css = implode("\n\n", $customCss);
-        $layout->custom_js = implode("\n\n", $customJs);
+        $layout->custom_html = '';
+        $layout->custom_css = '';
+        $layout->custom_js = '';
         $layout->builder_state = Json::encode($formData);
         $layout->is_default = 1;
         $layout->sort_order = 0;
         $layout->save(false);
 
-        $form->custom_code_mode = $customCodeMode;
+        $form->custom_code_mode = 0;
         $form->save(false, ['custom_code_mode']);
     }
 
@@ -133,6 +129,35 @@ class FormEngineService
         }
         $decoded = Json::decode($value);
         return is_array($decoded) ? $decoded : [];
+    }
+
+    private function isSystemFieldForForm(array $fieldData, MasterForm $form): bool
+    {
+        if (FormSystemFieldHelper::isSystemFieldData($fieldData)) {
+            return true;
+        }
+
+        $sourceColumnId = (int)($fieldData['source_column_id'] ?? 0);
+        if ($sourceColumnId > 0) {
+            $sourceColumn = DbTableColumn::findOne($sourceColumnId);
+            if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+                return true;
+            }
+        }
+
+        if (!empty($form->table_id)) {
+            $fieldName = $fieldData['name'] ?? $fieldData['field_name'] ?? $fieldData['field_key'] ?? '';
+            if ($fieldName !== '') {
+                $sourceColumn = DbTableColumn::find()
+                    ->where(['table_id' => (int)$form->table_id, 'name' => (string)$fieldName])
+                    ->one();
+                if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
 

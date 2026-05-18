@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Json;
 use yii\web\View;
+use app\helpers\FormSystemFieldHelper;
 
 /**
  * @var $this yii\web\View
@@ -264,12 +265,16 @@ $containerClass = $layoutTemplates[$layoutTemplate] ?? $layoutTemplates['default
                 <div id="form-fields-container">
                     <?php foreach ($fields as $index => $field): ?>
                         <?php
-                        $type = $field['type'] ?? 'text';
+                        $type = FormSystemFieldHelper::resolveFieldInputType($field);
                         $label = $field['label'] ?? $field['name'] ?? 'Field ' . ($index + 1);
                         $name = $field['name'] ?? 'field_' . $index;
                         $required = $field['required'] ?? false;
                         $placeholder = $field['placeholder'] ?? '';
                         $defaultValue = $field['default_value'] ?? '';
+
+                        if (FormSystemFieldHelper::isSystemField($name)) {
+                            continue;
+                        }
                         
                         // Check for custom code
                         $customHtml = $field['customHtml'] ?? null;

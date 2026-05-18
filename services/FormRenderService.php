@@ -3,6 +3,7 @@
 namespace app\services;
 
 use app\components\CustomCodeSandbox;
+use app\helpers\FormSystemFieldHelper;
 use app\models\MasterForm;
 use app\models\MasterFormLayout;
 
@@ -14,6 +15,14 @@ class FormRenderService
         $customCss = $layout ? CustomCodeSandbox::sanitizeCss($layout->custom_css) : '';
         $customJs = $layout ? CustomCodeSandbox::sanitizeJs($layout->custom_js) : '';
         $hasOverride = trim($customHtml) !== '' || trim($customCss) !== '' || trim($customJs) !== '';
+
+        $fields = array_map(static function (array $field): array {
+            $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);
+            if (in_array($field['inputType'], ['date', 'time', 'datetime-local'], true)) {
+                $field['type'] = $field['inputType'];
+            }
+            return $field;
+        }, FormSystemFieldHelper::filterFields($fields));
 
         return [
             'fields' => $fields,

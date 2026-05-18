@@ -3,6 +3,7 @@
 namespace app\services;
 
 use app\models\MasterForm;
+use app\helpers\FormSystemFieldHelper;
 use yii\helpers\Html;
 
 class DynamicFormPreviewService
@@ -47,9 +48,13 @@ class DynamicFormPreviewService
 
         $fieldHtml = '';
         foreach ($fields as $field) {
+            if (FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
             $name = Html::encode((string)($field['name'] ?? 'field'));
             $label = Html::encode((string)($field['label'] ?? ucfirst($name)));
-            $type = (string)($field['type'] ?? 'text');
+            $type = FormSystemFieldHelper::resolveFieldInputType($field);
             $placeholder = Html::encode((string)($field['placeholder'] ?? ''));
             $required = !empty($field['required']) ? ' *' : '';
 

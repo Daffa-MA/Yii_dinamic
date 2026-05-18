@@ -44,7 +44,9 @@ class ProjectPermissionService
 
         $simpleAccess = $this->resolveRouteAccess($route);
         if ($simpleAccess !== null && $this->roleAccessTableHasRows($role)) {
-            return $this->hasRoleAccess($role, $simpleAccess['type'], $simpleAccess['key']);
+            if ($this->hasRoleAccess($role, $simpleAccess['type'], $simpleAccess['key'])) {
+                return true;
+            }
         }
 
         $permissionKeys = $this->buildRoutePermissionKeys($route, $projectId);
@@ -141,14 +143,14 @@ class ProjectPermissionService
             return false;
         }
 
-        if ($this->roleAccessTableHasRows($role)) {
-            return $this->hasRoleAccess($role, 'page', $pageKey);
+        if ($this->roleAccessTableHasRows($role) && $this->hasRoleAccess($role, 'page', $pageKey)) {
+            return true;
         }
 
         return $this->legacyHasAnyPermission($role, [
             "page.{$pageKey}.view",
             "builder.page.{$pageKey}.access",
-        ]);
+        ]) || $this->canAccessMenuForPage((int)$page->id, $projectId);
     }
 
     public function canAccessForm(MasterForm $form, ?int $projectId = null): bool
@@ -655,7 +657,14 @@ class ProjectPermissionService
             }
         }
 
-        if (in_array($routeOnly, ['master-form/preview', 'master-form/submit', 'form/view'], true)) {
+        if (in_array($routeOnly, ['master-form/preview', 'master-form/submit'], true)) {
+            return [
+                'type' => 'system_builder',
+                'key' => 'master_form',
+            ];
+        }
+
+        if ($routeOnly === 'form/view') {
             $formId = (int)$request->get('id', 0);
             if ($formId > 0) {
                 $form = MasterForm::findByIdScoped($formId);
@@ -733,13 +742,16 @@ class ProjectPermissionService
         $routeOnly = trim($normalizedRoute, '/');
 
         if ($routeOnly === 'page/view' || $routeOnly === 'page/view-dynamic' || $routeOnly === 'master-page/view-dynamic' || $routeOnly === 'master-page/preview-live') {
-            $pageId = (int)$request->get('id', 0);
-            if ($pageId > 0) {
-                $page = MasterPage::findOne($pageId);
-                if ($page instanceof MasterPage) {
-                    $base = $this->resolvePageKey($page);
-                    $permissionKeys[] = "page.{$base}.view";
-                    $permissionKeys[] = "builder.page.{$base}.access";
+            $page = $this->resolvePageFromRequest($routeOnly);
+            if ($page instanceof MasterPage) {
+                $base = $this->resolvePageKey($page);
+                $permissionKeys[] = "page.{$base}.view";
+                $permissionKeys[] = "builder.page.{$base}.access";
+                foreach ($this->collectMenuKeysForPage($page) as $menuKey) {
+                    $permissionKeys[] = "menu.{$menuKey}.view";
+                    $permissionKeys[] = "menu.{$menuKey}.create";
+                    $permissionKeys[] = "menu.{$menuKey}.edit";
+                    $permissionKeys[] = "menu.{$menuKey}.delete";
                 }
             }
         }
@@ -759,13 +771,27 @@ class ProjectPermissionService
             'master-form/index',
             'master-form/create',
             'master-form/update',
+            'master-form/preview',
+            'master-form/submit',
         ], true)) {
             $permissionKeys[] = 'builder.global.access';
             $permissionKeys[] = 'builder.palette.access';
             $permissionKeys[] = 'builder.tools.access';
+            $permissionKeys[] = 'builder.forms.access';
         }
 
-        if ($routeOnly === 'master-form/preview' || $routeOnly === 'master-form/submit' || $routeOnly === 'form/view') {
+        if ($routeOnly === 'master-form/preview' || $routeOnly === 'master-form/submit') {
+            $formId = (int)$request->get('id', 0);
+            if ($formId > 0) {
+                $form = MasterForm::findByIdScoped($formId);
+                if ($form instanceof MasterForm) {
+                    $base = $this->resolveFormKey($form);
+                    $permissionKeys[] = "builder.form.{$base}.access";
+                }
+            }
+        }
+
+        if ($routeOnly === 'form/view') {
             $formId = (int)$request->get('id', 0);
             if ($formId > 0) {
                 $form = MasterForm::findByIdScoped($formId);
@@ -773,7 +799,6 @@ class ProjectPermissionService
                     $base = $this->resolveFormKey($form);
                     $permissionKeys[] = "form.{$base}.view";
                     $permissionKeys[] = "form.{$base}.submit";
-                    $permissionKeys[] = "builder.form.{$base}.access";
                 }
             }
         }
@@ -813,5 +838,58 @@ class ProjectPermissionService
         }
 
         return trim(str_replace('/', '/', $route), '/');
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function collectMenuKeysForPage(MasterPage $page): array
+    {
+        $schema = Yii::$app->db->schema;
+        if ($schema->getTableSchema('master_menu', true) === null) {
+            return [];
+        }
+
+        $menus = (new Query())
+            ->from('master_menu')
+            ->where(['page_id' => (int)$page->id])
+            ->all(Yii::$app->db);
+
+        $menuKeys = [];
+        foreach ($menus as $menu) {
+            if (!is_array($menu)) {
+                continue;
+            }
+
+            $menuKey = $this->resolveMenuKey($menu);
+            if ($menuKey !== '') {
+                $menuKeys[] = $menuKey;
+            }
+        }
+
+        return array_values(array_unique($menuKeys));
+    }
+
+    private function resolvePageFromRequest(string $routeOnly): ?MasterPage
+    {
+        $request = Yii::$app->request;
+        $pageId = (int)$request->get('id', 0);
+        if ($routeOnly === 'page/view' && $pageId > 0) {
+            return MasterPage::findOne($pageId);
+        }
+
+        $slug = trim((string)$request->get('slug', $request->get('page', '')));
+        if ($slug !== '') {
+            $page = MasterPage::findOne(['slug' => $slug]);
+            if ($page instanceof MasterPage) {
+                return $page;
+            }
+        }
+
+        if ($pageId > 0) {
+            return MasterPage::findOne($pageId);
+        }
+
+        return null;
     }
 }

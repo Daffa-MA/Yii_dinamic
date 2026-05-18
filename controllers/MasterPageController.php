@@ -417,10 +417,14 @@ class MasterPageController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
 
         $layoutJson = Yii::$app->request->post('layout_json', '{}');
+        $pageId = (int)Yii::$app->request->post('page_id', Yii::$app->request->get('page_id', 0));
+        $menuId = (int)Yii::$app->request->post('menu_id', Yii::$app->request->get('menu_id', 0));
 
         try {
             $html = $this->renderPartial('//page/_preview-layout', [
                 'layoutJson' => $layoutJson,
+                'pageId' => $pageId,
+                'menuId' => $menuId,
             ]);
             return ['success' => true, 'html' => $html];
         } catch (\Exception $e) {
@@ -504,7 +508,11 @@ class MasterPageController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
         try {
             $previewService = new DynamicFormPreviewService();
-            $html = $previewService->renderByScopedId((int)$id, (bool)$showTitle, (bool)$interactive);
+            $html = $previewService->renderByScopedId((int)$id, (bool)$showTitle, (bool)$interactive, [
+                'render_context' => (string)Yii::$app->request->get('render_context', ''),
+                'page_id' => (int)Yii::$app->request->get('page_id', 0),
+                'menu_id' => (int)Yii::$app->request->get('menu_id', 0),
+            ]);
             return ['success' => true, 'html' => $html];
         } catch (\Throwable $e) {
             Yii::error('Form preview failed: ' . $e->getMessage(), 'master-page-form-preview');
@@ -729,6 +737,10 @@ if ($model->save(false)) {
         }
 
         $layoutJson = !empty($page->layout_json) ? $page->layout_json : '[]';
+        $menu = MasterMenu::find()
+            ->where(['page_id' => (int)$page->id, 'is_active' => MasterMenu::STATUS_ACTIVE])
+            ->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])
+            ->one();
 
         $this->layout = 'main';
         
@@ -739,6 +751,8 @@ if ($model->save(false)) {
             'customJs' => $page->custom_js ?? null,
             'pageType' => $page->page_type ?? 'builder',
             'pageKey' => $page->slug ?? (string)$page->id,
+            'pageId' => (int)$page->id,
+            'menuId' => $menu !== null ? (int)$menu->id : 0,
         ]);
     }
 
@@ -756,6 +770,8 @@ if ($model->save(false)) {
             'customJs' => $page->custom_js ?? null,
             'pageType' => $page->page_type ?? 'builder',
             'pageKey' => $page->slug ?? (string)$page->id,
+            'pageId' => (int)$page->id,
+            'menuId' => 0,
         ]);
     }
 }

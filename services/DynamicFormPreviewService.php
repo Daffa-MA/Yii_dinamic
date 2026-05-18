@@ -3,6 +3,10 @@
 namespace app\services;
 
 use app\models\MasterForm;
+use app\components\ActiveProjectContext;
+use app\components\FormFlowDebugLogger;
+use app\components\ProjectAuthContext;
+use app\components\ProjectPermissionService;
 use app\helpers\FormSystemFieldHelper;
 use yii\helpers\Html;
 
@@ -11,11 +15,35 @@ class DynamicFormPreviewService
     public function renderByScopedId(?int $formId, bool $showTitle = true, bool $interactive = false, array $context = []): string
     {
         if (empty($formId)) {
-        return $this->renderInfo('Form belum dipilih.');
+            FormFlowDebugLogger::logRender([
+                'host' => \Yii::$app->request->hostInfo,
+                'project_id' => (new ActiveProjectContext())->getActiveProjectId(),
+                'role' => $this->getWorkspaceRole(),
+                'page_id' => (int)($context['page_id'] ?? 0),
+                'menu_id' => (int)($context['menu_id'] ?? 0),
+                'form_id' => 0,
+                'render_context' => (string)($context['render_context'] ?? ''),
+                'page_authorized' => false,
+                'form_authorized' => false,
+                'reason' => 'form_not_selected',
+            ]);
+            return $this->renderInfo('Form belum dipilih.');
         }
 
         $form = MasterForm::findByIdScoped((int)$formId);
         if ($form === null) {
+            FormFlowDebugLogger::logRender([
+                'host' => \Yii::$app->request->hostInfo,
+                'project_id' => (new ActiveProjectContext())->getActiveProjectId(),
+                'role' => $this->getWorkspaceRole(),
+                'page_id' => (int)($context['page_id'] ?? 0),
+                'menu_id' => (int)($context['menu_id'] ?? 0),
+                'form_id' => (int)$formId,
+                'render_context' => (string)($context['render_context'] ?? ''),
+                'page_authorized' => false,
+                'form_authorized' => false,
+                'reason' => 'form_not_found',
+            ]);
             return $this->renderInfo('Form tidak ditemukan pada workspace/project aktif.');
         }
 
@@ -23,6 +51,13 @@ class DynamicFormPreviewService
         $renderer = new FormRenderService();
         $schema = $engine->getResolvedFormSchema($form);
         $payload = $renderer->buildRenderPayload($form, $schema['fields'], $schema['layout']);
+        $projectId = (new ActiveProjectContext())->getActiveProjectId();
+        $pageId = (int)($context['page_id'] ?? 0);
+        $renderContext = (string)($context['render_context'] ?? '');
+        $pageAuthorized = $pageId > 0 && $renderContext === 'page_content'
+            ? (new ProjectPermissionService())->canUseFormAsPageContent((int)$form->id, $pageId, $projectId)
+            : false;
+        $formAuthorized = true;
 
         $fields = is_array($payload['fields'] ?? null) ? $payload['fields'] : [];
         $customHtml = (string)($payload['customHtml'] ?? '');
@@ -37,19 +72,40 @@ class DynamicFormPreviewService
         $embeddedFlag = '';
         if ($interactive) {
             $embeddedFlag = '<input type="hidden" name="_embedded" value="1">';
-            if (($context['render_context'] ?? '') !== '') {
-                $embeddedFlag .= '<input type="hidden" name="render_context" value="' . Html::encode((string)$context['render_context']) . '">';
+            if ($renderContext !== '') {
+                $embeddedFlag .= '<input type="hidden" name="render_context" value="' . Html::encode($renderContext) . '">';
             }
-            if ((int)($context['page_id'] ?? 0) > 0) {
-                $embeddedFlag .= '<input type="hidden" name="page_id" value="' . (int)$context['page_id'] . '">';
+            if ($pageId > 0) {
+                $embeddedFlag .= '<input type="hidden" name="page_id" value="' . $pageId . '">';
             }
             if ((int)($context['menu_id'] ?? 0) > 0) {
                 $embeddedFlag .= '<input type="hidden" name="menu_id" value="' . (int)$context['menu_id'] . '">';
+            }
+            if ($projectId !== null) {
+                $embeddedFlag .= '<input type="hidden" name="project_id" value="' . (int)$projectId . '">';
+            }
+            $workspaceRole = $this->getWorkspaceRole();
+            if ($workspaceRole !== '') {
+                $embeddedFlag .= '<input type="hidden" name="workspace_role" value="' . Html::encode($workspaceRole) . '">';
             }
         }
 
         if ($hasOverride) {
             $scriptHtml = $customJs !== '' ? '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>' : '';
+            FormFlowDebugLogger::logRender([
+                'host' => \Yii::$app->request->hostInfo,
+                'project_id' => $projectId,
+                'role' => $this->getWorkspaceRole(),
+                'page_id' => $pageId,
+                'menu_id' => (int)($context['menu_id'] ?? 0),
+                'form_id' => (int)$form->id,
+                'render_context' => $renderContext,
+                'page_authorized' => $pageAuthorized,
+                'form_authorized' => $formAuthorized,
+                'reason' => 'rendered_override',
+                'field_count' => count($fields),
+                'has_override' => $hasOverride,
+            ]);
             return '<div style="padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">'
                 . $titleHtml
                 . ($customCss !== '' ? '<style>' . $customCss . '</style>' : '')
@@ -88,7 +144,7 @@ class DynamicFormPreviewService
 
         $submitHtml = '<div style="margin-top:6px;"><button type="' . ($interactive ? 'submit' : 'button') . '" ' . ($interactive ? '' : 'disabled') . ' style="padding:9px 14px;background:#0f172a;color:#fff;border:none;border-radius:8px;opacity:.85;">Submit</button></div>';
 
-        return '<div style="padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">'
+        $html = '<div style="padding:14px;background:#fff;border:1px solid #e2e8f0;border-radius:10px;">'
             . $titleHtml
             . $formOpen
             . $embeddedFlag
@@ -97,10 +153,42 @@ class DynamicFormPreviewService
             . $submitHtml
             . $formClose
             . '</div>';
+
+        FormFlowDebugLogger::logRender([
+            'host' => \Yii::$app->request->hostInfo,
+            'project_id' => $projectId,
+            'role' => $this->getWorkspaceRole(),
+            'page_id' => $pageId,
+            'menu_id' => (int)($context['menu_id'] ?? 0),
+            'form_id' => (int)$form->id,
+            'render_context' => $renderContext,
+            'page_authorized' => $pageAuthorized,
+            'form_authorized' => $formAuthorized,
+            'reason' => 'rendered',
+            'field_count' => count($fields),
+            'has_override' => $hasOverride,
+        ]);
+
+        return $html;
     }
 
     private function renderInfo(string $message): string
     {
         return '<div style="padding:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:8px;font-size:12px;">' . Html::encode($message) . '</div>';
+    }
+
+    private function getWorkspaceRole(): string
+    {
+        $projectId = (new ActiveProjectContext())->getActiveProjectId();
+        if ($projectId === null) {
+            return '';
+        }
+
+        $user = (new ProjectAuthContext())->getAuthenticatedUser($projectId);
+        if ($user === null) {
+            return '';
+        }
+
+        return strtolower(trim((string)$user->role));
     }
 }

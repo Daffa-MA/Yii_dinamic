@@ -1,5 +1,7 @@
 <?php
 use yii\helpers\Json;
+$pageId = (int)($pageId ?? 0);
+$menuId = (int)($menuId ?? 0);
 
 $layoutJson = Json::decode($layoutJson, true);
 ?>
@@ -84,7 +86,15 @@ $layoutJson = Json::decode($layoutJson, true);
                     return;
                 }
 
-                fetch('/master-page/form-preview?id=' + encodeURIComponent(formId) + '&showTitle=' + showTitle + '&interactive=1', {
+                let url = '/master-page/form-preview?id=' + encodeURIComponent(formId) + '&showTitle=' + showTitle + '&interactive=1&render_context=page_content';
+                if (<?= (int)$pageId ?> > 0) {
+                    url += '&page_id=<?= (int)$pageId ?>';
+                }
+                if (<?= (int)$menuId ?> > 0) {
+                    url += '&menu_id=<?= (int)$menuId ?>';
+                }
+
+                fetch(url, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }

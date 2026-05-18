@@ -18,6 +18,7 @@ $returnUrl = Url::to(['/page/view', 'id' => $page->id]);
 $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
 $activeProject = $activeProjectId !== null ? (new ActiveProjectContext())->getActiveProject() : null;
 $projectAuthUser = $activeProjectId !== null ? (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId) : null;
+$activeMenuId = (int) Yii::$app->session->get('active_menu', 0);
 $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 $workspaceRole = $projectAuthUser !== null ? strtolower(trim((string)$projectAuthUser->role)) : '';
 $isWorkspaceAdmin = $isCommanderSuperAdmin || $workspaceRole === 'admin';
@@ -261,6 +262,7 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                         echo "<div style='margin:1rem 0;'>" . $previewService->renderByScopedId($formId, $showTitle, true, [
                             'render_context' => 'page_content',
                             'page_id' => (int)$page->id,
+                            'menu_id' => $activeMenuId,
                         ]) . "</div>";
                         break;
                         
@@ -330,6 +332,7 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                     'embedded' => 1,
                     'render_context' => 'page_content',
                     'page_id' => (int)$page->id,
+                    'menu_id' => $activeMenuId,
                     'return_url' => $returnUrl,
                 ]);
                 $schemaCount = count($formModel->getSchema());

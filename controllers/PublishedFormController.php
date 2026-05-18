@@ -8,6 +8,9 @@ use yii\web\NotFoundHttpException;
 use app\models\PublishedForm;
 use app\models\Form;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
+use app\models\ProjectUser;
 use app\components\ProjectSchema;
 
 /**
@@ -24,6 +27,43 @@ class PublishedFormController extends Controller
         return (new ActiveProjectContext())->getActiveProjectId();
     }
 
+    private function getWorkspaceAuthenticatedUser(?int $projectId = null): ?ProjectUser
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        $resolvedProjectId = $projectId ?? $this->getActiveProjectId();
+        if ($resolvedProjectId === null) {
+            return null;
+        }
+
+        return (new ProjectAuthContext())->getAuthenticatedUser($resolvedProjectId);
+    }
+
+    private function getEffectiveUserId(): ?int
+    {
+        $workspaceUser = $this->getWorkspaceAuthenticatedUser();
+        if ($workspaceUser !== null) {
+            return (int)$workspaceUser->id;
+        }
+
+        if (!Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
+            return (int)Yii::$app->user->id;
+        }
+
+        return null;
+    }
+
+    private function canAccessPublishedFormController(): bool
+    {
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->getWorkspaceAuthenticatedUser() !== null;
+    }
+
     /**
      * @inheritdoc
      */
@@ -36,11 +76,15 @@ class PublishedFormController extends Controller
                     [
                         'actions' => ['get-public-url'],
                         'allow' => true,
-                        'roles' => ['@'],
+                        'matchCallback' => function () {
+                            return $this->canAccessPublishedFormController();
+                        },
                     ],
                     [
                         'allow' => true,
-                        'roles' => ['@'],
+                        'matchCallback' => function () {
+                            return $this->canAccessPublishedFormController();
+                        },
                     ],
                 ],
             ],
@@ -73,7 +117,7 @@ class PublishedFormController extends Controller
      */
     public function actionIndex()
     {
-        $userId = Yii::$app->user->id;
+        $userId = $this->getEffectiveUserId();
         $activeProjectId = $this->getActiveProjectId();
         $query = Form::find()
             ->alias('f')
@@ -123,7 +167,10 @@ class PublishedFormController extends Controller
     public function actionCreate()
     {
         $model = new PublishedForm();
-        $model->user_id = Yii::$app->user->id;
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $model->user_id = $effectiveUserId;
+        }
         $request = Yii::$app->request;
         $isAjax = $request->isAjax;
         $activeProjectId = $this->getActiveProjectId();
@@ -134,9 +181,9 @@ class PublishedFormController extends Controller
             ->leftJoin(
                 ['pf' => PublishedForm::tableName()],
                 'pf.form_id = f.id AND pf.user_id = :userId',
-                [':userId' => Yii::$app->user->id]
+                [':userId' => $effectiveUserId]
             )
-            ->where(['f.user_id' => Yii::$app->user->id])
+            ->where(['f.user_id' => $effectiveUserId])
             ->andWhere(['pf.id' => null])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
@@ -228,8 +275,9 @@ class PublishedFormController extends Controller
         }
 
         // Get available forms for dropdown
+        $effectiveUserId = $this->getEffectiveUserId();
         $formsQuery = Form::find()
-            ->where(['user_id' => Yii::$app->user->id])
+            ->where(['user_id' => $effectiveUserId])
             ->orderBy(['name' => SORT_ASC]);
         $activeProjectId = $this->getActiveProjectId();
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
@@ -271,9 +319,12 @@ class PublishedFormController extends Controller
             ->innerJoin(['f' => Form::tableName()], 'f.id = pf.form_id')
             ->where([
                 'pf.id' => (int)$id,
-                'pf.user_id' => Yii::$app->user->id,
             ])
             ;
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $model->andWhere(['pf.user_id' => $effectiveUserId]);
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $model->andWhere(['f.project_id' => $activeProjectId]);
         }

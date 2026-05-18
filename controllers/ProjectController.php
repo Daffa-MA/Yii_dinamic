@@ -155,6 +155,14 @@ class ProjectController extends Controller
             return Project::findOne($projectId);
         }
 
+        $domainContext = new DomainContext();
+        if ($domainContext->isWorkspaceDomain()) {
+            $hostProject = Project::findByCustomDomain($domainContext->currentHost());
+            if ($hostProject !== null && (int)$hostProject->id === $projectId) {
+                return $hostProject;
+            }
+        }
+
         $resolvedDomainProjectId = (new ActiveProjectContext())->getResolvedDomainProjectId();
         if ($resolvedDomainProjectId !== null && $resolvedDomainProjectId === $projectId) {
             return Project::findOne($projectId);
@@ -164,6 +172,22 @@ class ProjectController extends Controller
             'id' => $projectId,
             'user_id' => Yii::$app->user->id,
         ]);
+    }
+
+    private function resolveWorkspaceProjectIdFromDomain(): ?int
+    {
+        $domainContext = new DomainContext();
+        if (!$domainContext->isWorkspaceDomain()) {
+            return null;
+        }
+
+        $host = $domainContext->currentHost();
+        if ($host === '') {
+            return null;
+        }
+
+        $project = Project::findByCustomDomain($host);
+        return $project !== null ? (int)$project->id : null;
     }
 
     private function ensureProjectDatabase(Project $project, bool $mustBeNew = false): string
@@ -633,7 +657,7 @@ private function insertDefaultCmsData($newDb): void
                 return $this->redirect($landingRoute);
             }
 
-            return $this->redirect(['project/access-denied', 'id' => $projectId]);
+            return $this->redirect(['site/dashboard']);
         }
 
         return $this->redirect([
@@ -668,9 +692,35 @@ private function insertDefaultCmsData($newDb): void
                 Yii::$app->session->setFlash('error', 'Project database belum siap: ' . $e->getMessage());
                 return $this->redirect(['project/index']);
             }
+        } else {
+            $resolvedProjectId = $context->getResolvedDomainProjectId() ?? $this->resolveWorkspaceProjectIdFromDomain();
+            if ($resolvedProjectId !== null) {
+                $projectId = $resolvedProjectId;
+                $project = $this->findAccessibleProject($projectId);
+                if ($project === null) {
+                    throw new NotFoundHttpException('Project not found.');
+                }
+
+                $context->setActiveProject($projectId);
+                try {
+                    $this->ensureProjectDatabase($project);
+                } catch (\Throwable $e) {
+                    Yii::$app->session->setFlash('error', 'Project database belum siap: ' . $e->getMessage());
+                    return $this->redirect(['project/index']);
+                }
+            }
         }
 
         $activeProjectId = $context->getActiveProjectId();
+        if ($activeProjectId === null) {
+            $fallbackProjectId = $this->resolveWorkspaceProjectIdFromDomain();
+            if ($fallbackProjectId !== null) {
+                $projectId = $fallbackProjectId;
+                $context->setActiveProject($projectId);
+                $activeProjectId = $projectId;
+            }
+        }
+
         if ($activeProjectId === null) {
             Yii::$app->session->setFlash('warning', 'Pilih project terlebih dahulu.');
             return $this->redirect(['project/index']);
@@ -714,8 +764,8 @@ private function insertDefaultCmsData($newDb): void
                     return $this->redirect($landingRoute);
                 }
 
-                Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses. Hubungi admin.');
-                return $this->redirect(['project/access-denied', 'id' => $projectId]);
+                Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu. Menampilkan workspace dasar.');
+                return $this->redirect(['site/dashboard']);
             }
         }
 
@@ -792,8 +842,8 @@ private function insertDefaultCmsData($newDb): void
                         return $this->redirect($landingRoute);
                     }
 
-                    Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses. Hubungi admin.');
-                    return $this->redirect(['project/access-denied', 'id' => $projectId]);
+                    Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu. Menampilkan workspace dasar.');
+                    return $this->redirect(['site/dashboard']);
                 }
 
                 Yii::$app->session->setFlash('error', 'Gagal menyimpan password baru.');
@@ -842,10 +892,19 @@ private function insertDefaultCmsData($newDb): void
 
         $projectId = (int)($id ?: Yii::$app->request->get('project_id', 0));
         if ($projectId <= 0) {
-            $projectId = (new ActiveProjectContext())->getActiveProjectId() ?? 0;
+            $projectId = (new ActiveProjectContext())->getResolvedDomainProjectId()
+                ?? $this->resolveWorkspaceProjectIdFromDomain()
+                ?? (new ActiveProjectContext())->getActiveProjectId()
+                ?? 0;
         }
 
         if ($projectId <= 0) {
+            $domainContext = new DomainContext();
+            if ($domainContext->isWorkspaceDomain()) {
+                Yii::$app->session->setFlash('warning', 'Workspace aktif belum terdeteksi, silakan login ulang.');
+                return $this->redirect(['project/login']);
+            }
+
             Yii::$app->session->setFlash('warning', 'Pilih project terlebih dahulu.');
             return $this->redirect(['project/index']);
         }

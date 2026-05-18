@@ -21,6 +21,7 @@ use app\models\WorkspaceSettings;
 use app\components\ActiveDatabaseContext;
 use app\components\DomainContext;
 use app\components\ActiveProjectContext;
+use app\components\AuthContextDebugLogger;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
 use app\components\ProjectSchema;
@@ -539,6 +540,12 @@ private function insertDefaultCmsData($newDb): void
         Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}{$hostSuffix}.");
         if ($this->isCommanderSuperAdmin()) {
             $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+            AuthContextDebugLogger::log('commander_open_workspace', [
+                'project_id' => (int)$project->id,
+                'target_project_domain' => (string)($project->custom_domain ?? ''),
+                'workspace_url' => $workspaceUrl,
+                'commander_superadmin' => true,
+            ]);
             if ($workspaceUrl !== null) {
                 return $this->redirect($workspaceUrl);
             }
@@ -656,6 +663,13 @@ private function insertDefaultCmsData($newDb): void
             $project = Project::findOne(['id' => $projectId]);
             if ($project !== null) {
                 $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+                AuthContextDebugLogger::log('redirect_to_workspace_for_commander', [
+                    'project_id' => $projectId,
+                    'target_project_domain' => (string)($project->custom_domain ?? ''),
+                    'workspace_url' => $workspaceUrl,
+                    'requested_return_url' => $targetReturnUrl,
+                    'commander_superadmin' => true,
+                ]);
                 if ($workspaceUrl !== null) {
                     return $this->redirect($workspaceUrl);
                 }
@@ -675,6 +689,13 @@ private function insertDefaultCmsData($newDb): void
             return $this->redirect(['site/dashboard']);
         }
 
+        AuthContextDebugLogger::log('redirect_to_project_login', [
+            'project_id' => $projectId,
+            'target_return_url' => $targetReturnUrl,
+            'commander_authenticated' => $commanderAuth->isAuthenticated(),
+            'commander_role' => $commanderAuth->getRole(),
+            'commander_superadmin' => $commanderAuth->isSuperAdmin(),
+        ]);
         return $this->redirect([
             'project/login',
             'id' => $projectId,

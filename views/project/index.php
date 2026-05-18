@@ -1535,7 +1535,13 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                         <?php else: ?>
                             <div class="projects-list-wrap">
                                 <?php foreach ($projects as $project): ?>
-                                    <?php $isActive = (int) $activeProjectId === (int) $project->id; ?>
+                                    <?php
+                                    $isActive = (int) $activeProjectId === (int) $project->id;
+                                    $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+                                    $openWorkspaceUrl = $isCommanderSuperAdmin && $workspaceUrl !== null
+                                        ? $workspaceUrl
+                                        : ['project/select', 'id' => $project->id];
+                                    ?>
                                     <article class="projects-project-card<?= $isActive ? ' is-active' : '' ?>">
                                         <div class="projects-project-main">
                                             <div class="projects-project-icon">
@@ -1579,7 +1585,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                         <div class="projects-project-action">
                                             <?= Html::a(
                                                 '<span class="material-symbols-outlined">' . ($isActive ? 'arrow_outward' : 'north_east') . '</span><span>' . ($isActive ? 'Buka Workspace' : 'Jadikan Aktif') . '</span>',
-                                                ['project/select', 'id' => $project->id],
+                                                $openWorkspaceUrl,
                                                 [
                                                     'class' => 'projects-button ' . ($isActive ? 'projects-button-primary' : 'projects-button-secondary'),
                                                     'encode' => false,

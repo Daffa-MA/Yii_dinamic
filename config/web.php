@@ -115,6 +115,7 @@ $config = [
         'user' => [
             'identityClass' => 'app\models\User',
             'enableAutoLogin' => true,
+            'identityCookie' => array_merge(['name' => '_identity'], appSessionCookieParams()),
         ],
         'errorHandler' => [
             'errorAction' => 'site/error',

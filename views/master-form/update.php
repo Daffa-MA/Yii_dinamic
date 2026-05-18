@@ -1847,6 +1847,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('component-code-tools').style.display = 'flex';
             }
         }
+        renderCanvasMode();
     };
 
     function updateFormCustomCodeInState() {
@@ -1855,6 +1856,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fullFormCustomCss = '';
         fullFormCustomJs = '';
         updateCustomCodeInputs();
+        renderCanvasMode();
     }
 
     function loadFormCustomCodeFromState() {
@@ -1874,6 +1876,39 @@ document.addEventListener('DOMContentLoaded', function() {
         if (htmlInput) htmlInput.value = useCustom ? fullFormCustomHtml : '';
         if (cssInput) cssInput.value = useCustom ? fullFormCustomCss : '';
         if (jsInput) jsInput.value = useCustom ? fullFormCustomJs : '';
+    }
+
+    function getCustomSourceForCanvas() {
+        const source = activeCodeScope === 'page' && monacoEditor ? monacoEditor.getValue() : fullFormCustomHtml;
+        return (source || '').trim() || generatePageSource();
+    }
+
+    function renderCanvasMode() {
+        const workspace = document.querySelector('.builder-workspace');
+        if (!workspace || !workspace.parentNode) return;
+
+        let preview = document.getElementById('custom-code-canvas-preview');
+        if (activeCodeScope !== 'page') {
+            workspace.style.display = '';
+            if (preview) preview.remove();
+            return;
+        }
+
+        workspace.style.display = 'none';
+        if (!preview) {
+            preview = document.createElement('div');
+            preview.id = 'custom-code-canvas-preview';
+            preview.style.cssText = 'flex:1 1 auto;min-height:0;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,0.08);';
+            workspace.parentNode.insertBefore(preview, workspace.nextSibling);
+        }
+
+        preview.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.title = 'Custom Code Preview';
+        iframe.srcdoc = getCustomSourceForCanvas();
+        iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
+        iframe.style.cssText = 'display:block;width:100%;height:100%;min-height:520px;border:0;background:#fff;';
+        preview.appendChild(iframe);
     }
 
     function logSubmitPayload(form) {

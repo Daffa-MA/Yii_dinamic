@@ -38,8 +38,11 @@ class ActiveDatabaseContext
         $requestedDatabase = trim((string)($request->get('database', $request->get('db', ''))));
         $sessionDatabase = trim((string)$session->get(self::SESSION_KEY, ''));
         $projectDatabase = $this->resolveActiveProjectDatabaseName();
+        $isWorkspaceDomain = (new DomainContext())->isWorkspaceDomain();
 
-        $targetDatabase = $requestedDatabase !== '' ? $requestedDatabase : $sessionDatabase;
+        $targetDatabase = $requestedDatabase !== ''
+            ? $requestedDatabase
+            : ($isWorkspaceDomain && $projectDatabase !== '' ? $projectDatabase : $sessionDatabase);
         if ($targetDatabase === '') {
             $targetDatabase = $projectDatabase !== '' ? $projectDatabase : $defaultDatabase;
         }

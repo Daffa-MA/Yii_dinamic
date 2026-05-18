@@ -253,13 +253,36 @@ class WorkspaceSettings extends \yii\base\Model
             $candidates[] = 'database:' . $databaseName;
         }
 
+        foreach ($candidates as $sessionScopeKey) {
+            $sessionData = Yii::$app->session->get($this->getSessionKey($sessionScopeKey), []);
+            if (is_array($sessionData) && $this->hasWorkspaceBranding($sessionData)) {
+                $this->load($sessionData, '');
+                $this->populateDefaults();
+                $this->setting_key = $sessionScopeKey;
+                return $sessionScopeKey;
+            }
+        }
+
         $candidates[] = self::DEFAULT_KEY;
         $candidates = array_values(array_unique($candidates));
+        $fallbackRow = null;
+        $fallbackScopeKey = self::DEFAULT_KEY;
 
         foreach ($candidates as $scopeKey) {
             $row = $this->findRowByKey($scopeKey);
             if ($row === null) {
                 continue;
+            }
+
+            if ($scopeKey !== self::DEFAULT_KEY && !$this->hasWorkspaceBranding($row)) {
+                $fallbackRow = $fallbackRow ?? $row;
+                $fallbackScopeKey = $fallbackScopeKey !== self::DEFAULT_KEY ? $fallbackScopeKey : $scopeKey;
+                continue;
+            }
+
+            if ($scopeKey === self::DEFAULT_KEY && $fallbackRow !== null && !$this->hasWorkspaceBranding($row)) {
+                $row = $fallbackRow;
+                $scopeKey = $fallbackScopeKey;
             }
 
             $this->load($row, '');
@@ -272,6 +295,12 @@ class WorkspaceSettings extends \yii\base\Model
         $this->clear();
         $this->setting_key = $projectId > 0 ? 'project:' . $projectId : self::DEFAULT_KEY;
         return $this->setting_key;
+    }
+
+    private function hasWorkspaceBranding(array $data): bool
+    {
+        return trim((string)($data['workspace_logo_image'] ?? '')) !== ''
+            || trim((string)($data['login_background_image'] ?? '')) !== '';
     }
 
     public function saveToDatabase($key = null)
@@ -435,17 +464,44 @@ class WorkspaceSettings extends \yii\base\Model
         ];
     }
 
+    public function getWorkspaceLogoAsset(): array
+    {
+        $value = trim((string)($this->workspace_logo_image ?? ''));
+        if ($value === '') {
+            return [
+                'url' => '',
+                'is_remote' => false,
+            ];
+        }
+
+        $isRemote = (bool)preg_match('#^https?://#i', $value);
+        return [
+            'url' => $isRemote ? $value : $this->buildWorkspaceMediaUrl($value),
+            'is_remote' => $isRemote,
+        ];
+    }
+
     public function getLoginBackgroundDebug(): array
     {
         $asset = $this->getLoginBackgroundAsset();
+        $logoAsset = $this->getWorkspaceLogoAsset();
         $value = trim((string)($this->login_background_image ?? ''));
+        $logoValue = trim((string)($this->workspace_logo_image ?? ''));
         $localFile = '';
         $exists = null;
+        $logoLocalFile = '';
+        $logoExists = null;
 
         if ($value !== '' && !preg_match('#^https?://#i', $value)) {
             $fileName = basename(parse_url($value, PHP_URL_PATH) ?: $value);
             $localFile = Yii::getAlias('@webroot/uploads/workspace/') . $fileName;
             $exists = is_file($localFile);
+        }
+
+        if ($logoValue !== '' && !preg_match('#^https?://#i', $logoValue)) {
+            $logoFileName = basename(parse_url($logoValue, PHP_URL_PATH) ?: $logoValue);
+            $logoLocalFile = Yii::getAlias('@webroot/uploads/workspace/') . $logoFileName;
+            $logoExists = is_file($logoLocalFile);
         }
 
         return [
@@ -455,6 +511,10 @@ class WorkspaceSettings extends \yii\base\Model
             'type' => (string)($asset['type'] ?? 'none'),
             'local_file' => $localFile,
             'local_file_exists' => $exists,
+            'logo_path' => $logoValue,
+            'logo_generated_url' => (string)($logoAsset['url'] ?? ''),
+            'logo_local_file' => $logoLocalFile,
+            'logo_local_file_exists' => $logoExists,
         ];
     }
 

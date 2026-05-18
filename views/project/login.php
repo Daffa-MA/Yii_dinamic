@@ -24,7 +24,8 @@ $loginBgImageUrl = (string)($loginBackgroundAsset['url'] ?? '');
 $loginBgType = (string)($loginBackgroundAsset['type'] ?? 'none');
 $loginBgDebug = method_exists($workspaceSettings, 'getLoginBackgroundDebug') ? $workspaceSettings->getLoginBackgroundDebug() : [];
 $loginBgCssUrl = str_replace(["\\", "'"], ["\\\\", "\\'"], $loginBgImageUrl);
-$logoImage = $workspaceSettings->workspace_logo_image ? Yii::getAlias('@web/uploads/workspace/') . Html::encode($workspaceSettings->workspace_logo_image) : '';
+$logoAsset = method_exists($workspaceSettings, 'getWorkspaceLogoAsset') ? $workspaceSettings->getWorkspaceLogoAsset() : ['url' => ''];
+$logoImage = (string)($logoAsset['url'] ?? '');
 $logoIcon = Html::encode($workspaceSettings->workspace_logo_icon ?? 'workspace_premium');
 $workspaceTitle = Html::encode($workspaceSettings->workspace_title ?? $project->name);
 $workspaceSubtitle = Html::encode($workspaceSettings->workspace_subtitle ?? 'Workspace aplikasi aktif');
@@ -287,6 +288,9 @@ CSS);
     'generated_url' => $loginBgImageUrl,
     'type' => $loginBgType,
     'local_file_exists' => $loginBgDebug['local_file_exists'] ?? null,
+    'logo_path' => $loginBgDebug['logo_path'] ?? '',
+    'logo_generated_url' => $logoImage,
+    'logo_local_file_exists' => $loginBgDebug['logo_local_file_exists'] ?? null,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?> -->
 
 <div class="project-login-shell">

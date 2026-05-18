@@ -122,6 +122,21 @@ class SiteController extends Controller
     public function actionDashboard()
     {
         $domainContext = new DomainContext();
+        if ($domainContext->isRootDomain()) {
+            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $project = Project::findOne(['id' => $activeProjectId]);
+                if ($project !== null) {
+                    $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+                    if ($workspaceUrl !== null) {
+                        return $this->redirect($workspaceUrl);
+                    }
+                }
+            }
+
+            return $this->redirect(['project/index']);
+        }
+
         $projectContext = new ActiveProjectContext();
         $projectContextEnabled = ProjectSchema::supportsProjectContext();
         $activeProjectId = (!$domainContext->isRootDomain() && $projectContextEnabled) ? $projectContext->getActiveProjectId() : null;

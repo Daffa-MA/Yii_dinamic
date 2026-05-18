@@ -697,6 +697,9 @@ class MasterFormController extends Controller
         $pageId = (int)Yii::$app->request->post('page_id', Yii::$app->request->get('page_id', 0));
         if ($pageId <= 0) {
             $menuId = (int)Yii::$app->request->post('menu_id', Yii::$app->request->get('menu_id', 0));
+            if ($menuId <= 0) {
+                $menuId = (int)Yii::$app->session->get('active_menu', 0);
+            }
             if ($menuId > 0) {
                 $menu = MasterMenu::findOne($menuId);
                 if ($menu !== null && !empty($menu->page_id)) {

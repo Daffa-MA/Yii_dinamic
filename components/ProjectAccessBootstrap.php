@@ -290,7 +290,7 @@ class ProjectAccessBootstrap implements BootstrapInterface
             return $pageId;
         }
 
-        $menuId = (int)Yii::$app->request->get('menu_id', Yii::$app->request->post('menu_id', 0));
+        $menuId = $this->resolveEmbeddedMenuId();
         if ($menuId <= 0) {
             return 0;
         }
@@ -301,6 +301,16 @@ class ProjectAccessBootstrap implements BootstrapInterface
         }
 
         return (int)$menu->page_id;
+    }
+
+    private function resolveEmbeddedMenuId(): int
+    {
+        $menuId = (int)Yii::$app->request->get('menu_id', Yii::$app->request->post('menu_id', 0));
+        if ($menuId > 0) {
+            return $menuId;
+        }
+
+        return (int)Yii::$app->session->get('active_menu', 0);
     }
 
     private function buildEmbeddedFormDebugContext(string $route, int $activeProjectId, bool $pageAuthorized, bool $formAuthorized, string $reason): array

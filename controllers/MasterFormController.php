@@ -14,6 +14,7 @@ use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
+use app\components\SystemFieldService;
 use app\helpers\FormSystemFieldHelper;
 use app\services\FormActivityLogService;
 use app\services\FormEngineService;
@@ -56,58 +57,6 @@ class MasterFormController extends Controller
         }
 
         return (new ActiveProjectContext())->getActiveProjectId();
-    }
-
-    private function isSystemField(string $fieldName): bool
-    {
-        return FormSystemFieldHelper::isSystemField($fieldName);
-    }
-
-    private function getSystemFieldValue(string $columnName, $column)
-    {
-        $name = strtolower($columnName);
-        $columnType = strtolower((string)($column->type ?? ''));
-        $columnDbType = strtolower((string)($column->dbType ?? ''));
-
-        if ($name === 'id' || $name === 'deleted_at') {
-            return null;
-        }
-
-        if ($name === 'uuid') {
-            return Yii::$app->security->generateRandomString(36);
-        }
-
-        if (in_array($name, ['token', 'remember_token'], true)) {
-            return Yii::$app->security->generateRandomString(40);
-        }
-
-        if ($name === 'verification_code') {
-            return (string)random_int(100000, 999999);
-        }
-
-        if ($name === 'password_hash') {
-            return Yii::$app->security->generatePasswordHash(Yii::$app->security->generateRandomString(32));
-        }
-
-        if ($columnType === 'timestamp' || in_array($name, ['created_at', 'updated_at'], true)) {
-            if ($columnType === 'date' && strpos($columnDbType, 'time') === false) {
-                return date('Y-m-d');
-            }
-            if ($columnType === 'time') {
-                return date('H:i:s');
-            }
-            return date('Y-m-d H:i:s');
-        }
-
-        if (in_array($name, ['created_by', 'updated_by'], true)) {
-            return Yii::$app->user->isGuest ? null : (int)Yii::$app->user->id;
-        }
-
-        if ($name === 'deleted_by') {
-            return null;
-        }
-
-        return null;
     }
 
     private function cleanSystemFieldsFromModel(MasterForm $model): bool
@@ -153,7 +102,7 @@ class MasterFormController extends Controller
         $sourceColumnId = (int)($fieldData['source_column_id'] ?? 0);
         if ($sourceColumnId > 0) {
             $sourceColumn = DbTableColumn::findOne($sourceColumnId);
-            if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+            if ($sourceColumn && SystemFieldService::shouldHideFromForm($sourceColumn)) {
                 return true;
             }
         }
@@ -164,7 +113,7 @@ class MasterFormController extends Controller
                 $sourceColumn = DbTableColumn::find()
                     ->where(['table_id' => (int)$model->table_id, 'name' => (string)$fieldName])
                     ->one();
-                if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+                if ($sourceColumn && SystemFieldService::shouldHideFromForm($sourceColumn)) {
                     return true;
                 }
             }
@@ -593,17 +542,7 @@ class MasterFormController extends Controller
                 }
             }
 
-            foreach ($columns->columns as $columnName => $column) {
-                $columnType = strtoupper((string)($column->dbType ?? $column->type ?? ''));
-                if (array_key_exists($columnName, $insertData) || !$this->isSystemField($columnName)) {
-                    continue;
-                }
-
-                $value = $this->getSystemFieldValue($columnName, $column);
-                if ($value !== null) {
-                    $insertData[$columnName] = $value;
-                }
-            }
+            $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             
             if (!empty($insertData)) {
                 try {

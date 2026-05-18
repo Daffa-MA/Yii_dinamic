@@ -13,9 +13,9 @@ use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
+use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
-use app\helpers\FormSystemFieldHelper;
 
 class TableBuilderController extends Controller
 {
@@ -1519,6 +1519,9 @@ class TableBuilderController extends Controller
     {
         $configs = [];
         foreach ($columns as $column) {
+            if (SystemFieldService::shouldHideFromForm($column)) {
+                continue;
+            }
             $configs[] = $this->buildSpreadsheetColumnConfig($column);
         }
 
@@ -1565,8 +1568,8 @@ class TableBuilderController extends Controller
             'isNullable' => (bool)$column->is_nullable,
             'inputType' => $inputType,
             'options' => $options,
-            'readOnly' => $isAutoIncrement && $isPrimary,
-            'isSystem' => $isAutoIncrement && $isPrimary,
+            'readOnly' => SystemFieldService::shouldBeReadonlyInGrid($column),
+            'isSystem' => SystemFieldService::isSystemManagedField($column),
             'sourceColumn' => $column->name,
         ];
     }
@@ -1612,6 +1615,9 @@ class TableBuilderController extends Controller
             $values = $this->buildUsersSpreadsheetRowValues($row);
         } else {
             foreach ($columns as $column) {
+                if (SystemFieldService::shouldHideFromForm($column)) {
+                    continue;
+                }
                 $values[$column->name] = $row[$column->name] ?? null;
             }
         }
@@ -1843,9 +1849,9 @@ class TableBuilderController extends Controller
             }
 
             if (!$isUsersTable) {
-                foreach ($columns as $column) {
-                    $columnName = (string)$column->name;
-                    if (($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment') && (bool)$column->is_primary) || $rowData[$columnName] === null) {
+                $rowData = SystemFieldService::applyCreateValues($rowData, $tableSchema->columns);
+                foreach ($rowData as $columnName => $value) {
+                    if ($value === null) {
                         unset($rowData[$columnName]);
                     }
                 }
@@ -1883,6 +1889,7 @@ class TableBuilderController extends Controller
             }
         }
 
+        $rowData = SystemFieldService::applyUpdateValues($rowData, $tableSchema->columns);
         $db->createCommand()->update($model->name, $rowData, $where)->execute();
         return [
             'success' => true,
@@ -1903,6 +1910,9 @@ class TableBuilderController extends Controller
         $rowData = [];
         foreach ($columns as $column) {
             $columnName = (string)$column->name;
+            if (SystemFieldService::shouldHideFromForm($column)) {
+                continue;
+            }
             $rowData[$columnName] = $this->normalizeSpreadsheetCellValue($column, $payload[$columnName] ?? null);
         }
 
@@ -1996,7 +2006,7 @@ class TableBuilderController extends Controller
         $missing = [];
         foreach ($columns as $column) {
             $columnName = (string)$column->name;
-            if ($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment') && (bool)$column->is_primary) {
+            if (SystemFieldService::shouldHideFromForm($column)) {
                 continue;
             }
             if ((bool)$column->is_nullable) {
@@ -2107,9 +2117,13 @@ class TableBuilderController extends Controller
                 unset($existingRow[$keyColumn]);
             }
             foreach ($columnMap as $columnName => $column) {
-                if ($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment')) {
+                if (SystemFieldService::shouldHideFromForm($column)) {
                     unset($existingRow[$columnName]);
                 }
+            }
+            $tableSchema = $db->schema->getTableSchema($model->name, true);
+            if ($tableSchema !== null) {
+                $existingRow = SystemFieldService::applyCreateValues($existingRow, $tableSchema->columns);
             }
 
             if (!empty($existingRow)) {
@@ -2130,7 +2144,7 @@ class TableBuilderController extends Controller
     {
         $editableColumns = [];
         foreach ($columns as $column) {
-            if ($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment') && (bool)$column->is_primary) {
+            if (SystemFieldService::shouldHideFromForm($column)) {
                 continue;
             }
             $editableColumns[] = $column;
@@ -2180,6 +2194,10 @@ class TableBuilderController extends Controller
             }
 
             if (!empty($rowData)) {
+                $tableSchema = $db->schema->getTableSchema($model->name, true);
+                if ($tableSchema !== null) {
+                    $rowData = SystemFieldService::applyCreateValues($rowData, $tableSchema->columns);
+                }
                 $db->createCommand()->insert($model->name, $rowData)->execute();
                 $inserted++;
             }
@@ -2241,7 +2259,12 @@ class TableBuilderController extends Controller
             }
 
             if (!empty($criteria)) {
-                $affected += $db->createCommand()->update($model->name, ['status' => $statusValue], $criteria)->execute();
+                $updateData = ['status' => $statusValue];
+                $tableSchema = $db->schema->getTableSchema($model->name, true);
+                if ($tableSchema !== null) {
+                    $updateData = SystemFieldService::applyUpdateValues($updateData, $tableSchema->columns);
+                }
+                $affected += $db->createCommand()->update($model->name, $updateData, $criteria)->execute();
             }
         }
 
@@ -2695,10 +2718,21 @@ class TableBuilderController extends Controller
             }
             
             $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            $tableSchema = null;
+            try {
+                $tableSchema = $this->getPhysicalDb()->schema->getTableSchema($model->name, true);
+            } catch (\Throwable $schemaError) {
+                $tableSchema = null;
+            }
             
             $columnData = [];
+            $debugColumns = [];
             foreach ($columns as $col) {
-                if (FormSystemFieldHelper::isSystemField($col->name)) {
+                $schemaColumn = $tableSchema !== null ? ($tableSchema->columns[$col->name] ?? null) : null;
+                SystemFieldService::debugDecision($col, 'table-builder/get-columns', $schemaColumn);
+                $debugColumns[] = SystemFieldService::decisionPayload($col, 'table-builder/get-columns', $schemaColumn);
+
+                if (SystemFieldService::shouldHideFromForm($col, $schemaColumn)) {
                     continue;
                 }
 
@@ -2709,9 +2743,11 @@ class TableBuilderController extends Controller
                     'type' => $col->type,
                     'base_type' => $col->type,
                     'is_nullable' => (bool)$col->is_nullable,
-                    'is_primary' => (bool)$col->is_primary,
-                    'is_system_field' => FormSystemFieldHelper::isSystemField($col->name),
-                    'is_auto_increment' => $col->hasAttribute('is_auto_increment') ? (bool)$col->getAttribute('is_auto_increment') : false,
+                    'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
+                    'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
+                    'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
+                    'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
+                    'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-columns', $schemaColumn),
                     'default_value' => $col->default_value,
                     'max_length' => $col->length,
                 ];
@@ -2723,6 +2759,7 @@ class TableBuilderController extends Controller
                 'table_name' => $model->name,
                 'table_label' => $model->label,
                 'columns' => $columnData,
+                'system_field_debug' => $debugColumns,
             ]);
         } catch (\Throwable $e) {
             return $this->asJson([
@@ -2804,10 +2841,21 @@ class TableBuilderController extends Controller
             
             // Get columns relation
             $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            $tableSchema = null;
+            try {
+                $tableSchema = $this->getPhysicalDb()->schema->getTableSchema($model->name, true);
+            } catch (\Throwable $schemaError) {
+                $tableSchema = null;
+            }
             
             $columnData = [];
+            $debugColumns = [];
             foreach ($columns as $col) {
-                if (FormSystemFieldHelper::isSystemField($col->name)) {
+                $schemaColumn = $tableSchema !== null ? ($tableSchema->columns[$col->name] ?? null) : null;
+                SystemFieldService::debugDecision($col, 'table-builder/get-table-columns', $schemaColumn);
+                $debugColumns[] = SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn);
+
+                if (SystemFieldService::shouldHideFromForm($col, $schemaColumn)) {
                     continue;
                 }
 
@@ -2819,9 +2867,11 @@ class TableBuilderController extends Controller
                     'type' => $col->type,
                     'base_type' => preg_match('/^(\w+)/', $col->type ?? '', $m) ? $m[1] : ($col->type ?? 'text'),
                     'is_nullable' => (bool)$col->is_nullable,
-                    'is_primary' => (bool)$col->is_primary,
-                    'is_auto_increment' => (bool)$col->is_auto_increment,
-                    'is_foreign_key' => $isFk,
+                    'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
+                    'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
+                    'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
+                    'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
+                    'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn),
                     'referenced_table_name' => $isFk ? $col->getAttribute('referenced_table_name') : null,
                     'referenced_column_name' => $isFk ? $col->getAttribute('referenced_column_name') : null,
                     'default_value' => $col->default_value,
@@ -2834,6 +2884,7 @@ class TableBuilderController extends Controller
                 'table_name' => $model->name,
                 'table_label' => $model->label ?: $model->name,
                 'columns' => $columnData,
+                'system_field_debug' => $debugColumns,
             ]);
         } catch (\Throwable $e) {
             return $this->asJson([

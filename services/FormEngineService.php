@@ -7,6 +7,7 @@ use app\models\DbTableColumn;
 use app\models\MasterFormField;
 use app\models\MasterFormLayout;
 use app\helpers\FormSystemFieldHelper;
+use app\components\SystemFieldService;
 use yii\helpers\Json;
 
 class FormEngineService
@@ -140,7 +141,7 @@ class FormEngineService
         $sourceColumnId = (int)($fieldData['source_column_id'] ?? 0);
         if ($sourceColumnId > 0) {
             $sourceColumn = DbTableColumn::findOne($sourceColumnId);
-            if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+            if ($sourceColumn && SystemFieldService::shouldHideFromForm($sourceColumn)) {
                 return true;
             }
         }
@@ -151,7 +152,7 @@ class FormEngineService
                 $sourceColumn = DbTableColumn::find()
                     ->where(['table_id' => (int)$form->table_id, 'name' => (string)$fieldName])
                     ->one();
-                if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+                if ($sourceColumn && SystemFieldService::shouldHideFromForm($sourceColumn)) {
                     return true;
                 }
             }

@@ -272,7 +272,7 @@ $containerClass = $layoutTemplates[$layoutTemplate] ?? $layoutTemplates['default
                         $placeholder = $field['placeholder'] ?? '';
                         $defaultValue = $field['default_value'] ?? '';
 
-                        if (FormSystemFieldHelper::isSystemField($name)) {
+                        if (FormSystemFieldHelper::isSystemFieldData($field)) {
                             continue;
                         }
                         

@@ -21,6 +21,7 @@ use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
+use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
 use app\helpers\FormSystemFieldHelper;
@@ -111,7 +112,7 @@ class FormController extends Controller
 
     private function isIncrementColumn(array $column): bool
     {
-        return !empty($column['is_auto_increment']) || !empty($column['is_primary']);
+        return SystemFieldService::isPrimaryKey($column) || SystemFieldService::isAutoIncrement($column);
     }
 
     /**
@@ -135,7 +136,7 @@ class FormController extends Controller
         $columns = $targetTable->getColumns()->asArray()->all();
         $hiddenNames = [];
         foreach ($columns as $col) {
-            if ($this->isIncrementColumn($col) || FormSystemFieldHelper::isSystemField($col['name'] ?? '')) {
+            if (SystemFieldService::shouldHideFromForm($col)) {
                 $name = strtolower(trim((string)($col['name'] ?? '')));
                 if ($name !== '') {
                     $hiddenNames[$name] = true;
@@ -481,7 +482,7 @@ class FormController extends Controller
         ];
 
         foreach ($post as $key => $value) {
-            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data) || FormSystemFieldHelper::isSystemField($key)) {
+            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data) || SystemFieldService::isSystemFieldData(['name' => $key])) {
                 continue;
             }
 
@@ -494,7 +495,7 @@ class FormController extends Controller
 
         // Capture uploaded file names so custom drag-drop file inputs are still recorded.
         foreach ($_FILES as $key => $fileMeta) {
-            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data) || FormSystemFieldHelper::isSystemField($key)) {
+            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data) || SystemFieldService::isSystemFieldData(['name' => $key])) {
                 continue;
             }
 
@@ -694,49 +695,6 @@ class FormController extends Controller
         return $value;
     }
 
-    private function getSystemFieldValueForColumn(string $columnName, $schemaColumn)
-    {
-        $name = strtolower($columnName);
-        $columnType = strtolower((string)($schemaColumn->type ?? ''));
-        $columnDbType = strtolower((string)($schemaColumn->dbType ?? ''));
-
-        if ($name === 'id' || $name === 'deleted_at') {
-            return null;
-        }
-
-        if ($name === 'uuid') {
-            return Yii::$app->security->generateRandomString(36);
-        }
-
-        if (in_array($name, ['token', 'remember_token'], true)) {
-            return Yii::$app->security->generateRandomString(40);
-        }
-
-        if ($name === 'verification_code') {
-            return (string)random_int(100000, 999999);
-        }
-
-        if ($name === 'password_hash') {
-            return Yii::$app->security->generatePasswordHash(Yii::$app->security->generateRandomString(32));
-        }
-
-        if ($columnType === 'timestamp' || in_array($name, ['created_at', 'updated_at'], true)) {
-            if ($columnType === 'date' && strpos($columnDbType, 'time') === false) {
-                return date('Y-m-d');
-            }
-            if ($columnType === 'time') {
-                return date('H:i:s');
-            }
-            return date('Y-m-d H:i:s');
-        }
-
-        if (in_array($name, ['created_by', 'updated_by'], true)) {
-            return Yii::$app->user->isGuest ? null : (int)Yii::$app->user->id;
-        }
-
-        return null;
-    }
-
     /**
      * Save submission into the selected custom table when mapping exists.
      */
@@ -800,7 +758,9 @@ class FormController extends Controller
 
             $schemaColumn = $tableSchema->columns[$columnName] ?? null;
             $isPrimaryKey = !empty($tableSchema->primaryKey) && in_array($columnName, (array)$tableSchema->primaryKey, true);
-            if ($this->isIncrementColumn($column) || $schemaColumn === null || !empty($schemaColumn->autoIncrement) || $isPrimaryKey || FormSystemFieldHelper::isSystemField($columnName)) {
+            if ($schemaColumn === null || $isPrimaryKey || SystemFieldService::shouldHideFromForm(array_merge($column, [
+                'autoIncrement' => !empty($schemaColumn->autoIncrement),
+            ]))) {
                 continue;
             }
 
@@ -832,16 +792,7 @@ class FormController extends Controller
             }
         }
 
-        foreach ($tableSchema->columns as $columnName => $schemaColumn) {
-            if (array_key_exists($columnName, $insertData) || !FormSystemFieldHelper::isSystemField($columnName)) {
-                continue;
-            }
-
-            $value = $this->getSystemFieldValueForColumn($columnName, $schemaColumn);
-            if ($value !== null) {
-                $insertData[$columnName] = $value;
-            }
-        }
+        $insertData = SystemFieldService::applyCreateValues($insertData, $tableSchema->columns);
 
         if (empty($insertData)) {
             return false;
@@ -1709,8 +1660,7 @@ class FormController extends Controller
             ->all();
 
         $columns = array_values(array_filter($columns, function ($column) {
-            $name = (string)($column['name'] ?? '');
-            return !$this->isIncrementColumn($column) && !FormSystemFieldHelper::isSystemField($name);
+            return !SystemFieldService::shouldHideFromForm($column);
         }));
 
         if (empty($columns)) {
@@ -1805,7 +1755,7 @@ class FormController extends Controller
         $quickAddFields = [];
         foreach (($config['quickAddFields'] ?? []) as $quickField) {
             $fieldName = (string)($quickField['name'] ?? '');
-            if ($fieldName !== '' && isset($tableSchema->columns[$fieldName])) {
+            if ($fieldName !== '' && isset($tableSchema->columns[$fieldName]) && !SystemFieldService::shouldHideFromForm($tableSchema->columns[$fieldName])) {
                 $quickAddFields[$fieldName] = true;
             }
         }
@@ -1839,6 +1789,7 @@ class FormController extends Controller
 
         $transaction = Yii::$app->db->beginTransaction();
         try {
+            $insertData = SystemFieldService::applyCreateValues($insertData, $tableSchema->columns);
             Yii::$app->db->createCommand()->insert($referencedTable, $insertData)->execute();
             $transaction->commit();
         } catch (IntegrityException $e) {

@@ -2,29 +2,23 @@
 
 namespace app\helpers;
 
+use app\components\SystemFieldService;
+
 class FormSystemFieldHelper
 {
-    private const SYSTEM_FIELDS = [
-        'created_at',
-        'updated_at',
-        'deleted_at',
-    ];
-
     public static function systemFields(): array
     {
-        return self::SYSTEM_FIELDS;
+        return SystemFieldService::auditFields();
     }
 
     public static function isSystemField($fieldName): bool
     {
-        $name = strtolower(trim((string)$fieldName));
-        return $name !== '' && in_array($name, self::SYSTEM_FIELDS, true);
+        return SystemFieldService::isAuditField((string)$fieldName);
     }
 
     public static function isSystemFieldData(array $field): bool
     {
-        $fieldName = $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? '';
-        return self::isSystemField($fieldName);
+        return SystemFieldService::isSystemFieldData($field);
     }
 
     public static function inputTypeFromColumnType($columnType): ?string
@@ -67,33 +61,11 @@ class FormSystemFieldHelper
 
     public static function filterFields(array $fields): array
     {
-        $filtered = [];
-        foreach ($fields as $field) {
-            if (!is_array($field)) {
-                continue;
-            }
-
-            if (self::isSystemFieldData($field)) {
-                continue;
-            }
-
-            $filtered[] = $field;
-        }
-
-        return $filtered;
+        return SystemFieldService::filterFields($fields);
     }
 
     public static function filterBuilderData(array $builderData): array
     {
-        if (isset($builderData['fields']) && is_array($builderData['fields'])) {
-            $builderData['fields'] = self::filterFields($builderData['fields']);
-            return $builderData;
-        }
-
-        if (array_keys($builderData) === range(0, count($builderData) - 1)) {
-            return self::filterFields($builderData);
-        }
-
-        return $builderData;
+        return SystemFieldService::filterBuilderData($builderData);
     }
 }

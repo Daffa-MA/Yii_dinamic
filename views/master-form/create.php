@@ -2147,7 +2147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const isAutoIncrement = !!(col.is_auto_increment);
                     const isForeignKey = !!(col.is_foreign_key);
                     
-                    if (col.is_system_field || isSystemField(col.name) || (isPrimaryKey && isAutoIncrement)) {
+                    if (col.is_system_field || isSystemField(col.name) || isPrimaryKey || isAutoIncrement) {
                         return;
                     }
 
@@ -2257,9 +2257,14 @@ document.addEventListener('DOMContentLoaded', function() {
     function isSystemField(fieldName) {
         const normalizedName = String(fieldName || '').trim().toLowerCase();
         const systemFields = [
+            'created_by',
+            'updated_by',
+            'deleted_by',
             'created_at',
             'updated_at',
-            'deleted_at'
+            'deleted_at',
+            'created_ip',
+            'updated_ip'
         ];
 
         return systemFields.includes(normalizedName);

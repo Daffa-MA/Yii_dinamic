@@ -394,7 +394,7 @@ $this->title = 'Preview: ' . $formName;
                     $fieldCustomCss = trim((string)($field['customCss'] ?? ''));
                     $fieldCustomJs = trim((string)($field['customJs'] ?? ''));
 
-                    if (FormSystemFieldHelper::isSystemField($name)) {
+                    if (FormSystemFieldHelper::isSystemFieldData($field)) {
                         continue;
                     }
 

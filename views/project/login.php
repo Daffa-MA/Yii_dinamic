@@ -22,6 +22,8 @@ $loginRadius = (int)($workspaceSettings->login_border_radius ?? 28);
 $loginBackgroundAsset = $workspaceSettings->getLoginBackgroundAsset();
 $loginBgImageUrl = (string)($loginBackgroundAsset['url'] ?? '');
 $loginBgType = (string)($loginBackgroundAsset['type'] ?? 'none');
+$loginBgDebug = method_exists($workspaceSettings, 'getLoginBackgroundDebug') ? $workspaceSettings->getLoginBackgroundDebug() : [];
+$loginBgCssUrl = str_replace(["\\", "'"], ["\\\\", "\\'"], $loginBgImageUrl);
 $logoImage = $workspaceSettings->workspace_logo_image ? Yii::getAlias('@web/uploads/workspace/') . Html::encode($workspaceSettings->workspace_logo_image) : '';
 $logoIcon = Html::encode($workspaceSettings->workspace_logo_icon ?? 'workspace_premium');
 $workspaceTitle = Html::encode($workspaceSettings->workspace_title ?? $project->name);
@@ -31,7 +33,7 @@ $loginSubtitle = Html::encode($workspaceSettings->login_subtitle ?? 'Masuk ke ap
 $buttonText = $loginTheme === 'light' ? '#0f172a' : '#ffffff';
 $heroStyle = "background: linear-gradient(135deg, {$heroBgStart} 0%, {$heroBgEnd} 100%);";
 if ($loginBgImageUrl !== '' && $loginBgType === 'image') {
-    $heroStyle = "background-image: linear-gradient(135deg, rgba(7,17,31,.88) 0%, rgba(15,23,42,.76) 50%, rgba(7,17,31,.9) 100%), url('{$loginBgImageUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;";
+    $heroStyle = "background-image: linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)), url('{$loginBgCssUrl}'); background-size: cover; background-position: center; background-repeat: no-repeat;";
 }
 
 $this->registerCss(<<<CSS
@@ -63,7 +65,7 @@ $this->registerCss(<<<CSS
 .project-login-hero-overlay {
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(7,17,31,.84) 0%, rgba(15,23,42,.72) 55%, rgba(7,17,31,.88) 100%);
+    background: rgba(0,0,0,.35);
     z-index: 0;
 }
 .project-login-hero::before,
@@ -277,6 +279,15 @@ $this->registerCss(<<<CSS
 }
 CSS);
 ?>
+
+<!-- project-login-background-debug <?= Html::encode(json_encode([
+    'project_id' => (int)$project->id,
+    'setting_key' => $workspaceSettings->setting_key ?? null,
+    'background_path' => $loginBgDebug['background_path'] ?? '',
+    'generated_url' => $loginBgImageUrl,
+    'type' => $loginBgType,
+    'local_file_exists' => $loginBgDebug['local_file_exists'] ?? null,
+], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) ?> -->
 
 <div class="project-login-shell">
     <section class="project-login-hero">

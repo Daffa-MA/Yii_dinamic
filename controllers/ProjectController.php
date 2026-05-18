@@ -769,7 +769,8 @@ private function insertDefaultCmsData($newDb): void
 
         (new ActiveDatabaseContext())->resolveAndApply();
         $workspaceSettings = new WorkspaceSettings();
-        $workspaceSettings->loadFromSession();
+        $workspaceSettings->loadForProjectLogin((int)$activeProjectId);
+        $this->logProjectLoginBackgroundContext((int)$activeProjectId, $workspaceSettings);
 
         $commanderAuth = new CommanderAuthContext();
         if ($commanderAuth->isSuperAdmin()) {
@@ -813,6 +814,19 @@ private function insertDefaultCmsData($newDb): void
             'workspaceSettings' => $workspaceSettings,
             'returnUrl' => $returnUrl,
         ]);
+    }
+
+    private function logProjectLoginBackgroundContext(int $projectId, WorkspaceSettings $workspaceSettings): void
+    {
+        try {
+            $debug = $workspaceSettings->getLoginBackgroundDebug();
+            $debug['project_id'] = $projectId;
+            $debug['host'] = Yii::$app->request->getHostName();
+            $debug['route'] = Yii::$app->requestedRoute;
+            AuthContextDebugLogger::log('project_login_background_context', $debug);
+        } catch (\Throwable $e) {
+            Yii::warning('Project login background debug failed: ' . $e->getMessage(), __METHOD__);
+        }
     }
 
     public function actionChangePassword($id = null)

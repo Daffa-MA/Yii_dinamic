@@ -5,6 +5,7 @@ namespace app\models;
 use Yii;
 use yii\db\Connection;
 use yii\db\Query;
+use yii\helpers\Url;
 
 class WorkspaceSettings extends \yii\base\Model
 {
@@ -238,6 +239,41 @@ class WorkspaceSettings extends \yii\base\Model
         Yii::info('No workspace settings in session for scope: ' . $scopeKey . ', loaded from database', 'workspace-settings');
     }
 
+    public function loadForProjectLogin(int $projectId): string
+    {
+        $this->ensureStorageReady();
+
+        $candidates = [];
+        if ($projectId > 0) {
+            $candidates[] = 'project:' . $projectId;
+        }
+
+        $databaseName = $this->resolveCurrentDatabaseName(Yii::$app->db);
+        if ($databaseName !== '') {
+            $candidates[] = 'database:' . $databaseName;
+        }
+
+        $candidates[] = self::DEFAULT_KEY;
+        $candidates = array_values(array_unique($candidates));
+
+        foreach ($candidates as $scopeKey) {
+            $row = $this->findRowByKey($scopeKey);
+            if ($row === null) {
+                continue;
+            }
+
+            $this->load($row, '');
+            $this->populateDefaults();
+            $this->setting_key = $scopeKey;
+            $this->saveToSession($scopeKey);
+            return $scopeKey;
+        }
+
+        $this->clear();
+        $this->setting_key = $projectId > 0 ? 'project:' . $projectId : self::DEFAULT_KEY;
+        return $this->setting_key;
+    }
+
     public function saveToDatabase($key = null)
     {
         if ($this->isProjectListRoute()) {
@@ -386,7 +422,7 @@ class WorkspaceSettings extends \yii\base\Model
         }
 
         $isRemote = (bool)preg_match('#^https?://#i', $value);
-        $url = $isRemote ? $value : Yii::getAlias('@web/uploads/workspace/') . ltrim($value, '/');
+        $url = $isRemote ? $value : $this->buildWorkspaceMediaUrl($value);
         $path = parse_url($value, PHP_URL_PATH);
         $source = is_string($path) && $path !== '' ? $path : $value;
         $ext = strtolower(pathinfo($source, PATHINFO_EXTENSION));
@@ -399,7 +435,43 @@ class WorkspaceSettings extends \yii\base\Model
         ];
     }
 
-    private function resolveScopeKey($key = null): string
+    public function getLoginBackgroundDebug(): array
+    {
+        $asset = $this->getLoginBackgroundAsset();
+        $value = trim((string)($this->login_background_image ?? ''));
+        $localFile = '';
+        $exists = null;
+
+        if ($value !== '' && !preg_match('#^https?://#i', $value)) {
+            $fileName = basename(parse_url($value, PHP_URL_PATH) ?: $value);
+            $localFile = Yii::getAlias('@webroot/uploads/workspace/') . $fileName;
+            $exists = is_file($localFile);
+        }
+
+        return [
+            'setting_key' => $this->setting_key,
+            'background_path' => $value,
+            'generated_url' => (string)($asset['url'] ?? ''),
+            'type' => (string)($asset['type'] ?? 'none'),
+            'local_file' => $localFile,
+            'local_file_exists' => $exists,
+        ];
+    }
+
+    private function buildWorkspaceMediaUrl(string $value): string
+    {
+        $path = trim($value);
+        $path = parse_url($path, PHP_URL_PATH) ?: $path;
+        $path = ltrim($path, '/');
+
+        if (strpos($path, 'uploads/workspace/') === 0) {
+            return Url::to('/' . $path, true);
+        }
+
+        return Url::to('/uploads/workspace/' . basename($path), true);
+    }
+
+    public function resolveScopeKey($key = null): string
     {
         $scopeKey = trim((string)$key);
         if ($scopeKey !== '') {

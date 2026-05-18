@@ -206,7 +206,7 @@ class ProjectPermissionService
             return false;
         }
 
-        if (!$this->canAccessPage($page, $projectId)) {
+        if (!$this->canAccessPage($page, $projectId) && !$this->canAccessMenuForPage($pageId, $projectId)) {
             return false;
         }
 
@@ -238,7 +238,7 @@ class ProjectPermissionService
             return false;
         }
 
-        if (!$this->canAccessPage($page, $projectId)) {
+        if (!$this->canAccessPage($page, $projectId) && !$this->canAccessMenuForPage($pageId, $projectId)) {
             return false;
         }
 

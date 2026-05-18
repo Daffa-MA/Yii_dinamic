@@ -713,12 +713,9 @@ class MasterFormController extends Controller
             return false;
         }
 
-        $page = MasterPage::findOne($pageId);
-        if (!$page instanceof MasterPage) {
-            return false;
-        }
-
-        return (new ProjectPermissionService())->canAccessPage($page, $projectId);
+        $permissionService = new ProjectPermissionService();
+        return $permissionService->canUseFormAsPageContent($formId, $pageId, $projectId)
+            || $permissionService->canUseLegacyFormAsPageContent($formId, $pageId, $projectId);
     }
     
 }

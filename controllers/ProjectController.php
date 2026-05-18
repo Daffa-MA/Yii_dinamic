@@ -538,7 +538,13 @@ private function insertDefaultCmsData($newDb): void
         $hostSuffix = $dbHostHint !== '' ? " (server: {$dbHostHint})" : '';
         Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}{$hostSuffix}.");
         if ($this->isCommanderSuperAdmin()) {
-            return $this->redirect(['site/dashboard']);
+            $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+            if ($workspaceUrl !== null) {
+                return $this->redirect($workspaceUrl);
+            }
+
+            Yii::$app->session->setFlash('warning', 'Domain project belum diset. Silakan lengkapi custom domain terlebih dahulu.');
+            return $this->redirect(['project/index']);
         }
 
         return $this->redirectToProjectLogin((int)$project->id, ['site/dashboard']);
@@ -647,7 +653,16 @@ private function insertDefaultCmsData($newDb): void
         $commanderAuth = new CommanderAuthContext();
 
         if ($commanderAuth->isSuperAdmin()) {
-            return $this->redirect(['site/dashboard']);
+            $project = Project::findOne(['id' => $projectId]);
+            if ($project !== null) {
+                $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+                if ($workspaceUrl !== null) {
+                    return $this->redirect($workspaceUrl);
+                }
+            }
+
+            Yii::$app->session->setFlash('warning', 'Domain project belum diset. Silakan lengkapi custom domain terlebih dahulu.');
+            return $this->redirect(['project/index']);
         }
 
         if ($authContext->isAuthenticated($projectId)) {

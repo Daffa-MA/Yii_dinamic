@@ -4,6 +4,7 @@ namespace app\models;
 
 use Yii;
 use yii\db\ActiveRecord;
+use yii\helpers\Url;
 
 /**
  * Project model.
@@ -162,6 +163,17 @@ class Project extends ActiveRecord
         }
 
         return $prefix . '.' . self::getProjectDomainSuffix();
+    }
+
+    public function getWorkspaceUrl(string $path = '/dashboard'): ?string
+    {
+        $domain = self::normalizeCustomDomain((string)($this->custom_domain ?? ''));
+        if ($domain === null || $domain === '') {
+            return null;
+        }
+
+        $path = '/' . ltrim((string)$path, '/');
+        return Url::to('https://' . $domain . $path);
     }
 
     public static function extractProjectDomainPrefix(?string $domain): string

@@ -4,6 +4,7 @@ namespace app\components;
 
 use app\models\MasterForm;
 use app\models\MasterPage;
+use app\models\Form;
 use Yii;
 use yii\db\Query;
 use yii\helpers\Url;
@@ -183,6 +184,61 @@ class ProjectPermissionService
         ]);
     }
 
+    public function canUseFormAsPageContent(int $formId, int $pageId, ?int $projectId = null): bool
+    {
+        if ($this->isCommanderSuperAdmin()) {
+            return true;
+        }
+
+        if ($formId <= 0 || $pageId <= 0) {
+            return false;
+        }
+
+        $page = MasterPage::findOne($pageId);
+        $form = MasterForm::findByIdScoped($formId);
+        if (!$page instanceof MasterPage || !$form instanceof MasterForm) {
+            return false;
+        }
+
+        if (!$this->pageContainsForm($page, $formId)) {
+            return false;
+        }
+
+        return $this->canAccessPage($page, $projectId) || $this->canAccessMenuForPage($pageId, $projectId);
+    }
+
+    public function canUseLegacyFormAsPageContent(int $formId, int $pageId, ?int $projectId = null): bool
+    {
+        if ($this->isCommanderSuperAdmin()) {
+            return true;
+        }
+
+        if ($formId <= 0 || $pageId <= 0) {
+            return false;
+        }
+
+        $page = MasterPage::findOne($pageId);
+        if (!$page instanceof MasterPage) {
+            return false;
+        }
+
+        $formQuery = Form::find()->where(['id' => $formId]);
+        if ($projectId !== null && Form::getTableSchema() !== null && isset(Form::getTableSchema()->columns['project_id'])) {
+            $formQuery->andWhere(['project_id' => (int)$projectId]);
+        }
+
+        $form = $formQuery->one();
+        if (!$form instanceof Form) {
+            return false;
+        }
+
+        if (!$this->pageContainsLegacyForm($page, $formId)) {
+            return false;
+        }
+
+        return $this->canAccessPage($page, $projectId) || $this->canAccessMenuForPage($pageId, $projectId);
+    }
+
     public function canAccessPermissionKeys(array $permissionKeys, ?int $projectId = null): bool
     {
         if ($this->isCommanderSuperAdmin()) {
@@ -306,6 +362,82 @@ class ProjectPermissionService
                 'can_access' => 1,
             ])
             ->exists(Yii::$app->db);
+    }
+
+    private function canAccessMenuForPage(int $pageId, ?int $projectId = null): bool
+    {
+        $schema = Yii::$app->db->schema;
+        if ($schema->getTableSchema('master_menu', true) === null) {
+            return false;
+        }
+
+        $menus = (new Query())
+            ->from('master_menu')
+            ->where(['page_id' => $pageId])
+            ->all(Yii::$app->db);
+
+        foreach ($menus as $menu) {
+            if ($this->canAccessMenu($menu, $projectId)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function pageContainsForm(MasterPage $page, int $formId): bool
+    {
+        $db = Yii::$app->db;
+        foreach (['master_page_form', 'page_forms'] as $tableName) {
+            if ($db->schema->getTableSchema($tableName, true) === null) {
+                continue;
+            }
+
+            if ((new Query())->from($tableName)->where(['page_id' => (int)$page->id, 'form_id' => $formId])->exists($db)) {
+                return true;
+            }
+        }
+
+        $layoutData = json_decode((string)($page->layout_json ?? ''), true);
+        return is_array($layoutData) && $this->layoutContainsForm($layoutData, $formId);
+    }
+
+    private function pageContainsLegacyForm(MasterPage $page, int $formId): bool
+    {
+        $db = Yii::$app->db;
+        if ($db->schema->getTableSchema('master_page_form', true) !== null) {
+            if ((new Query())->from('master_page_form')->where([
+                'page_id' => (int)$page->id,
+                'form_id' => $formId,
+            ])->exists($db)) {
+                return true;
+            }
+        }
+
+        return $this->pageContainsForm($page, $formId);
+    }
+
+    private function layoutContainsForm(array $items, int $formId): bool
+    {
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $props = is_array($item['props'] ?? null) ? $item['props'] : [];
+            $candidate = (int)($props['formId'] ?? $props['form_id'] ?? $item['form_id'] ?? 0);
+            if ($candidate === $formId) {
+                return true;
+            }
+
+            foreach (['children', 'items', 'columns', 'blocks'] as $childKey) {
+                if (isset($item[$childKey]) && is_array($item[$childKey]) && $this->layoutContainsForm($item[$childKey], $formId)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function roleAccessTableHasRows(string $role): bool

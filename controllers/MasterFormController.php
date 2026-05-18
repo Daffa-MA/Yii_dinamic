@@ -14,6 +14,7 @@ use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
+use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
 use app\helpers\FormSystemFieldHelper;
 use app\services\FormActivityLogService;
@@ -454,6 +455,15 @@ class MasterFormController extends Controller
                 Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
             }
 
+            if ($isEmbedded && !$this->canSubmitEmbeddedPageForm((int)$model->id)) {
+                $message = 'Form ini belum terhubung ke halaman yang bisa Anda akses.';
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $message];
+                }
+                Yii::$app->session->setFlash('error', $message);
+                return $this->redirect(['preview', 'id' => $id]);
+            }
+
             // APPLY DATABASE CONTEXT - ini kunci fix!
             $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
             $db = Yii::$app->db;
@@ -604,6 +614,26 @@ class MasterFormController extends Controller
         }
         
         return $this->redirect(['preview', 'id' => $id]);
+    }
+
+    private function canSubmitEmbeddedPageForm(int $formId): bool
+    {
+        $renderContext = (string)Yii::$app->request->post('render_context', '');
+        if ($renderContext !== 'page_content') {
+            return true;
+        }
+
+        $pageId = (int)Yii::$app->request->post('page_id', 0);
+        if ($formId <= 0 || $pageId <= 0) {
+            return false;
+        }
+
+        $projectId = (new ActiveProjectContext())->getActiveProjectId();
+        if ($projectId === null) {
+            return false;
+        }
+
+        return (new ProjectPermissionService())->canUseFormAsPageContent($formId, $pageId, $projectId);
     }
     
 }

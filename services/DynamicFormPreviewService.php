@@ -8,7 +8,7 @@ use yii\helpers\Html;
 
 class DynamicFormPreviewService
 {
-    public function renderByScopedId(?int $formId, bool $showTitle = true, bool $interactive = false): string
+    public function renderByScopedId(?int $formId, bool $showTitle = true, bool $interactive = false, array $context = []): string
     {
         if (empty($formId)) {
         return $this->renderInfo('Form belum dipilih.');
@@ -34,7 +34,19 @@ class DynamicFormPreviewService
         $formOpen = $interactive ? '<form method="post" class="dynamic-embedded-form" action="/master-form/submit?id=' . (int)$form->id . '">' .
             '<input type="hidden" name="' . Html::encode(\Yii::$app->request->csrfParam) . '" value="' . Html::encode(\Yii::$app->request->getCsrfToken()) . '">' : '';
         $formClose = $interactive ? '</form>' : '';
-        $embeddedFlag = $interactive ? '<input type="hidden" name="_embedded" value="1">' : '';
+        $embeddedFlag = '';
+        if ($interactive) {
+            $embeddedFlag = '<input type="hidden" name="_embedded" value="1">';
+            if (($context['render_context'] ?? '') !== '') {
+                $embeddedFlag .= '<input type="hidden" name="render_context" value="' . Html::encode((string)$context['render_context']) . '">';
+            }
+            if ((int)($context['page_id'] ?? 0) > 0) {
+                $embeddedFlag .= '<input type="hidden" name="page_id" value="' . (int)$context['page_id'] . '">';
+            }
+            if ((int)($context['menu_id'] ?? 0) > 0) {
+                $embeddedFlag .= '<input type="hidden" name="menu_id" value="' . (int)$context['menu_id'] . '">';
+            }
+        }
 
         if ($hasOverride) {
             $scriptHtml = $customJs !== '' ? '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>' : '';

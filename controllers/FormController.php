@@ -21,6 +21,7 @@ use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
+use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
@@ -249,6 +250,10 @@ class FormController extends Controller
 
     private function ensureGuestCanAccessPublicForm(Form $form): void
     {
+        if ($this->canAccessFormAsAuthorizedPageContent((int)$form->id)) {
+            return;
+        }
+
         if (!Yii::$app->user->isGuest) {
             return;
         }
@@ -259,6 +264,30 @@ class FormController extends Controller
         if (!$isPublished) {
             throw new NotFoundHttpException('The requested form does not exist.');
         }
+    }
+
+    private function canAccessFormAsAuthorizedPageContent(int $formId): bool
+    {
+        $renderContext = (string)Yii::$app->request->post('render_context', Yii::$app->request->get('render_context', ''));
+        if ($renderContext !== 'page_content') {
+            return false;
+        }
+
+        $pageId = (int)Yii::$app->request->post('page_id', Yii::$app->request->get('page_id', 0));
+        if ($formId <= 0 || $pageId <= 0) {
+            return false;
+        }
+
+        $projectId = (new ActiveProjectContext())->getActiveProjectId();
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($projectId === null || !(new ProjectAuthContext())->isAuthenticated($projectId)) {
+            return false;
+        }
+
+        return (new ProjectPermissionService())->canUseLegacyFormAsPageContent($formId, $pageId, $projectId);
     }
 
     private function stripForeignKeySuffix(string $value): string

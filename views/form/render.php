@@ -12,6 +12,8 @@ use yii\helpers\Url;
 $this->title = 'Fill Form: ' . $model->name;
 $embedded = (string) Yii::$app->request->get('embedded', '') === '1';
 $returnUrl = (string) Yii::$app->request->get('return_url', '');
+$renderContext = (string) Yii::$app->request->get('render_context', '');
+$pageId = (int) Yii::$app->request->get('page_id', 0);
 $bodyBackground = $embedded ? '#ffffff' : '#e5e9f0';
 $this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); document.body.style.background = '{$bodyBackground}';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
@@ -128,6 +130,12 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                         ]); ?>
                         <?php if ($embedded && $returnUrl !== ''): ?>
                             <input type="hidden" name="return_url" value="<?= Html::encode($returnUrl) ?>">
+                        <?php endif; ?>
+                        <?php if ($embedded && $renderContext !== ''): ?>
+                            <input type="hidden" name="render_context" value="<?= Html::encode($renderContext) ?>">
+                        <?php endif; ?>
+                        <?php if ($embedded && $pageId > 0): ?>
+                            <input type="hidden" name="page_id" value="<?= (int)$pageId ?>">
                         <?php endif; ?>
 
                         <div class="space-y-6">
@@ -251,8 +259,18 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
 
     <script>
         const fkConfigMap = <?= $fkConfigJson ?: '{}' ?>;
-        const fkQuickAddUrl = <?= json_encode(Url::to(['form/fk-quick-add', 'id' => $model->id])) ?>;
-        const fkOptionsUrl = <?= json_encode(Url::to(['form/fk-options', 'id' => $model->id])) ?>;
+        const fkQuickAddUrl = <?= json_encode(Url::to(array_filter([
+            'form/fk-quick-add',
+            'id' => $model->id,
+            'render_context' => $embedded && $renderContext !== '' ? $renderContext : null,
+            'page_id' => $embedded && $pageId > 0 ? $pageId : null,
+        ]))) ?>;
+        const fkOptionsUrl = <?= json_encode(Url::to(array_filter([
+            'form/fk-options',
+            'id' => $model->id,
+            'render_context' => $embedded && $renderContext !== '' ? $renderContext : null,
+            'page_id' => $embedded && $pageId > 0 ? $pageId : null,
+        ]))) ?>;
 
         const quickAddModal = document.getElementById('fkQuickAddModal');
         const quickAddClose = document.getElementById('fkQuickAddClose');

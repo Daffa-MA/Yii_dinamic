@@ -65,7 +65,6 @@ $headerBadge = $isMinimalSidebar ? $cssVars['workspace-badge'] ?? 'Project Hub' 
 $headerTitle = $isMinimalSidebar ? 'Navigasi Project' : ($cssVars['workspace-title'] ?? 'Project List');
 $headerSubtitle = $isMinimalSidebar ? 'Pintu masuk workspace' : ($cssVars['workspace-subtitle'] ?? 'Beranda & navigasi');
 $projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Project List';
-$profileNavLabel = $isMinimalSidebar ? 'Akun Saya' : 'Profile';
 $activeProjectLabel = $isMinimalSidebar ? 'Project Aktif' : 'Active Project';
 $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
 
@@ -1084,12 +1083,6 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
             <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'project/index') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
                 <span class="material-symbols-outlined">folder_open</span>
                 <span class="app-sidebar-link-text"><?= Html::encode($projectNavLabel) ?></span>
-            </a>
-            
-            <!-- Akun Saya -->
-            <a href="<?= \yii\helpers\Url::to(['site/profile']) ?>" class="app-sidebar-link <?= routesMatchExactly($currentRoute, 'site/profile') ? 'active' : '' ?>" style="color: <?= Html::encode($sidebarTextColor) ?>;">
-                <span class="material-symbols-outlined">person</span>
-                <span class="app-sidebar-link-text"><?= Html::encode($profileNavLabel) ?></span>
             </a>
          
 <!-- Full Sidebar - Dashboard Pages -->

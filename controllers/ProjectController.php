@@ -939,37 +939,12 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionProfile()
     {
-        if (!ProjectSchema::supportsProjectContext()) {
-            Yii::$app->session->setFlash('warning', 'Project context not available.');
+        $rootDomain = (new DomainContext())->rootDomain();
+        if ($rootDomain === '') {
             return $this->redirect(['site/profile']);
         }
 
-        $context = new ActiveProjectContext();
-        $activeProjectId = $context->getActiveProjectId();
-        
-        if ($activeProjectId === null) {
-            Yii::$app->session->setFlash('warning', 'No active project selected.');
-            return $this->redirect(['project/index']);
-        }
-
-        $project = $this->findAccessibleProject((int)$activeProjectId);
-        if ($project === null) {
-            throw new NotFoundHttpException('Project not found.');
-        }
-
-        $user = Yii::$app->user->identity;
-        $totalForms = Form::find()->where(['user_id' => $user->id])->count();
-        $totalSubmissions = FormSubmission::find()
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $user->id])
-            ->count();
-
-        return $this->render('profile', [
-            'user' => $user,
-            'project' => $project,
-            'totalForms' => $totalForms,
-            'totalSubmissions' => $totalSubmissions,
-        ]);
+        return Yii::$app->response->redirect('https://' . $rootDomain . '/profile');
     }
 
     public function actionFirebaseUsers()

@@ -31,6 +31,8 @@ function routesMatchExactly($currentRoute, $menuRoute) {
 
 $activeMenu = $activeMenu ?? '';
 $currentRoute = Yii::$app->controller->route;
+$domainContext = new DomainContext();
+$isRootDomain = $domainContext->isRootDomain();
 
 // Auto-detect active menu untuk System Builder routes
 $systemBuilderRoutes = [
@@ -47,15 +49,15 @@ foreach ($systemBuilderRoutes as $prefix => $menuKey) {
     }
 }
 
-$activeDatabase = Yii::$app->session->get('active_dashboard_database');
+$activeDatabase = $isRootDomain ? null : Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
 $activeProjectId = null;
 $projectAuthUser = null;
 
 // Hardcoded selector pages must stay isolated from workspace DB/theme switching.
 $isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
-$shouldResolveWorkspaceDatabase = !$isProjectListPage;
-$sidebarVariant = $isProjectListPage ? 'minimal' : 'full';
+$shouldResolveWorkspaceDatabase = !$isProjectListPage && !$isRootDomain;
+$sidebarVariant = ($isProjectListPage || $isRootDomain) ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
 
 // Use workspace settings or defaults
@@ -74,7 +76,7 @@ if ($shouldResolveWorkspaceDatabase) {
     $dbContext->resolveAndApply();
 }
 
-if (ProjectSchema::supportsProjectContext()) {
+if (!$isRootDomain && ProjectSchema::supportsProjectContext()) {
     $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
     if ($activeProjectId !== null) {
         $activeProject = \app\models\Project::findOne(['id' => $activeProjectId]);
@@ -83,7 +85,6 @@ if (ProjectSchema::supportsProjectContext()) {
 }
 
 $commanderAuth = new CommanderAuthContext();
-$domainContext = new DomainContext();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
 $projectPermissionService = new \app\components\ProjectPermissionService();
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
@@ -106,6 +107,33 @@ foreach ($workspaceToolRoutes as $tool) {
     }
 }
 $showWorkspaceTools = !empty($workspaceToolItems);
+
+$shouldHideWorkspaceProfileMenu = function (array $item): bool {
+    $route = strtolower(trim((string)($item['route'] ?? '')));
+    $name = strtolower(trim((string)($item['name'] ?? '')));
+    return in_array($route, ['site/profile', 'project/profile', 'profile'], true)
+        || in_array($name, ['profile', 'profil', 'akun saya'], true);
+};
+
+$filterWorkspaceSidebarMenus = function (array $items) use (&$filterWorkspaceSidebarMenus, $shouldHideWorkspaceProfileMenu): array {
+    $filtered = [];
+    foreach ($items as $item) {
+        if ($shouldHideWorkspaceProfileMenu($item)) {
+            continue;
+        }
+
+        if (!empty($item['children']) && is_array($item['children'])) {
+            $item['children'] = $filterWorkspaceSidebarMenus($item['children']);
+            if (empty($item['children']) && ($item['type'] ?? '') === 'group') {
+                continue;
+            }
+        }
+
+        $filtered[] = $item;
+    }
+
+    return $filtered;
+};
 
 $canAccessSidebarRoute = function ($route) use ($projectPermissionService, $activeProjectId, $canOpenProjectList): bool {
     if ($canOpenProjectList) {
@@ -1276,6 +1304,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
             };
             
             if (!empty($menuTree)) {
+                $menuTree = $filterWorkspaceSidebarMenus($menuTree);
                 foreach ($menuTree as $topMenu) {
                     $renderMenuItem($topMenu, $menuMap);
                 }
@@ -1297,6 +1326,10 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     }
 
                     $route = (string)($menu->route ?? '');
+                    $label = strtolower(trim((string)($menu->label ?? $menu->name ?? '')));
+                    if (in_array(strtolower(trim($route)), ['site/profile', 'project/profile', 'profile'], true) || in_array($label, ['profile', 'profil', 'akun saya'], true)) {
+                        return false;
+                    }
                     if ($route !== '' && $canAccessSidebarRoute($route)) {
                         return true;
                     }

@@ -60,6 +60,10 @@ class MasterPageController extends Controller
             'custom_html' => $db->schema->createColumnSchemaBuilder('text'),
             'custom_css' => $db->schema->createColumnSchemaBuilder('text'),
             'custom_js' => $db->schema->createColumnSchemaBuilder('text'),
+            'page_custom_html' => $db->schema->createColumnSchemaBuilder('text'),
+            'page_custom_css' => $db->schema->createColumnSchemaBuilder('text'),
+            'page_custom_js' => $db->schema->createColumnSchemaBuilder('text'),
+            'use_page_custom_code' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
         ];
 
         foreach ($columns as $name => $definition) {
@@ -198,6 +202,26 @@ class MasterPageController extends Controller
         }
 
         return $slug;
+    }
+
+    private function applyPageCustomCodePost(MasterPage $model, array $postData): void
+    {
+        $data = $postData['MasterPage'] ?? [];
+        $useCustomCode = array_key_exists('use_page_custom_code', $data)
+            ? (int)$data['use_page_custom_code'] === 1
+            : (($data['page_type'] ?? MasterPage::PAGE_TYPE_BUILDER) === MasterPage::PAGE_TYPE_CUSTOM_CODE);
+        $html = (string)($data['page_custom_html'] ?? $data['custom_html'] ?? '');
+        $css = (string)($data['page_custom_css'] ?? $data['custom_css'] ?? '');
+        $js = (string)($data['page_custom_js'] ?? $data['custom_js'] ?? '');
+
+        $model->use_page_custom_code = $useCustomCode ? 1 : 0;
+        $model->page_type = $useCustomCode ? MasterPage::PAGE_TYPE_CUSTOM_CODE : MasterPage::PAGE_TYPE_BUILDER;
+        $model->page_custom_html = $useCustomCode ? $html : '';
+        $model->page_custom_css = $useCustomCode ? $css : '';
+        $model->page_custom_js = $useCustomCode ? $js : '';
+        $model->custom_html = $model->page_custom_html;
+        $model->custom_css = $model->page_custom_css;
+        $model->custom_js = $model->page_custom_js;
     }
 
     /**
@@ -397,10 +421,15 @@ class MasterPageController extends Controller
         }
 
         $page->layout_json = Yii::$app->request->post('layout_json');
-        $page->custom_html = Yii::$app->request->post('custom_html');
-        $page->custom_css = Yii::$app->request->post('custom_css');
-        $page->custom_js = Yii::$app->request->post('custom_js');
-        $page->page_type = Yii::$app->request->post('page_type', 'builder');
+        $this->applyPageCustomCodePost($page, [
+            'MasterPage' => [
+                'custom_html' => Yii::$app->request->post('custom_html'),
+                'custom_css' => Yii::$app->request->post('custom_css'),
+                'custom_js' => Yii::$app->request->post('custom_js'),
+                'page_type' => Yii::$app->request->post('page_type', 'builder'),
+                'use_page_custom_code' => Yii::$app->request->post('use_page_custom_code', 0),
+            ],
+        ]);
 
         if ($page->save(false)) {
             return ['success' => true, 'message' => 'Page published successfully'];
@@ -557,22 +586,7 @@ class MasterPageController extends Controller
                     $model->layout_json = $postData['MasterPage']['layout_json'];
                 }
 
-                // Handle page_type and custom code
-                if (isset($postData['MasterPage']['page_type'])) {
-                    $model->page_type = $postData['MasterPage']['page_type'];
-                }
-
-                if (isset($postData['MasterPage']['custom_html'])) {
-                    $model->custom_html = $postData['MasterPage']['custom_html'];
-                }
-
-                if (isset($postData['MasterPage']['custom_css'])) {
-                    $model->custom_css = $postData['MasterPage']['custom_css'];
-                }
-
-                if (isset($postData['MasterPage']['custom_js'])) {
-                    $model->custom_js = $postData['MasterPage']['custom_js'];
-                }
+                $this->applyPageCustomCodePost($model, $postData);
 
                 if ($model->save(false)) {
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
@@ -594,21 +608,7 @@ class MasterPageController extends Controller
                     $model->layout_json = '[]';
                 }
 
-                if (isset($postData['MasterPage']['page_type'])) {
-                    $model->page_type = $postData['MasterPage']['page_type'];
-                }
-
-                if (isset($postData['MasterPage']['custom_html'])) {
-                    $model->custom_html = $postData['MasterPage']['custom_html'];
-                }
-
-                if (isset($postData['MasterPage']['custom_css'])) {
-                    $model->custom_css = $postData['MasterPage']['custom_css'];
-                }
-
-                if (isset($postData['MasterPage']['custom_js'])) {
-                    $model->custom_js = $postData['MasterPage']['custom_js'];
-                }
+                $this->applyPageCustomCodePost($model, $postData);
 
                 if ($model->save(false)) {
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
@@ -647,21 +647,7 @@ class MasterPageController extends Controller
                 $model->layout_json = $postData['MasterPage']['layout_json'];
             }
 
-            if (isset($postData['MasterPage']['page_type'])) {
-                $model->page_type = $postData['MasterPage']['page_type'];
-            }
-
-            if (isset($postData['MasterPage']['custom_html'])) {
-                $model->custom_html = $postData['MasterPage']['custom_html'];
-            }
-
-            if (isset($postData['MasterPage']['custom_css'])) {
-                $model->custom_css = $postData['MasterPage']['custom_css'];
-            }
-
-            if (isset($postData['MasterPage']['custom_js'])) {
-                $model->custom_js = $postData['MasterPage']['custom_js'];
-            }
+            $this->applyPageCustomCodePost($model, $postData);
 
 if ($model->save(false)) {
                     Yii::$app->session->setFlash('success', 'Halaman berhasil diperbarui!');
@@ -746,10 +732,10 @@ if ($model->save(false)) {
         
         return $this->render('@app/views/master-page/_dynamic_render', [
             'layoutJson' => $layoutJson,
-            'customHtml' => $page->custom_html ?? null,
-            'customCss' => $page->custom_css ?? null,
-            'customJs' => $page->custom_js ?? null,
-            'pageType' => $page->page_type ?? 'builder',
+            'customHtml' => $page->page_custom_html ?? $page->custom_html ?? null,
+            'customCss' => $page->page_custom_css ?? $page->custom_css ?? null,
+            'customJs' => $page->page_custom_js ?? $page->custom_js ?? null,
+            'pageType' => !empty($page->use_page_custom_code) ? MasterPage::PAGE_TYPE_CUSTOM_CODE : ($page->page_type ?? 'builder'),
             'pageKey' => $page->slug ?? (string)$page->id,
             'pageId' => (int)$page->id,
             'menuId' => $menu !== null ? (int)$menu->id : 0,
@@ -765,10 +751,10 @@ if ($model->save(false)) {
 
         return $this->render('@app/views/master-page/_dynamic_render', [
             'layoutJson' => $layoutJson,
-            'customHtml' => $page->custom_html ?? null,
-            'customCss' => $page->custom_css ?? null,
-            'customJs' => $page->custom_js ?? null,
-            'pageType' => $page->page_type ?? 'builder',
+            'customHtml' => $page->page_custom_html ?? $page->custom_html ?? null,
+            'customCss' => $page->page_custom_css ?? $page->custom_css ?? null,
+            'customJs' => $page->page_custom_js ?? $page->custom_js ?? null,
+            'pageType' => !empty($page->use_page_custom_code) ? MasterPage::PAGE_TYPE_CUSTOM_CODE : ($page->page_type ?? 'builder'),
             'pageKey' => $page->slug ?? (string)$page->id,
             'pageId' => (int)$page->id,
             'menuId' => 0,

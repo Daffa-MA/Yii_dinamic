@@ -13,6 +13,12 @@ $this->params['breadcrumbs'][] = $this->title;
 
 // **CRITICAL**: Load existing form data for hydration
 $existingFields = !empty($model->form_data) ? json_encode($model->form_data) : '[]';
+$activeLayout = $model->getActiveLayout()->one();
+$existingUseCustomCode = !empty($model->custom_code_mode)
+    || ($activeLayout && $activeLayout->hasAttribute('use_custom_code') && !empty($activeLayout->use_custom_code));
+$existingCustomHtml = $activeLayout ? (string)$activeLayout->custom_html : '';
+$existingCustomCss = $activeLayout ? (string)$activeLayout->custom_css : '';
+$existingCustomJs = $activeLayout ? (string)$activeLayout->custom_js : '';
 
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_END]);
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js', ['position' => \yii\web\View::POS_END]);
@@ -1119,6 +1125,10 @@ body.dashboard-main-page {
                     <form id="master-form-form" method="post">
                         <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->getCsrfToken() ?>">
                         <input type="hidden" name="MasterForm[form_data]" id="form-data-input" value="<?= Html::encode($existingFields) ?>">
+                        <input type="hidden" name="MasterForm[use_custom_code]" id="use-custom-code-input" value="<?= $existingUseCustomCode ? '1' : '0' ?>">
+                        <textarea name="MasterForm[custom_html]" id="custom-html-input" style="display:none;"><?= Html::encode($existingCustomHtml) ?></textarea>
+                        <textarea name="MasterForm[custom_css]" id="custom-css-input" style="display:none;"><?= Html::encode($existingCustomCss) ?></textarea>
+                        <textarea name="MasterForm[custom_js]" id="custom-js-input" style="display:none;"><?= Html::encode($existingCustomJs) ?></textarea>
                         <input type="hidden" name="MasterForm[table_id]" id="table-id-input" value="<?= !empty($model->table_id) ? $model->table_id : '' ?>">
                         <?php if (!empty($model->id)): ?>
                         <input type="hidden" name="MasterForm[form_id]" id="form-id-input" value="<?= $model->id ?>">
@@ -1646,6 +1656,10 @@ document.addEventListener('DOMContentLoaded', function() {
     var monacoEditor = null;
     var currentCodeLang = 'html';
     var isSyncingCode = false;
+    var activeCodeScope = <?= $existingUseCustomCode ? "'page'" : "'component'" ?>;
+    var fullFormCustomHtml = <?= json_encode($existingCustomHtml) ?>;
+    var fullFormCustomCss = <?= json_encode($existingCustomCss) ?>;
+    var fullFormCustomJs = <?= json_encode($existingCustomJs) ?>;
 
     window.initMonacoEditor = function() {
         if (monacoEditor) {
@@ -1673,10 +1687,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
             monacoEditor.onDidChangeModelContent(function() {
                 if (isSyncingCode) return;
-                updateFieldCodeInState();
+                if (activeCodeScope === 'page') {
+                    updateFormCustomCodeInState();
+                } else {
+                    updateFieldCodeInState();
+                }
             });
 
-            loadFieldCodeFromState();
+            if (activeCodeScope === 'page') {
+                loadFormCustomCodeFromState();
+            } else {
+                loadFieldCodeFromState();
+            }
         });
     };
 
@@ -1794,15 +1816,16 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     window.setCodeScope = function(scope) {
+        activeCodeScope = scope === 'page' ? 'page' : 'component';
         document.querySelectorAll('.code-scope-btn').forEach(function(btn) {
-            btn.classList.toggle('active', btn.dataset.scope === scope);
+            btn.classList.toggle('active', btn.dataset.scope === activeCodeScope);
         });
         
         // Handle code scope switching
-        if (scope === 'page') {
+        if (activeCodeScope === 'page') {
             // Generate and display page source
             if (monacoEditor) {
-                const pageSource = generatePageSource();
+                const pageSource = fullFormCustomHtml || generatePageSource();
                 isSyncingCode = true;
                 monacoEditor.setValue(pageSource);
                 isSyncingCode = false;
@@ -1816,7 +1839,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 document.getElementById('component-code-tools').style.display = 'none';
             }
-        } else if (scope === 'component') {
+        } else if (activeCodeScope === 'component') {
             // Show component code
             if (monacoEditor && formFields[selectedIndex]) {
                 loadFieldCodeFromState();
@@ -1824,6 +1847,33 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     };
+
+    function updateFormCustomCodeInState() {
+        if (!monacoEditor) return;
+        fullFormCustomHtml = monacoEditor.getValue();
+        fullFormCustomCss = '';
+        fullFormCustomJs = '';
+        updateCustomCodeInputs();
+    }
+
+    function loadFormCustomCodeFromState() {
+        if (!monacoEditor) return;
+        isSyncingCode = true;
+        monacoEditor.setValue(fullFormCustomHtml || generatePageSource());
+        isSyncingCode = false;
+    }
+
+    function updateCustomCodeInputs() {
+        const useInput = document.getElementById('use-custom-code-input');
+        const htmlInput = document.getElementById('custom-html-input');
+        const cssInput = document.getElementById('custom-css-input');
+        const jsInput = document.getElementById('custom-js-input');
+        const useCustom = activeCodeScope === 'page' && (fullFormCustomHtml || '').trim() !== '';
+        if (useInput) useInput.value = useCustom ? '1' : '0';
+        if (htmlInput) htmlInput.value = useCustom ? fullFormCustomHtml : '';
+        if (cssInput) cssInput.value = useCustom ? fullFormCustomCss : '';
+        if (jsInput) jsInput.value = useCustom ? fullFormCustomJs : '';
+    }
     
     // Generate full page HTML source from all fields
     function generatePageSource() {
@@ -2089,9 +2139,10 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Masukkan nama form');
             return;
         }
-        if (formFields.length === 0) {
+        const customSource = activeCodeScope === 'page' && monacoEditor ? monacoEditor.getValue().trim() : (fullFormCustomHtml || '').trim();
+        if (formFields.length === 0 && customSource === '') {
             e.preventDefault();
-            alert('Tambahkan minimal satu field');
+            alert('Tambahkan minimal satu field atau custom code');
             return;
         }
         
@@ -2110,6 +2161,11 @@ document.addEventListener('DOMContentLoaded', function() {
         slugInput.value = slug;
         
         updateData();
+        if (activeCodeScope === 'page' && monacoEditor) {
+            updateFormCustomCodeInState();
+        } else {
+            updateCustomCodeInputs();
+        }
     });
 
     // Load tables

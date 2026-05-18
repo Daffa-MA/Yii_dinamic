@@ -63,6 +63,10 @@ class MasterPage extends ActiveRecord
             'custom_html',
             'custom_css',
             'custom_js',
+            'page_custom_html',
+            'page_custom_css',
+            'page_custom_js',
+            'use_page_custom_code',
             'created_at',
             'updated_at',
         ];
@@ -82,6 +86,10 @@ class MasterPage extends ActiveRecord
             'custom_html',
             'custom_css',
             'custom_js',
+            'page_custom_html',
+            'page_custom_css',
+            'page_custom_js',
+            'use_page_custom_code',
             'created_at',
             'updated_at',
         ];
@@ -151,8 +159,8 @@ class MasterPage extends ActiveRecord
             [['description'], 'string'],
             [['title', 'slug'], 'string', 'max' => 255],
             [['layout', 'layout_type', 'page_type'], 'string', 'max' => 255],
-            [['layout_json', 'custom_html', 'custom_css', 'custom_js'], 'string'],
-            [['is_active'], 'integer'],
+            [['layout_json', 'custom_html', 'custom_css', 'custom_js', 'page_custom_html', 'page_custom_css', 'page_custom_js'], 'string'],
+            [['is_active', 'use_page_custom_code'], 'integer'],
             ['formIds', 'safe'],
         ];
     }
@@ -170,6 +178,10 @@ class MasterPage extends ActiveRecord
             'custom_html' => 'HTML',
             'custom_css' => 'CSS',
             'custom_js' => 'JavaScript',
+            'page_custom_html' => 'Page HTML',
+            'page_custom_css' => 'Page CSS',
+            'page_custom_js' => 'Page JavaScript',
+            'use_page_custom_code' => 'Use Page Custom Code',
             'created_at' => 'Dibuat',
             'updated_at' => 'Diupdate',
         ];
@@ -180,6 +192,9 @@ class MasterPage extends ActiveRecord
         if ($insert) {
             $this->created_at = date('Y-m-d H:i:s');
             $this->is_active = $this->is_active ?? 1;
+        }
+        if ($this->use_page_custom_code === null) {
+            $this->use_page_custom_code = 0;
         }
         $this->updated_at = date('Y-m-d H:i:s');
         return parent::beforeSave($insert);
@@ -249,12 +264,12 @@ class MasterPage extends ActiveRecord
 
     public function isBuilderMode()
     {
-        return $this->page_type !== self::PAGE_TYPE_CUSTOM_CODE;
+        return !$this->isCustomCodeMode();
     }
 
     public function isCustomCodeMode()
     {
-        return $this->page_type === self::PAGE_TYPE_CUSTOM_CODE;
+        return $this->page_type === self::PAGE_TYPE_CUSTOM_CODE || !empty($this->use_page_custom_code);
     }
 
     public static function getActivePages()

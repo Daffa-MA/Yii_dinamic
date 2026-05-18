@@ -45,13 +45,23 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
     $layoutClasses = 'space-y-4';
 }
 
-$customHtml = trim((string) ($page->custom_html ?? ''));
-$customCss = (string) ($page->custom_css ?? '');
-$customJs = (string) ($page->custom_js ?? '');
-$hasCustomPageSource = $customHtml !== '' || $customCss !== '' || $customJs !== '';
+$useCustomPageSource = !empty($page->use_page_custom_code) || (($page->page_type ?? MasterPage::PAGE_TYPE_BUILDER) === MasterPage::PAGE_TYPE_CUSTOM_CODE);
+$customHtml = trim((string) (($page->page_custom_html ?? '') !== '' ? $page->page_custom_html : ($page->custom_html ?? '')));
+$customCss = (string) (($page->page_custom_css ?? '') !== '' ? $page->page_custom_css : ($page->custom_css ?? ''));
+$customJs = (string) (($page->page_custom_js ?? '') !== '' ? $page->page_custom_js : ($page->custom_js ?? ''));
+$hasCustomPageSource = $useCustomPageSource && ($customHtml !== '' || $customCss !== '' || $customJs !== '');
 $customSourceDoc = '';
 
 if ($hasCustomPageSource) {
+    $previewService = new DynamicFormPreviewService();
+    $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($previewService, $page, $activeMenuId): string {
+        return $previewService->renderByScopedId((int)$matches[1], true, true, [
+            'render_context' => 'page_content',
+            'page_id' => (int)$page->id,
+            'menu_id' => $activeMenuId,
+        ]);
+    }, $customHtml);
+
     $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
     if ($startsWithHtmlDoc) {
         $customSourceDoc = $customHtml;

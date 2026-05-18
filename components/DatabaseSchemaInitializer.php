@@ -335,6 +335,7 @@ class DatabaseSchemaInitializer
             'custom_html' => $this->connection->schema->createColumnSchemaBuilder('text'),
             'custom_css' => $this->connection->schema->createColumnSchemaBuilder('text'),
             'custom_js' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'use_custom_code' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
             'builder_state' => $this->connection->schema->createColumnSchemaBuilder('text'),
             'is_default' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
             'sort_order' => $this->connection->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
@@ -413,6 +414,7 @@ class DatabaseSchemaInitializer
             'custom_html' => ['type' => 'text'],
             'custom_css' => ['type' => 'text'],
             'custom_js' => ['type' => 'text'],
+            'use_custom_code' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
             'builder_state' => ['type' => 'text'],
             'sort_order' => ['type' => 'integer', 'default' => 0],
         ];
@@ -525,6 +527,14 @@ class DatabaseSchemaInitializer
             'slug' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
             'layout' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('default'),
             'layout_json' => $this->connection->schema->createColumnSchemaBuilder('longtext'),
+            'page_type' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('builder'),
+            'custom_html' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'custom_css' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'custom_js' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'page_custom_html' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'page_custom_css' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'page_custom_js' => $this->connection->schema->createColumnSchemaBuilder('text'),
+            'use_page_custom_code' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
             'description' => $this->connection->schema->createColumnSchemaBuilder('text'),
             'is_active' => $this->connection->schema->createColumnSchemaBuilder('integer', 1)->defaultValue(1),
             'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
@@ -771,6 +781,30 @@ class DatabaseSchemaInitializer
         if (!isset($schema->columns['custom_js'])) {
             $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
             $this->connection->createCommand()->addColumn('master_page', 'custom_js', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['page_custom_html'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
+            $this->connection->createCommand()->addColumn('master_page', 'page_custom_html', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['page_custom_css'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
+            $this->connection->createCommand()->addColumn('master_page', 'page_custom_css', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['page_custom_js'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('text');
+            $this->connection->createCommand()->addColumn('master_page', 'page_custom_js', $columnSchema)->execute();
+            $schema = $this->connection->getTableSchema('master_page', true);
+        }
+
+        if (!isset($schema->columns['use_page_custom_code'])) {
+            $columnSchema = $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0);
+            $this->connection->createCommand()->addColumn('master_page', 'use_page_custom_code', $columnSchema)->execute();
         }
     }
 

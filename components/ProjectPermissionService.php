@@ -27,12 +27,16 @@ class ProjectPermissionService
             return false;
         }
 
+        $route = trim(preg_replace('/[?#].*$/', '', $route), '/');
+        if ($route === 'site/dashboard') {
+            return true;
+        }
+
         $role = strtolower(trim((string)$user->role));
         if ($this->isAdminRole($role)) {
             return true;
         }
 
-        $route = trim(preg_replace('/[?#].*$/', '', $route), '/');
         if ($route === '') {
             return false;
         }
@@ -283,7 +287,7 @@ class ProjectPermissionService
             }
         }
 
-        return null;
+        return Url::to(['site/dashboard']);
     }
 
     private function hasRoleAccess(string $role, string $accessType, string $accessKey): bool

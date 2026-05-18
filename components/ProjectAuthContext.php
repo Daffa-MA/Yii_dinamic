@@ -59,6 +59,7 @@ class ProjectAuthContext
     {
         $projectId = (int)$project->id;
         Yii::$app->session->set($this->getSessionKey($projectId), [
+            'project_id' => $projectId,
             'user_id' => (int)$user->id,
             'username' => (string)$user->username,
             'role' => (string)$user->role,

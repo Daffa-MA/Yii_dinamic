@@ -370,7 +370,15 @@ class SiteController extends Controller
     public function actionChangePassword()
     {
         if (Yii::$app->request->isPost) {
-            $user = Yii::$app->user->identity;
+            $domainContext = new DomainContext();
+            $commanderAuth = new CommanderAuthContext();
+            $redirectTarget = $domainContext->isRootDomain() ? ['project/index'] : ['profile'];
+            $user = $domainContext->isRootDomain() ? $commanderAuth->getUser() : Yii::$app->user->identity;
+            if ($user === null) {
+                Yii::$app->session->setFlash('error', 'User tidak ditemukan.');
+                return $this->redirect($redirectTarget);
+            }
+
             $currentPassword = Yii::$app->request->post('current_password');
             $newPassword = Yii::$app->request->post('new_password');
             $confirmPassword = Yii::$app->request->post('confirm_password');
@@ -385,13 +393,13 @@ class SiteController extends Controller
                 $user->setPassword($newPassword);
                 if ($user->save(false)) {
                     Yii::$app->session->setFlash('success', 'Password changed successfully!');
-                    return $this->redirect(['profile']);
+                    return $this->redirect($redirectTarget);
                 } else {
                     Yii::$app->session->setFlash('error', 'Failed to change password.');
                 }
             }
         }
 
-        return $this->redirect(['profile']);
+        return $this->redirect((new DomainContext())->isRootDomain() ? ['project/index'] : ['profile']);
     }
 }

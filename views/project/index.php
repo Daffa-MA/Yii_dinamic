@@ -13,11 +13,23 @@ use yii\bootstrap5\Html;
 use yii\helpers\Url;
 use yii\widgets\LinkPager;
 use app\models\Project;
+use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 
 $this->title = 'Workspace Project';
 $this->registerJs("document.body.classList.add('project-page-v4');", \yii\web\View::POS_READY);
 
-$username = Yii::$app->user->identity->username ?? 'Pengguna';
+$domainContext = new DomainContext();
+$isCommanderTopNavVisible = $domainContext->isRootDomain() || in_array($domainContext->currentHost(), ['localhost', '127.0.0.1'], true);
+$commanderAuth = new CommanderAuthContext();
+$commanderUser = $commanderAuth->getUser();
+$commanderUsername = $commanderUser !== null ? (string)$commanderUser->username : 'admin';
+$commanderRoleRaw = $commanderAuth->getRole() !== '' ? $commanderAuth->getRole() : 'superadmin';
+$commanderRole = $commanderRoleRaw === 'superadmin' ? 'Superadmin' : ucfirst(str_replace(['_', '-'], ' ', $commanderRoleRaw));
+$commanderEmail = $commanderUser !== null ? trim((string)($commanderUser->email ?? '')) : '';
+$commanderStatus = $commanderUser !== null && isset($commanderUser->status) && (int)$commanderUser->status !== 0 ? 'Active' : 'Inactive';
+$commanderAvatar = strtoupper(substr($commanderUsername !== '' ? $commanderUsername : 'A', 0, 1));
+$username = $commanderUsername;
 $projectCount = (int) ($projectCount ?? count($projects));
 $visibleProjectCount = count($projects);
 $activeProjectName = $activeProject !== null ? $activeProject->name : null;
@@ -42,6 +54,324 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         min-width: 0;
         padding: 0 !important;
         overflow-x: hidden;
+    }
+
+    .project-commander-topbar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        margin: 0 0 18px;
+        position: relative;
+        z-index: 20;
+    }
+
+    .project-commander-account {
+        position: relative;
+    }
+
+    .project-commander-account-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+        cursor: pointer;
+        transition: background-color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    }
+
+    .project-commander-account-button:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+        transform: translateY(-1px);
+    }
+
+    .project-commander-account-button .avatar {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: #111827;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .project-commander-account-button .info {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .project-commander-account-button .name {
+        font-size: 14px;
+        font-weight: 650;
+        color: #0f172a;
+        line-height: 1.2;
+    }
+
+    .project-commander-account-button .role {
+        font-size: 12px;
+        color: #64748b;
+        line-height: 1.2;
+    }
+
+    .project-commander-account-menu {
+        position: absolute;
+        right: 0;
+        top: calc(100% + 10px);
+        width: 300px;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+        padding: 12px;
+        display: none;
+    }
+
+    .project-commander-account.is-open .project-commander-account-menu {
+        display: block;
+    }
+
+    .project-commander-account-menu .account-head {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .project-commander-account-menu .account-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        background: #111827;
+        color: #ffffff;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .project-commander-account-menu .account-title {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .project-commander-account-menu .account-title strong {
+        font-size: 14px;
+        color: #111827;
+    }
+
+    .project-commander-account-menu .account-title span {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    .project-commander-account-menu .account-meta {
+        display: grid;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .project-commander-account-menu .account-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 13px;
+    }
+
+    .project-commander-account-menu .account-row span:first-child {
+        color: #64748b;
+    }
+
+    .project-commander-account-menu .account-row span:last-child {
+        color: #111827;
+        font-weight: 600;
+        text-align: right;
+        word-break: break-word;
+    }
+
+    .project-commander-account-menu .account-actions {
+        display: grid;
+        gap: 8px;
+    }
+
+    .project-commander-account-menu .account-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 12px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 0.18s ease, border-color 0.18s ease;
+    }
+
+    .project-commander-account-menu .account-action:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+
+    .project-commander-account-menu .account-action.primary {
+        background: #111827;
+        color: #ffffff;
+        border-color: #111827;
+    }
+
+    .project-commander-account-menu .account-action.primary:hover {
+        background: #1f2937;
+        color: #ffffff;
+    }
+
+    .project-password-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(15, 23, 42, 0.42);
+        z-index: 80;
+    }
+
+    .project-password-modal.is-open {
+        display: flex;
+    }
+
+    .project-password-dialog {
+        width: min(520px, 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        background: #ffffff;
+        box-shadow: 0 24px 56px rgba(15, 23, 42, 0.2);
+        overflow: hidden;
+    }
+
+    .project-password-header {
+        padding: 18px 20px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .project-password-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+    }
+
+    .project-password-subtitle {
+        margin: 4px 0 0;
+        color: #64748b;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+
+    .project-password-body {
+        padding: 20px;
+    }
+
+    .project-password-field {
+        margin-bottom: 14px;
+    }
+
+    .project-password-field label {
+        display: block;
+        margin-bottom: 7px;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .project-password-input-wrap {
+        position: relative;
+    }
+
+    .project-password-input {
+        width: 100%;
+        min-height: 44px;
+        padding: 0 44px 0 12px;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #111827;
+        font-size: 14px;
+        box-shadow: none;
+    }
+
+    .project-password-toggle {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        background: transparent;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .project-password-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 18px 20px 20px;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .project-password-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 40px;
+        padding: 0 14px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .project-password-btn.primary {
+        background: #111827;
+        border-color: #111827;
+        color: #ffffff;
+    }
+
+    .project-password-btn.primary:hover {
+        background: #1f2937;
+    }
+
+    .project-password-success {
+        display: none;
+        margin-top: 10px;
+        color: #047857;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .project-password-success.is-visible {
+        display: block;
     }
 
     .projects-shell {
@@ -878,6 +1208,60 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
 <div class="projects-shell">
     <section class="projects-main-content">
         <div class="container-fluid projects-container">
+            <?php if ($isCommanderTopNavVisible): ?>
+                <div class="project-commander-topbar">
+                    <div class="project-commander-account" data-commander-account>
+                        <button type="button" class="project-commander-account-button" data-commander-toggle aria-expanded="false">
+                            <div class="avatar"><?= Html::encode($commanderAvatar) ?></div>
+                            <div class="info">
+                                <span class="name"><?= Html::encode($commanderUsername) ?></span>
+                                <span class="role"><?= Html::encode($commanderRole) ?></span>
+                            </div>
+                            <span class="material-symbols-outlined" aria-hidden="true" style="font-size:18px;color:#94a3b8;">expand_more</span>
+                        </button>
+
+                        <div class="project-commander-account-menu">
+                            <div class="account-head">
+                                <div class="account-avatar"><?= Html::encode($commanderAvatar) ?></div>
+                                <div class="account-title">
+                                    <strong><?= Html::encode($commanderUsername) ?></strong>
+                                    <span><?= Html::encode($commanderRole) ?></span>
+                                </div>
+                            </div>
+
+                            <div class="account-meta">
+                                <div class="account-row">
+                                    <span>Username</span>
+                                    <span><?= Html::encode($commanderUsername) ?></span>
+                                </div>
+                                <?php if ($commanderEmail !== ''): ?>
+                                    <div class="account-row">
+                                        <span>Email</span>
+                                        <span><?= Html::encode($commanderEmail) ?></span>
+                                    </div>
+                                <?php endif; ?>
+                                <div class="account-row">
+                                    <span>Role</span>
+                                    <span><?= Html::encode($commanderRole) ?></span>
+                                </div>
+                                <div class="account-row">
+                                    <span>Status</span>
+                                    <span><?= Html::encode($commanderStatus) ?></span>
+                                </div>
+                            </div>
+
+                            <div class="account-actions">
+                                <a href="<?= Url::to(['site/profile']) ?>" class="account-action primary">View Profile</a>
+                                <a href="#" class="account-action" data-open-password-modal>Ubah Password</a>
+                                <?= Html::beginForm(['site/logout'], 'post', ['style' => 'margin:0;']) ?>
+                                    <button type="submit" class="account-action" style="width:100%;">Logout</button>
+                                <?= Html::endForm() ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <section class="projects-hero">
                 <div class="projects-surface projects-hero-copy">
                     <span class="projects-kicker">
@@ -1258,9 +1642,125 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
     </section>
 </div>
 
+<?php if ($isCommanderTopNavVisible): ?>
+    <div class="project-password-modal" data-password-modal>
+        <div class="project-password-dialog" role="dialog" aria-modal="true" aria-labelledby="commander-password-title">
+            <div class="project-password-header">
+                <h3 class="project-password-title" id="commander-password-title">Ubah Password</h3>
+                <p class="project-password-subtitle">Perbarui password akun Commander Anda.</p>
+            </div>
+
+            <?= Html::beginForm(['site/change-password'], 'post', ['class' => 'project-password-body', 'data-password-form' => '1']) ?>
+                <div class="project-password-field">
+                    <label for="commander-current-password">Current Password</label>
+                    <div class="project-password-input-wrap">
+                        <input type="password" id="commander-current-password" name="current_password" class="project-password-input" required>
+                        <button type="button" class="project-password-toggle" data-toggle-current>Show</button>
+                    </div>
+                </div>
+
+                <div class="project-password-field">
+                    <label for="commander-new-password">New Password</label>
+                    <div class="project-password-input-wrap">
+                        <input type="password" id="commander-new-password" name="new_password" class="project-password-input" minlength="6" required>
+                        <button type="button" class="project-password-toggle" data-toggle-new>Show</button>
+                    </div>
+                </div>
+
+                <div class="project-password-field">
+                    <label for="commander-confirm-password">Confirm Password</label>
+                    <div class="project-password-input-wrap">
+                        <input type="password" id="commander-confirm-password" name="confirm_password" class="project-password-input" minlength="6" required>
+                        <button type="button" class="project-password-toggle" data-toggle-confirm>Show</button>
+                    </div>
+                </div>
+
+                <div class="project-password-success" data-password-success></div>
+
+                <div class="project-password-footer">
+                    <button type="button" class="project-password-btn" data-close-password-modal>Batal</button>
+                    <button type="submit" class="project-password-btn primary">Simpan</button>
+                </div>
+            <?= Html::endForm() ?>
+        </div>
+    </div>
+<?php endif; ?>
+
 <?php
 $this->registerJs(<<<JS
 (function () {
+    const account = document.querySelector('[data-commander-account]');
+    const toggle = account ? account.querySelector('[data-commander-toggle]') : null;
+    const passwordModal = document.querySelector('[data-password-modal]');
+    const openPasswordButtons = document.querySelectorAll('[data-open-password-modal]');
+    const closePasswordButtons = document.querySelectorAll('[data-close-password-modal]');
+    const successBox = document.querySelector('[data-password-success]');
+    const passwordForm = document.querySelector('[data-password-form]');
+
+    if (account && toggle) {
+        const closeAccount = () => {
+            account.classList.remove('is-open');
+            toggle.setAttribute('aria-expanded', 'false');
+        };
+
+        toggle.addEventListener('click', (event) => {
+            event.preventDefault();
+            const next = !account.classList.contains('is-open');
+            account.classList.toggle('is-open', next);
+            toggle.setAttribute('aria-expanded', next ? 'true' : 'false');
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!account.contains(event.target)) {
+                closeAccount();
+            }
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeAccount();
+            }
+        });
+    }
+
+    const openPasswordModal = () => {
+        if (!passwordModal) {
+            return;
+        }
+        passwordModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    };
+
+    const closePasswordModal = () => {
+        if (!passwordModal) {
+            return;
+        }
+        passwordModal.classList.remove('is-open');
+        document.body.style.overflow = '';
+    };
+
+    openPasswordButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            openPasswordModal();
+        });
+    });
+
+    closePasswordButtons.forEach((button) => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault();
+            closePasswordModal();
+        });
+    });
+
+    if (passwordModal) {
+        passwordModal.addEventListener('click', (event) => {
+            if (event.target === passwordModal) {
+                closePasswordModal();
+            }
+        });
+    }
+
     const nameInput = document.getElementById('project-name');
     const databaseInput = document.getElementById('project-database');
     if (!nameInput || !databaseInput) {
@@ -1339,6 +1839,56 @@ $this->registerJs(<<<JS
     nameInput.addEventListener('input', updateDomainPreview);
     updateDatabasePreview();
     updateDomainPreview();
+
+    if (passwordForm) {
+        const currentPassword = passwordForm.querySelector('[name="current_password"]');
+        const newPassword = passwordForm.querySelector('[name="new_password"]');
+        const confirmPassword = passwordForm.querySelector('[name="confirm_password"]');
+
+        const bindToggle = (input, button) => {
+            if (!input || !button) {
+                return;
+            }
+            button.addEventListener('click', () => {
+                const nextType = input.getAttribute('type') === 'password' ? 'text' : 'password';
+                input.setAttribute('type', nextType);
+                button.textContent = nextType === 'password' ? 'Show' : 'Hide';
+            });
+        };
+
+        bindToggle(currentPassword, passwordForm.querySelector('[data-toggle-current]'));
+        bindToggle(newPassword, passwordForm.querySelector('[data-toggle-new]'));
+        bindToggle(confirmPassword, passwordForm.querySelector('[data-toggle-confirm]'));
+
+        passwordForm.addEventListener('submit', (event) => {
+            const currentValue = currentPassword ? currentPassword.value.trim() : '';
+            const newValue = newPassword ? newPassword.value.trim() : '';
+            const confirmValue = confirmPassword ? confirmPassword.value.trim() : '';
+
+            if (!currentValue) {
+                event.preventDefault();
+                alert('Current password harus diisi.');
+                return;
+            }
+
+            if (newValue.length < 6) {
+                event.preventDefault();
+                alert('Password baru minimal 6 karakter.');
+                return;
+            }
+
+            if (newValue !== confirmValue) {
+                event.preventDefault();
+                alert('Password baru dan konfirmasi harus sama.');
+                return;
+            }
+
+            if (successBox) {
+                successBox.classList.add('is-visible');
+                successBox.textContent = 'Password berhasil diperbarui';
+            }
+        });
+    }
 })();
 JS);
 ?>

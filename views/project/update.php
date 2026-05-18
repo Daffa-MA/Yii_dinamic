@@ -545,7 +545,7 @@ $form = ActiveForm::begin([
                 <h1 class="project-edit-title">Edit Project</h1>
                 <p class="project-edit-subtitle">Perbarui identitas, database, dan domain workspace.</p>
             </div>
-            <?= Html::a('Back to Projects', ['project/index'], ['class' => 'soft-btn']) ?>
+            <?= Html::a('Back to Projects', (new \app\components\DomainContext())->projectListUrl(), ['class' => 'soft-btn']) ?>
         </div>
 
         <?php if (Yii::$app->session->hasFlash('success')): ?>
@@ -659,7 +659,7 @@ $form = ActiveForm::begin([
                             'target' => '_blank',
                             'rel' => 'noopener',
                         ]) ?>
-                        <?= Html::a('Back to Projects', ['project/index'], ['class' => 'ghost-action']) ?>
+                        <?= Html::a('Back to Projects', (new \app\components\DomainContext())->projectListUrl(), ['class' => 'ghost-action']) ?>
                     </div>
                 </div>
             </main>
@@ -699,7 +699,7 @@ $form = ActiveForm::begin([
                             'target' => '_blank',
                             'rel' => 'noopener',
                         ]) ?>
-                        <?= Html::a('Back to Projects', ['project/index'], ['class' => 'ghost-action']) ?>
+                        <?= Html::a('Back to Projects', (new \app\components\DomainContext())->projectListUrl(), ['class' => 'ghost-action']) ?>
                     </div>
 
                     <div class="danger-zone">

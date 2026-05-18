@@ -75,7 +75,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrc
             <input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-outline/60" placeholder="Search published forms..." type="text" />
         </div>
         <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
-            <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+            <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', (new \app\components\DomainContext())->projectListUrl(), [
                 'class' => 'text-on-surface-variant hover:text-on-surface px-4 py-2 rounded-lg hover:bg-surface-container-high transition-all flex items-center gap-2 text-sm font-medium no-underline',
                 'encode' => false
             ]) ?>

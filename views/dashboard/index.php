@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Json;
 use yii\helpers\Url;
+use app\components\DomainContext;
 
 /* @var $project_id int */
 /* @var $project array */
@@ -13,6 +14,7 @@ $this->title = 'Dashboard - ' . Html::encode($project['name']);
 // Pass data to JavaScript
 $menuTreeJson = Json::encode($menuTree);
 $projectId = $project_id;
+$projectListUrl = (new DomainContext())->projectListUrl();
 ?>
 
 <div class="flex h-screen bg-gray-100" id="main-container">
@@ -51,7 +53,7 @@ $projectId = $project_id;
             <div class="p-4 border-t border-gray-200">
                 <?= Html::a(
                     '<span class="material-symbols-outlined">arrow_back</span> Kembali ke Projects',
-                    ['/projects/index'],
+                    $projectListUrl,
                     ['class' => 'flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 no-underline']
                 ) ?>
             </div>

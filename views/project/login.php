@@ -365,7 +365,7 @@ CSS);
 
             <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
                 <div class="project-login-footer">
-                    <?= Html::a('Kembali ke project list', ['project/index']) ?>
+                    <?= Html::a('Kembali ke project list', (new \app\components\DomainContext())->projectListUrl()) ?>
                     <span><?= Html::encode($workspaceTitle) ?></span>
                 </div>
             <?php else: ?>

@@ -329,7 +329,7 @@ CSS);
 
             <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
                 <div class="access-denied-footer">
-                    Masih belum ada akses? <a href="<?= Html::encode(\yii\helpers\Url::to(['project/index'])) ?>">Pilih project lain</a>
+                    Masih belum ada akses? <a href="<?= Html::encode((new \app\components\DomainContext())->projectListUrl()) ?>">Pilih project lain</a>
                 </div>
             <?php endif; ?>
         </div>

@@ -5,6 +5,7 @@
 
 use app\assets\AppAsset;
 use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 use app\widgets\Alert;
 use yii\bootstrap5\Breadcrumbs;
 use yii\bootstrap5\Html;
@@ -22,7 +23,8 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 
 $isGuest = Yii::$app->user->isGuest;
 $canOpenProjectList = (new CommanderAuthContext())->isSuperAdmin();
-$brandUrl = $isGuest ? ['site/index'] : ($canOpenProjectList ? ['project/index'] : ['site/dashboard']);
+$projectListUrl = (new DomainContext())->projectListUrl();
+$brandUrl = $isGuest ? ['site/index'] : ($canOpenProjectList ? $projectListUrl : ['site/dashboard']);
 $footerPrimaryLinks = $isGuest
     ? [
         ['label' => 'Beranda', 'url' => ['site/index']],
@@ -36,7 +38,7 @@ $footerPrimaryLinks = $isGuest
         ['label' => 'Tables', 'url' => ['table-builder/index']],
     ];
 if (!$isGuest && $canOpenProjectList) {
-    array_unshift($footerPrimaryLinks, ['label' => 'Projects', 'url' => ['project/index']]);
+    array_unshift($footerPrimaryLinks, ['label' => 'Projects', 'url' => $projectListUrl]);
 }
 $footerWorkspaceLinks = $isGuest
     ? [

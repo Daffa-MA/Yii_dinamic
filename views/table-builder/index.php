@@ -482,7 +482,7 @@ main#main > .container > .alert {
 
                 <div class="hero-actions">
                     <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
-                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                        <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', (new \app\components\DomainContext())->projectListUrl(), [
                             'class' => 'btn-clean',
                             'encode' => false,
                         ]) ?>

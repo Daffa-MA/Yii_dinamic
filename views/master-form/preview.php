@@ -24,6 +24,10 @@ $fields = FormSystemFieldHelper::filterFields($fields);
 $formName = $model->form_name ?? 'Form';
 $formRenderService = new FormRenderService();
 $hasCustomCode = $formRenderService->hasCustomCodePayload($renderPayload, $model);
+$customHtml = trim((string)($renderPayload['customHtml'] ?? ''));
+$customCss = trim((string)($renderPayload['customCss'] ?? ''));
+$customJs = trim((string)($renderPayload['customJs'] ?? ''));
+$shouldRenderCustom = $hasCustomCode;
 
 if ($hasCustomCode) {
     echo $formRenderService->renderCustomCodeOnly($renderPayload);

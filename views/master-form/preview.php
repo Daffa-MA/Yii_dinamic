@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Json;
 use yii\web\View;
 use app\models\DbTable;
+use app\helpers\FormSystemFieldHelper;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\MasterForm */
@@ -18,6 +19,7 @@ if (empty($fields)) {
     }
     $fields = is_array($formData) ? $formData : [];
 }
+$fields = FormSystemFieldHelper::filterFields($fields);
 $formName = $model->form_name ?? 'Form';
 $tableName = null;
 if ($model->table_id) {
@@ -31,9 +33,10 @@ $customHtml = $renderPayload['customHtml'] ?? '';
 $customCss = $renderPayload['customCss'] ?? '';
 $customJs = $renderPayload['customJs'] ?? '';
 $isCustomCodeMode = !empty($model->custom_code_mode);
+$hasBuilderFields = !empty($fields);
 
 // Determine if we should render custom code or form builder
-$shouldRenderCustom = $hasCustomCode && ($isCustomCodeMode || !empty($customHtml));
+$shouldRenderCustom = !$hasBuilderFields && $hasCustomCode && ($isCustomCodeMode || !empty($customHtml));
 
 $this->title = 'Preview: ' . $formName;
 ?>
@@ -346,18 +349,6 @@ $this->title = 'Preview: ' . $formName;
     </div>
     <?php endif; ?>
     
-    <!-- DEBUG: Show custom code detection status -->
-    <?php if (YII_DEBUG): ?>
-    <div style="background: #f5f5f5; padding: 12px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; font-family: monospace; color: #666;">
-        <strong>DEBUG INFO:</strong><br>
-        hasCustomCode: <?= $hasCustomCode ? 'YES' : 'NO' ?> | 
-        isCustomCodeMode: <?= $isCustomCodeMode ? 'YES' : 'NO' ?> | 
-        shouldRenderCustom: <?= $shouldRenderCustom ? 'YES' : 'NO' ?> | 
-        fieldsCount: <?= count($fields) ?> | 
-        customHtml length: <?= strlen($customHtml) ?>
-    </div>
-    <?php endif; ?>
-    
     <div class="preview-card">
         <div class="preview-card-header">
             <h2 class="preview-card-title"><?= Html::encode($formName) ?></h2>
@@ -388,7 +379,7 @@ $this->title = 'Preview: ' . $formName;
                 
                 <?php foreach ($fields as $field): ?>
                     <?php
-                    $type = $field['type'] ?? 'text';
+                    $type = FormSystemFieldHelper::resolveFieldInputType($field);
                     $label = $field['label'] ?? $field['name'] ?? 'Field';
                     $name = $field['name'] ?? 'field_' . uniqid();
                     $required = !empty($field['required']);
@@ -399,7 +390,14 @@ $this->title = 'Preview: ' . $formName;
                     $fkOptions = $field['fk_options'] ?? [];
                     $options = $field['options'] ?? [];
                     $allOptions = !empty($fkOptions) ? $fkOptions : $options;
-                    
+                    $fieldCustomHtml = trim((string)($field['customHtml'] ?? ''));
+                    $fieldCustomCss = trim((string)($field['customCss'] ?? ''));
+                    $fieldCustomJs = trim((string)($field['customJs'] ?? ''));
+
+                    if (FormSystemFieldHelper::isSystemField($name)) {
+                        continue;
+                    }
+
                     if ($isExcluded) {
                         echo '<div class="preview-field">';
                         echo '<div class="preview-excluded">Field "' . Html::encode($label) . '" is hidden (excluded from form)</div>';
@@ -409,7 +407,13 @@ $this->title = 'Preview: ' . $formName;
                     ?>
                     
                     <div class="preview-field">
-                        <?php if ($type === 'hidden'): ?>
+                        <?php if ($fieldCustomHtml !== '' || $fieldCustomCss !== '' || $fieldCustomJs !== ''): ?>
+                            <?php
+                            $srcDoc = '<!DOCTYPE html><html><head><style>' . $fieldCustomCss . '</style></head><body>' . $fieldCustomHtml . '<script>' . $fieldCustomJs . '<\/script></body></html>';
+                            ?>
+                            <iframe class="field-preview-iframe" srcdoc="<?= Html::encode($srcDoc) ?>" sandbox="allow-scripts"></iframe>
+
+                        <?php elseif ($type === 'hidden'): ?>
                             <?= Html::hiddenInput($name, $defaultValue) ?>
                         
                         <?php elseif ($type === 'text' || $type === 'email' || $type === 'password' || $type === 'number' || $type === 'tel' || $type === 'url'): ?>
@@ -473,9 +477,9 @@ $this->title = 'Preview: ' . $formName;
                                 <?php endforeach; ?>
                             </div>
                         
-                        <?php elseif ($type === 'date' || $type === 'time' || $type === 'datetime-local'): ?>
+                        <?php elseif ($type === 'date' || $type === 'time' || $type === 'datetime' || $type === 'datetime-local'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
-                            <?= Html::input($type, $name, $defaultValue, ['class' => 'preview-input', 'required' => $required]) ?>
+                            <?= Html::input($type === 'datetime' ? 'datetime-local' : $type, $name, $defaultValue, ['class' => 'preview-input', 'required' => $required]) ?>
                         
                         <?php elseif ($type === 'file'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>

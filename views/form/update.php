@@ -3992,11 +3992,14 @@ return html;</pre>
 
                     // Map database column types to form field types
                     function getFieldTypeForColumn(col) {
-                        const type = col.type.toUpperCase();
+                        const type = String(col.type || col.base_type || '').trim().toUpperCase();
+                        const baseType = type.match(/^[A-Z]+/)?.[0] || '';
                         if (type.includes('INT')) return 'number';
                         if (type.includes('VARCHAR') || type.includes('CHAR')) return 'text-input';
                         if (type.includes('TEXT')) return 'textarea';
-                        if (type.includes('DATE')) return 'date';
+                        if (baseType === 'DATE') return 'date';
+                        if (baseType === 'TIME') return 'time';
+                        if (baseType === 'DATETIME' || baseType === 'TIMESTAMP') return 'datetime-local';
                         if (type.includes('DECIMAL') || type.includes('FLOAT')) return 'number';
                         if (type.includes('BOOLEAN')) return 'checkbox';
                         return 'text-input';

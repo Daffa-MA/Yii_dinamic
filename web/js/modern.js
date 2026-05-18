@@ -397,24 +397,31 @@ class FormInteractions {
   }
 
   setupValidation() {
-    const form = document.querySelector("form");
-    if (!form) return;
+    const forms = document.querySelectorAll("form");
 
-    form.addEventListener("submit", (e) => {
-      const inputs = form.querySelectorAll("[required]");
-      let isValid = true;
+    forms.forEach((form) => {
+      if (form.id === "master-form-form") return;
 
-      inputs.forEach((input) => {
-        if (!input.value.trim()) {
-          isValid = false;
-          this.showFieldError(input);
+      form.addEventListener("submit", (e) => {
+        const inputs = form.querySelectorAll("[required]");
+        let isValid = true;
+
+        inputs.forEach((input) => {
+          if (input.disabled || input.type === "hidden" || input.closest(".field-preview")) {
+            return;
+          }
+
+          if (!String(input.value || "").trim()) {
+            isValid = false;
+            this.showFieldError(input);
+          }
+        });
+
+        if (!isValid) {
+          e.preventDefault();
+          this.showValidationError(form);
         }
       });
-
-      if (!isValid) {
-        e.preventDefault();
-        this.showValidationError();
-      }
     });
   }
 
@@ -430,12 +437,11 @@ class FormInteractions {
     }, 3000);
   }
 
-  showValidationError() {
+  showValidationError(form) {
     const alert = document.createElement("div");
     alert.className = "alert alert-danger animate-slide-in-up";
     alert.innerHTML = "⚠️ Please fill in all required fields";
 
-    const form = document.querySelector("form");
     form.parentElement.insertBefore(alert, form);
 
     setTimeout(() => {
@@ -448,7 +454,7 @@ class FormInteractions {
     const submitBtns = document.querySelectorAll('button[type="submit"]');
     submitBtns.forEach((btn) => {
       // Skip buttons on the table builder form - they have their own handling
-      if (btn.closest("#table-form")) {
+      if (btn.closest("#table-form") || btn.getAttribute("form") === "master-form-form" || btn.closest("#master-form-form")) {
         return;
       }
 

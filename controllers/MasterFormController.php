@@ -9,10 +9,12 @@ use app\models\MasterFormLayout;
 use app\models\MasterFormActivityLog;
 use app\models\MasterPage;
 use app\models\DbTable;
+use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
+use app\helpers\FormSystemFieldHelper;
 use app\services\FormActivityLogService;
 use app\services\FormEngineService;
 use app\services\FormRenderService;
@@ -56,6 +58,121 @@ class MasterFormController extends Controller
         return (new ActiveProjectContext())->getActiveProjectId();
     }
 
+    private function isSystemField(string $fieldName): bool
+    {
+        return FormSystemFieldHelper::isSystemField($fieldName);
+    }
+
+    private function getSystemFieldValue(string $columnName, $column)
+    {
+        $name = strtolower($columnName);
+        $columnType = strtolower((string)($column->type ?? ''));
+        $columnDbType = strtolower((string)($column->dbType ?? ''));
+
+        if ($name === 'id' || $name === 'deleted_at') {
+            return null;
+        }
+
+        if ($name === 'uuid') {
+            return Yii::$app->security->generateRandomString(36);
+        }
+
+        if (in_array($name, ['token', 'remember_token'], true)) {
+            return Yii::$app->security->generateRandomString(40);
+        }
+
+        if ($name === 'verification_code') {
+            return (string)random_int(100000, 999999);
+        }
+
+        if ($name === 'password_hash') {
+            return Yii::$app->security->generatePasswordHash(Yii::$app->security->generateRandomString(32));
+        }
+
+        if ($columnType === 'timestamp' || in_array($name, ['created_at', 'updated_at'], true)) {
+            if ($columnType === 'date' && strpos($columnDbType, 'time') === false) {
+                return date('Y-m-d');
+            }
+            if ($columnType === 'time') {
+                return date('H:i:s');
+            }
+            return date('Y-m-d H:i:s');
+        }
+
+        if (in_array($name, ['created_by', 'updated_by'], true)) {
+            return Yii::$app->user->isGuest ? null : (int)Yii::$app->user->id;
+        }
+
+        if ($name === 'deleted_by') {
+            return null;
+        }
+
+        return null;
+    }
+
+    private function cleanSystemFieldsFromModel(MasterForm $model): bool
+    {
+        $original = $model->getFormDataArray();
+        $clean = $this->filterSystemFieldsForModel($original, $model);
+        $model->form_data = $clean;
+
+        return $clean !== $original;
+    }
+
+    private function filterSystemFieldsForModel(array $builderData, MasterForm $model): array
+    {
+        $filter = function (array $fields) use ($model): array {
+            $filtered = [];
+            foreach ($fields as $field) {
+                if (!is_array($field) || $this->isSystemFieldDataForModel($field, $model)) {
+                    continue;
+                }
+                $filtered[] = $field;
+            }
+            return $filtered;
+        };
+
+        if (isset($builderData['fields']) && is_array($builderData['fields'])) {
+            $builderData['fields'] = $filter($builderData['fields']);
+            return $builderData;
+        }
+
+        if ($this->isListArray($builderData)) {
+            return $filter($builderData);
+        }
+
+        return $builderData;
+    }
+
+    private function isSystemFieldDataForModel(array $fieldData, MasterForm $model): bool
+    {
+        if (FormSystemFieldHelper::isSystemFieldData($fieldData)) {
+            return true;
+        }
+
+        $sourceColumnId = (int)($fieldData['source_column_id'] ?? 0);
+        if ($sourceColumnId > 0) {
+            $sourceColumn = DbTableColumn::findOne($sourceColumnId);
+            if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+                return true;
+            }
+        }
+
+        if (!empty($model->table_id)) {
+            $fieldName = $fieldData['name'] ?? $fieldData['field_name'] ?? $fieldData['field_key'] ?? '';
+            if ($fieldName !== '') {
+                $sourceColumn = DbTableColumn::find()
+                    ->where(['table_id' => (int)$model->table_id, 'name' => (string)$fieldName])
+                    ->one();
+                if ($sourceColumn && FormSystemFieldHelper::isSystemField($sourceColumn->name)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     private function findScopedModel($id): MasterForm
     {
         $model = MasterForm::findByIdScoped($id);
@@ -69,7 +186,7 @@ class MasterFormController extends Controller
 
     private function normalizeBuilderData(MasterForm $model): array
     {
-        $formData = $model->getFormDataArray();
+        $formData = $this->filterSystemFieldsForModel($model->getFormDataArray(), $model);
         if (!empty($formData['fields']) && is_array($formData['fields'])) {
             return $formData;
         }
@@ -119,7 +236,6 @@ class MasterFormController extends Controller
         MasterFormField::deleteAll(['form_id' => $model->id]);
         MasterFormLayout::deleteAll(['form_id' => $model->id]);
 
-        $customCodeDetected = false;
         foreach ($fields as $index => $fieldData) {
             if (!is_array($fieldData)) {
                 continue;
@@ -127,6 +243,10 @@ class MasterFormController extends Controller
 
             $field = new MasterFormField();
             $fieldName = $this->normalizeFieldName($fieldData, (int)$index);
+            if ($this->isSystemFieldDataForModel($fieldData, $model)) {
+                continue;
+            }
+
             $fieldType = (string)($fieldData['type'] ?? $fieldData['field_type'] ?? 'text');
             $field->form_id = (int)$model->id;
             $field->field_key = $fieldName;
@@ -149,28 +269,6 @@ class MasterFormController extends Controller
             $field->sort_order = (int)$index;
             $field->save(false);
 
-            if (!empty($fieldData['customHtml']) || !empty($fieldData['customCss']) || !empty($fieldData['customJs'])) {
-                $customCodeDetected = true;
-            }
-        }
-
-        $customHtml = [];
-        $customCss = [];
-        $customJs = [];
-        foreach ($fields as $fieldData) {
-            if (!is_array($fieldData)) {
-                continue;
-            }
-
-            if (!empty($fieldData['customHtml'])) {
-                $customHtml[] = (string)$fieldData['customHtml'];
-            }
-            if (!empty($fieldData['customCss'])) {
-                $customCss[] = (string)$fieldData['customCss'];
-            }
-            if (!empty($fieldData['customJs'])) {
-                $customJs[] = (string)$fieldData['customJs'];
-            }
         }
 
         $layout = new MasterFormLayout();
@@ -181,15 +279,15 @@ class MasterFormController extends Controller
             'form' => $model->getAttributes(),
             'builder' => $builderData,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $layout->custom_html = implode("\n\n", $customHtml);
-        $layout->custom_css = implode("\n\n", $customCss);
-        $layout->custom_js = implode("\n\n", $customJs);
+        $layout->custom_html = '';
+        $layout->custom_css = '';
+        $layout->custom_js = '';
         $layout->builder_state = Json::encode($builderData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $layout->is_default = 1;
         $layout->sort_order = 0;
         $layout->save(false);
 
-        $model->custom_code_mode = $customCodeDetected ? 1 : 0;
+        $model->custom_code_mode = 0;
         $model->save(false, ['custom_code_mode']);
     }
 
@@ -246,6 +344,10 @@ class MasterFormController extends Controller
     public function actionView($id)
     {
         $model = $this->findScopedModel($id);
+        if ($this->cleanSystemFieldsFromModel($model)) {
+            $model->save(false, ['form_data']);
+            $this->syncFormArchitecture($model);
+        }
         $logs = [];
         if (Yii::$app->db->getTableSchema(MasterFormActivityLog::tableName(), true) !== null) {
             $logs = MasterFormActivityLog::find()
@@ -271,6 +373,7 @@ class MasterFormController extends Controller
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
             }
+            $this->cleanSystemFieldsFromModel($model);
             
             if (!empty($model->table_id)) {
                 $model->table_id = (int)$model->table_id;
@@ -303,6 +406,10 @@ class MasterFormController extends Controller
     public function actionUpdate($id)
     {
         $model = $this->findScopedModel($id);
+        if ($this->cleanSystemFieldsFromModel($model)) {
+            $model->save(false, ['form_data']);
+            $this->syncFormArchitecture($model);
+        }
 
         if ($model->load(Yii::$app->request->post())) {
             $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
@@ -310,6 +417,7 @@ class MasterFormController extends Controller
             if (is_string($model->form_data)) {
                 $model->form_data = json_decode($model->form_data, true);
             }
+            $this->cleanSystemFieldsFromModel($model);
             
             if (!empty($model->table_id)) {
                 $model->table_id = (int)$model->table_id;
@@ -370,6 +478,10 @@ class MasterFormController extends Controller
     public function actionPreview($id)
     {
         $model = $this->findScopedModel($id);
+        if ($this->cleanSystemFieldsFromModel($model)) {
+            $model->save(false, ['form_data']);
+            $this->syncFormArchitecture($model);
+        }
         $schema = $this->formEngineService->getResolvedFormSchema($model);
         $renderPayload = $this->formRenderService->buildRenderPayload($model, $schema['fields'], $schema['layout']);
         if (!empty($schema['autoSynced'])) {
@@ -465,7 +577,7 @@ class MasterFormController extends Controller
                 $fieldType = $field['type'] ?? 'text';
                 $isExcluded = !empty($field['excluded']);
                 
-                if (!$fieldName || $isExcluded) {
+                if (!$fieldName || $isExcluded || FormSystemFieldHelper::isSystemFieldData($field)) {
                     continue;
                 }
                 
@@ -478,6 +590,18 @@ class MasterFormController extends Controller
                     }
                 } elseif ($postedValue !== null && $postedValue !== '') {
                     $insertData[$fieldName] = $postedValue;
+                }
+            }
+
+            foreach ($columns->columns as $columnName => $column) {
+                $columnType = strtoupper((string)($column->dbType ?? $column->type ?? ''));
+                if (array_key_exists($columnName, $insertData) || !$this->isSystemField($columnName)) {
+                    continue;
+                }
+
+                $value = $this->getSystemFieldValue($columnName, $column);
+                if ($value !== null) {
+                    $insertData[$columnName] = $value;
                 }
             }
             

@@ -35,10 +35,6 @@ class CommanderAuthContext
 
     public function isAuthenticated(): bool
     {
-        if (Yii::$app->user->isGuest) {
-            return false;
-        }
-
         $authData = Yii::$app->session->get(self::SESSION_KEY_AUTH, []);
         if (is_array($authData) && !empty($authData['user_id'])) {
             return true;
@@ -79,7 +75,17 @@ class CommanderAuthContext
     public function getUser(): ?User
     {
         $identity = Yii::$app->user->identity;
-        return $identity instanceof User ? $identity : null;
+        if ($identity instanceof User) {
+            return $identity;
+        }
+
+        $authData = Yii::$app->session->get(self::SESSION_KEY_AUTH, []);
+        $userId = is_array($authData) ? (int)($authData['user_id'] ?? 0) : 0;
+        if ($userId <= 0) {
+            $userId = (int)Yii::$app->session->get(self::SESSION_KEY_USER_ID, 0);
+        }
+
+        return $userId > 0 ? User::findIdentity($userId) : null;
     }
 
     private function normalizeRole(string $role, string $username = ''): string

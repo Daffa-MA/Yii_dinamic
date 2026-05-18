@@ -44,6 +44,14 @@ class SiteController extends Controller
                 'only' => ['logout', 'dashboard', 'profile', 'change-password'],
                 'rules' => [
                     [
+                        'actions' => ['profile'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            return (new DomainContext())->isRootDomain()
+                                && (new CommanderAuthContext())->isAuthenticated();
+                        },
+                    ],
+                    [
                         'actions' => ['logout', 'dashboard', 'profile', 'change-password'],
                         'allow' => true,
                         'roles' => ['@'],
@@ -314,17 +322,45 @@ class SiteController extends Controller
      */
     public function actionProfile()
     {
-        $user = Yii::$app->user->identity;
-        $totalForms = Form::find()->where(['user_id' => $user->id])->count();
-        $totalSubmissions = FormSubmission::find()
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $user->id])
-            ->count();
+        $domainContext = new DomainContext();
+        if (!$domainContext->isRootDomain()) {
+            $rootDomain = $domainContext->rootDomain();
+            if ($rootDomain !== '') {
+                return Yii::$app->response->redirect('https://' . $rootDomain . '/profile');
+            }
+
+            return $this->redirect(['project/profile']);
+        }
+
+        $commanderAuth = new CommanderAuthContext();
+        if (!$commanderAuth->isAuthenticated()) {
+            return $this->redirect(['site/login']);
+        }
+
+        $authData = Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_AUTH, []);
+        $user = $commanderAuth->getUser();
+        $username = $user !== null
+            ? (string)$user->username
+            : (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_USER_ID, 'superadmin');
+        if ($username === '' || ctype_digit($username)) {
+            $username = 'superadmin';
+        }
+        $role = $commanderAuth->getRole();
+        if ($role === '') {
+            $role = 'superadmin';
+        }
+        $email = $user !== null && isset($user->email) ? trim((string)$user->email) : '';
+        $status = $user !== null && isset($user->status) ? ((int)$user->status === 1 ? 'Active' : 'Inactive') : 'Active';
+        $loggedInAt = is_array($authData) ? trim((string)($authData['logged_in_at'] ?? '')) : '';
 
         return $this->render('profile', [
             'user' => $user,
-            'totalForms' => $totalForms,
-            'totalSubmissions' => $totalSubmissions,
+            'username' => $username,
+            'email' => $email,
+            'role' => $role,
+            'status' => $status,
+            'loggedInAt' => $loggedInAt,
+            'sessionKey' => CommanderAuthContext::SESSION_KEY_AUTH,
         ]);
     }
 

@@ -37,12 +37,16 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
     }
 
     .project-page-v4 main#main > .container {
+        width: 100%;
         max-width: 100% !important;
+        min-width: 0;
         padding: 0 !important;
+        overflow-x: hidden;
     }
 
     .projects-shell {
         min-height: 100vh;
+        overflow-x: hidden;
         padding-left: var(--app-sidebar-width, 16rem);
         position: relative;
         transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
@@ -79,10 +83,18 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         position: relative;
         z-index: 1;
         padding: 2rem 0 3rem;
+        min-width: 0;
+        overflow-x: hidden;
     }
 
     .projects-container {
+        width: 100%;
         max-width: 1480px;
+        margin: 0 auto;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+        box-sizing: border-box;
+        min-width: 0;
     }
 
     .projects-surface {
@@ -537,14 +549,19 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
 
     .projects-list-wrap {
         display: grid;
+        grid-template-columns: minmax(0, 1fr);
         gap: 1rem;
     }
 
     .projects-project-card {
-        display: flex;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) clamp(14rem, 22vw, 18rem);
         align-items: center;
-        justify-content: space-between;
         gap: 1.1rem;
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        min-height: 11rem;
         border-radius: 24px;
         border: 1px solid rgba(148, 163, 184, 0.16);
         background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.92));
@@ -604,13 +621,18 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
     .projects-project-title-row {
         display: flex;
         align-items: center;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 0.65rem;
         margin-bottom: 0.35rem;
+        min-width: 0;
     }
 
     .projects-project-title {
         margin: 0;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
         color: #0f172a;
         font-size: 1.02rem;
         font-weight: 800;
@@ -641,6 +663,10 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         margin: 0;
         color: #64748b;
         line-height: 1.7;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        overflow: hidden;
     }
 
     .projects-project-meta {
@@ -679,7 +705,24 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
     }
 
     .projects-project-action {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+        width: 100%;
+        align-self: center;
         flex-shrink: 0;
+    }
+
+    .projects-project-action .projects-button {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .projects-project-action .projects-button span:last-child {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
     }
 
     .projects-empty-state {
@@ -789,6 +832,14 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
         .projects-stat-grid {
             grid-template-columns: 1fr;
         }
+
+        .projects-project-card {
+            grid-template-columns: 1fr;
+        }
+
+        .projects-project-action {
+            grid-template-columns: 1fr;
+        }
     }
 
     @media (max-width: 767.98px) {
@@ -801,14 +852,12 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
             max-width: none;
         }
 
-        .projects-panel-head,
-        .projects-project-card {
+        .projects-panel-head {
             flex-direction: column;
             align-items: flex-start;
         }
 
         .projects-count-badge,
-        .projects-project-action,
         .projects-project-action .projects-button {
             width: 100%;
         }

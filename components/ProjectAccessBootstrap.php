@@ -185,14 +185,14 @@ class ProjectAccessBootstrap implements BootstrapInterface
                 || $permissionService->canUseLegacyFormAsPageContent($formId, $pageId, $activeProjectId))
             : false;
 
-        if ($pageAuthorized) {
+        if ($pageAuthorized || $formAuthorized) {
             FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
                 $activeProjectId,
                 $pageId,
                 $formId,
                 'page_content',
                 true,
-                $pageAuthorized,
+                $pageAuthorized || $formAuthorized,
                 $formAuthorized,
                 '',
                 'allowed_by_page_context'
@@ -254,14 +254,14 @@ class ProjectAccessBootstrap implements BootstrapInterface
             return false;
         }
 
-        if ($pageAuthorized) {
+        if ($pageAuthorized || $formAuthorized) {
             FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
                 $activeProjectId,
                 $pageId,
                 $formId,
                 'page_content',
                 true,
-                $pageAuthorized,
+                $pageAuthorized || $formAuthorized,
                 $formAuthorized,
                 '',
                 'allowed_by_page_context'

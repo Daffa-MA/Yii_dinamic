@@ -258,7 +258,10 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
                         $formId = isset($props['formId']) ? (int)$props['formId'] : null;
                         $showTitle = !empty($props['showTitle']);
                         $previewService = new DynamicFormPreviewService();
-                        echo "<div style='margin:1rem 0;'>" . $previewService->renderByScopedId($formId, $showTitle, true) . "</div>";
+                        echo "<div style='margin:1rem 0;'>" . $previewService->renderByScopedId($formId, $showTitle, true, [
+                            'render_context' => 'page_content',
+                            'page_id' => (int)$page->id,
+                        ]) . "</div>";
                         break;
                         
                     case 'video':
@@ -321,7 +324,14 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
         <div class="<?= $layoutClasses ?>">
             <?php foreach ($forms as $index => $formModel): ?>
                 <?php
-                $embedUrl = Url::to(['/form/render', 'id' => $formModel->id, 'embedded' => 1, 'return_url' => $returnUrl]);
+                $embedUrl = Url::to([
+                    '/form/render',
+                    'id' => $formModel->id,
+                    'embedded' => 1,
+                    'render_context' => 'page_content',
+                    'page_id' => (int)$page->id,
+                    'return_url' => $returnUrl,
+                ]);
                 $schemaCount = count($formModel->getSchema());
                 $storageLabel = $formModel->storage_type === 'database' ? 'Database' : 'JSON';
                 ?>

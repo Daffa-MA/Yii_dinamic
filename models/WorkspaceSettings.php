@@ -16,6 +16,8 @@ class WorkspaceSettings extends \yii\base\Model
 
     public $id;
     public $setting_key = self::DEFAULT_KEY;
+    public $loaded_from = 'default';
+    public $loaded_setting_key = null;
     public $workspace_title = 'Projects';
     public $workspace_subtitle = 'Beranda & navigasi';
     public $workspace_badge = 'Workspace';
@@ -189,6 +191,8 @@ class WorkspaceSettings extends \yii\base\Model
         if ($this->isProjectListRoute()) {
             $this->clear();
             $this->setting_key = self::DEFAULT_KEY;
+            $this->loaded_from = 'default';
+            $this->loaded_setting_key = null;
             return false;
         }
 
@@ -203,13 +207,18 @@ class WorkspaceSettings extends \yii\base\Model
         if ($row !== null) {
             Yii::info('Loading workspace settings from database scope: ' . $scopeKey, 'workspace-settings');
             $this->load($row, '');
+            $this->id = isset($row['id']) ? (int)$row['id'] : null;
             $this->populateDefaults();
             $this->setting_key = $scopeKey;
+            $this->loaded_from = 'database';
+            $this->loaded_setting_key = (string)($row['setting_key'] ?? $scopeKey);
             return true;
         }
 
         $this->clear();
         $this->setting_key = $scopeKey;
+        $this->loaded_from = 'default';
+        $this->loaded_setting_key = null;
         Yii::info('No workspace settings row found for scope: ' . $scopeKey . ', using defaults', 'workspace-settings');
         return false;
     }
@@ -260,14 +269,19 @@ class WorkspaceSettings extends \yii\base\Model
             }
 
             $this->load($row, '');
+            $this->id = isset($row['id']) ? (int)$row['id'] : null;
             $this->populateDefaults();
             $this->setting_key = $scopeKey;
+            $this->loaded_from = 'database';
+            $this->loaded_setting_key = (string)($row['setting_key'] ?? $scopeKey);
             $this->saveToSession($scopeKey);
             return $scopeKey;
         }
 
         $this->clear();
         $this->setting_key = $projectId > 0 ? 'project:' . $projectId : self::DEFAULT_KEY;
+        $this->loaded_from = 'default';
+        $this->loaded_setting_key = null;
         return $this->setting_key;
     }
 
@@ -373,6 +387,7 @@ class WorkspaceSettings extends \yii\base\Model
         foreach ($defaults as $key => $value) {
             $this->$key = $value;
         }
+        $this->id = null;
     }
 
     public function getCssVars()
@@ -485,12 +500,20 @@ class WorkspaceSettings extends \yii\base\Model
         }
 
         return [
+            'workspace_settings_id' => $this->id !== null ? (int)$this->id : null,
             'setting_key' => $this->setting_key,
+            'loaded_setting_key' => $this->loaded_setting_key,
+            'loaded_from' => $this->loaded_from,
             'background_path' => $value,
             'generated_url' => (string)($asset['url'] ?? ''),
+            'generated_background_url' => (string)($asset['url'] ?? ''),
             'type' => (string)($asset['type'] ?? 'none'),
             'local_file' => $localFile,
             'local_file_exists' => $exists,
+            'file_exists' => $exists,
+            'fallback_reason' => $value === ''
+                ? 'login_background_image kosong, memakai gradient/default'
+                : ($exists === false ? 'file background tidak ditemukan di public uploads' : ''),
             'logo_path' => $logoValue,
             'logo_generated_url' => (string)($logoAsset['url'] ?? ''),
             'logo_local_file' => $logoLocalFile,

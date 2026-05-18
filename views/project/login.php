@@ -283,11 +283,15 @@ CSS);
 
 <!-- project-login-background-debug <?= Html::encode(json_encode([
     'project_id' => (int)$project->id,
+    'workspace_settings_id' => $loginBgDebug['workspace_settings_id'] ?? null,
     'setting_key' => $workspaceSettings->setting_key ?? null,
+    'loaded_setting_key' => $loginBgDebug['loaded_setting_key'] ?? null,
+    'loaded_from' => $loginBgDebug['loaded_from'] ?? null,
     'background_path' => $loginBgDebug['background_path'] ?? '',
-    'generated_url' => $loginBgImageUrl,
+    'generated_background_url' => $loginBgImageUrl,
     'type' => $loginBgType,
-    'local_file_exists' => $loginBgDebug['local_file_exists'] ?? null,
+    'file_exists' => $loginBgDebug['file_exists'] ?? null,
+    'fallback_reason' => $loginBgDebug['fallback_reason'] ?? '',
     'logo_path' => $loginBgDebug['logo_path'] ?? '',
     'logo_generated_url' => $logoImage,
     'logo_local_file_exists' => $loginBgDebug['logo_local_file_exists'] ?? null,

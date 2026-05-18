@@ -44,7 +44,38 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
 } elseif ($page->layout_type === MasterPage::LAYOUT_BLANK) {
     $layoutClasses = 'space-y-4';
 }
-?>
+
+$customHtml = trim((string) ($page->custom_html ?? ''));
+$customCss = (string) ($page->custom_css ?? '');
+$customJs = (string) ($page->custom_js ?? '');
+$hasCustomPageSource = $customHtml !== '' || $customCss !== '' || $customJs !== '';
+$customSourceDoc = '';
+
+if ($hasCustomPageSource) {
+    $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
+    if ($startsWithHtmlDoc) {
+        $customSourceDoc = $customHtml;
+    } else {
+        $customSourceDoc = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<style>{$customCss}</style>\n</head>\n<body>\n{$customHtml}\n<script>{$customJs}</script>\n</body>\n</html>";
+    }
+}
+
+$layoutJson = $page->layout_json ?? '[]';
+$layoutData = json_decode($layoutJson, true);
+$hasBuilderContent = !empty($layoutData) && is_array($layoutData);
+
+if ($hasCustomPageSource): ?>
+    <div class="rounded-[28px] border border-slate-200 bg-white p-2 shadow-sm overflow-hidden">
+        <iframe
+            srcdoc="<?= Html::encode($customSourceDoc) ?>"
+            class="block w-full border-0 bg-white"
+            title="Custom Page Source"
+            style="min-height: 780px;"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        ></iframe>
+    </div>
+    <?php return; ?>
+<?php endif; ?>
 
 <div class="mx-auto max-w-7xl px-4 py-8">
     <div class="mb-6 overflow-hidden rounded-[28px] border border-slate-200 <?= $isWorkspaceAdmin ? 'bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.14),_transparent_36%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]' : 'bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]' ?> p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)] md:p-8">
@@ -130,31 +161,6 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
             </div>
         <?php endif; ?>
     </div>
-
-    <?php
-    // Render priority:
-    // 1) Full custom page source (custom_html/custom_css/custom_js)
-    // 2) Builder layout_json
-    // 3) Forms / empty-state
-    $customHtml = trim((string) ($page->custom_html ?? ''));
-    $customCss = (string) ($page->custom_css ?? '');
-    $customJs = (string) ($page->custom_js ?? '');
-    $hasCustomPageSource = $customHtml !== '';
-    $customSourceDoc = '';
-
-    if ($hasCustomPageSource) {
-        $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
-        if ($startsWithHtmlDoc) {
-            $customSourceDoc = $customHtml;
-        } else {
-            $customSourceDoc = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<style>{$customCss}</style>\n</head>\n<body>\n{$customHtml}\n<script>{$customJs}</script>\n</body>\n</html>";
-        }
-    }
-
-    $layoutJson = $page->layout_json ?? '[]';
-    $layoutData = json_decode($layoutJson, true);
-    $hasBuilderContent = !empty($layoutData) && is_array($layoutData);
-    ?>
 
     <?php if ($hasCustomPageSource): ?>
         <div class="rounded-[28px] border border-slate-200 bg-white p-2 shadow-sm overflow-hidden">

@@ -10,7 +10,7 @@ use app\models\WorkspaceSettings;
 AppAsset::register($this);
 
 $workspaceSettings = new WorkspaceSettings();
-$workspaceSettings->loadFromSession();
+$workspaceSettings->loadFromDatabase();
 $cssVars = $workspaceSettings->getCssVars();
 
 // Generate CSS custom properties

@@ -988,7 +988,7 @@ private function insertDefaultCmsData($newDb): void
         }
 
         $workspaceSettings = new WorkspaceSettings();
-        $workspaceSettings->loadFromSession();
+        $workspaceSettings->loadFromDatabase();
 
         $permissionService = new \app\components\ProjectPermissionService();
         $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId);

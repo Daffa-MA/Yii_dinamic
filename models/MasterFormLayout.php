@@ -34,7 +34,7 @@ class MasterFormLayout extends ActiveRecord
     {
         return [
             [['form_id', 'layout_name'], 'required'],
-            [['form_id', 'is_default', 'sort_order'], 'integer'],
+            [['form_id', 'is_default', 'sort_order', 'use_custom_code'], 'integer'],
             [['layout_json', 'custom_html', 'custom_css', 'custom_js', 'builder_state'], 'safe'],
             [['layout_name', 'layout_type'], 'string', 'max' => 255],
             [['created_at', 'updated_at'], 'safe'],
@@ -52,6 +52,7 @@ class MasterFormLayout extends ActiveRecord
             'custom_html' => 'Custom HTML',
             'custom_css' => 'Custom CSS',
             'custom_js' => 'Custom JS',
+            'use_custom_code' => 'Use Custom Code',
             'builder_state' => 'Builder State',
             'is_default' => 'Default Layout',
             'sort_order' => 'Sort Order',
@@ -66,6 +67,9 @@ class MasterFormLayout extends ActiveRecord
             $this->created_at = date('Y-m-d H:i:s');
         }
 
+        if ($this->hasAttribute('use_custom_code') && $this->use_custom_code === null) {
+            $this->use_custom_code = 0;
+        }
         $this->updated_at = date('Y-m-d H:i:s');
 
         return parent::beforeSave($insert);

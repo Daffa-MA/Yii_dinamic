@@ -63,7 +63,7 @@ class DynamicFormPreviewService
         $customHtml = (string)($payload['customHtml'] ?? '');
         $customCss = (string)($payload['customCss'] ?? '');
         $customJs = (string)($payload['customJs'] ?? '');
-        $hasOverride = !empty($payload['hasOverride']);
+        $hasOverride = !empty($payload['useCustomCode']) || !empty($payload['hasOverride']);
 
         $titleHtml = $showTitle ? '<div style="font-weight:700;font-size:16px;color:#0f172a;margin-bottom:12px;">' . Html::encode((string)$form->form_name) . '</div>' : '';
         $formOpen = $interactive ? '<form method="post" class="dynamic-embedded-form" action="/master-form/submit?id=' . (int)$form->id . '">' .

@@ -111,6 +111,9 @@ class FormEngineService
         $layout->custom_html = '';
         $layout->custom_css = '';
         $layout->custom_js = '';
+        if ($layout->hasAttribute('use_custom_code')) {
+            $layout->use_custom_code = 0;
+        }
         $layout->builder_state = Json::encode($formData);
         $layout->is_default = 1;
         $layout->sort_order = 0;

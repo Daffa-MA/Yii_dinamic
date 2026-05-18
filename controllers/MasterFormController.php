@@ -192,10 +192,33 @@ class MasterFormController extends Controller
         return $name;
     }
 
-    private function syncFormArchitecture(MasterForm $model): void
+    private function extractCustomCodePost(): array
+    {
+        $post = Yii::$app->request->post();
+        $modelPost = $post['MasterForm'] ?? [];
+        $useCustomCode = (int)($modelPost['use_custom_code'] ?? $post['use_custom_code'] ?? $modelPost['custom_code_mode'] ?? 0) === 1;
+
+        return [
+            'use_custom_code' => $useCustomCode ? 1 : 0,
+            'custom_html' => (string)($modelPost['custom_html'] ?? $post['custom_html'] ?? ''),
+            'custom_css' => (string)($modelPost['custom_css'] ?? $post['custom_css'] ?? ''),
+            'custom_js' => (string)($modelPost['custom_js'] ?? $post['custom_js'] ?? ''),
+        ];
+    }
+
+    private function syncFormArchitecture(MasterForm $model, ?array $customCode = null): void
     {
         $builderData = $this->normalizeBuilderData($model);
         $fields = $this->extractFieldsFromBuilderData($builderData);
+        $previousLayout = $model->getActiveLayout()->one();
+        if ($customCode === null) {
+            $customCode = [
+                'use_custom_code' => !empty($model->custom_code_mode) ? 1 : 0,
+                'custom_html' => $previousLayout ? (string)$previousLayout->custom_html : '',
+                'custom_css' => $previousLayout ? (string)$previousLayout->custom_css : '',
+                'custom_js' => $previousLayout ? (string)$previousLayout->custom_js : '',
+            ];
+        }
 
         MasterFormField::deleteAll(['form_id' => $model->id]);
         MasterFormLayout::deleteAll(['form_id' => $model->id]);
@@ -243,15 +266,18 @@ class MasterFormController extends Controller
             'form' => $model->getAttributes(),
             'builder' => $builderData,
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $layout->custom_html = '';
-        $layout->custom_css = '';
-        $layout->custom_js = '';
+        $layout->custom_html = !empty($customCode['use_custom_code']) ? (string)($customCode['custom_html'] ?? '') : '';
+        $layout->custom_css = !empty($customCode['use_custom_code']) ? (string)($customCode['custom_css'] ?? '') : '';
+        $layout->custom_js = !empty($customCode['use_custom_code']) ? (string)($customCode['custom_js'] ?? '') : '';
+        if ($layout->hasAttribute('use_custom_code')) {
+            $layout->use_custom_code = !empty($customCode['use_custom_code']) ? 1 : 0;
+        }
         $layout->builder_state = Json::encode($builderData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $layout->is_default = 1;
         $layout->sort_order = 0;
         $layout->save(false);
 
-        $model->custom_code_mode = 0;
+        $model->custom_code_mode = !empty($customCode['use_custom_code']) ? 1 : 0;
         $model->save(false, ['custom_code_mode']);
     }
 
@@ -354,7 +380,7 @@ class MasterFormController extends Controller
             }
             
             if ($model->save()) {
-                $this->syncFormArchitecture($model);
+                $this->syncFormArchitecture($model, $this->extractCustomCodePost());
                 $this->activityLogService->log($model, 'form_created', 'success', 'Form created and synced.');
                 Yii::$app->session->setFlash('success', 'Form berhasil dibuat dan struktur fields/layout tersimpan.');
                 return $this->redirect(['view', 'id' => $model->id]);
@@ -395,7 +421,7 @@ class MasterFormController extends Controller
             }
             
             if ($model->save()) {
-                $this->syncFormArchitecture($model);
+                $this->syncFormArchitecture($model, $this->extractCustomCodePost());
                 $this->activityLogService->log($model, 'form_updated', 'success', 'Form updated and synced.');
                 Yii::$app->session->setFlash('success', 'Form berhasil diperbarui dan struktur fields/layout disinkronkan.');
                 return $this->redirect(['view', 'id' => $model->id]);

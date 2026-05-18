@@ -2279,15 +2279,15 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     let isAddingBlock = false;
     const PAGE_TYPE_BUILDER = 'builder';
     const PAGE_TYPE_CUSTOM_CODE = 'custom_code';
-    const initialPageTypeValue = <?= json_encode((string) ($model->page_type ?? 'builder')) ?>;
-    const initialCustomHtml = <?= json_encode((string) ($model->custom_html ?? '')) ?>;
-    const initialCustomCss = <?= json_encode((string) ($model->custom_css ?? '')) ?>;
-    const initialCustomJs = <?= json_encode((string) ($model->custom_js ?? '')) ?>;
+    const initialPageTypeValue = <?= json_encode((!empty($model->use_page_custom_code) ? 'custom_code' : (string) ($model->page_type ?? 'builder'))) ?>;
+    const initialCustomHtml = <?= json_encode((string) (($model->page_custom_html ?? '') !== '' ? $model->page_custom_html : ($model->custom_html ?? ''))) ?>;
+    const initialCustomCss = <?= json_encode((string) (($model->page_custom_css ?? '') !== '' ? $model->page_custom_css : ($model->custom_css ?? ''))) ?>;
+    const initialCustomJs = <?= json_encode((string) (($model->page_custom_js ?? '') !== '' ? $model->page_custom_js : ($model->custom_js ?? ''))) ?>;
     const hasInitialFullPageSource =
         (initialCustomHtml || '').trim() !== '' ||
         (initialCustomCss || '').trim() !== '' ||
         (initialCustomJs || '').trim() !== '';
-    let activeCodeScope = (initialPageTypeValue === PAGE_TYPE_CUSTOM_CODE || hasInitialFullPageSource) ? 'page' : 'component';
+    let activeCodeScope = initialPageTypeValue === PAGE_TYPE_CUSTOM_CODE ? 'page' : 'component';
     let fullPageSource = '';
     let fullPageSourceDerivedFromBuilder = !hasInitialFullPageSource;
 
@@ -5836,14 +5836,26 @@ ${html || ''}
         const pageTypeInput = document.createElement('input');
         pageTypeInput.type = 'hidden';
         pageTypeInput.name = 'MasterPage[page_type]';
-        pageTypeInput.value = (fullPageSource || '').trim() !== '' ? PAGE_TYPE_CUSTOM_CODE : PAGE_TYPE_BUILDER;
+        pageTypeInput.value = activeCodeScope === 'page' ? PAGE_TYPE_CUSTOM_CODE : PAGE_TYPE_BUILDER;
         form.appendChild(pageTypeInput);
+
+        const useCustomInput = document.createElement('input');
+        useCustomInput.type = 'hidden';
+        useCustomInput.name = 'MasterPage[use_page_custom_code]';
+        useCustomInput.value = activeCodeScope === 'page' ? '1' : '0';
+        form.appendChild(useCustomInput);
 
         const customHtmlInput = document.createElement('textarea');
         customHtmlInput.name = 'MasterPage[custom_html]';
         customHtmlInput.style.display = 'none';
-        customHtmlInput.value = (fullPageSource || '').trim();
+        customHtmlInput.value = activeCodeScope === 'page' ? (fullPageSource || '').trim() : '';
         form.appendChild(customHtmlInput);
+
+        const pageCustomHtmlInput = document.createElement('textarea');
+        pageCustomHtmlInput.name = 'MasterPage[page_custom_html]';
+        pageCustomHtmlInput.style.display = 'none';
+        pageCustomHtmlInput.value = customHtmlInput.value;
+        form.appendChild(pageCustomHtmlInput);
 
         const customCssInput = document.createElement('input');
         customCssInput.type = 'hidden';
@@ -5851,11 +5863,23 @@ ${html || ''}
         customCssInput.value = '';
         form.appendChild(customCssInput);
 
+        const pageCustomCssInput = document.createElement('input');
+        pageCustomCssInput.type = 'hidden';
+        pageCustomCssInput.name = 'MasterPage[page_custom_css]';
+        pageCustomCssInput.value = '';
+        form.appendChild(pageCustomCssInput);
+
         const customJsInput = document.createElement('input');
         customJsInput.type = 'hidden';
         customJsInput.name = 'MasterPage[custom_js]';
         customJsInput.value = '';
         form.appendChild(customJsInput);
+
+        const pageCustomJsInput = document.createElement('input');
+        pageCustomJsInput.type = 'hidden';
+        pageCustomJsInput.name = 'MasterPage[page_custom_js]';
+        pageCustomJsInput.value = '';
+        form.appendChild(pageCustomJsInput);
 
         // Don't close dialog - let form submission handle it
         // If there's an error, the dialog will stay open

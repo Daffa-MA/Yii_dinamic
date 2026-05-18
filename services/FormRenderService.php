@@ -15,11 +15,7 @@ class FormRenderService
         $customCss = trim((string)($renderPayload['customCss'] ?? ''));
         $customJs = trim((string)($renderPayload['customJs'] ?? ''));
 
-        if ($customHtml !== '' || $customCss !== '' || $customJs !== '') {
-            return true;
-        }
-
-        return $form !== null && !empty($form->custom_code_mode);
+        return !empty($renderPayload['useCustomCode']) || ($form !== null && !empty($form->custom_code_mode));
     }
 
     public function renderCustomCodeOnly(array $renderPayload): string
@@ -27,6 +23,10 @@ class FormRenderService
         $customHtml = (string)($renderPayload['customHtml'] ?? '');
         $customCss = trim((string)($renderPayload['customCss'] ?? ''));
         $customJs = trim((string)($renderPayload['customJs'] ?? ''));
+
+        if ($customHtml !== '' && preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1) {
+            return $customHtml;
+        }
 
         $html = '';
         if ($customCss !== '') {
@@ -47,7 +47,9 @@ class FormRenderService
         $customHtml = $layout ? CustomCodeSandbox::sanitizeHtml($layout->custom_html) : '';
         $customCss = $layout ? CustomCodeSandbox::sanitizeCss($layout->custom_css) : '';
         $customJs = $layout ? CustomCodeSandbox::sanitizeJs($layout->custom_js) : '';
-        $hasOverride = trim($customHtml) !== '' || trim($customCss) !== '' || trim($customJs) !== '';
+        $useCustomCode = $layout !== null
+            ? ($layout->hasAttribute('use_custom_code') && !empty($layout->use_custom_code)) || !empty($form->custom_code_mode)
+            : !empty($form->custom_code_mode);
 
         $fields = array_map(static function (array $field): array {
             $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);
@@ -59,7 +61,8 @@ class FormRenderService
 
         return [
             'fields' => $fields,
-            'hasOverride' => $hasOverride,
+            'hasOverride' => $useCustomCode,
+            'useCustomCode' => $useCustomCode,
             'customHtml' => $customHtml,
             'customCss' => $customCss,
             'customJs' => $customJs,

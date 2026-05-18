@@ -8,6 +8,7 @@ use app\models\MasterPage;
 use app\models\MasterForm;
 use app\models\PageForms;
 use app\models\Form;
+use app\services\DynamicFormPreviewService;
 use yii\helpers\Url;
 
 /**
@@ -287,6 +288,10 @@ class PageDisplayService
                 'custom_html' => $page->custom_html ?? '',
                 'custom_css' => $page->custom_css ?? '',
                 'custom_js' => $page->custom_js ?? '',
+                'page_custom_html' => $page->page_custom_html ?? '',
+                'page_custom_css' => $page->page_custom_css ?? '',
+                'page_custom_js' => $page->page_custom_js ?? '',
+                'use_page_custom_code' => $page->use_page_custom_code ?? 0,
             ],
             'render' => [
                 'mode' => $renderMode['mode'],
@@ -451,16 +456,21 @@ class PageDisplayService
 
     private function hasCustomPageSource(array $page): bool
     {
-        return trim((string)($page['custom_html'] ?? '')) !== ''
-            || trim((string)($page['custom_css'] ?? '')) !== ''
-            || trim((string)($page['custom_js'] ?? '')) !== '';
+        return !empty($page['use_page_custom_code'])
+            || (($page['page_type'] ?? MasterPage::PAGE_TYPE_BUILDER) === MasterPage::PAGE_TYPE_CUSTOM_CODE);
     }
 
     private function renderCustomPageSource(array $page): string
     {
-        $customHtml = (string)($page['custom_html'] ?? '');
-        $customCss = trim((string)($page['custom_css'] ?? ''));
-        $customJs = trim((string)($page['custom_js'] ?? ''));
+        $customHtml = (string)(($page['page_custom_html'] ?? '') !== '' ? $page['page_custom_html'] : ($page['custom_html'] ?? ''));
+        $customCss = trim((string)(($page['page_custom_css'] ?? '') !== '' ? $page['page_custom_css'] : ($page['custom_css'] ?? '')));
+        $customJs = trim((string)(($page['page_custom_js'] ?? '') !== '' ? $page['page_custom_js'] : ($page['custom_js'] ?? '')));
+
+        $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches): string {
+            return (new DynamicFormPreviewService())->renderByScopedId((int)$matches[1], true, true, [
+                'render_context' => 'page_content',
+            ]);
+        }, $customHtml);
 
         $html = '';
         if ($customHtml !== '' && (preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1)) {
@@ -727,6 +737,10 @@ class PageDisplayService
                 'custom_html' => $page->custom_html ?? '',
                 'custom_css' => $page->custom_css ?? '',
                 'custom_js' => $page->custom_js ?? '',
+                'page_custom_html' => $page->page_custom_html ?? '',
+                'page_custom_css' => $page->page_custom_css ?? '',
+                'page_custom_js' => $page->page_custom_js ?? '',
+                'use_page_custom_code' => $page->use_page_custom_code ?? 0,
             ],
             'render' => [
                 'mode' => $renderMode['mode'],

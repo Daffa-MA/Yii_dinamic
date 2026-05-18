@@ -18,9 +18,22 @@ $permissionRegistry = new \app\components\ProjectPermissionRegistry();
 $customHtml = trim((string) ($customHtml ?? ''));
 $customCss = trim((string) ($customCss ?? ''));
 $customJs = trim((string) ($customJs ?? ''));
-$hasCustomPageSource = $customHtml !== '' || $customCss !== '' || $customJs !== '';
+$hasCustomPageSource = $isCustomCode && ($customHtml !== '' || $customCss !== '' || $customJs !== '');
 
 if ($hasCustomPageSource) {
+    $formRenderer = new \app\services\DynamicFormPreviewService();
+    $replaceFormTokens = static function (string $source) use ($formRenderer, $pageId, $menuId): string {
+        return preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($formRenderer, $pageId, $menuId): string {
+            return $formRenderer->renderByScopedId((int)$matches[1], true, true, [
+                'render_context' => 'page_content',
+                'page_id' => $pageId,
+                'menu_id' => $menuId,
+            ]);
+        }, $source);
+    };
+
+    $customHtml = $replaceFormTokens($customHtml);
+
     // Check if it looks like a complete HTML document
     $isCompleteDoc = strpos($customHtml, '<!DOCTYPE') === 0 || 
                      strpos($customHtml, '<html') === 0;

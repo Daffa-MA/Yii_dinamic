@@ -10,6 +10,9 @@ use app\models\FormPlacement;
 use app\models\SidebarMenu;
 use app\models\MasterForm;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
+use app\models\ProjectUser;
 use app\components\ProjectSchema;
 
 /**
@@ -30,6 +33,43 @@ class FormPlacementController extends Controller
     private function findScopedForm($formId): ?MasterForm
     {
         return MasterForm::findByIdScoped($formId);
+    }
+
+    private function getWorkspaceAuthenticatedUser(?int $projectId = null): ?ProjectUser
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        $resolvedProjectId = $projectId ?? $this->getActiveProjectId();
+        if ($resolvedProjectId === null) {
+            return null;
+        }
+
+        return (new ProjectAuthContext())->getAuthenticatedUser($resolvedProjectId);
+    }
+
+    private function getEffectiveUserId(): ?int
+    {
+        $workspaceUser = $this->getWorkspaceAuthenticatedUser();
+        if ($workspaceUser !== null) {
+            return (int)$workspaceUser->id;
+        }
+
+        if (!Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
+            return (int)Yii::$app->user->id;
+        }
+
+        return null;
+    }
+
+    private function canAccessFormPlacementController(): bool
+    {
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->getWorkspaceAuthenticatedUser() !== null;
     }
 
     public function beforeAction($action)
@@ -62,7 +102,12 @@ class FormPlacementController extends Controller
             'access' => [
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
-                    ['allow' => true, 'roles' => ['@']],
+                    [
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            return $this->canAccessFormPlacementController();
+                        },
+                    ],
                 ],
             ],
         ];
@@ -76,7 +121,7 @@ class FormPlacementController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
         
         try {
-            $userId = Yii::$app->user->id;
+            $userId = $this->getEffectiveUserId();
             $tree = SidebarMenu::getMenuTree(null, $userId);
             
             return [
@@ -188,7 +233,10 @@ class FormPlacementController extends Controller
             
             $menu = new SidebarMenu();
             $menu->load($post);
-            $menu->user_id = Yii::$app->user->id;
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $menu->user_id = $effectiveUserId;
+            }
             
             if (isset($post['form_id'])) {
                 $form = $this->findScopedForm($post['form_id']);
@@ -287,7 +335,7 @@ class FormPlacementController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
         
         try {
-            $userId = Yii::$app->user->id;
+            $userId = $this->getEffectiveUserId();
             $excludeId = Yii::$app->request->get('exclude_id');
             
             $items = SidebarMenu::getDropdownItems($excludeId, $userId);
@@ -360,7 +408,7 @@ class FormPlacementController extends Controller
             $menu = SidebarMenu::findOne($placement->menu_id);
         } else {
             $menu = new SidebarMenu();
-            $menu->user_id = $placement->form->user_id ?? Yii::$app->user->id;
+            $menu->user_id = $placement->form->user_id ?? $this->getEffectiveUserId();
             $menu->type = SidebarMenu::TYPE_LINK;
         }
 

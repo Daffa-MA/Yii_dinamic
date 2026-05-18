@@ -12,6 +12,8 @@ use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
+use app\models\ProjectUser;
 use app\components\ProjectSchema;
 
 class TableBuilderController extends Controller
@@ -40,6 +42,43 @@ class TableBuilderController extends Controller
     private function isCommanderSuperAdmin(): bool
     {
         return (new CommanderAuthContext())->isSuperAdmin();
+    }
+
+    private function getWorkspaceAuthenticatedUser(?int $projectId = null): ?ProjectUser
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        $resolvedProjectId = $projectId ?? $this->getActiveProjectId();
+        if ($resolvedProjectId === null) {
+            return null;
+        }
+
+        return (new ProjectAuthContext())->getAuthenticatedUser($resolvedProjectId);
+    }
+
+    private function getEffectiveUserId(): ?int
+    {
+        $workspaceUser = $this->getWorkspaceAuthenticatedUser();
+        if ($workspaceUser !== null) {
+            return (int)$workspaceUser->id;
+        }
+
+        if (!Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
+            return (int)Yii::$app->user->id;
+        }
+
+        return null;
+    }
+
+    private function canAccessWorkspaceBuilder(): bool
+    {
+        if ($this->isCommanderSuperAdmin()) {
+            return true;
+        }
+
+        return $this->getWorkspaceAuthenticatedUser() !== null;
     }
 
     private function logFkDebug(string $stage, array $context = []): void
@@ -339,7 +378,10 @@ class TableBuilderController extends Controller
             ->orderBy(['name' => SORT_ASC]);
 
         if (!$this->isCommanderSuperAdmin()) {
-            $tablesQuery->where(['user_id' => Yii::$app->user->id]);
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $tablesQuery->where(['user_id' => $effectiveUserId]);
+            }
         }
 
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
@@ -808,7 +850,9 @@ class TableBuilderController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'],
+                        'matchCallback' => function () {
+                            return $this->canAccessWorkspaceBuilder();
+                        },
                     ],
                 ],
             ],
@@ -844,7 +888,10 @@ class TableBuilderController extends Controller
             ->with(['columns'])
             ->orderBy(['created_at' => SORT_DESC]);
         if (!$this->isCommanderSuperAdmin()) {
-            $tablesQuery->where(['user_id' => Yii::$app->user->id]);
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $tablesQuery->where(['user_id' => $effectiveUserId]);
+            }
         }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $tablesQuery->andWhere(['project_id' => $activeProjectId]);
@@ -872,8 +919,9 @@ class TableBuilderController extends Controller
         $this->refreshDbTableColumnsSchema();
 
         $model = new DbTable();
-        if (!$this->isCommanderSuperAdmin()) {
-            $model->user_id = Yii::$app->user->id;
+        $effectiveUserId = $this->getEffectiveUserId();
+        if (!$this->isCommanderSuperAdmin() && $effectiveUserId !== null) {
+            $model->user_id = $effectiveUserId;
         }
         $this->assignActiveProject($model);
         $model->engine = 'InnoDB';
@@ -908,8 +956,8 @@ class TableBuilderController extends Controller
         }
 
         if ($model->load(Yii::$app->request->post())) {
-            if (!$this->isCommanderSuperAdmin()) {
-                $model->user_id = Yii::$app->user->id;
+            if (!$this->isCommanderSuperAdmin() && $effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
             }
             $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
@@ -1148,7 +1196,10 @@ class TableBuilderController extends Controller
         $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
 
         if ($model->load(Yii::$app->request->post())) {
-            $model->user_id = Yii::$app->user->id;
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
@@ -2414,9 +2465,12 @@ class TableBuilderController extends Controller
 
         $activeProjectId = $this->getActiveProjectId();
         $criteria = [
-            'user_id' => Yii::$app->user->id,
             'name' => strtolower($tableName),
         ];
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $criteria['user_id'] = $effectiveUserId;
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $criteria['project_id'] = $activeProjectId;
         }
@@ -2424,7 +2478,9 @@ class TableBuilderController extends Controller
         $model = DbTable::findOne($criteria);
         if ($model === null) {
             $model = new DbTable();
-            $model->user_id = Yii::$app->user->id;
+            if ($effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $model->name = strtolower($tableName);
             $model->label = ucwords(str_replace('_', ' ', strtolower($tableName)));
@@ -2599,7 +2655,10 @@ class TableBuilderController extends Controller
             'id' => (int)$id,
         ];
         if (!$this->isCommanderSuperAdmin()) {
-            $criteria['user_id'] = Yii::$app->user->id;
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $criteria['user_id'] = $effectiveUserId;
+            }
         }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $criteria['project_id'] = $activeProjectId;
@@ -2682,7 +2741,10 @@ class TableBuilderController extends Controller
                 ->orderBy(['created_at' => SORT_DESC]);
 
             if (!$this->isCommanderSuperAdmin()) {
-                $tablesQuery->where(['user_id' => Yii::$app->user->id]);
+                $effectiveUserId = $this->getEffectiveUserId();
+                if ($effectiveUserId !== null) {
+                    $tablesQuery->where(['user_id' => $effectiveUserId]);
+                }
             }
                 
             if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {

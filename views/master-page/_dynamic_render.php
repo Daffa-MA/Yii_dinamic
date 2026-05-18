@@ -15,10 +15,15 @@ $menuId = (int)($menuId ?? 0);
 $permissionRegistry = new \app\components\ProjectPermissionRegistry();
 
 // Prioritize persisted full-page custom source when available.
-if (!empty(trim((string) $customHtml))) {
+$customHtml = trim((string) ($customHtml ?? ''));
+$customCss = trim((string) ($customCss ?? ''));
+$customJs = trim((string) ($customJs ?? ''));
+$hasCustomPageSource = $customHtml !== '' || $customCss !== '' || $customJs !== '';
+
+if ($hasCustomPageSource) {
     // Check if it looks like a complete HTML document
-    $isCompleteDoc = strpos(trim($customHtml), '<!DOCTYPE') === 0 || 
-                     strpos(trim($customHtml), '<html') === 0;
+    $isCompleteDoc = strpos($customHtml, '<!DOCTYPE') === 0 || 
+                     strpos($customHtml, '<html') === 0;
 
     if ($isCompleteDoc) {
         echo $customHtml;

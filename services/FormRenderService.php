@@ -9,6 +9,39 @@ use app\models\MasterFormLayout;
 
 class FormRenderService
 {
+    public function hasCustomCodePayload(array $renderPayload, ?MasterForm $form = null): bool
+    {
+        $customHtml = trim((string)($renderPayload['customHtml'] ?? ''));
+        $customCss = trim((string)($renderPayload['customCss'] ?? ''));
+        $customJs = trim((string)($renderPayload['customJs'] ?? ''));
+
+        if ($customHtml !== '' || $customCss !== '' || $customJs !== '') {
+            return true;
+        }
+
+        return $form !== null && !empty($form->custom_code_mode);
+    }
+
+    public function renderCustomCodeOnly(array $renderPayload): string
+    {
+        $customHtml = (string)($renderPayload['customHtml'] ?? '');
+        $customCss = trim((string)($renderPayload['customCss'] ?? ''));
+        $customJs = trim((string)($renderPayload['customJs'] ?? ''));
+
+        $html = '';
+        if ($customCss !== '') {
+            $html .= '<style>' . $customCss . '</style>';
+        }
+
+        $html .= $customHtml;
+
+        if ($customJs !== '') {
+            $html .= '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>';
+        }
+
+        return $html;
+    }
+
     public function buildRenderPayload(MasterForm $form, array $fields, ?MasterFormLayout $layout): array
     {
         $customHtml = $layout ? CustomCodeSandbox::sanitizeHtml($layout->custom_html) : '';

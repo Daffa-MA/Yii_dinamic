@@ -5,6 +5,7 @@ use yii\helpers\Json;
 use yii\web\View;
 use app\models\DbTable;
 use app\helpers\FormSystemFieldHelper;
+use app\services\FormRenderService;
 
 /* @var $this yii\web\View */
 /* @var $model app\models\MasterForm */
@@ -21,22 +22,19 @@ if (empty($fields)) {
 }
 $fields = FormSystemFieldHelper::filterFields($fields);
 $formName = $model->form_name ?? 'Form';
+$formRenderService = new FormRenderService();
+$hasCustomCode = $formRenderService->hasCustomCodePayload($renderPayload, $model);
+
+if ($hasCustomCode) {
+    echo $formRenderService->renderCustomCodeOnly($renderPayload);
+    return;
+}
+
 $tableName = null;
 if ($model->table_id) {
     $dbTable = DbTable::findOne($model->table_id);
     $tableName = $dbTable ? $dbTable->name : null;
 }
-
-// Debug custom code detection
-$hasCustomCode = !empty($renderPayload['hasOverride']);
-$customHtml = $renderPayload['customHtml'] ?? '';
-$customCss = $renderPayload['customCss'] ?? '';
-$customJs = $renderPayload['customJs'] ?? '';
-$isCustomCodeMode = !empty($model->custom_code_mode);
-$hasBuilderFields = !empty($fields);
-
-// Determine if we should render custom code or form builder
-$shouldRenderCustom = !$hasBuilderFields && $hasCustomCode && ($isCustomCodeMode || !empty($customHtml));
 
 $this->title = 'Preview: ' . $formName;
 ?>

@@ -283,6 +283,10 @@ class PageDisplayService
                 'slug' => $page->slug,
                 'layout' => $page->layout,
                 'description' => $page->description,
+                'page_type' => $page->page_type ?? MasterPage::PAGE_TYPE_BUILDER,
+                'custom_html' => $page->custom_html ?? '',
+                'custom_css' => $page->custom_css ?? '',
+                'custom_js' => $page->custom_js ?? '',
             ],
             'render' => [
                 'mode' => $renderMode['mode'],
@@ -414,6 +418,10 @@ class PageDisplayService
         $forms = $pageData['forms'];
         $render = $pageData['render'];
 
+        if ($this->hasCustomPageSource($page)) {
+            return $this->renderCustomPageSource($page);
+        }
+
         $html = '<div class="page-content">';
         
         // Page Header
@@ -439,6 +447,37 @@ class PageDisplayService
         $html .= '</div>';
         
         return $html;
+    }
+
+    private function hasCustomPageSource(array $page): bool
+    {
+        return trim((string)($page['custom_html'] ?? '')) !== ''
+            || trim((string)($page['custom_css'] ?? '')) !== ''
+            || trim((string)($page['custom_js'] ?? '')) !== '';
+    }
+
+    private function renderCustomPageSource(array $page): string
+    {
+        $customHtml = (string)($page['custom_html'] ?? '');
+        $customCss = trim((string)($page['custom_css'] ?? ''));
+        $customJs = trim((string)($page['custom_js'] ?? ''));
+
+        $html = '';
+        if ($customHtml !== '' && (preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1)) {
+            return $customHtml;
+        }
+
+        if ($customCss !== '') {
+            $html .= '<style>' . $customCss . '</style>';
+        }
+
+        $html .= $customHtml;
+
+        if ($customJs !== '') {
+            $html .= '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>';
+        }
+
+        return $html !== '' ? $html : '<div class="alert alert-info">Tidak ada custom content untuk halaman ini.</div>';
     }
 
     /**
@@ -684,6 +723,10 @@ class PageDisplayService
                 'slug' => $page->slug,
                 'layout' => $page->layout,
                 'description' => $page->description,
+                'page_type' => $page->page_type ?? MasterPage::PAGE_TYPE_BUILDER,
+                'custom_html' => $page->custom_html ?? '',
+                'custom_css' => $page->custom_css ?? '',
+                'custom_js' => $page->custom_js ?? '',
             ],
             'render' => [
                 'mode' => $renderMode['mode'],

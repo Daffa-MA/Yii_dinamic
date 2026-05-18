@@ -2,6 +2,7 @@
 
 namespace app\components;
 
+use app\models\Project;
 use Yii;
 use yii\base\ActionEvent;
 use yii\base\Application;
@@ -56,28 +57,47 @@ class ProjectAccessBootstrap implements BootstrapInterface
                 return;
             }
 
+            $commanderAuth = new CommanderAuthContext();
             $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
             if (!$this->isProtectedRoute($route)) {
                 return;
             }
 
-            if ($activeProjectId === null) {
-                $this->redirectSafely($event, Url::to(['project/index']), 'protected_route_without_active_project');
+            if ($commanderAuth->isSuperAdmin()) {
+                if ($activeProjectId === null) {
+                    $host = (new DomainContext())->currentHost();
+                    $project = Project::findByCustomDomain($host);
+                    if ($project !== null) {
+                        $projectContext = new ActiveProjectContext();
+                        $projectContext->setResolvedDomainProject((int)$project->id);
+                        $projectContext->setActiveProject((int)$project->id);
+                        $projectContext->setSuperAdminMode(true);
+                        (new ActiveDatabaseContext())->resolveAndApply();
+                        $activeProjectId = (int)$project->id;
+                    }
+                }
+
+                AuthContextDebugLogger::log('workspace_superadmin_bypass', [
+                    'route' => $route,
+                    'active_project_id' => $activeProjectId,
+                ]);
                 return;
             }
 
-            $commanderAuth = new CommanderAuthContext();
-            if ($commanderAuth->isSuperAdmin()) {
-                (new ActiveDatabaseContext())->resolveAndApply();
+            if ($activeProjectId === null) {
+                AuthContextDebugLogger::log('workspace_redirect_project_index_missing_project', [
+                    'route' => $route,
+                ]);
+                $this->redirectSafely($event, Url::to(['project/index']), 'protected_route_without_active_project');
                 return;
             }
 
             (new ActiveDatabaseContext())->resolveAndApply();
             $authContext = new ProjectAuthContext();
-            if ($authContext->isAuthenticated($activeProjectId)) {
-                if ($authContext->requiresPasswordChange($activeProjectId)) {
-                    Yii::$app->session->setFlash('warning', 'Anda masih menggunakan password default. Disarankan segera mengganti password.');
-                }
+                if ($authContext->isAuthenticated($activeProjectId)) {
+                    if ($authContext->requiresPasswordChange($activeProjectId)) {
+                        Yii::$app->session->setFlash('warning', 'Anda masih menggunakan password default. Disarankan segera mengganti password.');
+                    }
 
                 if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
                     Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
@@ -85,9 +105,18 @@ class ProjectAccessBootstrap implements BootstrapInterface
                     return;
                 }
 
+                AuthContextDebugLogger::log('workspace_project_auth_allowed', [
+                    'route' => $route,
+                    'active_project_id' => $activeProjectId,
+                    'project_auth' => true,
+                ]);
                 return;
             }
 
+            AuthContextDebugLogger::log('workspace_project_auth_required', [
+                'route' => $route,
+                'active_project_id' => $activeProjectId,
+            ]);
             $loginUrl = Url::to([
                 'project/login',
                 'id' => $activeProjectId,

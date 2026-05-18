@@ -32,19 +32,44 @@ $profileUsername = 'User';
 $profileRole = 'Member';
 $profileAvatar = 'U';
 $commanderAuth = new CommanderAuthContext();
+$domainContext = new DomainContext();
+$isRootDomain = $domainContext->isRootDomain();
+$isWorkspaceDomain = $domainContext->isWorkspaceDomain();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
-if ($projectAuthUser !== null) {
+if ($isRootDomain) {
+    $commanderUser = $commanderAuth->getUser();
+    if ($commanderUser !== null) {
+        $profileUsername = (string)($commanderUser->username ?? 'admin');
+        $profileRole = 'Superadmin';
+        $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
+    } elseif ($commanderAuth->isAuthenticated()) {
+        $profileUsername = 'admin';
+        $profileRole = 'Superadmin';
+        $profileAvatar = 'A';
+    }
+} elseif ($commanderAuth->isSuperAdmin() && $isWorkspaceDomain) {
+    $commanderUser = $commanderAuth->getUser();
+    if ($commanderUser !== null) {
+        $profileUsername = (string)($commanderUser->username ?? 'admin');
+        $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
+    } else {
+        $profileUsername = 'admin';
+        $profileAvatar = 'A';
+    }
+    $profileRole = 'Commander Mode';
+} elseif ($projectAuthUser !== null) {
     $profileUsername = (string)$projectAuthUser->username;
     $profileRole = $projectAuthUser->role !== '' ? ucfirst(str_replace(['_', '-'], ' ', (string)$projectAuthUser->role)) : 'Admin';
     $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
-} elseif ($commanderAuth->isAuthenticated() && Yii::$app->user->identity !== null) {
-    $profileUsername = (string)(Yii::$app->user->identity->username ?? 'User');
+} elseif ($commanderAuth->isAuthenticated()) {
+    $commanderUser = $commanderAuth->getUser();
+    $profileUsername = $commanderUser !== null ? (string)($commanderUser->username ?? 'User') : 'User';
     $commanderRole = $commanderAuth->getRole();
     $profileRole = $commanderRole === 'superadmin'
-        ? 'Commander Mode'
+        ? ($isWorkspaceDomain ? 'Commander Mode' : 'Superadmin')
         : ucfirst(str_replace(['_', '-'], ' ', $commanderRole !== '' ? $commanderRole : 'Commander'));
     $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
-} elseif ((new DomainContext())->isWorkspaceDomain() && $activeProjectId !== null) {
+} elseif ($isWorkspaceDomain && $activeProjectId !== null) {
     $profileUsername = 'Workspace';
     $profileRole = 'Active Session';
 }

@@ -10,6 +10,7 @@ class ActiveProjectContext
 {
     public const SESSION_KEY = 'active_project_id';
     public const SESSION_KEY_DOMAIN = 'resolved_domain_project_id';
+    public const SESSION_KEY_SUPERADMIN_MODE = 'superadmin_mode';
 
     public function getActiveProjectId(): ?int
     {
@@ -30,12 +31,12 @@ class ActiveProjectContext
             return null;
         }
 
-        if (Yii::$app->user->isGuest) {
-            return null;
-        }
-
         if ((new CommanderAuthContext())->isSuperAdmin()) {
             return $projectId;
+        }
+
+        if (Yii::$app->user->isGuest) {
+            return null;
         }
 
         $isOwned = Project::find()
@@ -61,11 +62,11 @@ class ActiveProjectContext
             return null;
         }
 
-        if (Yii::$app->user->isGuest) {
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
             return Project::findOne(['id' => $projectId]);
         }
 
-        if ((new CommanderAuthContext())->isSuperAdmin()) {
+        if (Yii::$app->user->isGuest) {
             return Project::findOne(['id' => $projectId]);
         }
 
@@ -74,10 +75,6 @@ class ActiveProjectContext
 
     public function setActiveProject(int $projectId): bool
     {
-        if (Yii::$app->user->isGuest) {
-            return false;
-        }
-
         if (!ProjectSchema::supportsProjectContext()) {
             return false;
         }
@@ -86,6 +83,10 @@ class ActiveProjectContext
             Yii::$app->session->set(self::SESSION_KEY, $projectId);
             Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
             return true;
+        }
+
+        if (Yii::$app->user->isGuest) {
+            return false;
         }
 
         $isOwned = Project::find()
@@ -101,10 +102,26 @@ class ActiveProjectContext
         return true;
     }
 
+    public function setSuperAdminMode(bool $enabled): void
+    {
+        if ($enabled) {
+            Yii::$app->session->set(self::SESSION_KEY_SUPERADMIN_MODE, true);
+            return;
+        }
+
+        Yii::$app->session->remove(self::SESSION_KEY_SUPERADMIN_MODE);
+    }
+
+    public function isSuperAdminMode(): bool
+    {
+        return (bool)Yii::$app->session->get(self::SESSION_KEY_SUPERADMIN_MODE, false);
+    }
+
     public function clear(): void
     {
         Yii::$app->session->remove(self::SESSION_KEY);
         Yii::$app->session->remove(self::SESSION_KEY_DOMAIN);
+        Yii::$app->session->remove(self::SESSION_KEY_SUPERADMIN_MODE);
     }
 
     public function clearResolvedDomainProject(): void

@@ -49,6 +49,10 @@ class ProjectPermissionService
             }
         }
 
+        if ($this->canAccessRouteViaMenu($route, $projectId)) {
+            return true;
+        }
+
         $permissionKeys = $this->buildRoutePermissionKeys($route, $projectId);
         return $this->canAccessPermissionKeys($permissionKeys, $projectId);
     }
@@ -868,6 +872,38 @@ class ProjectPermissionService
         }
 
         return array_values(array_unique($menuKeys));
+    }
+
+    private function canAccessRouteViaMenu(string $route, ?int $projectId = null): bool
+    {
+        $schema = Yii::$app->db->schema;
+        if ($schema->getTableSchema('master_menu', true) === null) {
+            return false;
+        }
+
+        $normalizedRoute = '/' . ltrim(trim($route, '/'), '/');
+        $requestPath = '/' . ltrim(trim((string)Yii::$app->request->pathInfo, '/'), '/');
+        $menus = (new Query())
+            ->from('master_menu')
+            ->where(['type' => 'route', 'is_active' => 1])
+            ->all(Yii::$app->db);
+
+        foreach ($menus as $menu) {
+            if (!is_array($menu)) {
+                continue;
+            }
+
+            $menuRoute = '/' . ltrim(trim((string)($menu['route'] ?? ''), '/'), '/');
+            if ($menuRoute !== $normalizedRoute && $menuRoute !== $requestPath) {
+                continue;
+            }
+
+            if ($this->canAccessMenu($menu, $projectId)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function resolvePageFromRequest(string $routeOnly): ?MasterPage

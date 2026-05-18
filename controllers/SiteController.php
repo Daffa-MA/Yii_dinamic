@@ -11,6 +11,8 @@ use app\models\DbTable;
 use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 use app\components\ProjectSchema;
 
 class SiteController extends Controller
@@ -28,7 +30,6 @@ class SiteController extends Controller
     
     private function redirectAfterAuthentication()
     {
-        // Always redirect to projects page first after login
         return $this->redirect(['project/index']);
     }
 
@@ -43,9 +44,46 @@ class SiteController extends Controller
                 'only' => ['logout', 'dashboard', 'profile', 'change-password'],
                 'rules' => [
                     [
+                        'actions' => ['profile'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            return (new DomainContext())->isRootDomain()
+                                && (new CommanderAuthContext())->isAuthenticated();
+                        },
+                    ],
+                    [
                         'actions' => ['logout', 'dashboard', 'profile', 'change-password'],
                         'allow' => true,
                         'roles' => ['@'],
+                    ],
+                    [
+                        'actions' => ['dashboard', 'profile', 'change-password'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            $domainContext = new DomainContext();
+                            if ($domainContext->isRootDomain()) {
+                                return false;
+                            }
+
+                            if (!ProjectSchema::supportsProjectContext()) {
+                                return false;
+                            }
+
+                            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+                            return $activeProjectId !== null && (new \app\components\ProjectAuthContext())->isAuthenticated($activeProjectId);
+                        },
+                    ],
+                    [
+                        'actions' => ['logout'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            if (Yii::$app->user->isGuest) {
+                                $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+                                return $activeProjectId !== null && (new \app\components\ProjectAuthContext())->isAuthenticated($activeProjectId);
+                            }
+
+                            return true;
+                        },
                     ],
                 ],
             ],
@@ -83,10 +121,11 @@ class SiteController extends Controller
      */
     public function actionDashboard()
     {
+        $domainContext = new DomainContext();
         $projectContext = new ActiveProjectContext();
         $projectContextEnabled = ProjectSchema::supportsProjectContext();
-        $activeProjectId = $projectContextEnabled ? $projectContext->getActiveProjectId() : null;
-        if ($projectContextEnabled && $activeProjectId === null) {
+        $activeProjectId = (!$domainContext->isRootDomain() && $projectContextEnabled) ? $projectContext->getActiveProjectId() : null;
+        if (!$domainContext->isRootDomain() && $projectContextEnabled && $activeProjectId === null) {
             Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
             Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table/form.');
             return $this->redirect(['project/index']);
@@ -98,10 +137,13 @@ class SiteController extends Controller
         }
 
         $userId = Yii::$app->user->id;
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
         $activeProject = null;
         $projectDatabaseName = null;
         if ($projectContextEnabled && $activeProjectId !== null) {
-            $activeProject = Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
+            $activeProject = $isCommanderSuperAdmin
+                ? Project::findOne(['id' => $activeProjectId])
+                : Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
             // Get the project's database name
             if ($activeProject !== null) {
                 $projectController = new ProjectController('project', Yii::$app);
@@ -114,9 +156,9 @@ class SiteController extends Controller
             $cacheSuffix .= '-project-' . $activeProjectId;
         }
 
-        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId, $activeProjectId, $projectContextEnabled) {
-            $formFilter = ['user_id' => $userId];
-            $submissionFormFilter = ['forms.user_id' => $userId];
+        $dashboardStats = Yii::$app->cache->getOrSet('dashboard-stats-' . $userId . $cacheSuffix, function () use ($userId, $activeProjectId, $projectContextEnabled, $isCommanderSuperAdmin) {
+            $formFilter = $isCommanderSuperAdmin ? [] : ['user_id' => $userId];
+            $submissionFormFilter = $isCommanderSuperAdmin ? [] : ['forms.user_id' => $userId];
             if ($projectContextEnabled && $activeProjectId !== null) {
                 $formFilter['project_id'] = $activeProjectId;
                 $submissionFormFilter['forms.project_id'] = $activeProjectId;
@@ -146,9 +188,11 @@ class SiteController extends Controller
 
         $recentFormsQuery = Form::find()
             ->select(['id'])
-            ->where(['user_id' => $userId])
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
             ->limit(5);
+        if (!$isCommanderSuperAdmin) {
+            $recentFormsQuery->where(['user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $recentFormsQuery->andWhere(['project_id' => $activeProjectId]);
         }
@@ -171,7 +215,9 @@ class SiteController extends Controller
             ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC])
             ->limit(6);
-        $formsQuery->where(['f.user_id' => $userId]);
+        if (!$isCommanderSuperAdmin) {
+            $formsQuery->where(['f.user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $formsQuery->andWhere(['f.project_id' => $activeProjectId]);
         }
@@ -187,7 +233,9 @@ class SiteController extends Controller
             ])
             ->orderBy(['created_at' => SORT_DESC])
             ->limit(10);
-        $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
+        if (!$isCommanderSuperAdmin) {
+            $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $recentSubmissionsQuery->andWhere(['forms.project_id' => $activeProjectId]);
         }
@@ -213,7 +261,10 @@ class SiteController extends Controller
 
         // Use project database name if available, otherwise use the general active database
         $displayDatabase = $projectDatabaseName ?: ($databaseContext['activeDatabase'] ?? 'default');
-        $databaseTableQuery = DbTable::find()->where(['user_id' => $userId]);
+        $databaseTableQuery = DbTable::find();
+        if (!$isCommanderSuperAdmin) {
+            $databaseTableQuery->where(['user_id' => $userId]);
+        }
         if ($projectContextEnabled && $activeProjectId !== null) {
             $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
         }
@@ -259,17 +310,10 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
-        // Destroy identity from session
+        (new ActiveProjectContext())->clear();
+        (new CommanderAuthContext())->logout();
         Yii::$app->user->logout(true);
-
-        // Clear session completely
         Yii::$app->session->destroy();
-
-        // Clear cookies
-        $cookies = Yii::$app->response->cookies;
-        $cookies->remove('_identity');
-        $cookies->remove('_csrf');
-
         return $this->redirect(['site/login']);
     }
 
@@ -278,17 +322,45 @@ class SiteController extends Controller
      */
     public function actionProfile()
     {
-        $user = Yii::$app->user->identity;
-        $totalForms = Form::find()->where(['user_id' => $user->id])->count();
-        $totalSubmissions = FormSubmission::find()
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $user->id])
-            ->count();
+        $domainContext = new DomainContext();
+        if (!$domainContext->isRootDomain()) {
+            $rootDomain = $domainContext->rootDomain();
+            if ($rootDomain !== '') {
+                return Yii::$app->response->redirect('https://' . $rootDomain . '/profile');
+            }
+
+            return $this->redirect(['project/profile']);
+        }
+
+        $commanderAuth = new CommanderAuthContext();
+        if (!$commanderAuth->isAuthenticated()) {
+            return $this->redirect(['site/login']);
+        }
+
+        $authData = Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_AUTH, []);
+        $user = $commanderAuth->getUser();
+        $username = $user !== null
+            ? (string)$user->username
+            : (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_USER_ID, 'superadmin');
+        if ($username === '' || ctype_digit($username)) {
+            $username = 'superadmin';
+        }
+        $role = $commanderAuth->getRole();
+        if ($role === '') {
+            $role = 'superadmin';
+        }
+        $email = $user !== null && isset($user->email) ? trim((string)$user->email) : '';
+        $status = $user !== null && isset($user->status) ? ((int)$user->status === 1 ? 'Active' : 'Inactive') : 'Active';
+        $loggedInAt = is_array($authData) ? trim((string)($authData['logged_in_at'] ?? '')) : '';
 
         return $this->render('profile', [
             'user' => $user,
-            'totalForms' => $totalForms,
-            'totalSubmissions' => $totalSubmissions,
+            'username' => $username,
+            'email' => $email,
+            'role' => $role,
+            'status' => $status,
+            'loggedInAt' => $loggedInAt,
+            'sessionKey' => CommanderAuthContext::SESSION_KEY_AUTH,
         ]);
     }
 
@@ -298,7 +370,15 @@ class SiteController extends Controller
     public function actionChangePassword()
     {
         if (Yii::$app->request->isPost) {
-            $user = Yii::$app->user->identity;
+            $domainContext = new DomainContext();
+            $commanderAuth = new CommanderAuthContext();
+            $redirectTarget = $domainContext->isRootDomain() ? ['project/index'] : ['profile'];
+            $user = $domainContext->isRootDomain() ? $commanderAuth->getUser() : Yii::$app->user->identity;
+            if ($user === null) {
+                Yii::$app->session->setFlash('error', 'User tidak ditemukan.');
+                return $this->redirect($redirectTarget);
+            }
+
             $currentPassword = Yii::$app->request->post('current_password');
             $newPassword = Yii::$app->request->post('new_password');
             $confirmPassword = Yii::$app->request->post('confirm_password');
@@ -313,13 +393,13 @@ class SiteController extends Controller
                 $user->setPassword($newPassword);
                 if ($user->save(false)) {
                     Yii::$app->session->setFlash('success', 'Password changed successfully!');
-                    return $this->redirect(['profile']);
+                    return $this->redirect($redirectTarget);
                 } else {
                     Yii::$app->session->setFlash('error', 'Failed to change password.');
                 }
             }
         }
 
-        return $this->redirect(['profile']);
+        return $this->redirect((new DomainContext())->isRootDomain() ? ['project/index'] : ['profile']);
     }
 }

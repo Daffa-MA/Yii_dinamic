@@ -19,6 +19,9 @@ use app\models\DbTable;
 use app\models\Project;
 use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
+use app\models\ProjectUser;
 use app\components\ProjectSchema;
 use app\helpers\FormSystemFieldHelper;
 
@@ -44,6 +47,43 @@ class FormController extends Controller
 
         $activeProjectId = $this->getActiveProjectId();
         $model->project_id = $activeProjectId !== null ? (int)$activeProjectId : null;
+    }
+
+    private function getWorkspaceAuthenticatedUser(?int $projectId = null): ?ProjectUser
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        $resolvedProjectId = $projectId ?? $this->getActiveProjectId();
+        if ($resolvedProjectId === null) {
+            return null;
+        }
+
+        return (new ProjectAuthContext())->getAuthenticatedUser($resolvedProjectId);
+    }
+
+    private function getEffectiveUserId(): ?int
+    {
+        $workspaceUser = $this->getWorkspaceAuthenticatedUser();
+        if ($workspaceUser !== null) {
+            return (int)$workspaceUser->id;
+        }
+
+        if (!Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
+            return (int)Yii::$app->user->id;
+        }
+
+        return null;
+    }
+
+    private function canAccessWorkspaceFormController(): bool
+    {
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->getWorkspaceAuthenticatedUser() !== null;
     }
 
     private function shouldBypassProjectContext(string $actionId): bool
@@ -1000,7 +1040,9 @@ class FormController extends Controller
                     ],
                     [
                         'allow' => true,
-                        'roles' => ['@'], // All other actions require login
+                        'matchCallback' => function () {
+                            return $this->canAccessWorkspaceFormController();
+                        },
                     ],
                 ],
             ],
@@ -1039,6 +1081,7 @@ class FormController extends Controller
     {
         $activeProjectId = $this->getActiveProjectId();
         $schemaColumn = Form::getSchemaStorageColumn();
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 
         $submissionCountSubQuery = FormSubmission::find()
             ->select(['form_id', 'submission_count' => 'COUNT(*)'])
@@ -1055,8 +1098,13 @@ class FormController extends Controller
                 'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
             ])
             ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
-            ->where(['f.user_id' => Yii::$app->user->id])
             ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC]);
+        if (!$isCommanderSuperAdmin) {
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $query->where(['f.user_id' => $effectiveUserId]);
+            }
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $query->andWhere(['f.project_id' => $activeProjectId]);
         }
@@ -1081,7 +1129,10 @@ class FormController extends Controller
     public function actionCreate()
     {
         $model = new Form();
-        $model->user_id = Yii::$app->user->id;
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $model->user_id = $effectiveUserId;
+        }
         $this->assignActiveProject($model);
         $model->schema_js = '[]';
         if ($model->hasAttribute('insert_to_table')) {
@@ -1089,7 +1140,9 @@ class FormController extends Controller
         }
 
         if (Yii::$app->request->isPost && $model->load(Yii::$app->request->post())) {
-            $model->user_id = Yii::$app->user->id;
+            if ($effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $model->name = trim((string) $model->name);
             if ($model->name === '') {
@@ -1117,13 +1170,16 @@ class FormController extends Controller
                 $shouldPublish = (bool) Yii::$app->request->post('publish_now', false);
 
                 if ($shouldPublish) {
+                    $effectiveUserId = $this->getEffectiveUserId();
                     $publishedForm = PublishedForm::find()
-                        ->where(['form_id' => $model->id, 'user_id' => Yii::$app->user->id])
+                        ->where(['form_id' => $model->id, 'user_id' => $effectiveUserId])
                         ->one();
 
                     if ($publishedForm === null) {
                         $publishedForm = new PublishedForm();
-                        $publishedForm->user_id = Yii::$app->user->id;
+                        if ($effectiveUserId !== null) {
+                            $publishedForm->user_id = $effectiveUserId;
+                        }
                         $publishedForm->form_id = $model->id;
                     }
 
@@ -1162,7 +1218,10 @@ class FormController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post())) {
-            $model->user_id = Yii::$app->user->id;
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $model->name = trim((string) $model->name);
             if ($model->name === '') {
@@ -1375,7 +1434,14 @@ class FormController extends Controller
             }
 
             // Auto inject Yii logged in user data if available
-            if (!Yii::$app->user->isGuest) {
+            $workspaceUser = $this->getWorkspaceAuthenticatedUser($this->getActiveProjectId());
+            if ($workspaceUser !== null) {
+                $data['_user_id'] = (int)$workspaceUser->id;
+                $data['_user_name'] = (string)$workspaceUser->username;
+                if ($workspaceUser->hasAttribute('email') && !empty($workspaceUser->email)) {
+                    $data['_user_email'] = (string)$workspaceUser->email;
+                }
+            } elseif (!Yii::$app->user->isGuest) {
                 $identity = Yii::$app->user->identity;
                 $data['_user_id'] = $identity->getId();
                 $data['_user_name'] = $identity->username;
@@ -1411,7 +1477,7 @@ class FormController extends Controller
                 if (!$insertDirectlyToTable) {
                     $submission = new FormSubmission();
                     $submission->setAttribute('form_id', (int)$id);
-                    $submission->setAttribute('user_id', !Yii::$app->user->isGuest ? (int)Yii::$app->user->id : null);
+                    $submission->setAttribute('user_id', $this->getEffectiveUserId());
                     
                     if ($submission->hasAttribute('firebase_uid')) {
                         $submission->setAttribute('firebase_uid', (string)Yii::$app->request->post('firebase_uid'));
@@ -1525,7 +1591,10 @@ class FormController extends Controller
         $model = $this->findModel($id);
 
         $newForm = new Form();
-        $newForm->user_id = Yii::$app->user->id;
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $newForm->user_id = $effectiveUserId;
+        }
         $this->assignActiveProject($newForm);
         $newForm->name = $model->name . ' (Copy)';
         $newForm->schema_js = $model->schema_js;
@@ -1614,10 +1683,13 @@ class FormController extends Controller
         }
 
         // Verify table belongs to current user
+        $effectiveUserId = $this->getEffectiveUserId();
         $tableCriteria = [
             'id' => (int)$tableId,
-            'user_id' => Yii::$app->user->id,
         ];
+        if ($effectiveUserId !== null) {
+            $tableCriteria['user_id'] = $effectiveUserId;
+        }
         if (ProjectSchema::supportsProjectContext()) {
             $tableCriteria['project_id'] = $this->getActiveProjectId();
         }
@@ -1840,8 +1912,9 @@ class FormController extends Controller
             }
 
             // Check if already published
+            $effectiveUserId = $this->getEffectiveUserId();
             $existingPublished = PublishedForm::find()
-                ->where(['form_id' => $formId, 'user_id' => Yii::$app->user->id])
+                ->where(['form_id' => $formId, 'user_id' => $effectiveUserId])
                 ->one();
 
             if (Yii::$app->request->isPost) {
@@ -1868,7 +1941,9 @@ class FormController extends Controller
                 } else {
                     // Create new published form
                     $publishedForm = new PublishedForm();
-                    $publishedForm->user_id = Yii::$app->user->id;
+                    if ($effectiveUserId !== null) {
+                        $publishedForm->user_id = $effectiveUserId;
+                    }
                     $publishedForm->form_id = $formId;
                     $publishedForm->name = $name;
 
@@ -1998,6 +2073,7 @@ class FormController extends Controller
     protected function findModel($id, $checkOwnership = true)
     {
         $id = (int)$id;
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 
         if (!$checkOwnership) {
             $model = Form::findOne($id);
@@ -2009,8 +2085,13 @@ class FormController extends Controller
 
         $criteria = [
             'id' => $id,
-            'user_id' => Yii::$app->user->id,
         ];
+        if (!$isCommanderSuperAdmin) {
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $criteria['user_id'] = $effectiveUserId;
+            }
+        }
 
         $activeProjectId = $this->getActiveProjectId();
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {

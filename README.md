@@ -114,7 +114,13 @@ APP_URL=
    - `YII_DB_PASSWORD=<your-mysql-password>`
 3. Build from `Dockerfile` and expose container port `8000`.
 4. In Coolify, set the application port to `8000` so the proxy routes the public domain correctly.
-5. Redeploy app, then run migration:
+5. Use the Traefik labels from `docker-compose.yml` for one shared Yii route:
+   - Root Commander: ``Host(`appforge.web.id`)``
+   - Workspace wildcard: ``HostRegexp(`[a-z0-9-]+\.appforge\.web\.id`)``
+   - Service port: `8000`
+6. Do not use ``Host(`*.appforge.web.id`)``, because Traefik does not match wildcard hosts with `Host()`.
+7. If your Coolify Traefik entrypoint is named `websecure` instead of `https`, change the two `entrypoints=https` labels to `entrypoints=websecure`.
+8. Redeploy app, then run migration:
 
 ```bash
 php yii migrate --interactive=0

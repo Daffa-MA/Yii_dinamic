@@ -1,6 +1,9 @@
 <?php
 use yii\helpers\Html;
 use app\models\WorkspaceSettings;
+use app\components\ProjectAuthContext;
+use app\components\CommanderAuthContext;
+use app\components\DomainContext;
 
 $workspaceSettings = new WorkspaceSettings();
 $workspaceSettings->loadFromSession();
@@ -8,10 +11,13 @@ $cssVars = $workspaceSettings->getCssVars();
 
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
-if (!Yii::$app->user->isGuest && \app\components\ProjectSchema::supportsProjectContext()) {
+$activeProjectId = null;
+$projectAuthUser = null;
+if (\app\components\ProjectSchema::supportsProjectContext()) {
     $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
     if ($activeProjectId !== null) {
-        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId]);
+        $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
     }
 }
 
@@ -21,6 +27,27 @@ $pageTitle = $this->title ?? 'Dashboard';
 $breadcrumbs = [];
 $breadcrumbs[] = ['label' => 'Home', 'url' => ['site/dashboard']];
 $breadcrumbs[] = ['label' => $pageTitle];
+
+$profileUsername = 'User';
+$profileRole = 'Member';
+$profileAvatar = 'U';
+$commanderAuth = new CommanderAuthContext();
+$canOpenProjectList = $commanderAuth->isSuperAdmin();
+if ($projectAuthUser !== null) {
+    $profileUsername = (string)$projectAuthUser->username;
+    $profileRole = $projectAuthUser->role !== '' ? ucfirst(str_replace(['_', '-'], ' ', (string)$projectAuthUser->role)) : 'Admin';
+    $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
+} elseif ($commanderAuth->isAuthenticated() && Yii::$app->user->identity !== null) {
+    $profileUsername = (string)(Yii::$app->user->identity->username ?? 'User');
+    $commanderRole = $commanderAuth->getRole();
+    $profileRole = $commanderRole === 'superadmin'
+        ? 'Commander Mode'
+        : ucfirst(str_replace(['_', '-'], ' ', $commanderRole !== '' ? $commanderRole : 'Commander'));
+    $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
+} elseif ((new DomainContext())->isWorkspaceDomain() && $activeProjectId !== null) {
+    $profileUsername = 'Workspace';
+    $profileRole = 'Active Session';
+}
 ?>
 
 <style>
@@ -244,10 +271,12 @@ $breadcrumbs[] = ['label' => $pageTitle];
 
 <div class="app-topnav">
     <div class="app-topnav-left">
-        <a href="/project-list" class="app-topnav-projects-btn" title="Back to Projects">
-            <span class="material-symbols-outlined">folder</span>
-            Projects
-        </a>
+        <?php if ($canOpenProjectList): ?>
+            <a href="/project-list" class="app-topnav-projects-btn" title="Kembali ke Project List">
+                <span class="material-symbols-outlined">folder</span>
+                Kembali ke Project List
+            </a>
+        <?php endif; ?>
         
         <div class="app-topnav-breadcrumb">
             <?php foreach ($breadcrumbs as $i => $crumb): ?>
@@ -286,11 +315,11 @@ $breadcrumbs[] = ['label' => $pageTitle];
         
         <div class="app-topnav-profile">
             <div class="avatar">
-                <?= strtoupper(substr(Yii::$app->user->identity->username ?? 'U', 0, 1)) ?>
+                <?= Html::encode($profileAvatar) ?>
             </div>
             <div class="info">
-                <span class="name"><?= Html::encode(Yii::$app->user->identity->username ?? 'User') ?></span>
-                <span class="role">Administrator</span>
+                <span class="name"><?= Html::encode($profileUsername) ?></span>
+                <span class="role"><?= Html::encode($profileRole) ?></span>
             </div>
         </div>
     </div>

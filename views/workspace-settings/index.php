@@ -4,10 +4,11 @@ use yii\helpers\Html;
 use yii\bootstrap5\ActiveForm;
 
 $this->title = 'Workspace Settings';
-$this->params['breadcrumbs'][] = ['label' => 'System Builder', 'url' => ['master-menu/index']];
+$this->params['breadcrumbs'][] = ['label' => 'Akses Workspace', 'url' => ['permissions']];
 $this->params['breadcrumbs'][] = $this->title;
 
 $cssVars = $model->getCssVars();
+$loginBackgroundAsset = $model->getLoginBackgroundAsset();
 ?>
 
 <style>
@@ -311,6 +312,12 @@ $cssVars = $model->getCssVars();
     
     .ws-card-icon .material-symbols-outlined {
         font-size: 22px;
+    }
+
+    .ws-card-icon.ws-card-icon-login {
+        background: linear-gradient(135deg, #0f172a 0%, #2563eb 100%);
+        color: #ffffff;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
     }
     
     .ws-card-title-group { flex: 1; }
@@ -781,6 +788,90 @@ $cssVars = $model->getCssVars();
         height: 8px;
         border-radius: 10px;
     }
+
+    .ws-media-picker {
+        display: grid;
+        grid-template-columns: minmax(220px, 1fr) 1.15fr;
+        gap: 16px;
+        align-items: start;
+    }
+
+    .ws-media-preview {
+        min-height: 180px;
+        border-radius: 22px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        background: linear-gradient(135deg, rgba(15, 23, 42, 0.04), rgba(255, 255, 255, 0.85));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+    }
+
+    .ws-media-preview img,
+    .ws-media-preview video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .ws-media-placeholder {
+        text-align: center;
+        padding: 18px;
+        color: #64748b;
+    }
+
+    .ws-media-placeholder .material-symbols-outlined {
+        font-size: 34px;
+        margin-bottom: 8px;
+        color: #94a3b8;
+    }
+
+    .ws-media-actions {
+        display: grid;
+        gap: 10px;
+    }
+
+    .ws-media-actions .ws-form-control[type="file"] {
+        padding: 11px 12px;
+        background: #fff;
+        border-radius: 14px;
+    }
+
+    .ws-media-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .ws-media-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(79, 70, 229, 0.08);
+        border: 1px solid rgba(79, 70, 229, 0.14);
+        color: #4338ca;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .ws-media-help {
+        font-size: 12px;
+        line-height: 1.6;
+        color: #64748b;
+        margin: 0;
+    }
+
+    @media (max-width: 860px) {
+        .ws-media-picker {
+            grid-template-columns: 1fr;
+        }
+    }
 </style>
 
 <div class="ws-page">
@@ -790,7 +881,7 @@ $cssVars = $model->getCssVars();
                 <span class="material-symbols-outlined" style="font-size: 16px;">home</span>
             </a>
             <span class="separator">/</span>
-            <a href="<?= \yii\helpers\Url::to(['master-menu/index']) ?>">System Builder</a>
+            <a href="<?= \yii\helpers\Url::to(['permissions']) ?>">Akses Workspace</a>
             <span class="separator">/</span>
             <span class="current">Workspace Settings</span>
         </div>
@@ -802,9 +893,15 @@ $cssVars = $model->getCssVars();
             </div>
             <h1>Workspace Settings</h1>
             <p>Atur logo, warna sidebar, state aktif, dan navigasi workspace dari satu tempat dengan tampilan yang lebih tenang dan rapi.</p>
+            <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
+<a href="<?= \yii\helpers\Url::to(['permissions']) ?>" class="btn btn-dark" style="border-radius:14px;padding:10px 16px;font-weight:700;">Akses Workspace</a>
+                <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                    <a href="<?= \yii\helpers\Url::to(['project/index']) ?>" class="btn btn-outline-secondary" style="border-radius:14px;padding:10px 16px;font-weight:700;">Kembali ke Project List</a>
+                <?php endif; ?>
+            </div>
         </div>
         
-        <?php $form = ActiveForm::begin(['id' => 'workspace-settings-form', 'action' => ['save']]); ?>
+        <?php $form = ActiveForm::begin(['id' => 'workspace-settings-form', 'action' => ['save'], 'options' => ['enctype' => 'multipart/form-data']]); ?>
         
         <div class="ws-layout">
             <div class="ws-top-row">
@@ -849,6 +946,10 @@ $cssVars = $model->getCssVars();
                         <button type="button" class="ws-nav-item active" data-section="workspace">
                             <span class="material-symbols-outlined">dashboard</span>
                             Workspace
+                        </button>
+                        <button type="button" class="ws-nav-item" data-section="login">
+                            <span class="material-symbols-outlined">lock</span>
+                            Login
                         </button>
                         <button type="button" class="ws-nav-item" data-section="sidebar">
                             <span class="material-symbols-outlined">view_sidebar</span>
@@ -1013,6 +1114,143 @@ $cssVars = $model->getCssVars();
                                        value="<?= Html::encode($model->workspace_badge) ?>"
                                        data-preview="#preview-badge"
                                        placeholder="e.g. Workspace">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ws-card" id="section-login">
+                        <div class="ws-card-header">
+                            <div class="ws-card-icon ws-card-icon-login">
+                                <span class="material-symbols-outlined">lock</span>
+                            </div>
+                            <div class="ws-card-title-group">
+                                <h3 class="ws-card-title">Login Appearance</h3>
+                                <p class="ws-card-subtitle">Branding dan warna khusus halaman login aplikasi</p>
+                            </div>
+                        </div>
+
+                        <div class="ws-form-row ws-form-row-2">
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_title">Login Title</label>
+                                <input type="text" id="workspacesettings-login_title" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_title]" 
+                                       value="<?= Html::encode($model->login_title) ?>" 
+                                       placeholder="Login Aplikasi">
+                            </div>
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_subtitle">Login Subtitle</label>
+                                <input type="text" id="workspacesettings-login_subtitle" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_subtitle]" 
+                                       value="<?= Html::encode($model->login_subtitle) ?>" 
+                                       placeholder="Masuk ke aplikasi Anda">
+                            </div>
+                        </div>
+
+                        <div class="ws-section-title">Background</div>
+                        <div class="ws-color-row">
+                            <div class="ws-color-group">
+                                <label>Background Start</label>
+                                <div class="ws-color-picker">
+                                    <input type="color" name="WorkspaceSettings[login_background_start]" value="<?= Html::encode($model->login_background_start) ?>">
+                                    <input type="text" class="ws-form-control color-text" name="WorkspaceSettings[login_background_start]" value="<?= Html::encode($model->login_background_start) ?>">
+                                </div>
+                            </div>
+                            <div class="ws-color-group">
+                                <label>Background End</label>
+                                <div class="ws-color-picker">
+                                    <input type="color" name="WorkspaceSettings[login_background_end]" value="<?= Html::encode($model->login_background_end) ?>">
+                                    <input type="text" class="ws-form-control color-text" name="WorkspaceSettings[login_background_end]" value="<?= Html::encode($model->login_background_end) ?>">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ws-media-picker" style="margin-top: 14px;">
+                            <div class="ws-media-preview" id="login-background-preview">
+                                <?php if (($loginBackgroundAsset['type'] ?? 'none') === 'video'): ?>
+                                    <video autoplay muted loop playsinline>
+                                        <source src="<?= Html::encode($loginBackgroundAsset['url']) ?>">
+                                    </video>
+                                <?php elseif (($loginBackgroundAsset['type'] ?? 'none') === 'image'): ?>
+                                    <img src="<?= Html::encode($loginBackgroundAsset['url']) ?>" alt="Login Background Preview">
+                                <?php else: ?>
+                                    <div class="ws-media-placeholder">
+                                        <span class="material-symbols-outlined">wallpaper</span>
+                                        <div>Preview background login</div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="ws-media-actions">
+                                <div class="ws-form-group" style="margin: 0;">
+                                    <label for="workspacesettings-login_background_image">Background Link</label>
+                                    <input type="text" id="workspacesettings-login_background_image" class="ws-form-control" 
+                                           name="WorkspaceSettings[login_background_image]" 
+                                           value="<?= Html::encode($model->login_background_image) ?>" 
+                                           placeholder="Direct URL image/video atau nama file hasil upload">
+                                </div>
+                                <div class="ws-form-group" style="margin: 0;">
+                                    <label for="workspacesettings-login_background_upload">Upload File</label>
+                                    <input type="file" id="workspacesettings-login_background_upload" class="ws-form-control" 
+                                           name="WorkspaceSettings[login_background_upload]" 
+                                           accept="image/*,video/*">
+                                </div>
+                                <div class="ws-media-toolbar">
+                                    <span class="ws-media-chip" id="login-background-file-chip"><?= !empty($model->login_background_image) ? Html::encode($model->login_background_image) : 'No media selected' ?></span>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="login-background-clear-btn" style="border-radius: 12px;">Clear</button>
+                                </div>
+                                <p class="ws-media-help">Pilih file dari perangkat atau masukkan direct link media. Preview di kiri akan langsung mengikuti media yang dipilih.</p>
+                            </div>
+                        </div>
+
+                        <div class="ws-divider"></div>
+
+                        <div class="ws-form-row ws-form-row-2">
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_button_color">Button Color</label>
+                                <input type="text" id="workspacesettings-login_button_color" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_button_color]" 
+                                       value="<?= Html::encode($model->login_button_color) ?>" 
+                                       placeholder="#2563eb">
+                            </div>
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_accent_color">Accent Color</label>
+                                <input type="text" id="workspacesettings-login_accent_color" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_accent_color]" 
+                                       value="<?= Html::encode($model->login_accent_color) ?>" 
+                                       placeholder="#4f46e5">
+                            </div>
+                        </div>
+
+                        <div class="ws-form-row ws-form-row-2">
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_card_color">Card Color</label>
+                                <input type="text" id="workspacesettings-login_card_color" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_card_color]" 
+                                       value="<?= Html::encode($model->login_card_color) ?>" 
+                                       placeholder="rgba(255,255,255,0.96)">
+                            </div>
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_text_color">Text Color</label>
+                                <input type="text" id="workspacesettings-login_text_color" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_text_color]" 
+                                       value="<?= Html::encode($model->login_text_color) ?>" 
+                                       placeholder="#0f172a">
+                            </div>
+                        </div>
+
+                        <div class="ws-form-row ws-form-row-2">
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_border_radius">Border Radius</label>
+                                <input type="number" id="workspacesettings-login_border_radius" class="ws-form-control" 
+                                       name="WorkspaceSettings[login_border_radius]" 
+                                       min="0" max="64" step="1" 
+                                       value="<?= Html::encode($model->login_border_radius) ?>">
+                            </div>
+                            <div class="ws-form-group">
+                                <label for="workspacesettings-login_theme">Theme</label>
+                                <select id="workspacesettings-login_theme" class="ws-form-control" name="WorkspaceSettings[login_theme]">
+                                    <option value="dark" <?= $model->login_theme === 'dark' ? 'selected' : '' ?>>Dark</option>
+                                    <option value="light" <?= $model->login_theme === 'light' ? 'selected' : '' ?>>Light</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -1752,6 +1990,129 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     updateSizingInputs(widthHiddenInput ? widthHiddenInput.value : (widthInput ? widthInput.value : 120), heightHiddenInput ? heightHiddenInput.value : (heightInput ? heightInput.value : 120));
+
+    const loginBackgroundPreview = document.getElementById('login-background-preview');
+    const loginBackgroundUploadInput = document.getElementById('workspacesettings-login_background_upload');
+    const loginBackgroundLinkInput = document.getElementById('workspacesettings-login_background_image');
+    const loginBackgroundChip = document.getElementById('login-background-file-chip');
+    const loginBackgroundClearBtn = document.getElementById('login-background-clear-btn');
+    let loginBackgroundObjectUrl = null;
+
+    function detectMediaTypeFromUrl(url) {
+        const cleanUrl = String(url || '').split('?')[0].split('#')[0];
+        const match = cleanUrl.match(/\.([a-z0-9]+)$/i);
+        const ext = match ? match[1].toLowerCase() : '';
+        if (['mp4', 'webm', 'ogg'].includes(ext)) {
+            return 'video';
+        }
+        return 'image';
+    }
+
+    function renderLoginBackgroundPlaceholder() {
+        if (!loginBackgroundPreview) {
+            return;
+        }
+        loginBackgroundPreview.innerHTML = `
+            <div class="ws-media-placeholder">
+                <span class="material-symbols-outlined">wallpaper</span>
+                <div>Preview background login</div>
+            </div>
+        `;
+    }
+
+    function revokeLoginBackgroundObjectUrl() {
+        if (loginBackgroundObjectUrl && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+            URL.revokeObjectURL(loginBackgroundObjectUrl);
+        }
+        loginBackgroundObjectUrl = null;
+    }
+
+    function renderLoginBackgroundPreview(src, type, label) {
+        if (!loginBackgroundPreview) {
+            return;
+        }
+
+        if (!src) {
+            renderLoginBackgroundPlaceholder();
+            if (loginBackgroundChip) {
+                loginBackgroundChip.textContent = 'No media selected';
+            }
+            return;
+        }
+
+        if (type === 'video') {
+            loginBackgroundPreview.innerHTML = `
+                <video autoplay muted loop playsinline>
+                    <source src="${src}">
+                </video>
+            `;
+        } else {
+            loginBackgroundPreview.innerHTML = `<img src="${src}" alt="Login Background Preview">`;
+        }
+
+        if (loginBackgroundChip) {
+            const chipLabel = type === 'video' ? 'Video selected' : 'Image selected';
+            loginBackgroundChip.textContent = label ? chipLabel + ': ' + label : chipLabel;
+        }
+    }
+
+    if (loginBackgroundUploadInput) {
+        loginBackgroundUploadInput.addEventListener('change', function () {
+            const file = this.files && this.files[0] ? this.files[0] : null;
+            if (!file) {
+                return;
+            }
+
+            revokeLoginBackgroundObjectUrl();
+            if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+                renderLoginBackgroundPlaceholder();
+                if (loginBackgroundChip) {
+                    loginBackgroundChip.textContent = file.name;
+                }
+                return;
+            }
+            loginBackgroundObjectUrl = URL.createObjectURL(file);
+            const mediaType = file.type && file.type.startsWith('video/') ? 'video' : 'image';
+            renderLoginBackgroundPreview(loginBackgroundObjectUrl, mediaType, file.name);
+        });
+    }
+
+    if (loginBackgroundLinkInput) {
+        loginBackgroundLinkInput.addEventListener('input', function () {
+            const value = this.value.trim();
+            if (!value) {
+                if (!loginBackgroundUploadInput || !loginBackgroundUploadInput.files || !loginBackgroundUploadInput.files[0]) {
+                    renderLoginBackgroundPlaceholder();
+                    if (loginBackgroundChip) {
+                        loginBackgroundChip.textContent = 'No media selected';
+                    }
+                }
+                return;
+            }
+
+            renderLoginBackgroundPreview(value, detectMediaTypeFromUrl(value), value.split('/').pop());
+        });
+    }
+
+    if (loginBackgroundClearBtn) {
+        loginBackgroundClearBtn.addEventListener('click', function () {
+            if (loginBackgroundUploadInput) {
+                loginBackgroundUploadInput.value = '';
+            }
+            if (loginBackgroundLinkInput) {
+                loginBackgroundLinkInput.value = '';
+            }
+            revokeLoginBackgroundObjectUrl();
+            renderLoginBackgroundPlaceholder();
+        });
+    }
+
+    const existingLoginBackground = loginBackgroundLinkInput ? loginBackgroundLinkInput.value.trim() : '';
+    if (existingLoginBackground) {
+        renderLoginBackgroundPreview(existingLoginBackground, detectMediaTypeFromUrl(existingLoginBackground), existingLoginBackground.split('/').pop());
+    } else {
+        renderLoginBackgroundPlaceholder();
+    }
 
     // Ensure hidden inputs are updated before form submit
     const form = document.getElementById('workspace-settings-form');

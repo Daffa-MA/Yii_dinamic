@@ -52,7 +52,6 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);
 
 $currentRoute = Yii::$app->controller->route;
-$skipTailwindCdn = in_array($currentRoute, ['master-page/dynamic-create', 'master-page/dynamic-update'], true);
 $activeMenu = 'dashboard';
 if ($currentRoute === 'site/dashboard') {
     $activeMenu = 'dashboard';
@@ -72,38 +71,36 @@ if ($currentRoute === 'site/dashboard') {
     <?= Html::csrfMetaTags() ?>
     <title><?= Html::encode($this->title) ?></title>
     <?php $this->head() ?>
-    <?php if (!$skipTailwindCdn): ?>
-        <script src="https://cdn.tailwindcss.com/3.4.1"></script>
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            'on-surface': '#0b1c30',
-                            'on-surface-variant': '#464555',
-                            'surface': '#fafbfe',
-                            'surface-container-lowest': '#ffffff',
-                            'surface-container-low': '#f8fafd',
-                            'surface-container': '#f0f4f9',
-                            'surface-container-high': '#e8eef7',
-                            'primary-container': '#4f46e5',
-                            'primary': '#3525cd',
-                            'secondary': '#006c49',
-                            'tertiary': '#7e3000',
-                            'surface-tint': '#4d44e3',
-                            'outline-variant': '#c7c4d8',
-                            'outline': '#777587',
-                            'error': '#ba1a1a',
-                        },
-                        fontFamily: {
-                            headline: ['Manrope', 'sans-serif'],
-                            body: ['Inter', 'sans-serif'],
-                        }
+    <script src="https://cdn.tailwindcss.com/3.4.1"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'on-surface': '#0b1c30',
+                        'on-surface-variant': '#464555',
+                        'surface': '#fafbfe',
+                        'surface-container-lowest': '#ffffff',
+                        'surface-container-low': '#f8fafd',
+                        'surface-container': '#f0f4f9',
+                        'surface-container-high': '#e8eef7',
+                        'primary-container': '#4f46e5',
+                        'primary': '#3525cd',
+                        'secondary': '#006c49',
+                        'tertiary': '#7e3000',
+                        'surface-tint': '#4d44e3',
+                        'outline-variant': '#c7c4d8',
+                        'outline': '#777587',
+                        'error': '#ba1a1a',
+                    },
+                    fontFamily: {
+                        headline: ['Manrope', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
                     }
                 }
-            };
-        </script>
-    <?php endif; ?>
+            }
+        };
+    </script>
     <style>
         .material-symbols-outlined {
             font-family: 'Material Symbols Outlined';
@@ -143,6 +140,29 @@ if ($currentRoute === 'site/dashboard') {
 
     <main class="dashboard-main" id="main">
         <div class="container-fluid">
+            <?php foreach (Yii::$app->session->getAllFlashes() as $type => $message): ?>
+                <?php
+                $color = 'rgba(59, 130, 246, 0.12)';
+                $textColor = '#1e3a8a';
+                $borderColor = 'rgba(59, 130, 246, 0.22)';
+                if ($type === 'success') {
+                    $color = 'rgba(16, 185, 129, 0.12)';
+                    $textColor = '#065f46';
+                    $borderColor = 'rgba(16, 185, 129, 0.22)';
+                } elseif ($type === 'error') {
+                    $color = 'rgba(239, 68, 68, 0.12)';
+                    $textColor = '#7f1d1d';
+                    $borderColor = 'rgba(239, 68, 68, 0.22)';
+                } elseif ($type === 'warning') {
+                    $color = 'rgba(245, 158, 11, 0.12)';
+                    $textColor = '#78350f';
+                    $borderColor = 'rgba(245, 158, 11, 0.22)';
+                }
+                ?>
+                <div style="margin:0 0 1rem;padding:.9rem 1rem;border-radius:16px;background:<?= Html::encode($color) ?>;color:<?= Html::encode($textColor) ?>;border:1px solid <?= Html::encode($borderColor) ?>;font-weight:600;box-shadow:0 8px 24px rgba(15,23,42,.05);">
+                    <?= is_array($message) ? implode(' ', array_map('yii\helpers\Html::encode', $message)) : Html::encode((string)$message) ?>
+                </div>
+            <?php endforeach; ?>
             <?= $content ?>
         </div>
     </main>

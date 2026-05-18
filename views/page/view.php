@@ -2,6 +2,9 @@
 
 use app\models\Form;
 use app\models\MasterPage;
+use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
 use app\services\DynamicFormPreviewService;
 use yii\helpers\Html;
 use yii\helpers\Url;
@@ -12,6 +15,15 @@ use yii\helpers\Url;
 
 $this->title = $page->title;
 $returnUrl = Url::to(['/page/view', 'id' => $page->id]);
+$activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+$projectAuthUser = $activeProjectId !== null ? (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId) : null;
+$isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
+$workspaceRole = $projectAuthUser !== null ? strtolower(trim((string)$projectAuthUser->role)) : '';
+$isWorkspaceAdmin = $isCommanderSuperAdmin || $workspaceRole === 'admin';
+$emptyStateTitle = $isWorkspaceAdmin ? 'Belum ada konten' : 'Belum ada informasi tersedia';
+$emptyStateDescription = $isWorkspaceAdmin
+    ? 'Halaman ini siap digunakan tetapi belum memiliki konten. Tambahkan konten melalui Master Halaman.'
+    : 'Konten untuk halaman ini belum tersedia atau belum dipublikasikan. Silakan hubungi admin workspace apabila Anda merasa seharusnya memiliki akses.';
 
 $layoutClasses = 'grid gap-5';
 if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
@@ -256,17 +268,19 @@ if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
     <?php endif; ?>
     
     <?php if (empty($forms) && !$hasCustomPageSource && !$hasBuilderContent): ?>
-        <div class="rounded-[28px] border border-amber-200 bg-amber-50 px-6 py-10 text-center shadow-sm">
-            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-amber-600 shadow-sm">
-                <span class="material-symbols-outlined text-[30px]">inventory_2</span>
+        <div class="rounded-[28px] border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-500 shadow-sm">
+                <span class="material-symbols-outlined text-[22px]">inventory_2</span>
             </div>
-            <h2 class="mt-5 text-xl font-bold text-slate-900">Belum ada konten</h2>
-            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Halaman ini sudah siap dipakai, tetapi belum ada konten yang ditambahkan. Buka Master Halaman untuk menambahkan konten ke halaman ini.</p>
-            <div class="mt-5">
-                <?= Html::a('Buka Master Halaman', ['/master-page/update', 'id' => $page->id], [
-                    'class' => 'inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white no-underline transition hover:bg-slate-800',
-                ]) ?>
-            </div>
+            <h2 class="mt-4 text-xl font-bold text-slate-900"><?= Html::encode($emptyStateTitle) ?></h2>
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600"><?= Html::encode($emptyStateDescription) ?></p>
+            <?php if ($isWorkspaceAdmin): ?>
+                <div class="mt-5">
+                    <?= Html::a('Buka Master Halaman', ['/master-page/update', 'id' => $page->id], [
+                        'class' => 'inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white no-underline transition hover:bg-slate-800',
+                    ]) ?>
+                </div>
+            <?php endif; ?>
         </div>
     <?php elseif (count($forms) > 0): ?>
         <div class="<?= $layoutClasses ?>">

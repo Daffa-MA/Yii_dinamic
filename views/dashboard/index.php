@@ -47,13 +47,15 @@ $projectId = $project_id;
         </nav>
 
         <!-- Footer -->
-        <div class="p-4 border-t border-gray-200">
-            <?= Html::a(
-                '<span class="material-symbols-outlined">arrow_back</span> Kembali ke Projects',
-                ['/projects/index'],
-                ['class' => 'flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 no-underline']
-            ) ?>
-        </div>
+        <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+            <div class="p-4 border-t border-gray-200">
+                <?= Html::a(
+                    '<span class="material-symbols-outlined">arrow_back</span> Kembali ke Projects',
+                    ['/projects/index'],
+                    ['class' => 'flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 no-underline']
+                ) ?>
+            </div>
+        <?php endif; ?>
     </aside>
 
     <!-- Main Content -->

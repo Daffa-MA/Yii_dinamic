@@ -12,6 +12,7 @@ use yii\bootstrap5\ActiveForm;
 $this->title = 'My Profile - ' . Html::encode($project->name);
 $this->registerJs("document.body.classList.add('project-page-v4');", \yii\web\View::POS_READY);
 
+// Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
 ?>
@@ -771,7 +772,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
                         <?= Html::a('<span>Create Table</span><span class="material-symbols-outlined">arrow_forward</span>', ['table-builder/create'], ['class' => 'profile-quick-link']) ?>
                         <?= Html::a('<span>View Forms</span><span class="material-symbols-outlined">arrow_forward</span>', ['form/index'], ['class' => 'profile-quick-link']) ?>
                         <?= Html::a('<span>View Tables</span><span class="material-symbols-outlined">arrow_forward</span>', ['table-builder/index'], ['class' => 'profile-quick-link']) ?>
-                        <?= Html::a('<span>Back to Projects</span><span class="material-symbols-outlined">arrow_forward</span>', ['project/index'], ['class' => 'profile-quick-link']) ?>
+                        <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                            <?= Html::a('<span>Back to Projects</span><span class="material-symbols-outlined">arrow_forward</span>', ['project/index'], ['class' => 'profile-quick-link']) ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>

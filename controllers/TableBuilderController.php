@@ -11,6 +11,9 @@ use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
+use app\models\ProjectUser;
 use app\components\ProjectSchema;
 use app\helpers\FormSystemFieldHelper;
 
@@ -35,6 +38,48 @@ class TableBuilderController extends Controller
         $request = Yii::$app->request;
         $raw = $request->post('fk_debug', $request->get('fk_debug', '0'));
         return (string)$raw === '1';
+    }
+
+    private function isCommanderSuperAdmin(): bool
+    {
+        return (new CommanderAuthContext())->isSuperAdmin();
+    }
+
+    private function getWorkspaceAuthenticatedUser(?int $projectId = null): ?ProjectUser
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        $resolvedProjectId = $projectId ?? $this->getActiveProjectId();
+        if ($resolvedProjectId === null) {
+            return null;
+        }
+
+        return (new ProjectAuthContext())->getAuthenticatedUser($resolvedProjectId);
+    }
+
+    private function getEffectiveUserId(): ?int
+    {
+        $workspaceUser = $this->getWorkspaceAuthenticatedUser();
+        if ($workspaceUser !== null) {
+            return (int)$workspaceUser->id;
+        }
+
+        if (!Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
+            return (int)Yii::$app->user->id;
+        }
+
+        return null;
+    }
+
+    private function canAccessWorkspaceBuilder(): bool
+    {
+        if ($this->isCommanderSuperAdmin()) {
+            return true;
+        }
+
+        return $this->getWorkspaceAuthenticatedUser() !== null;
     }
 
     private function logFkDebug(string $stage, array $context = []): void
@@ -331,8 +376,14 @@ class TableBuilderController extends Controller
         $activeProjectId = $this->getActiveProjectId();
         $tablesQuery = DbTable::find()
             ->with(['columns'])
-            ->where(['user_id' => Yii::$app->user->id])
             ->orderBy(['name' => SORT_ASC]);
+
+        if (!$this->isCommanderSuperAdmin()) {
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $tablesQuery->where(['user_id' => $effectiveUserId]);
+            }
+        }
 
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $tablesQuery->andWhere(['project_id' => $activeProjectId]);
@@ -800,7 +851,9 @@ class TableBuilderController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['@'],
+                        'matchCallback' => function () {
+                            return $this->canAccessWorkspaceBuilder();
+                        },
                     ],
                 ],
             ],
@@ -834,8 +887,13 @@ class TableBuilderController extends Controller
         $databaseInfo = $this->getDatabaseInfo();
         $tablesQuery = DbTable::find()
             ->with(['columns'])
-            ->where(['user_id' => Yii::$app->user->id])
             ->orderBy(['created_at' => SORT_DESC]);
+        if (!$this->isCommanderSuperAdmin()) {
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $tablesQuery->where(['user_id' => $effectiveUserId]);
+            }
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $tablesQuery->andWhere(['project_id' => $activeProjectId]);
         }
@@ -862,7 +920,10 @@ class TableBuilderController extends Controller
         $this->refreshDbTableColumnsSchema();
 
         $model = new DbTable();
-        $model->user_id = Yii::$app->user->id;
+        $effectiveUserId = $this->getEffectiveUserId();
+        if (!$this->isCommanderSuperAdmin() && $effectiveUserId !== null) {
+            $model->user_id = $effectiveUserId;
+        }
         $this->assignActiveProject($model);
         $model->engine = 'InnoDB';
         $model->charset = 'utf8mb4';
@@ -896,7 +957,9 @@ class TableBuilderController extends Controller
         }
 
         if ($model->load(Yii::$app->request->post())) {
-            $model->user_id = Yii::$app->user->id;
+            if (!$this->isCommanderSuperAdmin() && $effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
@@ -979,6 +1042,8 @@ class TableBuilderController extends Controller
 
         $model = $this->findModel($id);
         $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+        $db = $this->getPhysicalDb();
+        $tableSchema = null;
         $fkCount = 0;
         foreach ($columns as $column) {
             if ($column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key')) {
@@ -998,7 +1063,6 @@ class TableBuilderController extends Controller
         $tableData = [];
         if ($isCreated) {
             try {
-                $db = $this->getPhysicalDb();
                 $tableSchema = $db->schema->getTableSchema($model->name, true);
                 if ($tableSchema !== null) {
                     $orderColumn = null;
@@ -1026,13 +1090,77 @@ class TableBuilderController extends Controller
                 $tableData = [];
             }
         }
+        $spreadsheetContext = $this->buildSpreadsheetContext($model, $columns, $tableSchema, $tableData);
+        $liveTableRows = $this->buildLiveTableRows($model, $columns, $tableSchema, $tableData);
 
         return $this->render('view', [
             'model' => $model,
             'columns' => $columns,
             'tableData' => $tableData,
+            'liveTableRows' => $liveTableRows,
             'databaseInfo' => $this->getDatabaseInfo(),
+            'spreadsheetContext' => $spreadsheetContext,
         ]);
+    }
+
+    public function actionSpreadsheetAction()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $tableId = (int)Yii::$app->request->post('table_id', 0);
+        $operation = strtolower(trim((string)Yii::$app->request->post('operation', 'upsert_row')));
+        $model = $this->findModel($tableId);
+
+        if (!$this->syncTableCreationState($model, false)) {
+            return ['success' => false, 'message' => 'Table ini belum dibuat di database.'];
+        }
+
+        $db = $this->getPhysicalDb();
+        $tableSchema = $db->schema->getTableSchema($model->name, true);
+        if ($tableSchema === null) {
+            return ['success' => false, 'message' => 'Schema tabel fisik tidak ditemukan.'];
+        }
+
+        $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+        $columnMap = [];
+        foreach ($columns as $column) {
+            $columnMap[$column->name] = $column;
+        }
+
+        $keyColumns = $this->detectSpreadsheetKeyColumns($tableSchema, $columns);
+        $payload = $this->normalizeSpreadsheetPayload(Yii::$app->request->post('row_data', []));
+        $rowKey = $this->normalizeSpreadsheetPayload(Yii::$app->request->post('row_key', []));
+        $rowKeys = $this->normalizeSpreadsheetPayload(Yii::$app->request->post('row_keys', []));
+        $statusValue = Yii::$app->request->post('status_value', null);
+
+        try {
+            if ($operation === 'delete_rows') {
+                $deleted = $this->deleteSpreadsheetRows($db, $model, $keyColumns, $rowKeys);
+                return ['success' => true, 'message' => "Berhasil menghapus {$deleted} baris.", 'deleted' => $deleted];
+            }
+
+            if ($operation === 'duplicate_rows') {
+                $duplicated = $this->duplicateSpreadsheetRows($db, $model, $keyColumns, $rowKeys, $columnMap);
+                return ['success' => true, 'message' => "Berhasil menggandakan {$duplicated} baris.", 'duplicated' => $duplicated];
+            }
+
+            if ($operation === 'bulk_paste') {
+                $rows = $this->normalizeSpreadsheetPayload(Yii::$app->request->post('rows', []));
+                $inserted = $this->bulkPasteSpreadsheetRows($db, $model, $columns, $rows, $keyColumns);
+                return ['success' => true, 'message' => "Berhasil menambahkan {$inserted} baris.", 'inserted' => $inserted];
+            }
+
+            if ($operation === 'bulk_status') {
+                $affected = $this->bulkUpdateSpreadsheetStatus($db, $model, $keyColumns, $rowKeys, $statusValue);
+                return ['success' => true, 'message' => "Status diperbarui untuk {$affected} baris.", 'affected' => $affected];
+            }
+
+            $result = $this->upsertSpreadsheetRow($db, $model, $columns, $tableSchema, $columnMap, $keyColumns, $payload, $rowKey);
+            return $result;
+        } catch (\Throwable $e) {
+            Yii::error('Spreadsheet action failed: ' . $e->getMessage(), 'table-spreadsheet');
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
     }
 
     public function actionUpdate($id)
@@ -1069,7 +1197,10 @@ class TableBuilderController extends Controller
         $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
 
         if ($model->load(Yii::$app->request->post())) {
-            $model->user_id = Yii::$app->user->id;
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
@@ -1243,6 +1374,878 @@ class TableBuilderController extends Controller
         ]);
 
         return $this->asJson(['sql' => $sql]);
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @param array<int, array<string, mixed>> $tableData
+     */
+    private function buildSpreadsheetContext(DbTable $model, array $columns, ?\yii\db\TableSchema $tableSchema, array $tableData): array
+    {
+        $roleOptions = strtolower((string)$model->name) === 'users' ? $this->loadUsersRoleOptions() : [];
+        $columnConfigs = strtolower((string)$model->name) === 'users'
+            ? $this->buildUsersSpreadsheetColumnConfigs($columns, $roleOptions)
+            : $this->buildGenericSpreadsheetColumnConfigs($model, $columns);
+
+        $keyColumns = $this->detectSpreadsheetKeyColumns($tableSchema, $columns);
+        $rows = [];
+        foreach ($tableData as $rowIndex => $row) {
+            $rows[] = $this->buildSpreadsheetRow($model, $row, $keyColumns, $columns, $rowIndex);
+        }
+
+        return [
+            'columns' => $columnConfigs,
+            'rows' => $rows,
+            'keyColumns' => $keyColumns,
+            'roleOptions' => $roleOptions,
+            'hasKeyColumns' => !empty($keyColumns),
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $tableData
+     * @param array<int, DbTableColumn> $columns
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildLiveTableRows(DbTable $model, array $columns, ?\yii\db\TableSchema $tableSchema, array $tableData): array
+    {
+        $keyColumns = $this->detectSpreadsheetKeyColumns($tableSchema, $columns);
+        $rows = [];
+        foreach ($tableData as $rowIndex => $row) {
+            $key = [];
+            foreach ($keyColumns as $keyColumn) {
+                $key[$keyColumn] = $row[$keyColumn] ?? null;
+            }
+            $rows[] = [
+                'index' => $rowIndex,
+                'key' => $key,
+                'values' => $row,
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $roleOptions
+     */
+    /**
+     * @param array<int, array<string, mixed>> $roleOptions
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildUsersSpreadsheetColumnConfigs(array $columns, array $roleOptions): array
+    {
+        $configs = [];
+        foreach ($columns as $column) {
+            $name = strtolower((string)$column->name);
+            if (in_array($name, ['id', 'password_hash', 'created_at', 'updated_at', 'must_change_password'], true)) {
+                continue;
+            }
+
+            if ($name === 'password') {
+                continue;
+            }
+
+            if ($name === 'role') {
+                $configs[] = [
+                    'name' => 'role',
+                    'label' => 'Role',
+                    'type' => 'TEXT',
+                    'inputType' => 'datalist',
+                    'options' => $roleOptions,
+                    'isPrimary' => false,
+                    'isUnique' => false,
+                    'isAutoIncrement' => false,
+                    'isForeignKey' => false,
+                    'isNullable' => false,
+                    'readOnly' => false,
+                    'isSystem' => false,
+                    'sourceColumn' => 'role',
+                ];
+                $configs[] = [
+                    'name' => 'password',
+                    'label' => 'Password',
+                    'type' => 'PASSWORD',
+                    'inputType' => 'password',
+                    'options' => [],
+                    'isPrimary' => false,
+                    'isUnique' => false,
+                    'isAutoIncrement' => false,
+                    'isForeignKey' => false,
+                    'isNullable' => true,
+                    'readOnly' => false,
+                    'isSystem' => false,
+                    'sourceColumn' => 'password_hash',
+                ];
+                continue;
+            }
+
+            $configs[] = $this->buildSpreadsheetColumnConfig($column);
+        }
+
+        $hasStatus = false;
+        foreach ($configs as $config) {
+            if (($config['name'] ?? '') === 'status') {
+                $hasStatus = true;
+                break;
+            }
+        }
+        if (!$hasStatus) {
+            $configs[] = [
+                'name' => 'status',
+                'label' => 'Status',
+                'type' => 'BOOLEAN',
+                'inputType' => 'boolean',
+                'options' => [],
+                'isPrimary' => false,
+                'isUnique' => false,
+                'isAutoIncrement' => false,
+                'isForeignKey' => false,
+                'isNullable' => false,
+                'readOnly' => false,
+                'isSystem' => false,
+                'sourceColumn' => 'status',
+            ];
+        }
+
+        return $configs;
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildGenericSpreadsheetColumnConfigs(DbTable $model, array $columns): array
+    {
+        $configs = [];
+        foreach ($columns as $column) {
+            $configs[] = $this->buildSpreadsheetColumnConfig($column);
+        }
+
+        return $configs;
+    }
+
+    private function buildSpreadsheetColumnConfig(DbTableColumn $column): array
+    {
+        $type = strtoupper((string)$column->type);
+        $isPrimary = (bool)$column->is_primary;
+        $isUnique = (bool)$column->is_unique;
+        $isAutoIncrement = $column->hasAttribute('is_auto_increment') ? (bool)$column->getAttribute('is_auto_increment') : false;
+        $isForeignKey = $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
+        $inputType = 'text';
+        $options = [];
+
+        if ($isForeignKey) {
+            $inputType = 'select';
+            $options = $this->loadForeignKeyOptions($column);
+        } elseif (in_array($type, ['ENUM', 'SET'], true)) {
+            $inputType = 'select';
+            $options = $this->parseEnumOptions((string)$column->getAttribute('enum_values'));
+        } elseif (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ((int)$column->length <= 1 || $column->type === 'BOOLEAN')) {
+            $inputType = 'boolean';
+        } elseif (in_array($type, ['DATE'], true)) {
+            $inputType = 'date';
+        } elseif (in_array($type, ['DATETIME', 'TIMESTAMP'], true)) {
+            $inputType = 'datetime';
+        } elseif (in_array($type, ['INT', 'BIGINT', 'SMALLINT', 'MEDIUMINT', 'DECIMAL', 'FLOAT', 'DOUBLE', 'REAL', 'SERIAL'], true)) {
+            $inputType = 'number';
+        } elseif (in_array($type, ['JSON'], true)) {
+            $inputType = 'textarea';
+        }
+
+        return [
+            'name' => $column->name,
+            'label' => $column->label ?: $column->name,
+            'type' => $type,
+            'length' => $column->length,
+            'isPrimary' => $isPrimary,
+            'isUnique' => $isUnique,
+            'isAutoIncrement' => $isAutoIncrement,
+            'isForeignKey' => $isForeignKey,
+            'isNullable' => (bool)$column->is_nullable,
+            'inputType' => $inputType,
+            'options' => $options,
+            'readOnly' => $isAutoIncrement && $isPrimary,
+            'isSystem' => $isAutoIncrement && $isPrimary,
+            'sourceColumn' => $column->name,
+        ];
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @return array<int, string>
+     */
+    private function detectSpreadsheetKeyColumns(?\yii\db\TableSchema $tableSchema, array $columns): array
+    {
+        $keyColumns = [];
+        if ($tableSchema !== null && !empty($tableSchema->primaryKey)) {
+            foreach ($tableSchema->primaryKey as $primaryKeyColumn) {
+                $keyColumns[] = (string)$primaryKeyColumn;
+            }
+        }
+
+        if (empty($keyColumns)) {
+            foreach ($columns as $column) {
+                if ((bool)$column->is_primary || (bool)$column->is_unique) {
+                    $keyColumns[] = (string)$column->name;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($keyColumns)));
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<int, string> $keyColumns
+     * @param array<int, DbTableColumn> $columns
+     */
+    private function buildSpreadsheetRow(DbTable $model, array $row, array $keyColumns, array $columns, int $rowIndex): array
+    {
+        $key = [];
+        foreach ($keyColumns as $keyColumn) {
+            $key[$keyColumn] = $row[$keyColumn] ?? null;
+        }
+
+        $values = [];
+        if (strtolower((string)$model->name) === 'users') {
+            $values = $this->buildUsersSpreadsheetRowValues($row);
+        } else {
+            foreach ($columns as $column) {
+                $values[$column->name] = $row[$column->name] ?? null;
+            }
+        }
+
+        return [
+            'index' => $rowIndex,
+            'key' => $key,
+            'values' => $values,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function buildUsersSpreadsheetRowValues(array $row): array
+    {
+        return [
+            'name' => $row['name'] ?? '',
+            'username' => $row['username'] ?? '',
+            'email' => $row['email'] ?? '',
+            'role' => $row['role'] ?? '',
+            'status' => $row['status'] ?? 1,
+            'password' => '',
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadUsersRoleOptions(): array
+    {
+        $rows = (new \yii\db\Query())
+            ->select(['role'])
+            ->from('users')
+            ->where(['and', ['not', ['role' => null]], ['<>', 'role', '']])
+            ->groupBy(['role'])
+            ->orderBy(['role' => SORT_ASC])
+            ->all($this->getPhysicalDb());
+
+        $options = [];
+        foreach ($rows as $row) {
+            $role = strtolower(trim((string)($row['role'] ?? '')));
+            if ($role === '' || in_array($role, ['super_admin', 'superadmin'], true)) {
+                continue;
+            }
+
+            $options[] = [
+                'value' => $role,
+                'label' => ucfirst(str_replace(['_', '-'], ' ', $role)),
+            ];
+        }
+
+        return $options;
+    }
+
+    private function generateSpreadsheetTempPassword(int $length = 12): string
+    {
+        $raw = bin2hex(random_bytes(8));
+        return substr($raw, 0, max(8, $length));
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function parseEnumOptions(?string $enumValues): array
+    {
+        $enumValues = trim((string)$enumValues);
+        if ($enumValues === '') {
+            return [];
+        }
+
+        $values = array_filter(array_map('trim', preg_split('/\s*,\s*/', trim($enumValues, " \t\n\r\0\x0B'\"")) ?: []));
+        $options = [];
+        foreach ($values as $value) {
+            $options[] = [
+                'value' => $value,
+                'label' => $value,
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function loadForeignKeyOptions(DbTableColumn $column): array
+    {
+        $referencedTable = strtolower(trim((string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : '')));
+        $referencedColumn = strtolower(trim((string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : '')));
+        if ($referencedTable === '') {
+            return [];
+        }
+
+        $db = $this->getPhysicalDb();
+        $schema = $db->schema->getTableSchema($referencedTable, true);
+        if ($schema === null) {
+            return [];
+        }
+
+        $valueColumn = $referencedColumn !== '' && isset($schema->columns[$referencedColumn])
+            ? $referencedColumn
+            : ($schema->primaryKey[0] ?? array_key_first($schema->columns));
+        if ($valueColumn === null || $valueColumn === '') {
+            return [];
+        }
+
+        $labelColumn = $this->guessLabelColumn($schema, (string)$valueColumn);
+        $rows = (new \yii\db\Query())
+            ->from($referencedTable)
+            ->select(array_values(array_unique(array_filter([$valueColumn, $labelColumn]))))
+            ->limit(200)
+            ->all($db);
+
+        $options = [];
+        foreach ($rows as $row) {
+            $value = $row[$valueColumn] ?? null;
+            $label = $labelColumn !== '' ? ($row[$labelColumn] ?? $value) : $value;
+            $options[] = [
+                'value' => $value,
+                'label' => trim((string)$label) !== '' ? (string)$label : (string)$value,
+            ];
+        }
+
+        return $options;
+    }
+
+    private function guessLabelColumn(\yii\db\TableSchema $schema, string $valueColumn): string
+    {
+        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
+            if (isset($schema->columns[$candidate]) && $candidate !== $valueColumn) {
+                return $candidate;
+            }
+        }
+
+        return $valueColumn;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function normalizeSpreadsheetPayload($payload): array
+    {
+        if (is_string($payload)) {
+            $decoded = json_decode($payload, true);
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return is_array($payload) ? $payload : [];
+    }
+
+    /**
+     * @param DbTableColumn|null $column
+     * @param mixed $value
+     * @return mixed
+     */
+    private function normalizeSpreadsheetCellValue(?DbTableColumn $column, $value)
+    {
+        if ($value === '' || $value === null) {
+            return null;
+        }
+
+        if ($column === null) {
+            return is_string($value) ? trim($value) : $value;
+        }
+
+        $type = strtoupper((string)$column->type);
+        if (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ((int)$column->length <= 1 || $column->type === 'BOOLEAN')) {
+            return in_array(strtolower((string)$value), ['1', 'true', 'yes', 'on', 'aktif', 'active'], true) ? 1 : 0;
+        }
+
+        if (in_array($type, ['INT', 'BIGINT', 'SMALLINT', 'MEDIUMINT', 'SERIAL'], true)) {
+            return is_numeric($value) ? (int)$value : null;
+        }
+
+        if (in_array($type, ['DECIMAL', 'FLOAT', 'DOUBLE', 'REAL'], true)) {
+            return is_numeric($value) ? $value + 0 : null;
+        }
+
+        if (in_array($type, ['DATE', 'DATETIME', 'TIMESTAMP'], true)) {
+            return trim((string)$value);
+        }
+
+        if (in_array($type, ['JSON'], true)) {
+            if (is_array($value)) {
+                return json_encode($value);
+            }
+            return trim((string)$value);
+        }
+
+        return is_string($value) ? trim($value) : $value;
+    }
+
+    /**
+     * @param array<int, string> $keyColumns
+     * @param array<string, DbTableColumn> $columnMap
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $rowKey
+     */
+    private function upsertSpreadsheetRow(\yii\db\Connection $db, DbTable $model, array $columns, \yii\db\TableSchema $tableSchema, array $columnMap, array $keyColumns, array $payload, array $rowKey): array
+    {
+        $isUsersTable = strtolower((string)$model->name) === 'users';
+        $where = [];
+        foreach ($keyColumns as $keyColumn) {
+            $keyValue = $rowKey[$keyColumn] ?? ($payload[$keyColumn] ?? null);
+            if ($keyValue !== null && $keyValue !== '') {
+                $where[$keyColumn] = $this->normalizeSpreadsheetCellValue($columnMap[$keyColumn] ?? null, $keyValue);
+            }
+        }
+
+        $rowData = $isUsersTable
+            ? $this->buildUsersSpreadsheetRowData($payload, $columns, empty($where))
+            : $this->buildGenericSpreadsheetRowData($payload, $columns);
+
+        if (empty($where)) {
+            $validation = $isUsersTable
+                ? $this->validateUsersSpreadsheetInsertData($rowData)
+                : $this->validateSpreadsheetInsertData($columns, $rowData);
+
+            if (!$validation['valid']) {
+                return [
+                    'success' => false,
+                    'code' => 'incomplete_row',
+                    'message' => 'Belum lengkap',
+                    'missing_fields' => $validation['missing_fields'],
+                ];
+            }
+
+            if (!$isUsersTable) {
+                foreach ($columns as $column) {
+                    $columnName = (string)$column->name;
+                    if (($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment') && (bool)$column->is_primary) || $rowData[$columnName] === null) {
+                        unset($rowData[$columnName]);
+                    }
+                }
+            }
+
+            if (empty($rowData)) {
+                return [
+                    'success' => false,
+                    'code' => 'incomplete_row',
+                    'message' => 'Belum lengkap',
+                    'missing_fields' => [],
+                ];
+            }
+
+            $db->createCommand()->insert($model->name, $rowData)->execute();
+            $insertId = $db->getLastInsertID();
+            return [
+                'success' => true,
+                'message' => 'Baris berhasil disimpan.',
+                'operation' => 'insert',
+                'row_key' => $this->buildRowKeyFromInsert($tableSchema, $keyColumns, $rowData, $insertId),
+                'row_data' => $rowData,
+            ];
+        }
+
+        if ($isUsersTable) {
+            $validation = $this->validateUsersSpreadsheetUpdateData($rowData);
+            if (!$validation['valid']) {
+                return [
+                    'success' => false,
+                    'code' => 'incomplete_row',
+                    'message' => 'Belum lengkap',
+                    'missing_fields' => $validation['missing_fields'],
+                ];
+            }
+        }
+
+        $db->createCommand()->update($model->name, $rowData, $where)->execute();
+        return [
+            'success' => true,
+            'message' => 'Baris berhasil disimpan.',
+            'operation' => 'update',
+            'row_key' => $where,
+            'row_data' => $rowData,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, DbTableColumn> $columns
+     * @return array<string, mixed>
+     */
+    private function buildGenericSpreadsheetRowData(array $payload, array $columns): array
+    {
+        $rowData = [];
+        foreach ($columns as $column) {
+            $columnName = (string)$column->name;
+            $rowData[$columnName] = $this->normalizeSpreadsheetCellValue($column, $payload[$columnName] ?? null);
+        }
+
+        return $rowData;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, DbTableColumn> $columns
+     * @return array<string, mixed>
+     */
+    private function buildUsersSpreadsheetRowData(array $payload, array $columns, bool $isInsert): array
+    {
+        $rowData = [];
+        $columnLookup = [];
+        foreach ($columns as $column) {
+            $columnLookup[strtolower((string)$column->name)] = $column;
+        }
+        $now = date('Y-m-d H:i:s');
+
+        $name = trim((string)($payload['name'] ?? ''));
+        $username = trim((string)($payload['username'] ?? ''));
+        $email = trim((string)($payload['email'] ?? ''));
+        $role = trim((string)($payload['role'] ?? ''));
+        $status = $payload['status'] ?? 1;
+        $password = trim((string)($payload['password'] ?? ''));
+
+        $rowData['name'] = $name !== '' ? $name : ($username !== '' ? $username : null);
+        $rowData['username'] = $username !== '' ? $username : null;
+        $rowData['email'] = $email !== '' ? $email : ($username !== '' ? $username . '@local' : null);
+        $rowData['role'] = $role !== '' ? $role : null;
+        $rowData['status'] = $this->normalizeSpreadsheetCellValue($columnLookup['status'] ?? null, $status ?? 1);
+
+        if ($password !== '') {
+            $rowData['password_hash'] = Yii::$app->security->generatePasswordHash($password);
+            $rowData['must_change_password'] = 0;
+        } elseif ($isInsert) {
+            $tempPassword = $this->generateSpreadsheetTempPassword();
+            $rowData['password_hash'] = Yii::$app->security->generatePasswordHash($tempPassword);
+            $rowData['must_change_password'] = 1;
+        }
+
+        if (isset($columnLookup['created_at']) && ($isInsert || empty($payload['created_at'] ?? null))) {
+            $rowData['created_at'] = $now;
+        }
+        if (isset($columnLookup['updated_at'])) {
+            $rowData['updated_at'] = $now;
+        }
+        if (isset($columnLookup['must_change_password']) && !isset($rowData['must_change_password']) && $isInsert) {
+            $rowData['must_change_password'] = 1;
+        }
+
+        return $rowData;
+    }
+
+    /**
+     * @param array<string, mixed> $rowData
+     * @return array{valid:bool,missing_fields:array<int,string>}
+     */
+    private function validateUsersSpreadsheetInsertData(array $rowData): array
+    {
+        $missing = [];
+        foreach (['username', 'role'] as $requiredField) {
+            if (trim((string)($rowData[$requiredField] ?? '')) === '') {
+                $missing[] = $requiredField;
+            }
+        }
+
+        return [
+            'valid' => empty($missing),
+            'missing_fields' => $missing,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $rowData
+     * @return array{valid:bool,missing_fields:array<int,string>}
+     */
+    private function validateUsersSpreadsheetUpdateData(array $rowData): array
+    {
+        return $this->validateUsersSpreadsheetInsertData($rowData);
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @param array<string, mixed> $rowData
+     * @return array{valid:bool,missing_fields:array<int,string>}
+     */
+    private function validateSpreadsheetInsertData(array $columns, array $rowData): array
+    {
+        $missing = [];
+        foreach ($columns as $column) {
+            $columnName = (string)$column->name;
+            if ($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment') && (bool)$column->is_primary) {
+                continue;
+            }
+            if ((bool)$column->is_nullable) {
+                continue;
+            }
+            if ($column->default_value !== null && $column->default_value !== '') {
+                continue;
+            }
+            $value = $rowData[$columnName] ?? null;
+            if ($value === null || $value === '') {
+                $missing[] = $columnName;
+            }
+        }
+
+        return [
+            'valid' => empty($missing),
+            'missing_fields' => $missing,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $rowData
+     * @return array<string, mixed>
+     */
+    /**
+     * @param array<int, string> $keyColumns
+     * @param array<string, mixed> $rowData
+     */
+    private function buildRowKeyFromInsert(\yii\db\TableSchema $tableSchema, array $keyColumns, array $rowData, $insertId): array
+    {
+        $key = [];
+        foreach ($keyColumns as $keyColumn) {
+            if (isset($rowData[$keyColumn])) {
+                $key[$keyColumn] = $rowData[$keyColumn];
+            }
+        }
+
+        if (empty($key) && !empty($tableSchema->primaryKey) && $insertId !== false && $insertId !== null) {
+            $key[$tableSchema->primaryKey[0]] = $insertId;
+        }
+
+        return $key;
+    }
+
+    /**
+     * @param array<int, string> $keyColumns
+     * @param array<int, mixed> $rowKeys
+     */
+    private function deleteSpreadsheetRows(\yii\db\Connection $db, DbTable $model, array $keyColumns, array $rowKeys): int
+    {
+        if (empty($keyColumns) || empty($rowKeys)) {
+            return 0;
+        }
+
+        $deleted = 0;
+        foreach ($rowKeys as $rowKey) {
+            $criteria = [];
+            $keyPayload = $this->normalizeSpreadsheetPayload($rowKey);
+            foreach ($keyColumns as $keyColumn) {
+                if (!array_key_exists($keyColumn, $keyPayload)) {
+                    $criteria = [];
+                    break;
+                }
+                $criteria[$keyColumn] = $keyPayload[$keyColumn];
+            }
+
+            if (!empty($criteria)) {
+                $deleted += $db->createCommand()->delete($model->name, $criteria)->execute();
+            }
+        }
+
+        return $deleted;
+    }
+
+    /**
+     * @param array<int, string> $keyColumns
+     * @param array<int, mixed> $rowKeys
+     * @param array<string, DbTableColumn> $columnMap
+     */
+    private function duplicateSpreadsheetRows(\yii\db\Connection $db, DbTable $model, array $keyColumns, array $rowKeys, array $columnMap): int
+    {
+        if (empty($keyColumns) || empty($rowKeys)) {
+            return 0;
+        }
+
+        $duplicated = 0;
+        foreach ($rowKeys as $rowKey) {
+            $criteria = [];
+            $keyPayload = $this->normalizeSpreadsheetPayload($rowKey);
+            foreach ($keyColumns as $keyColumn) {
+                if (!array_key_exists($keyColumn, $keyPayload)) {
+                    $criteria = [];
+                    break;
+                }
+                $criteria[$keyColumn] = $keyPayload[$keyColumn];
+            }
+
+            if (empty($criteria)) {
+                continue;
+            }
+
+            $existingRow = (new \yii\db\Query())->from($model->name)->where($criteria)->one($db);
+            if (!$existingRow) {
+                continue;
+            }
+
+            foreach ($keyColumns as $keyColumn) {
+                unset($existingRow[$keyColumn]);
+            }
+            foreach ($columnMap as $columnName => $column) {
+                if ($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment')) {
+                    unset($existingRow[$columnName]);
+                }
+            }
+
+            if (!empty($existingRow)) {
+                $db->createCommand()->insert($model->name, $existingRow)->execute();
+                $duplicated++;
+            }
+        }
+
+        return $duplicated;
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @param array<int, mixed> $rows
+     * @param array<int, string> $keyColumns
+     */
+    private function bulkPasteSpreadsheetRows(\yii\db\Connection $db, DbTable $model, array $columns, array $rows, array $keyColumns): int
+    {
+        $editableColumns = [];
+        foreach ($columns as $column) {
+            if ($column->hasAttribute('is_auto_increment') && (bool)$column->getAttribute('is_auto_increment') && (bool)$column->is_primary) {
+                continue;
+            }
+            $editableColumns[] = $column;
+        }
+
+        if (empty($editableColumns) || empty($rows)) {
+            return 0;
+        }
+
+        $inserted = 0;
+        $isUsersTable = strtolower((string)$model->name) === 'users';
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+
+            if ($isUsersTable) {
+                $payload = [];
+                foreach ($editableColumns as $index => $column) {
+                    $value = $row[$index] ?? $row[$column->name] ?? null;
+                    $payload[$column->name] = $value;
+                }
+                $rowData = $this->buildUsersSpreadsheetRowData($payload, $columns, true);
+                $validation = $this->validateUsersSpreadsheetInsertData($rowData);
+                if (!$validation['valid']) {
+                    continue;
+                }
+                $rowData = $this->finalizeUsersSpreadsheetInsertDataForBulk($rowData);
+            } else {
+                $rowData = [];
+                foreach ($editableColumns as $index => $column) {
+                    $value = $row[$index] ?? $row[$column->name] ?? null;
+                    $rowData[$column->name] = $this->normalizeSpreadsheetCellValue($column, $value);
+                }
+
+                $validation = $this->validateSpreadsheetInsertData($columns, $rowData);
+                if (!$validation['valid']) {
+                    continue;
+                }
+            }
+
+            foreach ($columns as $column) {
+                $columnName = (string)$column->name;
+                if (($rowData[$columnName] ?? null) === null && !$column->is_nullable && !$column->is_primary) {
+                    unset($rowData[$columnName]);
+                }
+            }
+
+            if (!empty($rowData)) {
+                $db->createCommand()->insert($model->name, $rowData)->execute();
+                $inserted++;
+            }
+        }
+
+        return $inserted;
+    }
+
+    /**
+     * @param array<string, mixed> $rowData
+     * @return array<string, mixed>
+     */
+    private function finalizeUsersSpreadsheetInsertDataForBulk(array $rowData): array
+    {
+        $now = date('Y-m-d H:i:s');
+        if (empty($rowData['name']) && !empty($rowData['username'])) {
+            $rowData['name'] = $rowData['username'];
+        }
+        if (empty($rowData['email']) && !empty($rowData['username'])) {
+            $rowData['email'] = $rowData['username'] . '@local';
+        }
+        if (empty($rowData['status'])) {
+            $rowData['status'] = 1;
+        }
+        if (!isset($rowData['must_change_password'])) {
+            $rowData['must_change_password'] = 1;
+        }
+        if (!isset($rowData['created_at'])) {
+            $rowData['created_at'] = $now;
+        }
+        if (!isset($rowData['updated_at'])) {
+            $rowData['updated_at'] = $now;
+        }
+
+        return $rowData;
+    }
+
+    /**
+     * @param array<int, string> $keyColumns
+     * @param array<int, mixed> $rowKeys
+     */
+    private function bulkUpdateSpreadsheetStatus(\yii\db\Connection $db, DbTable $model, array $keyColumns, array $rowKeys, $statusValue): int
+    {
+        if (empty($keyColumns) || empty($rowKeys)) {
+            return 0;
+        }
+
+        $statusValue = is_numeric($statusValue) ? (int)$statusValue : (int)in_array(strtolower((string)$statusValue), ['1', 'true', 'yes', 'on', 'active', 'aktif'], true);
+        $affected = 0;
+        foreach ($rowKeys as $rowKey) {
+            $criteria = [];
+            $keyPayload = $this->normalizeSpreadsheetPayload($rowKey);
+            foreach ($keyColumns as $keyColumn) {
+                if (!array_key_exists($keyColumn, $keyPayload)) {
+                    $criteria = [];
+                    break;
+                }
+                $criteria[$keyColumn] = $keyPayload[$keyColumn];
+            }
+
+            if (!empty($criteria)) {
+                $affected += $db->createCommand()->update($model->name, ['status' => $statusValue], $criteria)->execute();
+            }
+        }
+
+        return $affected;
     }
 
     private function executeRawSchemaSql(string $sql): array
@@ -1463,9 +2466,12 @@ class TableBuilderController extends Controller
 
         $activeProjectId = $this->getActiveProjectId();
         $criteria = [
-            'user_id' => Yii::$app->user->id,
             'name' => strtolower($tableName),
         ];
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $criteria['user_id'] = $effectiveUserId;
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $criteria['project_id'] = $activeProjectId;
         }
@@ -1473,7 +2479,9 @@ class TableBuilderController extends Controller
         $model = DbTable::findOne($criteria);
         if ($model === null) {
             $model = new DbTable();
-            $model->user_id = Yii::$app->user->id;
+            if ($effectiveUserId !== null) {
+                $model->user_id = $effectiveUserId;
+            }
             $this->assignActiveProject($model);
             $model->name = strtolower($tableName);
             $model->label = ucwords(str_replace('_', ' ', strtolower($tableName)));
@@ -1646,8 +2654,13 @@ class TableBuilderController extends Controller
         $activeProjectId = $this->getActiveProjectId();
         $criteria = [
             'id' => (int)$id,
-            'user_id' => Yii::$app->user->id,
         ];
+        if (!$this->isCommanderSuperAdmin()) {
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $criteria['user_id'] = $effectiveUserId;
+            }
+        }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $criteria['project_id'] = $activeProjectId;
         }
@@ -1732,8 +2745,14 @@ class TableBuilderController extends Controller
             
             // Get table definitions from DbTable model (like table-builder index does)
             $tablesQuery = DbTable::find()
-                ->where(['user_id' => Yii::$app->user->id])
                 ->orderBy(['created_at' => SORT_DESC]);
+
+            if (!$this->isCommanderSuperAdmin()) {
+                $effectiveUserId = $this->getEffectiveUserId();
+                if ($effectiveUserId !== null) {
+                    $tablesQuery->where(['user_id' => $effectiveUserId]);
+                }
+            }
                 
             if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
                 $tablesQuery->andWhere(['project_id' => $activeProjectId]);

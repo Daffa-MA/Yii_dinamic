@@ -4,6 +4,7 @@ namespace app\controllers;
 
 use Yii;
 use yii\web\Controller;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use yii\db\Expression;
 use yii\db\Query;
@@ -11,8 +12,17 @@ use yii\data\Pagination;
 use app\models\Project;
 use app\models\Form;
 use app\models\FormSubmission;
+use app\models\DbTableColumn;
+use app\models\DbTable;
+use app\models\ProjectLoginForm;
+use app\models\ProjectUser;
+use app\models\User;
+use app\models\WorkspaceSettings;
 use app\components\ActiveDatabaseContext;
+use app\components\DomainContext;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
 use app\components\ProjectSchema;
 use app\components\DatabaseSchemaInitializer;
 
@@ -89,6 +99,97 @@ class ProjectController extends Controller
         return self::$databaseExistsCache[$databaseName];
     }
 
+    private function isCommanderSuperAdmin(): bool
+    {
+        return (new CommanderAuthContext())->isSuperAdmin();
+    }
+
+    private function resolveProjectDomainPrefix(Project $project): string
+    {
+        $defaultPrefix = Project::normalizeSlug((string)$project->slug);
+        if ($defaultPrefix === '') {
+            $defaultPrefix = Project::normalizeSlug((string)$project->name);
+        }
+
+        if ($defaultPrefix === '') {
+            $defaultPrefix = 'project';
+        }
+
+        if (!$this->isCommanderSuperAdmin()) {
+            return $defaultPrefix;
+        }
+
+        $customPrefix = Project::normalizeDomainPrefix((string)$project->custom_domain_prefix);
+        if ($customPrefix === '') {
+            $customPrefix = Project::extractProjectDomainPrefix((string)$project->custom_domain);
+        }
+
+        if ($customPrefix === '') {
+            return $defaultPrefix;
+        }
+
+        if (strlen($customPrefix) > 63) {
+            $customPrefix = substr($customPrefix, 0, 63);
+        }
+
+        return $customPrefix;
+    }
+
+    private function buildAccessibleProjectQuery(): \yii\db\ActiveQuery
+    {
+        $query = Project::find();
+        if (!$this->isCommanderSuperAdmin()) {
+            $query->where(['user_id' => Yii::$app->user->id]);
+        }
+
+        return $query;
+    }
+
+    private function findAccessibleProject(int $projectId): ?Project
+    {
+        if ($projectId <= 0) {
+            return null;
+        }
+
+        if ($this->isCommanderSuperAdmin()) {
+            return Project::findOne($projectId);
+        }
+
+        $domainContext = new DomainContext();
+        if ($domainContext->isWorkspaceDomain()) {
+            $hostProject = Project::findByCustomDomain($domainContext->currentHost());
+            if ($hostProject !== null && (int)$hostProject->id === $projectId) {
+                return $hostProject;
+            }
+        }
+
+        $resolvedDomainProjectId = (new ActiveProjectContext())->getResolvedDomainProjectId();
+        if ($resolvedDomainProjectId !== null && $resolvedDomainProjectId === $projectId) {
+            return Project::findOne($projectId);
+        }
+
+        return Project::findOne([
+            'id' => $projectId,
+            'user_id' => Yii::$app->user->id,
+        ]);
+    }
+
+    private function resolveWorkspaceProjectIdFromDomain(): ?int
+    {
+        $domainContext = new DomainContext();
+        if (!$domainContext->isWorkspaceDomain()) {
+            return null;
+        }
+
+        $host = $domainContext->currentHost();
+        if ($host === '') {
+            return null;
+        }
+
+        $project = Project::findByCustomDomain($host);
+        return $project !== null ? (int)$project->id : null;
+    }
+
     private function ensureProjectDatabase(Project $project, bool $mustBeNew = false): string
     {
         $databaseName = $this->resolveProjectDatabaseName($project);
@@ -96,13 +197,165 @@ class ProjectController extends Controller
 
         if ($mustBeNew && $databaseContext->databaseExistsOnCurrentServer($databaseName)) {
             throw new \RuntimeException("Nama database '{$databaseName}' sudah ada. Gunakan nama project lain yang unik.");
-        }        $databaseContext->createDatabase($databaseName);
+        }
+
+        $databaseContext->createDatabase($databaseName);
         
         // Initialize database schema with all required tables
         DatabaseSchemaInitializer::initializeProjectDatabase($databaseName);
+        $this->ensureDefaultAppMetadata($project);
         
         return $databaseName;
-    }    
+    }
+
+    private function ensureDefaultAppMetadata(Project $project): void
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            return;
+        }
+
+        $table = DbTable::findOne([
+            'user_id' => (int)$project->user_id,
+            'project_id' => (int)$project->id,
+            'name' => 'users',
+        ]);
+
+        if ($table === null) {
+            $table = new DbTable();
+            $table->user_id = (int)$project->user_id;
+            if ($table->hasAttribute('project_id')) {
+                $table->project_id = (int)$project->id;
+            }
+            $table->name = 'users';
+            $table->label = 'Users';
+            $table->description = 'Default application users table';
+            $table->engine = 'InnoDB';
+            $table->charset = 'utf8mb4';
+            $table->collation = 'utf8mb4_unicode_ci';
+            $table->is_created = 1;
+
+            if (!$table->save()) {
+                Yii::warning('Failed to create default users metadata: ' . implode(', ', $table->getErrorSummary(true)), 'app');
+                return;
+            }
+        } else {
+            $table->is_created = 1;
+            $table->save(false, ['is_created']);
+        }
+
+        $defaultColumns = [
+            [
+                'name' => 'id',
+                'label' => 'ID',
+                'type' => 'INT',
+                'length' => 11,
+                'is_nullable' => 0,
+                'is_primary' => 1,
+                'is_unique' => 1,
+                'is_auto_increment' => 1,
+                'sort_order' => 1,
+            ],
+            [
+                'name' => 'name',
+                'label' => 'Name',
+                'type' => 'VARCHAR',
+                'length' => 255,
+                'is_nullable' => 0,
+                'sort_order' => 2,
+            ],
+            [
+                'name' => 'username',
+                'label' => 'Username',
+                'type' => 'VARCHAR',
+                'length' => 100,
+                'is_nullable' => 0,
+                'is_unique' => 1,
+                'sort_order' => 3,
+            ],
+            [
+                'name' => 'email',
+                'label' => 'Email',
+                'type' => 'VARCHAR',
+                'length' => 255,
+                'is_nullable' => 0,
+                'is_unique' => 1,
+                'sort_order' => 4,
+            ],
+            [
+                'name' => 'password_hash',
+                'label' => 'Password Hash',
+                'type' => 'VARCHAR',
+                'length' => 255,
+                'is_nullable' => 0,
+                'sort_order' => 5,
+            ],
+            [
+                'name' => 'role',
+                'label' => 'Role',
+                'type' => 'VARCHAR',
+                'length' => 50,
+                'is_nullable' => 0,
+                'sort_order' => 6,
+            ],
+            [
+                'name' => 'status',
+                'label' => 'Status',
+                'type' => 'INT',
+                'length' => 11,
+                'is_nullable' => 0,
+                'sort_order' => 7,
+            ],
+            [
+                'name' => 'must_change_password',
+                'label' => 'Must Change Password',
+                'type' => 'TINYINT',
+                'length' => 1,
+                'is_nullable' => 0,
+                'sort_order' => 8,
+            ],
+            [
+                'name' => 'created_at',
+                'label' => 'Created At',
+                'type' => 'TIMESTAMP',
+                'is_nullable' => 1,
+                'sort_order' => 9,
+            ],
+            [
+                'name' => 'updated_at',
+                'label' => 'Updated At',
+                'type' => 'TIMESTAMP',
+                'is_nullable' => 1,
+                'sort_order' => 10,
+            ],
+        ];
+
+        foreach ($defaultColumns as $columnData) {
+            $column = DbTableColumn::findOne([
+                'table_id' => $table->id,
+                'name' => $columnData['name'],
+            ]);
+
+            if ($column === null) {
+                $column = new DbTableColumn();
+                $column->table_id = (int)$table->id;
+                $column->name = $columnData['name'];
+                $column->label = $columnData['label'];
+                $column->type = $columnData['type'];
+                $column->length = $columnData['length'] ?? null;
+                $column->is_nullable = (bool)($columnData['is_nullable'] ?? false);
+                $column->is_primary = (bool)($columnData['is_primary'] ?? false);
+                $column->is_unique = (bool)($columnData['is_unique'] ?? false);
+                if ($column->hasAttribute('is_auto_increment')) {
+                    $column->setAttribute('is_auto_increment', (bool)($columnData['is_auto_increment'] ?? false));
+                }
+                $column->sort_order = (int)($columnData['sort_order'] ?? 0);
+                if (!$column->save()) {
+                    Yii::warning('Failed to create default users metadata column: ' . implode(', ', $column->getErrorSummary(true)), 'app');
+                }
+            }
+        }
+    }
+
 private function insertDefaultCmsData($newDb): void
     {
         $pagesTable = $newDb->getTableSchema('master_page', true);
@@ -152,6 +405,14 @@ private function insertDefaultCmsData($newDb): void
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
+                        'actions' => ['index'],
+                        'allow' => true,
+                    ],
+                    [
+                        'actions' => ['login', 'access-denied', 'change-password', 'logout'],
+                        'allow' => true,
+                    ],
+                    [
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -162,18 +423,31 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionIndex()
     {
+        if (!$this->isCommanderSuperAdmin()) {
+            throw new ForbiddenHttpException('Akses project list hanya untuk Commander superadmin.');
+        }
+
         if (!ProjectSchema::supportsProjectContext()) {
             Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini. Jalankan migrasi terbaru untuk mengaktifkan fitur project.');
             return $this->redirect(['site/dashboard']);
         }
 
+        Project::ensureProjectStructure();
         $context = new ActiveProjectContext();
         $model = new Project();
         $model->user_id = Yii::$app->user->id;
+        $isCommanderSuperAdmin = $this->isCommanderSuperAdmin();
+        $model->custom_domain_prefix = Project::normalizeSlug((string)($model->custom_domain_prefix ?: $model->name));
 
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
                 $model->user_id = Yii::$app->user->id;
+                $model->slug = Project::buildProjectSlug((string)$model->name);
+                $domainPrefix = $this->resolveProjectDomainPrefix($model);
+                $model->custom_domain_prefix = $domainPrefix;
+                $model->custom_domain = Project::buildProjectDomainFromPrefix($domainPrefix);
+                $model->domain_status = 'active';
+                $model->domain_verified_at = date('Y-m-d H:i:s');
 
                 if ($model->save()) {
                     try {
@@ -193,9 +467,10 @@ private function insertDefaultCmsData($newDb): void
                     $serverHint = $dbHostHint !== ''
                         ? "Database baru '{$databaseName}' dibuat di server MySQL {$dbHostHint}. Di phpMyAdmin, pastikan Anda terhubung ke host yang sama agar database tampil di sidebar kiri (refresh daftar database bila perlu)."
                         : "Database baru '{$databaseName}' sudah dibuat. Di phpMyAdmin, pastikan koneksi ke server MySQL yang sama dengan aplikasi ini, lalu refresh daftar database.";
-                    Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}");
+                    $domainHint = " Domain otomatis '{$model->custom_domain}' tersimpan dan aktif.";
+                    Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}{$domainHint}");
 
-                    return $this->redirectAfterProjectSelected();
+                    return $this->redirectToProjectLogin((int)$model->id, ['site/dashboard']);
                 }
 
                 Yii::$app->session->setFlash('error', implode(', ', $model->getFirstErrors()) ?: 'Gagal membuat project.');
@@ -206,8 +481,7 @@ private function insertDefaultCmsData($newDb): void
 
         // Pagination setup
         $pageSize = 6;
-        $query = Project::find()
-            ->where(['user_id' => Yii::$app->user->id])
+        $query = $this->buildAccessibleProjectQuery()
             ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC]);
         
         $totalCount = $query->count();
@@ -234,6 +508,7 @@ private function insertDefaultCmsData($newDb): void
             'projectCount' => $totalCount,
             'projectDatabases' => $projectDatabases,
             'pagination' => $pagination,
+            'isCommanderSuperAdmin' => $isCommanderSuperAdmin,
         ]);
     }
 
@@ -244,7 +519,7 @@ private function insertDefaultCmsData($newDb): void
             return $this->redirect(['site/dashboard']);
         }
 
-        $project = Project::findOne(['id' => (int)$id, 'user_id' => Yii::$app->user->id]);
+        $project = $this->findAccessibleProject((int)$id);
         if ($project === null) {
             throw new NotFoundHttpException('Project not found.');
         }
@@ -262,12 +537,57 @@ private function insertDefaultCmsData($newDb): void
         $dbHostHint = (new ActiveDatabaseContext())->mysqlHostFromConnection();
         $hostSuffix = $dbHostHint !== '' ? " (server: {$dbHostHint})" : '';
         Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}{$hostSuffix}.");
-        return $this->redirectAfterProjectSelected();
+        if ($this->isCommanderSuperAdmin()) {
+            return $this->redirect(['site/dashboard']);
+        }
+
+        return $this->redirectToProjectLogin((int)$project->id, ['site/dashboard']);
+    }
+
+    public function actionUpdate($id)
+    {
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini.');
+            return $this->redirect(['project/index']);
+        }
+
+        Project::ensureProjectStructure();
+
+        $project = $this->findAccessibleProject((int)$id);
+        if ($project === null) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        if (Yii::$app->request->isPost && $project->load(Yii::$app->request->post())) {
+            $project->slug = Project::buildProjectSlug((string)$project->name, (int)$project->id);
+            $domainPrefix = $this->resolveProjectDomainPrefix($project);
+            $project->custom_domain_prefix = $domainPrefix;
+            $project->custom_domain = Project::buildProjectDomainFromPrefix($domainPrefix);
+            $project->domain_status = 'active';
+            $project->domain_verified_at = date('Y-m-d H:i:s');
+
+            if ($project->save()) {
+                Yii::$app->session->setFlash('success', 'Project settings berhasil disimpan.');
+                return $this->redirect(['project/update', 'id' => $project->id]);
+            }
+
+            Yii::$app->session->setFlash('error', implode(', ', $project->getFirstErrors()) ?: 'Gagal menyimpan project settings.');
+        }
+
+        if (trim((string)$project->custom_domain_prefix) === '') {
+            $project->custom_domain_prefix = Project::extractProjectDomainPrefix((string)$project->custom_domain);
+        }
+
+        return $this->render('update', [
+            'project' => $project,
+            'isCommanderSuperAdmin' => $this->isCommanderSuperAdmin(),
+            'databaseName' => $this->resolveProjectDatabaseName($project),
+        ]);
     }
 
     public function actionDelete($id)
     {
-        $project = Project::findOne(['id' => (int)$id, 'user_id' => Yii::$app->user->id]);
+        $project = $this->findAccessibleProject((int)$id);
         if ($project === null) {
             throw new NotFoundHttpException('Project not found.');
         }
@@ -316,52 +636,315 @@ private function insertDefaultCmsData($newDb): void
         }
     }
 
-    private function redirectAfterProjectSelected()
+    private function redirectToProjectLogin(int $projectId, array $defaultReturnUrl = ['site/dashboard'])
     {
         $session = Yii::$app->session;
         $returnUrl = (string)$session->get('project_required_return_url', '');
         $session->remove('project_required_return_url');
 
-        if ($returnUrl !== '') {
-            return $this->redirect($returnUrl);
+        $targetReturnUrl = $returnUrl !== '' ? $returnUrl : Yii::$app->urlManager->createUrl($defaultReturnUrl);
+        $authContext = new ProjectAuthContext();
+        $commanderAuth = new CommanderAuthContext();
+
+        if ($commanderAuth->isSuperAdmin()) {
+            return $this->redirect(['site/dashboard']);
         }
 
-        return $this->redirect(['site/dashboard']);
+        if ($authContext->isAuthenticated($projectId)) {
+            $permissionService = new \app\components\ProjectPermissionService();
+            $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId, $targetReturnUrl);
+            if ($landingRoute !== null) {
+                return $this->redirect($landingRoute);
+            }
+
+            return $this->redirect(['site/dashboard']);
+        }
+
+        return $this->redirect([
+            'project/login',
+            'id' => $projectId,
+            'return_url' => $targetReturnUrl,
+        ]);
     }
 
-    public function actionProfile()
+    public function actionLogin($id = null)
     {
-        if (!ProjectSchema::supportsProjectContext()) {
-            Yii::$app->session->setFlash('warning', 'Project context not available.');
-            return $this->redirect(['site/profile']);
-        }
+        $this->layout = 'project-login';
 
-        $context = new ActiveProjectContext();
-        $activeProjectId = $context->getActiveProjectId();
-        
-        if ($activeProjectId === null) {
-            Yii::$app->session->setFlash('warning', 'No active project selected.');
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Project context belum tersedia. Jalankan migrasi terbaru terlebih dahulu.');
             return $this->redirect(['project/index']);
         }
 
-        $project = Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+        $projectId = (int)($id ?: Yii::$app->request->get('project_id', 0));
+        $context = new ActiveProjectContext();
+
+        if ($projectId > 0) {
+            $project = $this->findAccessibleProject($projectId);
+            if ($project === null) {
+                throw new NotFoundHttpException('Project not found.');
+            }
+
+            $context->setActiveProject($projectId);
+            try {
+                $this->ensureProjectDatabase($project);
+            } catch (\Throwable $e) {
+                Yii::$app->session->setFlash('error', 'Project database belum siap: ' . $e->getMessage());
+                return $this->redirect(['project/index']);
+            }
+        } else {
+            $resolvedProjectId = $context->getResolvedDomainProjectId() ?? $this->resolveWorkspaceProjectIdFromDomain();
+            if ($resolvedProjectId !== null) {
+                $projectId = $resolvedProjectId;
+                $project = $this->findAccessibleProject($projectId);
+                if ($project === null) {
+                    throw new NotFoundHttpException('Project not found.');
+                }
+
+                $context->setActiveProject($projectId);
+                try {
+                    $this->ensureProjectDatabase($project);
+                } catch (\Throwable $e) {
+                    Yii::$app->session->setFlash('error', 'Project database belum siap: ' . $e->getMessage());
+                    return $this->redirect(['project/index']);
+                }
+            }
+        }
+
+        $activeProjectId = $context->getActiveProjectId();
+        if ($activeProjectId === null) {
+            $fallbackProjectId = $this->resolveWorkspaceProjectIdFromDomain();
+            if ($fallbackProjectId !== null) {
+                $projectId = $fallbackProjectId;
+                $context->setActiveProject($projectId);
+                $activeProjectId = $projectId;
+            }
+        }
+
+        if ($activeProjectId === null) {
+            Yii::$app->session->setFlash('warning', 'Pilih project terlebih dahulu.');
+            return $this->redirect(['project/index']);
+        }
+
+        $project = $this->findAccessibleProject((int)$activeProjectId);
         if ($project === null) {
             throw new NotFoundHttpException('Project not found.');
         }
 
-        $user = Yii::$app->user->identity;
-        $totalForms = Form::find()->where(['user_id' => $user->id])->count();
-        $totalSubmissions = FormSubmission::find()
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->where(['forms.user_id' => $user->id])
-            ->count();
+        (new ActiveDatabaseContext())->resolveAndApply();
+        $workspaceSettings = new WorkspaceSettings();
+        $workspaceSettings->loadFromSession();
 
-        return $this->render('profile', [
-            'user' => $user,
+        $commanderAuth = new CommanderAuthContext();
+        if ($commanderAuth->isSuperAdmin()) {
+            return $this->redirect(['site/dashboard']);
+        }
+
+        $authContext = new ProjectAuthContext();
+        $forceLogin = Yii::$app->request->get('force_login', '0') === '1';
+        if ($authContext->isAuthenticated($activeProjectId) && !$forceLogin) {
+            return $this->redirectToProjectLogin($activeProjectId, ['site/dashboard']);
+        }
+
+        $model = new ProjectLoginForm();
+        $returnUrl = (string)Yii::$app->request->post('return_url', Yii::$app->request->get('return_url', ''));
+
+        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
+            $user = $model->getUser();
+            if ($user !== null) {
+                $authContext->login($project, $user);
+
+                if ((int)$user->must_change_password === 1) {
+                    Yii::$app->session->setFlash('warning', 'Anda masih menggunakan password default. Disarankan segera mengganti password.');
+                }
+
+                $permissionService = new \app\components\ProjectPermissionService();
+                $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId, $returnUrl);
+                if ($landingRoute !== null) {
+                    return $this->redirect($landingRoute);
+                }
+
+                Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu. Menampilkan workspace dasar.');
+                return $this->redirect(['site/dashboard']);
+            }
+        }
+
+        $model->password = '';
+
+        return $this->render('login', [
+            'model' => $model,
             'project' => $project,
-            'totalForms' => $totalForms,
-            'totalSubmissions' => $totalSubmissions,
+            'workspaceSettings' => $workspaceSettings,
+            'returnUrl' => $returnUrl,
         ]);
+    }
+
+    public function actionChangePassword($id = null)
+    {
+        $this->layout = 'project-login';
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Project context belum tersedia.');
+            return $this->redirect(['project/index']);
+        }
+
+        $projectId = (int)($id ?: Yii::$app->request->get('project_id', 0));
+        if ($projectId <= 0) {
+            $projectId = (new ActiveProjectContext())->getActiveProjectId() ?? 0;
+        }
+
+        if ($projectId <= 0) {
+            Yii::$app->session->setFlash('warning', 'Pilih project terlebih dahulu.');
+            return $this->redirect(['project/index']);
+        }
+
+        $project = $this->findAccessibleProject($projectId);
+        if ($project === null) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        (new ActiveProjectContext())->setActiveProject($projectId);
+        (new ActiveDatabaseContext())->resolveAndApply();
+
+        $commanderAuth = new CommanderAuthContext();
+        if ($commanderAuth->isSuperAdmin()) {
+            return $this->redirectToProjectLogin($projectId, ['site/dashboard']);
+        }
+
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser($projectId);
+        if ($user === null) {
+            return $this->redirect(['project/login', 'id' => $projectId]);
+        }
+
+        $currentPassword = (string)Yii::$app->request->post('current_password', '');
+        $newPassword = (string)Yii::$app->request->post('new_password', '');
+        $confirmPassword = (string)Yii::$app->request->post('confirm_password', '');
+        $returnUrl = (string)Yii::$app->request->post('return_url', Yii::$app->request->get('return_url', ''));
+
+        if (Yii::$app->request->isPost) {
+            if (!$user->validatePassword($currentPassword)) {
+                Yii::$app->session->setFlash('error', 'Password saat ini salah.');
+            } elseif (strlen($newPassword) < 6) {
+                Yii::$app->session->setFlash('error', 'Password baru minimal 6 karakter.');
+            } elseif ($newPassword !== $confirmPassword) {
+                Yii::$app->session->setFlash('error', 'Konfirmasi password tidak sama.');
+            } else {
+                $user->setPassword($newPassword);
+                $user->must_change_password = 0;
+                if ($user->save(false)) {
+                    $authContext->login($project, $user);
+                    Yii::$app->session->setFlash('success', 'Password berhasil diganti.');
+
+                    $permissionService = new \app\components\ProjectPermissionService();
+                    $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId, $returnUrl);
+                    if ($landingRoute !== null) {
+                        return $this->redirect($landingRoute);
+                    }
+
+                    Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu. Menampilkan workspace dasar.');
+                    return $this->redirect(['site/dashboard']);
+                }
+
+                Yii::$app->session->setFlash('error', 'Gagal menyimpan password baru.');
+            }
+        }
+
+        return $this->render('change-password', [
+            'project' => $project,
+            'user' => $user,
+            'returnUrl' => $returnUrl,
+        ]);
+    }
+
+    public function actionLogout()
+    {
+        $context = new ActiveProjectContext();
+        $projectId = $context->getActiveProjectId() ?? (int)Yii::$app->request->get('id', 0);
+
+        if ($projectId <= 0) {
+            $domainContext = new DomainContext();
+            if ($domainContext->isWorkspaceDomain()) {
+                $project = Project::findByCustomDomain($domainContext->currentHost());
+                if ($project !== null) {
+                    $projectId = (int)$project->id;
+                }
+            }
+        }
+
+        if ($projectId > 0) {
+            (new ProjectAuthContext())->logout($projectId);
+            $context->clear();
+            return $this->redirect(['project/login']);
+        }
+
+        return $this->redirect(['project/index']);
+    }
+
+    public function actionAccessDenied($id = null)
+    {
+        $this->layout = 'project-login';
+
+        if (!ProjectSchema::supportsProjectContext()) {
+            Yii::$app->session->setFlash('warning', 'Project context belum tersedia.');
+            return $this->redirect(['project/index']);
+        }
+
+        $projectId = (int)($id ?: Yii::$app->request->get('project_id', 0));
+        if ($projectId <= 0) {
+            $projectId = (new ActiveProjectContext())->getResolvedDomainProjectId()
+                ?? $this->resolveWorkspaceProjectIdFromDomain()
+                ?? (new ActiveProjectContext())->getActiveProjectId()
+                ?? 0;
+        }
+
+        if ($projectId <= 0) {
+            $domainContext = new DomainContext();
+            if ($domainContext->isWorkspaceDomain()) {
+                Yii::$app->session->setFlash('warning', 'Workspace aktif belum terdeteksi, silakan login ulang.');
+                return $this->redirect(['project/login']);
+            }
+
+            Yii::$app->session->setFlash('warning', 'Pilih project terlebih dahulu.');
+            return $this->redirect(['project/index']);
+        }
+
+        $project = $this->findAccessibleProject($projectId);
+        if ($project === null) {
+            throw new NotFoundHttpException('Project not found.');
+        }
+
+        (new ActiveProjectContext())->setActiveProject($projectId);
+        (new ActiveDatabaseContext())->resolveAndApply();
+
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser($projectId);
+        if ($user === null) {
+            return $this->redirect(['project/login', 'id' => $projectId]);
+        }
+
+        $workspaceSettings = new WorkspaceSettings();
+        $workspaceSettings->loadFromSession();
+
+        $permissionService = new \app\components\ProjectPermissionService();
+        $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId);
+
+        return $this->render('access-denied', [
+            'project' => $project,
+            'user' => $user,
+            'workspaceSettings' => $workspaceSettings,
+            'landingRoute' => $landingRoute,
+        ]);
+    }
+
+    public function actionProfile()
+    {
+        $rootDomain = (new DomainContext())->rootDomain();
+        if ($rootDomain === '') {
+            return $this->redirect(['site/profile']);
+        }
+
+        return Yii::$app->response->redirect('https://' . $rootDomain . '/profile');
     }
 
     public function actionFirebaseUsers()
@@ -378,18 +961,21 @@ private function insertDefaultCmsData($newDb): void
             return $this->redirect(['project/index']);
         }
 
-        $project = Project::findOne(['id' => $activeProjectId, 'user_id' => Yii::$app->user->id]);
+        $project = $this->findAccessibleProject((int)$activeProjectId);
         if ($project === null) {
             throw new NotFoundHttpException('Project not found.');
         }
 
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
         $baseQuery = (new Query())
             ->from(['fs' => FormSubmission::tableName()])
             ->innerJoin(['f' => Form::tableName()], 'f.id = fs.form_id')
-            ->where(['f.user_id' => Yii::$app->user->id])
             ->andWhere(['f.project_id' => $activeProjectId])
             ->andWhere(['not', ['fs.firebase_uid' => null]])
             ->andWhere(['<>', 'fs.firebase_uid', '']);
+        if (!$isCommanderSuperAdmin) {
+            $baseQuery->andWhere(['f.user_id' => Yii::$app->user->id]);
+        }
 
         $groupedQuery = (clone $baseQuery)
             ->select([

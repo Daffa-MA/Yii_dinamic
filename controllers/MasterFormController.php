@@ -12,6 +12,7 @@ use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
 use app\helpers\FormSystemFieldHelper;
 use app\services\FormActivityLogService;
@@ -530,13 +531,16 @@ class MasterFormController extends Controller
             
             $dbTable = DbTable::findOne($tableId);
             if (ProjectSchema::supportsProjectContext() && $model->hasAttribute('project_id') && $model->project_id !== null) {
-                $dbTable = DbTable::find()
+                $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
+                $dbTableQuery = DbTable::find()
                     ->where([
                         'id' => $tableId,
-                        'user_id' => Yii::$app->user->id,
                     ])
-                    ->andWhere(['project_id' => (int)$model->project_id])
-                    ->one();
+                    ->andWhere(['project_id' => (int)$model->project_id]);
+                if (!$isCommanderSuperAdmin) {
+                    $dbTableQuery->andWhere(['user_id' => Yii::$app->user->id]);
+                }
+                $dbTable = $dbTableQuery->one();
             }
             if (!$dbTable) {
                 $message = 'Target table metadata not found.';

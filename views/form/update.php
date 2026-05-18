@@ -1786,10 +1786,12 @@ display: none;
             <div class="w-px h-8 bg-gradient-to-b from-transparent via-[#c7c4d8]/30 to-transparent"></div>
             <span class="text-xs text-[#777587] font-medium tracking-wide">Form Builder</span>
             <div class="w-px h-8 bg-gradient-to-b from-transparent via-[#c7c4d8]/30 to-transparent"></div>
-            <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
-                'class' => 'text-[#464555] hover:text-[#3525cd] px-3 py-2 rounded-lg hover:bg-[#f8fafd] transition-all flex items-center gap-2 text-sm font-medium no-underline',
-                'encode' => false
-            ]) ?>
+            <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
+                <?= Html::a('<span class="material-symbols-outlined text-[18px]">folder_open</span> Projects', ['project/index'], [
+                    'class' => 'text-[#464555] hover:text-[#3525cd] px-3 py-2 rounded-lg hover:bg-[#f8fafd] transition-all flex items-center gap-2 text-sm font-medium no-underline',
+                    'encode' => false
+                ]) ?>
+            <?php endif; ?>
         </div>
         <div class="flex items-center gap-3">
             <?= Html::a('<span class="material-symbols-outlined text-[18px]">list</span> Forms', ['form/index'], [

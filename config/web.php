@@ -4,11 +4,43 @@ $params = require __DIR__ . '/params.php';
 $dbBundle = require __DIR__ . '/db.php';
 $db = $dbBundle['db'] ?? $dbBundle;
 
+if (!function_exists('appTrustedProxyCidrs')) {
+    /**
+     * Returns proxy CIDRs that are allowed to forward secure headers.
+     *
+     * Override with `YII_TRUSTED_PROXY_CIDRS` when the proxy network is known.
+     * Defaults cover localhost and common private/Docker ranges used by Traefik/Coolify.
+     *
+     * @return string[]
+     */
+    function appTrustedProxyCidrs(): array
+    {
+        $configured = getenv('YII_TRUSTED_PROXY_CIDRS');
+        if ($configured === false || trim($configured) === '') {
+            $configured = getenv('TRUSTED_PROXY_CIDRS');
+        }
+
+        if (is_string($configured) && trim($configured) !== '') {
+            return array_values(array_filter(array_map('trim', preg_split('/\s*,\s*/', $configured) ?: [])));
+        }
+
+        return [
+            '127.0.0.1',
+            '::1',
+            '10.0.0.0/8',
+            '172.16.0.0/12',
+            '192.168.0.0/16',
+            '100.64.0.0/10',
+            'fc00::/7',
+        ];
+    }
+}
+
 $config = [
     'id' => 'basic',
     'name' => 'Architectural Editor',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log'],
+    'bootstrap' => ['log', 'app\\components\\DomainProjectResolver', 'app\\components\\ProjectAccessBootstrap'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -17,7 +49,9 @@ $config = [
         'request' => [
             // !!! insert a secret key in the following (if it is empty) - this is required by cookie validation
             'cookieValidationKey' => 'blwvTdeGu2Ngh7Y3AaB_BbXDgKv5f1im',
-            'trustedHosts' => ['*'],
+            // Traefik/Coolify terminates TLS and forwards X-Forwarded-* headers.
+            // Cloudflare must use SSL mode Full or Full strict, not Flexible.
+            'trustedHosts' => appTrustedProxyCidrs(),
         ],
         'assetManager' => [
             'appendTimestamp' => true,
@@ -105,6 +139,10 @@ $config = [
                 'project-list/select/<id:\d+>' => 'project/select',
                 'project-list/firebase-users' => 'project/firebase-users',
                 'project/profile' => 'project/profile',
+                'project/login/<id:\d+>' => 'project/login',
+                'project/login' => 'project/login',
+                'project/change-password' => 'project/change-password',
+                'project/logout' => 'project/logout',
 
                 // Multi-project Dashboard routes (NEW - untuk dynamic)
                 'dashboard' => 'dashboard/index',
@@ -163,6 +201,8 @@ $config = [
 
                 // Workspace Settings routes
                 'settings/workspace' => 'workspace-settings/index',
+                'settings/workspace/permissions' => 'workspace-settings/permissions',
+                'settings/workspace/permission-inspector' => 'workspace-settings/permission-inspector',
                 'settings/workspace/save' => 'workspace-settings/save',
                 'settings/workspace/reset' => 'workspace-settings/reset',
             ],

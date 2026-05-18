@@ -43,85 +43,87 @@ $form = ActiveForm::begin([
     .project-edit-shell {
         min-height: calc(100vh - 72px);
         margin: -1.5rem -0.75rem 0;
-        padding: 48px 18px 72px;
-        background:
-            radial-gradient(circle at 12% 8%, rgba(214, 177, 88, .22), transparent 30%),
-            radial-gradient(circle at 92% 0%, rgba(35, 83, 73, .16), transparent 34%),
-            linear-gradient(135deg, #f7f3ea 0%, #fbfaf7 44%, #eef3ef 100%);
-        color: #171717;
+        padding: 40px 18px 64px;
+        background: #f8fafc;
+        color: #0f172a;
     }
 
     .project-edit-wrap {
-        width: min(1180px, 100%);
+        width: min(1100px, 100%);
         margin: 0 auto;
     }
 
     .project-edit-top {
         display: flex;
         justify-content: space-between;
-        gap: 20px;
-        align-items: flex-start;
-        margin-bottom: 28px;
+        gap: 24px;
+        align-items: center;
+        margin-bottom: 24px;
     }
 
     .project-breadcrumb {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        color: #746f66;
+        color: #64748b;
         font-size: 13px;
-        font-weight: 700;
-        letter-spacing: .02em;
-        margin-bottom: 12px;
+        font-weight: 600;
+        margin-bottom: 10px;
     }
 
     .project-edit-title {
-        font-size: clamp(34px, 5vw, 56px);
-        letter-spacing: -.05em;
-        line-height: .95;
-        margin: 0 0 12px;
-        font-weight: 850;
+        font-size: 30px;
+        letter-spacing: 0;
+        line-height: 1.2;
+        margin: 0 0 8px;
+        font-weight: 750;
+        color: #111827;
     }
 
     .project-edit-subtitle {
         margin: 0;
-        color: #67635d;
+        color: #64748b;
         max-width: 620px;
-        font-size: 16px;
-        line-height: 1.65;
+        font-size: 15px;
+        line-height: 1.6;
     }
 
     .soft-btn {
-        border: 1px solid rgba(23, 23, 23, .12);
-        background: rgba(255, 255, 255, .72);
-        color: #171717;
-        border-radius: 999px;
-        padding: 11px 16px;
-        font-weight: 750;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #111827;
+        border-radius: 10px;
+        padding: 10px 14px;
+        font-size: 14px;
+        font-weight: 650;
         text-decoration: none;
-        box-shadow: 0 12px 34px rgba(31, 28, 22, .08);
-        backdrop-filter: blur(16px);
         white-space: nowrap;
+        transition: background-color .18s ease, border-color .18s ease;
+    }
+
+    .soft-btn:hover {
+        background: #f9fafb;
+        border-color: #cbd5e1;
+        color: #111827;
     }
 
     .project-grid {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 360px;
-        gap: 22px;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 20px;
         align-items: start;
     }
 
     .settings-card {
-        border: 1px solid rgba(33, 31, 27, .1);
-        border-radius: 30px;
-        background: rgba(255, 255, 255, .82);
-        box-shadow: 0 28px 90px rgba(31, 28, 22, .1);
-        backdrop-filter: blur(18px);
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        background: #ffffff;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
         overflow: hidden;
     }
 
     .settings-card-body {
-        padding: clamp(24px, 4vw, 38px);
+        padding: 28px;
     }
 
     .section-head {
@@ -129,163 +131,201 @@ $form = ActiveForm::begin([
         align-items: flex-start;
         justify-content: space-between;
         gap: 16px;
-        margin-bottom: 24px;
+        margin-bottom: 20px;
     }
 
     .section-kicker {
-        color: #8a6f2a;
-        font-size: 12px;
-        font-weight: 850;
-        letter-spacing: .12em;
-        text-transform: uppercase;
-        margin-bottom: 8px;
+        display: none;
     }
 
     .section-title {
-        font-size: 22px;
-        font-weight: 820;
-        letter-spacing: -.03em;
-        margin: 0 0 6px;
+        font-size: 17px;
+        font-weight: 700;
+        letter-spacing: 0;
+        margin: 0 0 5px;
+        color: #111827;
     }
 
     .section-copy {
-        color: #716c64;
+        color: #64748b;
         margin: 0;
-        line-height: 1.55;
+        font-size: 14px;
+        line-height: 1.5;
     }
 
     .field-block {
-        margin-bottom: 22px;
+        margin-bottom: 18px;
     }
 
     .field-label {
         display: flex;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 9px;
-        color: #25231f;
-        font-weight: 780;
-        font-size: 14px;
+        margin-bottom: 7px;
+        color: #111827;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    .field-label span:last-child {
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 500;
     }
 
     .project-edit-shell .form-control {
-        border: 1px solid #ded8cb;
-        background: #fffdfa;
-        border-radius: 16px;
-        min-height: 52px;
-        color: #171717;
-        font-weight: 650;
+        border: 1px solid #dbe2ea;
+        background: #ffffff;
+        border-radius: 10px;
+        min-height: 42px;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 450;
         box-shadow: none;
+        transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+    }
+
+    .project-edit-shell .form-control::placeholder {
+        color: #9ca3af;
+        font-weight: 400;
     }
 
     .project-edit-shell textarea.form-control {
-        min-height: 132px;
-        font-weight: 500;
-        line-height: 1.6;
+        min-height: 108px;
+        font-weight: 400;
+        line-height: 1.55;
+        resize: vertical;
     }
 
     .project-edit-shell .form-control:focus {
-        border-color: #1f5d4c;
-        box-shadow: 0 0 0 4px rgba(31, 93, 76, .12);
+        background: #ffffff;
+        border-color: #818cf8;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, .10);
     }
 
     .domain-composer {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
         align-items: stretch;
-        border: 1px solid #ded8cb;
-        border-radius: 18px;
-        background: #fffdfa;
+        border: 1px solid #dbe2ea;
+        border-radius: 10px;
+        background: #ffffff;
         overflow: hidden;
+        transition: border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .domain-composer:focus-within {
+        border-color: #818cf8;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, .10);
     }
 
     .domain-composer .form-control {
         border: 0;
         border-radius: 0;
-        min-height: 58px;
+        min-height: 42px;
+    }
+
+    .domain-composer .form-control:focus {
+        box-shadow: none;
     }
 
     .domain-suffix {
         display: flex;
         align-items: center;
-        padding: 0 18px;
-        border-left: 1px solid #e7e1d5;
-        color: #68625a;
-        font-weight: 800;
-        background: #f5efe4;
+        padding: 0 13px;
+        border-left: 1px solid #e5e7eb;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 500;
+        background: #f9fafb;
         white-space: nowrap;
     }
 
     .helper-text {
-        margin-top: 10px;
-        color: #746f66;
+        margin-top: 8px;
+        color: #64748b;
         font-size: 13px;
-        line-height: 1.5;
+        line-height: 1.45;
+    }
+
+    .form-section {
+        padding-bottom: 24px;
+        margin-bottom: 24px;
+        border-bottom: 1px solid #e5e7eb;
+    }
+
+    .form-section:last-of-type {
+        padding-bottom: 0;
+        margin-bottom: 0;
+        border-bottom: 0;
     }
 
     .domain-preview-card {
         display: flex;
         justify-content: space-between;
-        gap: 16px;
+        gap: 12px;
         align-items: center;
-        margin-top: 16px;
-        border: 1px solid #d9e3db;
-        background: linear-gradient(135deg, #eef7f1, #fffdf8);
-        border-radius: 22px;
-        padding: 18px;
+        margin-top: 12px;
+        border: 1px solid #e5e7eb;
+        background: #ffffff;
+        border-radius: 10px;
+        padding: 11px 12px;
     }
 
     .domain-preview-label {
-        color: #597266;
+        color: #64748b;
         font-size: 12px;
-        font-weight: 850;
-        text-transform: uppercase;
-        letter-spacing: .1em;
-        margin-bottom: 6px;
+        font-weight: 500;
+        margin-bottom: 4px;
     }
 
     .domain-preview-url {
-        color: #133f34;
-        font-weight: 850;
+        color: #111827;
+        font-size: 14px;
+        font-weight: 600;
         word-break: break-all;
     }
 
     .status-pill {
         display: inline-flex;
         align-items: center;
-        gap: 7px;
+        gap: 6px;
         border-radius: 999px;
         border: 1px solid;
-        padding: 8px 11px;
-        font-weight: 850;
+        padding: 5px 8px;
+        font-weight: 600;
         font-size: 12px;
+        line-height: 1;
+        white-space: nowrap;
     }
 
     .status-pill::before {
         content: "";
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 999px;
         background: currentColor;
     }
 
     .status-active {
-        color: #107348;
-        background: #e9f8ef;
-        border-color: #bfe8cf;
+        color: #047857;
+        background: #ecfdf5;
+        border-color: #bbf7d0;
     }
 
     .status-pending {
-        color: #9a6700;
-        background: #fff7d9;
-        border-color: #efd584;
+        color: #92400e;
+        background: #fffbeb;
+        border-color: #fde68a;
     }
 
     .action-row {
         display: flex;
         flex-wrap: wrap;
         gap: 10px;
-        margin-top: 28px;
+        margin-top: 24px;
+        padding-top: 22px;
+        border-top: 1px solid #e5e7eb;
     }
 
     .primary-action,
@@ -294,30 +334,48 @@ $form = ActiveForm::begin([
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        border-radius: 999px;
-        min-height: 48px;
-        padding: 0 18px;
-        font-weight: 850;
+        border-radius: 10px;
+        min-height: 42px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 650;
         text-decoration: none;
         border: 1px solid transparent;
+        transition: background-color .18s ease, border-color .18s ease, color .18s ease;
     }
 
     .primary-action {
-        background: #171717;
+        background: #111827;
         color: #fff;
-        box-shadow: 0 16px 42px rgba(23, 23, 23, .22);
+        box-shadow: none;
+    }
+
+    .primary-action:hover {
+        background: #1f2937;
+        color: #fff;
     }
 
     .secondary-action {
-        background: #1f5d4c;
+        background: #4f46e5;
         color: #fff;
-        border-color: #1f5d4c;
+        border-color: #4f46e5;
+    }
+
+    .secondary-action:hover {
+        background: #4338ca;
+        color: #fff;
     }
 
     .ghost-action {
-        background: #fffdfa;
-        color: #171717;
-        border-color: #ded8cb;
+        background: #ffffff;
+        color: #111827;
+        border-color: #e2e8f0;
+    }
+
+    .ghost-action:hover {
+        background: #f9fafb;
+        border-color: #cbd5e1;
+        color: #111827;
     }
 
     .summary-card {
@@ -326,51 +384,52 @@ $form = ActiveForm::begin([
     }
 
     .summary-hero {
-        padding: 26px;
-        background:
-            radial-gradient(circle at 92% 16%, rgba(214, 177, 88, .32), transparent 32%),
-            linear-gradient(145deg, #173d34, #10251f);
-        color: #fff;
-        border-radius: 28px 28px 0 0;
+        padding: 22px;
+        background: #ffffff;
+        color: #111827;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     .summary-avatar {
-        width: 58px;
-        height: 58px;
+        width: 42px;
+        height: 42px;
         display: grid;
         place-items: center;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, .13);
-        border: 1px solid rgba(255, 255, 255, .16);
-        font-size: 24px;
-        font-weight: 900;
-        margin-bottom: 18px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        border: 1px solid #e2e8f0;
+        color: #0f172a;
+        font-size: 17px;
+        font-weight: 750;
+        margin-bottom: 14px;
     }
 
     .summary-name {
-        margin: 0 0 8px;
-        font-size: 24px;
-        font-weight: 850;
-        letter-spacing: -.03em;
+        margin: 0 0 6px;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0;
+        color: #111827;
     }
 
     .summary-domain {
-        color: rgba(255, 255, 255, .75);
+        color: #64748b;
+        font-size: 13px;
         word-break: break-all;
         margin: 0;
-        line-height: 1.5;
+        line-height: 1.45;
     }
 
     .summary-body {
-        padding: 24px;
+        padding: 22px;
     }
 
     .summary-row {
         display: flex;
         justify-content: space-between;
-        gap: 14px;
-        padding: 15px 0;
-        border-bottom: 1px solid #eee8dd;
+        gap: 16px;
+        padding: 12px 0;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     .summary-row:first-child {
@@ -382,22 +441,22 @@ $form = ActiveForm::begin([
     }
 
     .summary-label {
-        color: #746f66;
+        color: #64748b;
         font-size: 13px;
-        font-weight: 720;
+        font-weight: 500;
     }
 
     .summary-value {
-        color: #171717;
+        color: #111827;
         font-size: 13px;
-        font-weight: 850;
+        font-weight: 650;
         text-align: right;
         word-break: break-word;
     }
 
     .quick-actions {
         display: grid;
-        gap: 10px;
+        gap: 9px;
         margin-top: 22px;
     }
 
@@ -407,29 +466,31 @@ $form = ActiveForm::begin([
 
     .danger-zone {
         margin-top: 22px;
-        border: 1px solid #f0c9bd;
-        background: #fff2ee;
-        color: #8d2e16;
-        border-radius: 22px;
-        padding: 18px;
+        border: 1px solid #fed7aa;
+        background: #fff7ed;
+        color: #9a3412;
+        border-radius: 12px;
+        padding: 14px;
     }
 
     .danger-zone-title {
-        font-weight: 850;
-        margin-bottom: 6px;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 5px;
     }
 
     .danger-zone p {
         margin: 0;
-        line-height: 1.55;
-        color: #984229;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #9a3412;
     }
 
     .field-error {
         margin-top: 8px;
         color: #b42318;
         font-size: 13px;
-        font-weight: 700;
+        font-weight: 600;
     }
 
     @media (max-width: 991.98px) {
@@ -458,7 +519,7 @@ $form = ActiveForm::begin([
 
         .domain-suffix {
             border-left: 0;
-            border-top: 1px solid #e7e1d5;
+            border-top: 1px solid #e5e7eb;
             min-height: 46px;
         }
 
@@ -482,7 +543,7 @@ $form = ActiveForm::begin([
                     <span>Edit Project</span>
                 </div>
                 <h1 class="project-edit-title">Edit Project</h1>
-                <p class="project-edit-subtitle">Kelola identitas, database, dan domain workspace ini.</p>
+                <p class="project-edit-subtitle">Perbarui identitas, database, dan domain workspace.</p>
             </div>
             <?= Html::a('Back to Projects', ['project/index'], ['class' => 'soft-btn']) ?>
         </div>
@@ -497,98 +558,101 @@ $form = ActiveForm::begin([
         <div class="project-grid">
             <main class="settings-card">
                 <div class="settings-card-body">
-                    <div class="section-head">
-                        <div>
-                            <div class="section-kicker">Project Information</div>
-                            <h2 class="section-title">Workspace identity</h2>
-                            <p class="section-copy">Data ini dipakai untuk daftar project, nama database, dan domain workspace.</p>
-                        </div>
-                        <span class="status-pill <?= Html::encode($statusClass) ?>" id="domain-status-badge"><?= Html::encode($statusLabel) ?></span>
-                    </div>
-
-                    <div class="field-block">
-                        <label class="field-label" for="project-name">Project Name</label>
-                        <?= $form->field($project, 'name')->textInput([
-                            'id' => 'project-name',
-                            'class' => 'form-control',
-                            'placeholder' => 'Nama project',
-                        ])->label(false) ?>
-                    </div>
-
-                    <div class="field-block">
-                        <label class="field-label" for="project-description">Description</label>
-                        <?= $form->field($project, 'description')->textarea([
-                            'id' => 'project-description',
-                            'class' => 'form-control',
-                            'rows' => 5,
-                            'placeholder' => 'Deskripsi singkat workspace',
-                        ])->label(false) ?>
-                    </div>
-
-                    <div class="field-block">
-                        <label class="field-label" for="project-database-name">Database Name</label>
-                        <input
-                            type="text"
-                            id="project-database-name"
-                            class="form-control"
-                            value="<?= Html::encode($databaseName !== '' ? $databaseName : '-') ?>"
-                            readonly
-                        >
-                    </div>
-
-                    <div class="section-head" style="margin-top: 34px;">
-                        <div>
-                            <div class="section-kicker">Domain Settings</div>
-                            <h2 class="section-title">Workspace domain</h2>
-                            <p class="section-copy">Ubah hanya bagian depan domain.</p>
-                        </div>
-                    </div>
-
-                    <div class="field-block">
-                        <label class="field-label" for="project-domain-prefix">
-                            <span>Domain Prefix</span>
-                            <span>[prefix] .<?= Html::encode($projectDomainSuffix) ?></span>
-                        </label>
-
-                        <?php if (!empty($isCommanderSuperAdmin)): ?>
-                            <div class="domain-composer">
-                                <input
-                                    type="text"
-                                    id="project-domain-prefix"
-                                    name="Project[custom_domain_prefix]"
-                                    class="form-control"
-                                    value="<?= Html::encode($projectDomainPrefix) ?>"
-                                    placeholder="sekolah-demo"
-                                    autocomplete="off"
-                                >
-                                <span class="domain-suffix">.<?= Html::encode($projectDomainSuffix) ?></span>
-                            </div>
-                        <?php else: ?>
-                            <div class="domain-composer">
-                                <input
-                                    type="text"
-                                    id="project-domain-prefix"
-                                    class="form-control"
-                                    value="<?= Html::encode($projectDomainPrefix) ?>"
-                                    readonly
-                                >
-                                <span class="domain-suffix">.<?= Html::encode($projectDomainSuffix) ?></span>
-                            </div>
-                        <?php endif; ?>
-
-                        <div class="helper-text">Superadmin cukup mengubah bagian depan domain. Bagian .<?= Html::encode($projectDomainSuffix) ?> otomatis dan tidak bisa diubah.</div>
-
-                        <div class="domain-preview-card">
+                    <section class="form-section">
+                        <div class="section-head">
                             <div>
-                                <div class="domain-preview-label">Live Preview</div>
-                                <div class="domain-preview-url" id="domain-preview-url">https://<?= Html::encode($domainPreview) ?></div>
+                                <div class="section-kicker">Project Information</div>
+                                <h2 class="section-title">Informasi Project</h2>
+                                <p class="section-copy">Nama, deskripsi, dan database workspace.</p>
                             </div>
-                            <span class="status-pill <?= Html::encode($statusClass) ?>"><?= Html::encode($statusLabel) ?></span>
                         </div>
-                    </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="project-name">Nama Project</label>
+                            <?= $form->field($project, 'name')->textInput([
+                                'id' => 'project-name',
+                                'class' => 'form-control',
+                                'placeholder' => 'Contoh: Sekolah Swasta',
+                            ])->label(false) ?>
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="project-description">Deskripsi</label>
+                            <?= $form->field($project, 'description')->textarea([
+                                'id' => 'project-description',
+                                'class' => 'form-control',
+                                'rows' => 5,
+                                'placeholder' => 'Tulis deskripsi singkat workspace',
+                            ])->label(false) ?>
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="project-database-name">Database</label>
+                            <input
+                                type="text"
+                                id="project-database-name"
+                                class="form-control"
+                                value="<?= Html::encode($databaseName !== '' ? $databaseName : '-') ?>"
+                                readonly
+                            >
+                        </div>
+                    </section>
+
+                    <section class="form-section">
+                        <div class="section-head">
+                            <div>
+                                <div class="section-kicker">Domain Settings</div>
+                                <h2 class="section-title">Domain Workspace</h2>
+                                <p class="section-copy">Atur alamat workspace. Suffix domain mengikuti sistem.</p>
+                            </div>
+                        </div>
+
+                        <div class="field-block">
+                            <label class="field-label" for="project-domain-prefix">
+                                <span>Subdomain</span>
+                                <span>Format: prefix.<?= Html::encode($projectDomainSuffix) ?></span>
+                            </label>
+
+                            <?php if (!empty($isCommanderSuperAdmin)): ?>
+                                <div class="domain-composer">
+                                    <input
+                                        type="text"
+                                        id="project-domain-prefix"
+                                        name="Project[custom_domain_prefix]"
+                                        class="form-control"
+                                        value="<?= Html::encode($projectDomainPrefix) ?>"
+                                        placeholder="sekolah-demo"
+                                        autocomplete="off"
+                                    >
+                                    <span class="domain-suffix">.<?= Html::encode($projectDomainSuffix) ?></span>
+                                </div>
+                            <?php else: ?>
+                                <div class="domain-composer">
+                                    <input
+                                        type="text"
+                                        id="project-domain-prefix"
+                                        class="form-control"
+                                        value="<?= Html::encode($projectDomainPrefix) ?>"
+                                        readonly
+                                    >
+                                    <span class="domain-suffix">.<?= Html::encode($projectDomainSuffix) ?></span>
+                                </div>
+                            <?php endif; ?>
+
+                            <div class="helper-text">Ubah bagian depan saja. .<?= Html::encode($projectDomainSuffix) ?> tidak bisa diubah.</div>
+
+                            <div class="domain-preview-card">
+                                <div>
+                                    <div class="domain-preview-label">Preview</div>
+                                    <div class="domain-preview-url" id="domain-preview-url">https://<?= Html::encode($domainPreview) ?></div>
+                                </div>
+                                <span class="status-pill <?= Html::encode($statusClass) ?>" id="domain-status-badge"><?= Html::encode($statusLabel) ?></span>
+                            </div>
+                        </div>
+                    </section>
 
                     <div class="action-row">
-                        <button type="submit" class="primary-action">Save Changes</button>
+                        <button type="submit" class="primary-action">Simpan Perubahan</button>
                         <?= Html::a('Open Domain', $domainUrl, [
                             'class' => 'secondary-action',
                             'id' => 'open-domain-button',
@@ -609,6 +673,7 @@ $form = ActiveForm::begin([
 
                 <div class="summary-body">
                     <div class="section-kicker">Project Summary</div>
+                    <h2 class="section-title">Project Summary</h2>
                     <div class="summary-row">
                         <div class="summary-label">Project name</div>
                         <div class="summary-value" id="summary-project-value"><?= Html::encode($project->name) ?></div>
@@ -638,7 +703,7 @@ $form = ActiveForm::begin([
                     </div>
 
                     <div class="danger-zone">
-                        <div class="danger-zone-title">Danger Zone</div>
+                        <div class="danger-zone-title">Catatan domain</div>
                         <p>Mengubah domain dapat memengaruhi link yang sudah dibagikan.</p>
                     </div>
                 </div>

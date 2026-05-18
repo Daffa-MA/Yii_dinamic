@@ -3,6 +3,10 @@
 use yii\db\Query;
 use yii\helpers\Html;
 use yii\helpers\Url;
+use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
+use app\components\ProjectAuthContext;
+use app\models\MasterMenu;
 
 /** @var yii\web\View $this */
 /** @var app\models\Form[] $forms */
@@ -23,6 +27,12 @@ $workspaceName = $activeProject->name ?? 'Workspace';
 $workspaceUserCount = null;
 $recentFormsCount = isset($recentForms) ? count($recentForms) : count($forms);
 $activityScore = (int)$todaySubmissions + $recentFormsCount;
+$activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+$commanderAuth = new CommanderAuthContext();
+$projectAuthUser = $activeProjectId !== null ? (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId) : null;
+$workspaceUsername = $projectAuthUser !== null ? (string)$projectAuthUser->username : (Yii::$app->user->identity->username ?? 'User');
+$workspaceRole = $projectAuthUser !== null ? strtolower(trim((string)$projectAuthUser->role)) : '';
+$isAdminDashboard = $commanderAuth->isSuperAdmin() || $workspaceRole === 'admin';
 
 try {
     if (Yii::$app->db->schema->getTableSchema('users', true) !== null) {
@@ -67,6 +77,67 @@ $quickActions = [
     ['label' => 'Create Table', 'icon' => 'table_chart', 'url' => ['table-builder/create']],
     ['label' => 'Manage Users', 'icon' => 'group', 'url' => ['workspace-settings/users']],
 ];
+
+$resolveMenuUrl = static function (array $item) {
+    $type = (string)($item['type'] ?? '');
+    $route = trim((string)($item['route'] ?? ''), '/');
+    $pageId = (int)($item['page_id'] ?? 0);
+    $formId = (int)($item['form_id'] ?? 0);
+    $itemId = (int)($item['id'] ?? 0);
+
+    if ($type === 'route' && $route !== '') {
+        return ['/' . $route];
+    }
+    if ($type === 'form' && $formId > 0) {
+        return ['/master-form/preview', 'id' => $formId];
+    }
+    if ($type === 'page' && $pageId > 0) {
+        return ['/page/view', 'id' => $pageId];
+    }
+    if (!empty($item['url'])) {
+        return $item['url'];
+    }
+    if ($itemId > 0 && $type !== 'group') {
+        return ['/master-menu/resolve-link', 'id' => $itemId];
+    }
+
+    return null;
+};
+
+$flattenMenus = static function (array $items) use (&$flattenMenus, $resolveMenuUrl): array {
+    $flat = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+
+        $children = isset($item['children']) && is_array($item['children']) ? $item['children'] : [];
+        $url = $resolveMenuUrl($item);
+        if ($url !== null) {
+            $flat[] = [
+                'name' => (string)($item['name'] ?? 'Menu'),
+                'icon' => (string)($item['icon'] ?? 'apps'),
+                'url' => $url,
+                'type' => (string)($item['type'] ?? ''),
+            ];
+        }
+
+        if (!empty($children)) {
+            $flat = array_merge($flat, $flattenMenus($children));
+        }
+    }
+
+    return $flat;
+};
+
+$availableMenus = [];
+if (!$isAdminDashboard) {
+    try {
+        $availableMenus = array_slice($flattenMenus(MasterMenu::getMenuTree(true)), 0, 8);
+    } catch (\Throwable $e) {
+        $availableMenus = [];
+    }
+}
 ?>
 
 <style>
@@ -138,6 +209,93 @@ $quickActions = [
 
 <div class="app-shell-main min-h-screen">
     <div class="workspace-dashboard-content max-w-[1400px] mx-auto px-6 md:px-8 py-7 md:py-9">
+        <?php if (!$isAdminDashboard): ?>
+            <section class="dash-card p-6 md:p-7 mb-6">
+                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                    <div class="flex items-start gap-4">
+                        <div class="metric-icon">
+                            <span class="material-symbols-outlined text-[20px]">person</span>
+                        </div>
+                        <div>
+                            <h1 class="text-2xl md:text-[28px] font-bold tracking-normal leading-tight m-0">Selamat datang, <?= Html::encode($workspaceUsername) ?></h1>
+                            <p class="muted text-sm md:text-base mt-2 mb-0">
+                                Anda masuk sebagai <span class="font-semibold text-slate-900"><?= Html::encode($workspaceRole !== '' ? $workspaceRole : 'user') ?></span>
+                                di workspace <span class="font-semibold text-slate-900"><?= Html::encode($workspaceName) ?></span>.
+                            </p>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 w-fit">
+                        <span class="status-dot"></span>
+                        Workspace Active
+                    </span>
+                </div>
+            </section>
+
+            <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_.8fr] gap-5 mb-6">
+                <div class="dash-card p-6 md:p-7">
+                    <div class="flex items-start justify-between gap-4 mb-6">
+                        <div>
+                            <p class="soft-label mb-2">Menu Anda</p>
+                            <h2 class="text-xl font-bold m-0">Menu yang tersedia untuk Anda</h2>
+                        </div>
+                    </div>
+
+                    <?php if (empty($availableMenus)): ?>
+                        <div class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-9">
+                            <div class="flex items-start gap-4">
+                                <span class="metric-icon bg-white">
+                                    <span class="material-symbols-outlined text-[20px]">lock</span>
+                                </span>
+                                <div>
+                                    <h3 class="text-base font-bold mb-1">Belum ada akses yang diberikan untuk role ini.</h3>
+                                    <p class="muted text-sm mb-0">Hubungi admin workspace untuk membuka menu yang Anda perlukan.</p>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <?php foreach ($availableMenus as $menu): ?>
+                                <a href="<?= Url::to($menu['url']) ?>" class="rounded-xl border border-slate-200 bg-white px-4 py-4 flex items-center gap-3 no-underline text-slate-900 transition-all hover:-translate-y-0.5 hover:shadow-[0_14px_28px_rgba(15,23,42,.07)] hover:border-indigo-200">
+                                    <span class="metric-icon">
+                                        <span class="material-symbols-outlined text-[20px]"><?= Html::encode($menu['icon'] ?: 'apps') ?></span>
+                                    </span>
+                                    <span class="font-semibold text-sm"><?= Html::encode($menu['name']) ?></span>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="dash-card p-6 md:p-7">
+                    <div class="mb-6">
+                        <p class="soft-label mb-2">Informasi</p>
+                        <h2 class="text-xl font-bold m-0">Recent information</h2>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                            <div class="text-sm font-semibold">Profil role</div>
+                            <p class="muted text-sm mb-0 mt-1">Akses Anda mengikuti pengaturan role <?= Html::encode($workspaceRole !== '' ? $workspaceRole : 'user') ?>.</p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                            <div class="text-sm font-semibold">Workspace</div>
+                            <p class="muted text-sm mb-0 mt-1"><?= Html::encode($workspaceName) ?> aktif dan siap digunakan.</p>
+                        </div>
+                        <?php if (!empty($availableMenus)): ?>
+                            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                                <div class="text-sm font-semibold">Quick links</div>
+                                <div class="flex flex-wrap gap-2 mt-3">
+                                    <?php foreach (array_slice($availableMenus, 0, 3) as $menu): ?>
+                                        <a href="<?= Url::to($menu['url']) ?>" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 no-underline hover:border-indigo-200">
+                                            <?= Html::encode($menu['name']) ?>
+                                        </a>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </section>
+        <?php else: ?>
         <section class="dash-card p-6 md:p-7 mb-6">
             <div class="grid grid-cols-1 xl:grid-cols-[1fr_420px] gap-7 items-center">
                 <div>
@@ -373,6 +531,7 @@ $quickActions = [
                 </div>
             <?php endif; ?>
         </section>
+        <?php endif; ?>
     </div>
 </div>
 

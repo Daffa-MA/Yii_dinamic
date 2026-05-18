@@ -216,27 +216,11 @@ class WorkspaceSettings extends \yii\base\Model
 
     public function loadFromSession()
     {
-        if ($this->isProjectListRoute()) {
-            $this->clear();
-            $this->setting_key = self::DEFAULT_KEY;
-            return;
-        }
-
         $scopeKey = $this->resolveScopeKey();
-        $sessionKey = $this->getSessionKey($scopeKey);
-        $data = Yii::$app->session->get($sessionKey, []);
-
-        if (!empty($data)) {
-            Yii::info('Loading workspace settings from session scope: ' . $scopeKey, 'workspace-settings');
-            $this->load($data, '');
-            $this->populateDefaults();
-            $this->setting_key = $scopeKey;
-            return;
-        }
-
+        // Database is the source of truth. Session is only a cache synced after DB load/save.
         $this->loadFromDatabase($scopeKey);
         $this->saveToSession($scopeKey);
-        Yii::info('No workspace settings in session for scope: ' . $scopeKey . ', loaded from database', 'workspace-settings');
+        Yii::info('Workspace settings loaded from database and synced to session for scope: ' . $scopeKey, 'workspace-settings');
     }
 
     public function loadForProjectLogin(int $projectId): string
@@ -251,16 +235,6 @@ class WorkspaceSettings extends \yii\base\Model
         $databaseName = $this->resolveCurrentDatabaseName(Yii::$app->db);
         if ($databaseName !== '') {
             $candidates[] = 'database:' . $databaseName;
-        }
-
-        foreach ($candidates as $sessionScopeKey) {
-            $sessionData = Yii::$app->session->get($this->getSessionKey($sessionScopeKey), []);
-            if (is_array($sessionData) && $this->hasWorkspaceBranding($sessionData)) {
-                $this->load($sessionData, '');
-                $this->populateDefaults();
-                $this->setting_key = $sessionScopeKey;
-                return $sessionScopeKey;
-            }
         }
 
         $candidates[] = self::DEFAULT_KEY;
@@ -365,7 +339,7 @@ class WorkspaceSettings extends \yii\base\Model
             Yii::info('Workspace settings saved successfully to database and session for scope: ' . $scopeKey, 'workspace-settings');
         }
 
-        return true;
+        return $dbResult;
     }
 
     public function reset($key = null)
@@ -493,13 +467,19 @@ class WorkspaceSettings extends \yii\base\Model
         $logoExists = null;
 
         if ($value !== '' && !preg_match('#^https?://#i', $value)) {
-            $fileName = basename(parse_url($value, PHP_URL_PATH) ?: $value);
+            $fileName = ltrim((string)(parse_url($value, PHP_URL_PATH) ?: $value), '/');
+            if (strpos($fileName, 'uploads/workspace/') === 0) {
+                $fileName = substr($fileName, strlen('uploads/workspace/'));
+            }
             $localFile = Yii::getAlias('@webroot/uploads/workspace/') . $fileName;
             $exists = is_file($localFile);
         }
 
         if ($logoValue !== '' && !preg_match('#^https?://#i', $logoValue)) {
-            $logoFileName = basename(parse_url($logoValue, PHP_URL_PATH) ?: $logoValue);
+            $logoFileName = ltrim((string)(parse_url($logoValue, PHP_URL_PATH) ?: $logoValue), '/');
+            if (strpos($logoFileName, 'uploads/workspace/') === 0) {
+                $logoFileName = substr($logoFileName, strlen('uploads/workspace/'));
+            }
             $logoLocalFile = Yii::getAlias('@webroot/uploads/workspace/') . $logoFileName;
             $logoExists = is_file($logoLocalFile);
         }
@@ -525,10 +505,23 @@ class WorkspaceSettings extends \yii\base\Model
         $path = ltrim($path, '/');
 
         if (strpos($path, 'uploads/workspace/') === 0) {
-            return Url::to('/' . $path, true);
+            return $this->appendMediaVersion(Url::to('/' . $path, true), substr($path, strlen('uploads/workspace/')));
         }
 
-        return Url::to('/uploads/workspace/' . basename($path), true);
+        $relativePath = preg_replace('#[^a-zA-Z0-9_\-./]#', '', $path) ?: basename($path);
+        return $this->appendMediaVersion(Url::to('/uploads/workspace/' . $relativePath, true), $relativePath);
+    }
+
+    private function appendMediaVersion(string $url, string $relativePath): string
+    {
+        $relativePath = ltrim($relativePath, '/');
+        $file = Yii::getAlias('@webroot/uploads/workspace/') . $relativePath;
+        if (!is_file($file)) {
+            $file = Yii::getAlias('@webroot/uploads/workspace/') . basename($relativePath);
+        }
+
+        $version = is_file($file) ? (string)filemtime($file) : date('YmdHis');
+        return $url . (strpos($url, '?') !== false ? '&' : '?') . 'v=' . rawurlencode($version);
     }
 
     public function resolveScopeKey($key = null): string
@@ -655,6 +648,8 @@ class WorkspaceSettings extends \yii\base\Model
             'workspace_logo_icon' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('folder_open'),
             'workspace_logo_bg' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
             'workspace_logo_image' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
+            'workspace_logo_width' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(120),
+            'workspace_logo_height' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(120),
             'login_title' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Login Aplikasi'),
             'login_subtitle' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Masuk ke aplikasi Anda'),
             'login_background_start' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),
@@ -705,6 +700,8 @@ class WorkspaceSettings extends \yii\base\Model
             'workspace_logo_icon' => self::getDefaults()['workspace_logo_icon'],
             'workspace_logo_bg' => self::getDefaults()['workspace_logo_bg'],
             'workspace_logo_image' => self::getDefaults()['workspace_logo_image'],
+            'workspace_logo_width' => self::getDefaults()['workspace_logo_width'],
+            'workspace_logo_height' => self::getDefaults()['workspace_logo_height'],
             'login_title' => self::getDefaults()['login_title'],
             'login_subtitle' => self::getDefaults()['login_subtitle'],
             'login_background_start' => self::getDefaults()['login_background_start'],
@@ -750,6 +747,9 @@ class WorkspaceSettings extends \yii\base\Model
         }
 
         $columns = [
+            'workspace_logo_image' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
+            'workspace_logo_width' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(120),
+            'workspace_logo_height' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(120),
             'login_title' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Login Aplikasi'),
             'login_subtitle' => $connection->schema->createColumnSchemaBuilder('string', 255)->defaultValue('Masuk ke aplikasi Anda'),
             'login_background_start' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),

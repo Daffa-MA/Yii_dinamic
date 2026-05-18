@@ -8,10 +8,6 @@ use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\WorkspaceSettings;
 
-$workspaceSettings = new WorkspaceSettings();
-$workspaceSettings->loadFromSession();
-$cssVars = $workspaceSettings->getCssVars();
-
 // Helper function for exact route matching
 function normalizePath($path) {
     if ($path === null || $path === false) {
@@ -60,6 +56,17 @@ $shouldResolveWorkspaceDatabase = !$isProjectListPage && !$isRootDomain;
 $sidebarVariant = ($isProjectListPage || $isRootDomain) ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
 
+// Resolve database context only for dynamic workspace layouts.
+// Project selector pages must remain on the neutral/default database.
+if ($shouldResolveWorkspaceDatabase) {
+    $dbContext = new \app\components\ActiveDatabaseContext();
+    $dbContext->resolveAndApply();
+}
+
+$workspaceSettings = new WorkspaceSettings();
+$workspaceSettings->loadFromDatabase();
+$cssVars = $workspaceSettings->getCssVars();
+
 // Use workspace settings or defaults
 $headerBadge = $isMinimalSidebar ? $cssVars['workspace-badge'] ?? 'Project Hub' : ($cssVars['workspace-badge'] ?? 'Workspace');
 $headerTitle = $isMinimalSidebar ? 'Navigasi Project' : ($cssVars['workspace-title'] ?? 'Project List');
@@ -67,13 +74,6 @@ $headerSubtitle = $isMinimalSidebar ? 'Pintu masuk workspace' : ($cssVars['works
 $projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Project List';
 $activeProjectLabel = $isMinimalSidebar ? 'Project Aktif' : 'Active Project';
 $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
-
-// Resolve database context only for dynamic workspace layouts.
-// Project selector pages must remain on the neutral/default database.
-if ($shouldResolveWorkspaceDatabase) {
-    $dbContext = new \app\components\ActiveDatabaseContext();
-    $dbContext->resolveAndApply();
-}
 
 if (!$isRootDomain && ProjectSchema::supportsProjectContext()) {
     $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
@@ -1010,6 +1010,8 @@ $sidebarActiveText = $isMinimalSidebar ? '#f8fafc' : ($cssVars['sidebar-active-t
 $sidebarActiveShadow = $isMinimalSidebar ? '0 10px 24px rgba(2, 6, 23, 0.28)' : ($cssVars['sidebar-active-shadow'] ?? '0 8px 24px rgba(37, 99, 235, 0.28)');
 $logoBg = $isMinimalSidebar ? '#334155' : ($cssVars['workspace-logo-bg'] ?? '#4f46e5');
 $logoImage = $cssVars['workspace-logo-image'] ?? null;
+$logoAsset = $workspaceSettings->getWorkspaceLogoAsset();
+$logoImageUrl = (string)($logoAsset['url'] ?? '');
 
 // Debug: Log color values
 Yii::info('Sidebar Text Color: ' . $sidebarTextColor, 'sidebar-debug');
@@ -1038,7 +1040,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
     <div class="app-sidebar-header" style="border-color: <?= Html::encode($sidebarBorderColor) ?>;">
         <div id="sidebar-logo-box" class="app-sidebar-header-icon" style="width: <?= Html::encode($workspaceSettings->workspace_logo_width ?? 44) ?>px; height: <?= Html::encode($workspaceSettings->workspace_logo_height ?? 44) ?>px; background: <?= !empty($logoImage) ? 'transparent' : 'linear-gradient(135deg, ' . Html::encode($logoBg) . ' 0%, ' . Html::encode($logoBg) . ' 100%)' ?>; box-shadow: <?= !empty($logoImage) ? 'none' : '0 12px 24px rgba(79, 70, 229, 0.28)' ?>; font-size: <?= round((($workspaceSettings->workspace_logo_width ?? 44) / 44) * 22) ?>px;">
             <?php if (!empty($logoImage)): ?>
-                <img id="sidebar-logo-image" src="<?= Yii::getAlias('@web/uploads/workspace/') . Html::encode($logoImage) ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 14px;">
+                <img id="sidebar-logo-image" src="<?= Html::encode($logoImageUrl) ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 14px;">
             <?php else: ?>
                 <span id="sidebar-logo-icon" class="material-symbols-outlined"><?= Html::encode($cssVars['workspace-logo-icon'] ?? 'folder_open') ?></span>
             <?php endif; ?>

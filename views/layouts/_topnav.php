@@ -6,7 +6,7 @@ use app\components\CommanderAuthContext;
 use app\components\DomainContext;
 
 $workspaceSettings = new WorkspaceSettings();
-$workspaceSettings->loadFromSession();
+$workspaceSettings->loadFromDatabase();
 $cssVars = $workspaceSettings->getCssVars();
 
 $activeDatabase = Yii::$app->session->get('active_dashboard_database');

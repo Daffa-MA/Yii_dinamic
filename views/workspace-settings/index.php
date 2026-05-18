@@ -9,6 +9,8 @@ $this->params['breadcrumbs'][] = $this->title;
 
 $cssVars = $model->getCssVars();
 $loginBackgroundAsset = $model->getLoginBackgroundAsset();
+$workspaceLogoAsset = $model->getWorkspaceLogoAsset();
+$workspaceLogoUrl = (string)($workspaceLogoAsset['url'] ?? '');
 ?>
 
 <style>
@@ -910,7 +912,7 @@ $loginBackgroundAsset = $model->getLoginBackgroundAsset();
                         <div class="ws-preview-content">
                             <div class="ws-preview-logo" id="preview-logo-box" style="<?= !empty($model->workspace_logo_image) ? 'background: none;' : 'background: linear-gradient(135deg, ' . Html::encode($model->workspace_logo_bg) . ' 0%, ' . Html::encode($model->workspace_logo_bg) . ' 100%);' ?>">
                                 <?php if (!empty($model->workspace_logo_image)): ?>
-                                    <img src="<?= Yii::getAlias('@web/uploads/workspace/') . Html::encode($model->workspace_logo_image) ?>" alt="Logo" id="preview-logo-img" style="width: 100%; height: 100%; object-fit: contain; border-radius: 0;">
+                                    <img src="<?= Html::encode($workspaceLogoUrl) ?>" alt="Logo" id="preview-logo-img" style="width: 100%; height: 100%; object-fit: contain; border-radius: 0;">
                                 <?php else: ?>
                                     <span class="material-symbols-outlined" id="preview-logo-icon"><?= Html::encode($model->workspace_logo_icon) ?></span>
                                 <?php endif; ?>
@@ -1034,7 +1036,7 @@ $loginBackgroundAsset = $model->getLoginBackgroundAsset();
                             <div class="ws-logo-upload-area" id="logo-upload-area">
                                 <?php if (!empty($model->workspace_logo_image)): ?>
                                     <div class="ws-logo-image-preview" id="logo-image-preview-container">
-                                        <img src="<?= Yii::getAlias('@web/uploads/workspace/') . Html::encode($model->workspace_logo_image) ?>" alt="Workspace Logo" id="uploaded-logo-preview">
+                                        <img src="<?= Html::encode($workspaceLogoUrl) ?>" alt="Workspace Logo" id="uploaded-logo-preview">
                                         <div class="ws-logo-resize-handle" id="logo-resize-handle"></div>
                                         <button type="button" class="ws-logo-remove-btn" id="remove-logo-btn">
                                             <span class="material-symbols-outlined">close</span>
@@ -1527,7 +1529,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getCurrentLogoImageUrl() {
         const logoFile = logoImageHiddenInput ? logoImageHiddenInput.value : '';
-        return logoFile ? '<?= Yii::getAlias('@web/uploads/workspace/') ?>' + logoFile : '';
+        return logoFile ? '/uploads/workspace/' + logoFile : '';
     }
 
     function clampLogoSize(value) {
@@ -1820,7 +1822,7 @@ document.addEventListener('DOMContentLoaded', function() {
         updateAllLogoViews({
             width: document.getElementById('workspace-logo-width-input')?.value || document.getElementById('logo-width')?.value || 120,
             height: document.getElementById('workspace-logo-height-input')?.value || document.getElementById('logo-height')?.value || 120,
-            imageUrl: '<?= Yii::getAlias('@web/uploads/workspace/') ?>' + storedLogoImage
+            imageUrl: '<?= Html::encode($workspaceLogoUrl) ?>'
         });
     }
     

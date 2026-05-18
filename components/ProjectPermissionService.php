@@ -206,11 +206,11 @@ class ProjectPermissionService
             return false;
         }
 
-        if (!$this->pageContainsForm($page, $formId)) {
+        if (!$this->canAccessPage($page, $projectId)) {
             return false;
         }
 
-        return $this->canAccessPage($page, $projectId) || $this->canAccessMenuForPage($pageId, $projectId);
+        return true;
     }
 
     public function canUseLegacyFormAsPageContent(int $formId, int $pageId, ?int $projectId = null): bool
@@ -238,11 +238,11 @@ class ProjectPermissionService
             return false;
         }
 
-        if (!$this->pageContainsLegacyForm($page, $formId)) {
+        if (!$this->canAccessPage($page, $projectId)) {
             return false;
         }
 
-        return $this->canAccessPage($page, $projectId) || $this->canAccessMenuForPage($pageId, $projectId);
+        return true;
     }
 
     public function canAccessPermissionKeys(array $permissionKeys, ?int $projectId = null): bool

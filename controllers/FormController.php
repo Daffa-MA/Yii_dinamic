@@ -755,6 +755,9 @@ class FormController extends Controller
         }
 
         $table = DbTable::findOne($tableCriteria);
+        if ($table === null && isset($tableCriteria['project_id'])) {
+            $table = DbTable::findOne(['id' => $tableId]);
+        }
         if ($table === null) {
             $debugContext['metadata_found'] = false;
             $debugContext['resolved_table_name'] = null;

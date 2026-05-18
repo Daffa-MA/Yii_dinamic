@@ -119,7 +119,9 @@ class ProjectAccessBootstrap implements BootstrapInterface
                             'route_permission_denied'
                         ));
                         AuthContextDebugLogger::log('workspace_route_access_denied', $this->buildEmbeddedFormDebugContext($route, $activeProjectId, false, false, 'route_permission_denied'));
-                        Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
+                        if (!Yii::$app->request->isAjax) {
+                            Yii::$app->session->setFlash('error', 'Akses ditolak untuk role aplikasi Anda.');
+                        }
                         $this->redirectSafely($event, Url::to(['project/access-denied', 'id' => $activeProjectId]), 'project_route_access_denied', $activeProjectId);
                         return;
                     }
@@ -166,7 +168,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
             return false;
         }
 
-        if ((string)Yii::$app->request->post('render_context', '') !== 'page_content') {
+        $renderContext = (string)Yii::$app->request->post('render_context', Yii::$app->request->get('render_context', ''));
+        if ($renderContext === '' && ($this->resolveEmbeddedPageId() > 0 || $this->resolveEmbeddedMenuId() > 0)) {
+            $renderContext = 'page_content';
+        }
+        if ($renderContext !== 'page_content') {
             return false;
         }
 
@@ -220,7 +226,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
             return false;
         }
 
-        if ((string)Yii::$app->request->get('render_context', '') !== 'page_content') {
+        $renderContext = (string)Yii::$app->request->get('render_context', Yii::$app->request->post('render_context', ''));
+        if ($renderContext === '' && ($this->resolveEmbeddedPageId() > 0 || $this->resolveEmbeddedMenuId() > 0)) {
+            $renderContext = 'page_content';
+        }
+        if ($renderContext !== 'page_content') {
             return false;
         }
 
@@ -297,7 +307,7 @@ class ProjectAccessBootstrap implements BootstrapInterface
 
         $menu = MasterMenu::findOne($menuId);
         if ($menu === null || empty($menu->page_id)) {
-            return 0;
+            return $this->resolveEmbeddedPageIdFromReferer();
         }
 
         return (int)$menu->page_id;
@@ -310,7 +320,80 @@ class ProjectAccessBootstrap implements BootstrapInterface
             return $menuId;
         }
 
-        return (int)Yii::$app->session->get('active_menu', 0);
+        $activeMenuId = (int)Yii::$app->session->get('active_menu', 0);
+        if ($activeMenuId > 0) {
+            return $activeMenuId;
+        }
+
+        $refererPath = $this->resolveRefererPath();
+        if ($refererPath === '') {
+            return 0;
+        }
+
+        $menu = MasterMenu::find()
+            ->where(['is_active' => 1])
+            ->andWhere(['route' => $refererPath])
+            ->one();
+        if ($menu instanceof MasterMenu) {
+            return (int)$menu->id;
+        }
+
+        $menu = MasterMenu::find()
+            ->where(['is_active' => 1])
+            ->andWhere(['route' => ltrim($refererPath, '/')])
+            ->one();
+        if ($menu instanceof MasterMenu) {
+            return (int)$menu->id;
+        }
+
+        return 0;
+    }
+
+    private function resolveEmbeddedPageIdFromReferer(): int
+    {
+        $refererPath = $this->resolveRefererPath();
+        if ($refererPath === '') {
+            return 0;
+        }
+
+        $path = trim($refererPath, '/');
+        if ($path === '') {
+            return 0;
+        }
+
+        $menu = MasterMenu::find()
+            ->where(['is_active' => 1])
+            ->andWhere(['route' => $path])
+            ->one();
+        if ($menu instanceof MasterMenu && !empty($menu->page_id)) {
+            return (int)$menu->page_id;
+        }
+
+        $slug = basename($path);
+        if ($slug !== '') {
+            $page = MasterPage::findOne(['slug' => $slug]);
+            if ($page instanceof MasterPage) {
+                return (int)$page->id;
+            }
+        }
+
+        return 0;
+    }
+
+    private function resolveRefererPath(): string
+    {
+        $referer = (string)Yii::$app->request->referrer;
+        if ($referer === '') {
+            return '';
+        }
+
+        $path = (string)parse_url($referer, PHP_URL_PATH);
+        $path = trim($path, '/');
+        if (strpos($path, 'index.php/') === 0) {
+            $path = substr($path, strlen('index.php/'));
+        }
+
+        return trim($path, '/');
     }
 
     private function buildEmbeddedFormDebugContext(string $route, int $activeProjectId, bool $pageAuthorized, bool $formAuthorized, string $reason): array

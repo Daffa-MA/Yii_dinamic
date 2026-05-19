@@ -16,11 +16,16 @@ class CommanderAuthContext
     public function login(User $user): void
     {
         $role = $this->normalizeRole((string)$user->role, (string)$user->username);
-        Yii::$app->session->set(self::SESSION_KEY_AUTH, true);
-        Yii::$app->session->set(self::SESSION_KEY_LOGIN, true);
-        Yii::$app->session->set(self::SESSION_KEY_USER_ID, (int)$user->id);
-        Yii::$app->session->set(self::SESSION_KEY_USERNAME, (string)$user->username);
-        Yii::$app->session->set(self::SESSION_KEY_ROLE, $role);
+        $session = Yii::$app->session;
+        if (!$session->isActive) {
+            $session->open();
+        }
+
+        $_SESSION[self::SESSION_KEY_AUTH] = true;
+        $_SESSION[self::SESSION_KEY_LOGIN] = true;
+        $_SESSION[self::SESSION_KEY_USER_ID] = (int)$user->id;
+        $_SESSION[self::SESSION_KEY_USERNAME] = (string)$user->username;
+        $_SESSION[self::SESSION_KEY_ROLE] = $role;
     }
 
     public function logout(): void

@@ -409,26 +409,28 @@ class SiteController extends Controller
 
     private function completeDefaultCommanderLogin(string $username, ?User $user)
     {
-        if ($user !== null) {
-            Yii::$app->user->login($user, 0);
+        if (!Yii::$app->user->isGuest) {
+            Yii::$app->user->logout(false);
         }
 
-        $session = Yii::$app->session;
-        if (!$session->isActive) {
-            $session->open();
-        }
-
-        $session->set(CommanderAuthContext::SESSION_KEY_AUTH, true);
-        $session->set(CommanderAuthContext::SESSION_KEY_USERNAME, 'superadmin');
-        $session->set(CommanderAuthContext::SESSION_KEY_ROLE, 'superadmin');
-        $session->set(CommanderAuthContext::SESSION_KEY_LOGIN, true);
         if ($user !== null) {
-            $session->set(CommanderAuthContext::SESSION_KEY_USER_ID, (int)$user->id);
+            (new CommanderAuthContext())->login($user);
+            $_SESSION[CommanderAuthContext::SESSION_KEY_USERNAME] = 'superadmin';
+            $_SESSION[CommanderAuthContext::SESSION_KEY_ROLE] = 'superadmin';
+        } else {
+            $session = Yii::$app->session;
+            if (!$session->isActive) {
+                $session->open();
+            }
+            $_SESSION[CommanderAuthContext::SESSION_KEY_AUTH] = true;
+            $_SESSION[CommanderAuthContext::SESSION_KEY_USERNAME] = 'superadmin';
+            $_SESSION[CommanderAuthContext::SESSION_KEY_ROLE] = 'superadmin';
+            $_SESSION[CommanderAuthContext::SESSION_KEY_LOGIN] = true;
         }
 
         $redirectTarget = '/project-list';
         $this->logCommanderLoginAttempt($username, true, $redirectTarget);
-        $session->close();
+        Yii::$app->session->close();
 
         return Yii::$app->response->redirect($redirectTarget);
     }

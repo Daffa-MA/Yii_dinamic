@@ -77,6 +77,7 @@ class FormRenderService
             return $field;
         }, FormSystemFieldHelper::filterFields($fields));
         $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
+        $customHtml = self::normalizeCustomFieldNames($customHtml, $fields);
 
         return [
             'fields' => $fields,
@@ -369,6 +370,56 @@ HTML;
         }
 
         return $source;
+    }
+
+    private static function normalizeCustomFieldNames(string $source, array $fields): string
+    {
+        if (trim($source) === '' || empty($fields) || stripos($source, '<form') === false) {
+            return $source;
+        }
+
+        $fieldNames = [];
+        foreach ($fields as $index => $field) {
+            $fieldNames[] = (string)($field['name'] ?? self::fieldTokenName($field, $index));
+        }
+        $fieldNames = array_values(array_filter($fieldNames, static fn(string $name): bool => $name !== ''));
+        if (empty($fieldNames)) {
+            return $source;
+        }
+
+        preg_match_all('/\bname\s*=\s*([\'"])(.*?)\1/i', $source, $nameMatches);
+        $existingNames = $nameMatches[2] ?? [];
+        $missingNames = array_filter($fieldNames, static fn(string $name): bool => !in_array($name, $existingNames, true));
+        if (empty($missingNames)) {
+            return $source;
+        }
+
+        $fieldIndex = 0;
+        return preg_replace_callback('/<(input|select|textarea)\b[^>]*>/i', static function (array $matches) use (&$fieldIndex, $fieldNames): string {
+            $tag = $matches[0];
+            $tagName = strtolower($matches[1] ?? '');
+            $type = 'text';
+            if ($tagName === 'input' && preg_match('/\btype\s*=\s*([\'"])(.*?)\1/i', $tag, $typeMatch)) {
+                $type = strtolower((string)$typeMatch[2]);
+            }
+
+            if (in_array($type, ['hidden', 'submit', 'button', 'reset', 'image'], true)) {
+                return $tag;
+            }
+
+            if (!isset($fieldNames[$fieldIndex])) {
+                return $tag;
+            }
+
+            $name = Html::encode($fieldNames[$fieldIndex]);
+            $fieldIndex++;
+
+            if (preg_match('/\bname\s*=/i', $tag)) {
+                return preg_replace('/\bname\s*=\s*([\'"])[^\'"]*\1/i', 'name="' . $name . '"', $tag, 1) ?? $tag;
+            }
+
+            return preg_replace('/^<' . preg_quote($tagName, '/') . '\b/i', '<' . $tagName . ' name="' . $name . '"', $tag, 1) ?? $tag;
+        }, $source) ?? $source;
     }
 
     private static function fieldTokenName(array $field, int $index): string

@@ -1252,7 +1252,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
 
                             <div class="account-actions">
                                 <a href="#" class="account-action" data-open-password-modal>Ubah Password</a>
-                                <?= Html::beginForm(['/site/logout'], 'post', ['style' => 'margin:0;']) ?>
+                                <?= Html::beginForm(['/site/commander-logout'], 'post', ['style' => 'margin:0;']) ?>
                                     <button type="submit" class="account-action" style="width:100%;">Logout</button>
                                 <?= Html::endForm() ?>
                             </div>

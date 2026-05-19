@@ -41,7 +41,7 @@ class SiteController extends Controller
         return [
             'access' => [
                 'class' => \yii\filters\AccessControl::class,
-                'only' => ['logout', 'dashboard', 'profile', 'change-password'],
+                'only' => ['logout', 'commander-logout', 'dashboard', 'profile', 'change-password'],
                 'rules' => [
                     [
                         'actions' => ['profile'],
@@ -52,7 +52,7 @@ class SiteController extends Controller
                         },
                     ],
                     [
-                        'actions' => ['logout', 'dashboard', 'profile', 'change-password'],
+                        'actions' => ['logout', 'commander-logout', 'dashboard', 'profile', 'change-password'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -327,7 +327,19 @@ class SiteController extends Controller
         (new CommanderAuthContext())->logout();
         Yii::$app->user->logout(true);
         Yii::$app->session->destroy();
-        return $this->redirect(['site/login']);
+        return $this->redirect(['/site/login']);
+    }
+
+    /**
+     * Commander logout specifically for project list / profile dropdowns.
+     */
+    public function actionCommanderLogout()
+    {
+        (new ActiveProjectContext())->clear();
+        (new CommanderAuthContext())->logout();
+        Yii::$app->user->logout(true);
+        Yii::$app->session->destroy();
+        return $this->redirect(['/site/login']);
     }
 
     /**

@@ -52,9 +52,13 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);
 
 $currentRoute = Yii::$app->controller->route;
+$currentPath = trim((string) Yii::$app->request->pathInfo, '/');
 $rolePageHero = new \app\components\RolePageHero();
 $roleHeroData = $rolePageHero->build($this->title ?? '', $this->params['workspacePageHero'] ?? [], null, (string)$currentRoute);
 $shouldRenderRoleHero = !empty($roleHeroData['should_render']);
+if ($currentPath === 'project-list') {
+    $shouldRenderRoleHero = false;
+}
 $activeMenu = 'dashboard';
 if ($currentRoute === 'site/dashboard') {
     $activeMenu = 'dashboard';

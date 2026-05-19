@@ -29,10 +29,6 @@ class ProjectPermissionService
         }
 
         $route = trim(preg_replace('/[?#].*$/', '', $route), '/');
-        if ($route === 'site/dashboard') {
-            return true;
-        }
-
         $role = strtolower(trim((string)$user->role));
         if ($this->isAdminRole($role)) {
             return true;
@@ -349,7 +345,7 @@ class ProjectPermissionService
             }
         }
 
-        return Url::to(['site/dashboard']);
+        return null;
     }
 
     private function hasRoleAccess(string $role, string $accessType, string $accessKey): bool
@@ -883,6 +879,14 @@ class ProjectPermissionService
 
         $normalizedRoute = '/' . ltrim(trim($route, '/'), '/');
         $requestPath = '/' . ltrim(trim((string)Yii::$app->request->pathInfo, '/'), '/');
+        $routeVariants = array_values(array_unique(array_filter([$normalizedRoute, $requestPath])));
+        if (in_array('/site/dashboard', $routeVariants, true)) {
+            $routeVariants[] = '/dashboard';
+        }
+        if (in_array('/dashboard', $routeVariants, true)) {
+            $routeVariants[] = '/site/dashboard';
+        }
+
         $menus = (new Query())
             ->from('master_menu')
             ->where(['type' => 'route', 'is_active' => 1])
@@ -894,7 +898,7 @@ class ProjectPermissionService
             }
 
             $menuRoute = '/' . ltrim(trim((string)($menu['route'] ?? ''), '/'), '/');
-            if ($menuRoute !== $normalizedRoute && $menuRoute !== $requestPath) {
+            if (!in_array($menuRoute, $routeVariants, true)) {
                 continue;
             }
 

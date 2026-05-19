@@ -384,7 +384,7 @@ class ProjectPermissionService
     {
         if ($this->isCommanderSuperAdmin()) {
             $preferredRoute = $this->normalizeIncomingRoute($preferredRoute);
-            return $preferredRoute !== '' ? Url::to([$preferredRoute]) : Url::to(['site/dashboard']);
+            return $preferredRoute !== '' ? Url::to([$preferredRoute]) : Url::to(['dashboard']);
         }
 
         $authContext = new ProjectAuthContext();
@@ -395,7 +395,7 @@ class ProjectPermissionService
 
         $role = strtolower(trim((string)$user->role));
         if ($this->isAdminRole($role)) {
-            return Url::to(['site/dashboard']);
+            return Url::to(['dashboard']);
         }
 
         $candidates = [];
@@ -406,7 +406,6 @@ class ProjectPermissionService
 
         $candidates = array_merge($candidates, [
             'dashboard',
-            'site/dashboard',
             'workspace-settings/index',
             'master-menu/index',
             'master-page/index',

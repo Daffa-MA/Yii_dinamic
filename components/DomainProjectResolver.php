@@ -108,12 +108,12 @@ class DomainProjectResolver implements BootstrapInterface
             $authContext = new ProjectAuthContext();
             if ($route === '' || $route === 'site/index' || $route === 'site/login') {
                 if ((new CommanderAuthContext())->isSuperAdmin()) {
-                    $this->redirectSafely($event, Url::to(['site/dashboard']), 'workspace_superadmin_dashboard', (int)$project->id);
+                    $this->redirectSafely($event, Url::to(['dashboard']), 'workspace_superadmin_dashboard', (int)$project->id);
                     return;
                 }
 
                 if ($authContext->isAuthenticated((int)$project->id)) {
-                    $this->redirectSafely($event, Url::to(['site/dashboard']), 'workspace_project_authenticated_dashboard', (int)$project->id);
+                    $this->redirectSafely($event, Url::to(['dashboard']), 'workspace_project_authenticated_dashboard', (int)$project->id);
                     return;
                 }
 
@@ -123,7 +123,7 @@ class DomainProjectResolver implements BootstrapInterface
 
             if ($route === 'project/index' && !(new CommanderAuthContext())->isSuperAdmin()) {
                 if ($authContext->isAuthenticated((int)$project->id)) {
-                    $this->redirectSafely($event, Url::to(['site/dashboard']), 'workspace_project_list_authenticated_dashboard', (int)$project->id);
+                    $this->redirectSafely($event, Url::to(['dashboard']), 'workspace_project_list_authenticated_dashboard', (int)$project->id);
                     return;
                 }
 

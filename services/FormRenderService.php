@@ -214,23 +214,21 @@ HTML;
             $source = preg_replace('/\{' . preg_quote($name, '/') . '_placeholder\}/', $placeholder, $source) ?? $source;
             $source = preg_replace('/\{' . preg_quote($name, '/') . '_name\}/', $fieldName, $source) ?? $source;
             $source = preg_replace('/\{' . preg_quote($name, '/') . '_id\}/', $fieldId, $source) ?? $source;
+
+            $namePattern = preg_quote((string)($field['name'] ?? $name), '/');
+            $source = preg_replace(
+                '/(<label\b[^>]*>)\{label\}(<\/label>[\s\S]*?<(?:input|select|textarea)\b(?=[^>]*\bname=["\']' . $namePattern . '["\']))/i',
+                '$1' . $label . '$2',
+                $source
+            ) ?? $source;
+            $source = preg_replace(
+                '/(<(?:input|textarea)\b(?=[^>]*\bname=["\']' . $namePattern . '["\'])(?=[^>]*\bplaceholder=["\'])[^>]*\bplaceholder=["\'])\{placeholder\}(["\'][^>]*>)/i',
+                '$1' . $placeholder . '$2',
+                $source
+            ) ?? $source;
         }
 
-        $labelIndex = 0;
-        $source = preg_replace_callback('/\{label\}/', static function () use ($fields, &$labelIndex): string {
-            $field = $fields[$labelIndex] ?? end($fields) ?: [];
-            $label = self::escapeTokenValue(self::fieldLabel($field, $labelIndex));
-            $labelIndex++;
-            return $label;
-        }, $source) ?? $source;
-
-        $placeholderIndex = 0;
-        return preg_replace_callback('/\{placeholder\}/', static function () use ($fields, &$placeholderIndex): string {
-            $field = $fields[$placeholderIndex] ?? end($fields) ?: [];
-            $placeholder = self::escapeTokenValue(self::fieldPlaceholder($field, $placeholderIndex));
-            $placeholderIndex++;
-            return $placeholder;
-        }, $source) ?? $source;
+        return $source;
     }
 
     private static function fieldTokenName(array $field, int $index): string

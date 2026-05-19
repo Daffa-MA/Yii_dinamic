@@ -90,7 +90,7 @@ $projectPermissionService = new \app\components\ProjectPermissionService();
 $isWorkspaceAdmin = $canOpenProjectList || (strtolower(trim((string)($projectAuthUser->role ?? ''))) === 'admin');
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
-$logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['/project/logout']) : \yii\helpers\Url::to(['/site/logout']);
+$logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['/project/logout']) : \yii\helpers\Url::to(['/site/commander-logout']);
 $projectListUrl = $domainContext->projectListUrl();
 
 $workspaceToolRoutes = [

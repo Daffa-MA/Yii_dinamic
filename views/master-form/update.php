@@ -1751,47 +1751,47 @@ document.addEventListener('DOMContentLoaded', function() {
     function getFieldBaseCode(fieldType, lang) {
         var baseCodeTemplates = {
             text: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="text" class="field-input" placeholder="{placeholder}" />\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="text" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                 js: ''
             },
             email: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="email" class="field-input" placeholder="{placeholder}" />\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="email" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                 js: ''
             },
             password: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="password" class="field-input" />\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="password" name="{name}" class="field-input" />\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                 js: ''
             },
             number: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="number" class="field-input" placeholder="{placeholder}" />\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="number" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                 js: ''
             },
             textarea: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <textarea class="field-textarea" rows="4" placeholder="{placeholder}"></textarea>\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <textarea name="{name}" class="field-textarea" rows="4" placeholder="{placeholder}"></textarea>\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-textarea {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n  resize: vertical;\n}',
                 js: ''
             },
             select: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <select class="field-select">\n    <option value="">Pilih...</option>\n    <option value="opt1">Opsi 1</option>\n    <option value="opt2">Opsi 2</option>\n  </select>\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <select name="{name}" class="field-select">\n    <option value="">Pilih...</option>\n    <option value="opt1">Opsi 1</option>\n    <option value="opt2">Opsi 2</option>\n  </select>\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-select {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n  background: white;\n}',
                 js: ''
             },
             checkbox: {
-                html: '<div class="field-wrapper">\n  <label class="field-checkbox">\n    <input type="checkbox" />\n    <span>{label}</span>\n  </label>\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-checkbox">\n    <input type="checkbox" name="{name}" />\n    <span>{label}</span>\n  </label>\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-checkbox {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  cursor: pointer;\n}\n.field-checkbox input {\n  width: 18px;\n  height: 18px;\n}',
                 js: ''
             },
             date: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="date" class="field-input" />\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="date" name="{name}" class="field-input" />\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                 js: ''
             },
             file: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div class="file-upload">\n    <input type="file" class="field-input" />\n    <span class="file-hint">Klik atau drag file ke sini</span>\n  </div>\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div class="file-upload">\n    <input type="file" name="{name}" class="field-input" />\n    <span class="file-hint">Klik atau drag file ke sini</span>\n  </div>\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.file-upload {\n  border: 2px dashed #e2e8f0;\n  border-radius: 8px;\n  padding: 24px;\n  text-align: center;\n}\n.file-hint {\n  display: block;\n  color: #94a3b8;\n  font-size: 13px;\n  margin-top: 8px;\n}',
                 js: ''
             }
@@ -1804,6 +1804,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (formFields[selectedIndex]) {
             code = code.replace(/{label}/g, formFields[selectedIndex].label || 'Label');
             code = code.replace(/{placeholder}/g, formFields[selectedIndex].placeholder || '');
+            code = code.replace(/{name}/g, formFields[selectedIndex].name || getFieldTokenName(formFields[selectedIndex], selectedIndex));
+            code = code.replace(/{type}/g, formFields[selectedIndex].type || 'text');
         }
         
         return code;
@@ -1951,6 +1953,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return 'Masukkan ' + getFieldLabel(field, index).toLowerCase();
     }
 
+    function escapeRegExp(value) {
+        return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    function applyFieldTokensToCode(code, field, index) {
+        return String(code || '')
+            .replace(/\{label\}/g, getFieldLabel(field, index))
+            .replace(/\{placeholder\}/g, getFieldPlaceholder(field, index))
+            .replace(/\{name\}/g, field.name || getFieldTokenName(field, index))
+            .replace(/\{type\}/g, field.type || 'text');
+    }
+
     function resolveFormSourceTokens(source) {
         let resolved = String(source || '');
 
@@ -1963,21 +1977,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 .replace(new RegExp('\\{' + name + '_placeholder\\}', 'g'), placeholder)
                 .replace(new RegExp('\\{' + name + '_name\\}', 'g'), field.name || name)
                 .replace(new RegExp('\\{' + name + '_id\\}', 'g'), field.id || name);
-        });
 
-        let sequentialIndex = 0;
-        resolved = resolved.replace(/\{label\}/g, function() {
-            const field = formFields[sequentialIndex] || formFields[formFields.length - 1] || {};
-            const label = getFieldLabel(field, sequentialIndex);
-            sequentialIndex += 1;
-            return label;
-        });
-        sequentialIndex = 0;
-        resolved = resolved.replace(/\{placeholder\}/g, function() {
-            const field = formFields[sequentialIndex] || formFields[formFields.length - 1] || {};
-            const placeholder = getFieldPlaceholder(field, sequentialIndex);
-            sequentialIndex += 1;
-            return placeholder;
+            const fieldName = field.name || name;
+            const namePattern = escapeRegExp(fieldName);
+            const labelPattern = new RegExp('(<label\\b[^>]*>)\\{label\\}(<\\/label>[\\s\\S]*?<(?:input|select|textarea)\\b(?=[^>]*\\bname=[\"\\\']' + namePattern + '[\"\\\']))', 'gi');
+            const placeholderPattern = new RegExp('(<(?:input|textarea)\\b(?=[^>]*\\bname=[\"\\\']' + namePattern + '[\"\\\'])(?=[^>]*\\bplaceholder=[\"\\\'])[^>]*\\bplaceholder=[\"\\\'])\\{placeholder\\}([\"\\\'][^>]*>)', 'gi');
+            resolved = resolved
+                .replace(labelPattern, '$1' + label + '$2')
+                .replace(placeholderPattern, '$1' + placeholder + '$2');
         });
 
         return resolved;
@@ -2046,7 +2053,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Use base template
                 const baseCode = getFieldBaseCode(field.type, 'html');
-                lines.push('    ' + baseCode.split('\n').join('\n    '));
+                lines.push('    ' + applyFieldTokensToCode(baseCode, field, index).split('\n').join('\n    '));
             }
         });
         

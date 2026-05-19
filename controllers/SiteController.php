@@ -321,6 +321,7 @@ class SiteController extends Controller
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post()) && $model->login()) {
+            $this->logCommanderLoginState('success', $this->redirectAfterAuthenticationUrl());
             return $this->redirectAfterAuthentication();
         }
 
@@ -328,6 +329,42 @@ class SiteController extends Controller
         return $this->render('login', [
             'model' => $model,
         ]);
+    }
+
+    private function redirectAfterAuthenticationUrl(): string
+    {
+        $domainContext = new DomainContext();
+        if ($domainContext->isRootDomain()) {
+            return $domainContext->projectListUrl();
+        }
+
+        return Url::to(['/dashboard']);
+    }
+
+    private function logCommanderLoginState(string $stage, string $redirectTarget): void
+    {
+        try {
+            $session = Yii::$app->session;
+            if (!$session->isActive) {
+                $session->open();
+            }
+
+            $user = (new CommanderAuthContext())->getUser();
+            file_put_contents(
+                Yii::getAlias('@runtime/logs/login-debug.log'),
+                date('Y-m-d H:i:s') . " {$stage} /site/login\n" .
+                'user_id=' . ($user !== null ? (string)$user->id : '-') . "\n" .
+                'username=' . ($user !== null ? (string)$user->username : '-') . "\n" .
+                'identity_role=' . ($user !== null ? (string)($user->role ?? '') : '-') . "\n" .
+                'commander_auth=' . json_encode(Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_AUTH, null)) . "\n" .
+                'commander_role=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_ROLE, '') . "\n" .
+                'app_role=' . (string)Yii::$app->session->get('app_role', '') . "\n" .
+                'redirect=' . $redirectTarget . "\n\n",
+                FILE_APPEND
+            );
+        } catch (\Throwable $e) {
+            Yii::warning('Commander login debug failed: ' . $e->getMessage(), __METHOD__);
+        }
     }
 
     /**

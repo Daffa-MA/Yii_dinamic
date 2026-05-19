@@ -32,6 +32,11 @@ class SiteController extends Controller
     
     private function redirectAfterAuthentication()
     {
+        $domainContext = new DomainContext();
+        if ($domainContext->isRootDomain()) {
+            return Yii::$app->response->redirect($domainContext->projectListUrl());
+        }
+
         return $this->redirect(['/dashboard']);
     }
 
@@ -310,7 +315,7 @@ class SiteController extends Controller
      */
     public function actionLogin()
     {
-        if (!Yii::$app->user->isGuest) {
+        if ((new CommanderAuthContext())->isAuthenticated() || !Yii::$app->user->isGuest) {
             return $this->redirectAfterAuthentication();
         }
 

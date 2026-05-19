@@ -12,7 +12,7 @@ class LoginForm extends Model
 {
     public $username;
     public $password;
-    public $rememberMe = true;
+    public $rememberMe = false;
 
     private $_user = false;
 
@@ -55,7 +55,7 @@ class LoginForm extends Model
                 return false;
             }
 
-            if (Yii::$app->user->login($user, $this->rememberMe ? 3600 * 24 * 30 : 0)) {
+            if (Yii::$app->user->login($user, 0)) {
                 (new CommanderAuthContext())->login($user);
                 return true;
             }

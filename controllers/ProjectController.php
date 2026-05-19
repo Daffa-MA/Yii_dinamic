@@ -26,6 +26,7 @@ use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
 use app\components\ProjectSchema;
 use app\components\DatabaseSchemaInitializer;
+use yii\helpers\Url;
 
 class ProjectController extends Controller
 {
@@ -923,6 +924,10 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionLogout()
     {
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return Yii::$app->response->redirect(Url::to(['/site/logout'], true));
+        }
+
         $context = new ActiveProjectContext();
         $projectId = $context->getActiveProjectId() ?? (int)Yii::$app->request->get('id', 0);
 

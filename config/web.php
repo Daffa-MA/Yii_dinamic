@@ -90,6 +90,7 @@ $config = [
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
+        '@storage' => dirname(__DIR__) . '/storage',
     ],
     'components' => [
         'request' => [

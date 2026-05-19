@@ -11,6 +11,7 @@ $cssVars = $model->getCssVars();
 $loginBackgroundAsset = $model->getLoginBackgroundAsset();
 $workspaceLogoAsset = $model->getWorkspaceLogoAsset();
 $workspaceLogoUrl = (string)($workspaceLogoAsset['url'] ?? '');
+$loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
 ?>
 
 <style>
@@ -1526,10 +1527,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const logoPreviewBox = document.getElementById('logo-preview-box');
     const logoPreviewIcon = document.getElementById('logo-preview-icon');
     const sidebarLogoBox = document.getElementById('sidebar-logo-box');
+    const initialWorkspaceLogoUrl = <?= json_encode($workspaceLogoUrl) ?>;
+    const initialLoginBackgroundUrl = <?= json_encode($loginBackgroundUrl) ?>;
+
+    function resolveWorkspaceMediaUrl(value) {
+        const raw = String(value || '').trim();
+        if (!raw) {
+            return '';
+        }
+
+        if (/^https?:\/\//i.test(raw) || raw.startsWith('/')) {
+            return raw;
+        }
+
+        if (raw.startsWith('uploads/')) {
+            return '/' + raw.replace(/^\/+/, '');
+        }
+
+        return '/uploads/workspace/' + raw.replace(/^\/+/, '');
+    }
 
     function getCurrentLogoImageUrl() {
         const logoFile = logoImageHiddenInput ? logoImageHiddenInput.value : '';
-        return logoFile ? '/uploads/workspace/' + logoFile : '';
+        if (logoFile) {
+            return resolveWorkspaceMediaUrl(logoFile);
+        }
+
+        return initialWorkspaceLogoUrl || '';
     }
 
     function clampLogoSize(value) {
@@ -2092,7 +2116,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
-            renderLoginBackgroundPreview(value, detectMediaTypeFromUrl(value), value.split('/').pop());
+            const resolvedUrl = resolveWorkspaceMediaUrl(value);
+            renderLoginBackgroundPreview(resolvedUrl, detectMediaTypeFromUrl(resolvedUrl), resolvedUrl.split('/').pop());
         });
     }
 
@@ -2111,7 +2136,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const existingLoginBackground = loginBackgroundLinkInput ? loginBackgroundLinkInput.value.trim() : '';
     if (existingLoginBackground) {
-        renderLoginBackgroundPreview(existingLoginBackground, detectMediaTypeFromUrl(existingLoginBackground), existingLoginBackground.split('/').pop());
+        const resolvedExistingLoginBackground = resolveWorkspaceMediaUrl(existingLoginBackground) || initialLoginBackgroundUrl;
+        renderLoginBackgroundPreview(resolvedExistingLoginBackground, detectMediaTypeFromUrl(resolvedExistingLoginBackground), resolvedExistingLoginBackground.split('/').pop());
     } else {
         renderLoginBackgroundPlaceholder();
     }

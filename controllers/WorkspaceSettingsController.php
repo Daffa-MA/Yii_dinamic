@@ -8,6 +8,7 @@ use yii\web\NotFoundHttpException;
 use yii\web\UploadedFile;
 use yii\filters\VerbFilter;
 use yii\db\Query;
+use app\components\WorkspaceMediaStorage;
 use app\components\ProjectPermissionRegistry;
 
 class WorkspaceSettingsController extends Controller
@@ -562,37 +563,30 @@ class WorkspaceSettingsController extends Controller
             return ['success' => false, 'message' => 'File too large. Maximum size: 2MB'];
         }
         
+        $storage = new WorkspaceMediaStorage();
         $relativeDir = $this->workspaceMediaRelativeDir();
-        $uploadDir = Yii::getAlias('@webroot/uploads/workspace/') . $relativeDir;
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        $uploadResult = $storage->storeUploadedFile($uploadedFile, 'logo', $relativeDir);
+        if (!$uploadResult['success']) {
+            return $uploadResult;
         }
-        
-        $fileName = 'logo_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
-        $filePath = $uploadDir . $fileName;
-        $storedPath = $relativeDir . $fileName;
-        
-        if ($uploadedFile->saveAs($filePath)) {
-            $oldLogo = $model->workspace_logo_image;
-            if ($oldLogo) {
-                $this->deleteWorkspaceMediaFile($oldLogo);
-            }
-            
-            $model->workspace_logo_image = $storedPath;
-            if (!$model->save()) {
-                @unlink($filePath);
-                return ['success' => false, 'message' => 'Logo tersimpan di disk, tetapi gagal disimpan ke database.'];
-            }
-            
-            return [
-                'success' => true, 
-                'message' => 'Logo uploaded successfully',
-                'logoUrl' => $model->getWorkspaceLogoAsset()['url'],
-                'logoFile' => $storedPath
-            ];
+
+        $oldLogo = $model->workspace_logo_image;
+        if ($oldLogo) {
+            $this->deleteWorkspaceMediaFile($oldLogo);
         }
-        
-        return ['success' => false, 'message' => 'Failed to save file'];
+
+        $model->workspace_logo_image = (string)($uploadResult['relative_path'] ?? '');
+        if (!$model->save()) {
+            $storage->delete((string)($uploadResult['relative_path'] ?? ''));
+            return ['success' => false, 'message' => 'Logo tersimpan di disk, tetapi gagal disimpan ke database.'];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Logo uploaded successfully',
+            'logoUrl' => $model->getWorkspaceLogoAsset()['url'],
+            'logoFile' => (string)($uploadResult['relative_path'] ?? ''),
+        ];
     }
     
     public function actionRemoveLogo()
@@ -639,18 +633,11 @@ class WorkspaceSettingsController extends Controller
             return ['success' => false, 'message' => 'File terlalu besar. Maksimal 20MB.'];
         }
 
+        $storage = new WorkspaceMediaStorage();
         $relativeDir = $this->workspaceMediaRelativeDir();
-        $uploadDir = Yii::getAlias('@webroot/uploads/workspace/') . $relativeDir;
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $fileName = 'login_bg_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
-        $filePath = $uploadDir . $fileName;
-        $storedPath = $relativeDir . $fileName;
-
-        if (!$uploadedFile->saveAs($filePath)) {
-            return ['success' => false, 'message' => 'Gagal menyimpan file background login.'];
+        $uploadResult = $storage->storeUploadedFile($uploadedFile, 'login_bg', $relativeDir);
+        if (!$uploadResult['success']) {
+            return ['success' => false, 'message' => (string)($uploadResult['message'] ?? 'Gagal menyimpan file background login.')];
         }
 
         $oldValue = trim((string)$model->login_background_image);
@@ -658,12 +645,12 @@ class WorkspaceSettingsController extends Controller
             $this->deleteWorkspaceMediaFile($oldValue);
         }
 
-        $model->login_background_image = $storedPath;
+        $model->login_background_image = (string)($uploadResult['relative_path'] ?? '');
 
         return [
             'success' => true,
             'message' => 'Background login berhasil diunggah.',
-            'login_background_image' => $storedPath,
+            'login_background_image' => (string)($uploadResult['relative_path'] ?? ''),
         ];
     }
 
@@ -679,24 +666,7 @@ class WorkspaceSettingsController extends Controller
 
     private function deleteWorkspaceMediaFile(string $value): void
     {
-        $value = trim($value);
-        if ($value === '' || preg_match('#^https?://#i', $value)) {
-            return;
-        }
-
-        $path = parse_url($value, PHP_URL_PATH) ?: $value;
-        $path = ltrim($path, '/');
-        if (strpos($path, 'uploads/workspace/') === 0) {
-            $path = substr($path, strlen('uploads/workspace/'));
-        }
-        $path = preg_replace('#[^a-zA-Z0-9_\-./]#', '', $path) ?: basename($value);
-        $filePath = Yii::getAlias('@webroot/uploads/workspace/') . $path;
-        if (!is_file($filePath)) {
-            $filePath = Yii::getAlias('@webroot/uploads/workspace/') . basename($value);
-        }
-        if (is_file($filePath)) {
-            @unlink($filePath);
-        }
+        (new WorkspaceMediaStorage())->delete($value);
     }
 
     private function isCommanderOnlyRole(string $roleName): bool

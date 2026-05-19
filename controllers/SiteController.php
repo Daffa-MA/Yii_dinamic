@@ -325,6 +325,10 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
+        if ((new CommanderAuthContext())->isSuperAdmin()) {
+            return $this->performCommanderLogout();
+        }
+
         (new ActiveProjectContext())->clear();
         (new CommanderAuthContext())->logout();
         Yii::$app->user->logout(true);
@@ -337,19 +341,51 @@ class SiteController extends Controller
      */
     public function actionCommanderLogout()
     {
+        return $this->performCommanderLogout();
+    }
+
+    private function performCommanderLogout()
+    {
         $session = Yii::$app->session;
         if (!$session->isActive) {
             $session->open();
         }
 
+        $this->clearCommanderAndProjectSessions($session);
+
         (new ActiveProjectContext())->clear();
         (new CommanderAuthContext())->logout();
-        Yii::$app->user->switchIdentity(null);
-        Yii::$app->user->logout(false);
+        Yii::$app->user->logout(true);
         $session->removeAll();
         $session->destroy();
 
-        return Yii::$app->response->redirect(Url::to(['/site/login'], true));
+        return Yii::$app->response->redirect((new DomainContext())->commanderUrl('/site/login'));
+    }
+
+    private function clearCommanderAndProjectSessions(\yii\web\Session $session): void
+    {
+        $keys = array_keys($session->getAll());
+        foreach ($keys as $key) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            if (
+                $key === 'active_project_id'
+                || $key === 'active_workspace_id'
+                || $key === 'resolved_domain_project_id'
+                || $key === 'superadmin_mode'
+                || strpos($key, 'commander_') === 0
+                || strpos($key, 'project_auth_') === 0
+                || strpos($key, 'project_app_auth:') === 0
+                || strpos($key, 'project_user_') === 0
+                || strpos($key, 'project_role_') === 0
+                || strpos($key, 'app_user') === 0
+                || strpos($key, 'app_role') === 0
+            ) {
+                $session->remove($key);
+            }
+        }
     }
 
     /**

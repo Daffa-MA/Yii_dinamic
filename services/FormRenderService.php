@@ -167,8 +167,144 @@ class FormRenderService
         });
     }
 
+    function isEmbeddedCustomForm(form) {
+        return !!(form && form.querySelector('input[name="_embedded"]'));
+    }
+
+    function showCustomFormAlert(type, message) {
+        var existing = document.getElementById('custom-form-submit-alert');
+        if (existing) existing.remove();
+
+        var isSuccess = type === 'success';
+        var alert = document.createElement('div');
+        alert.id = 'custom-form-submit-alert';
+        alert.setAttribute('role', 'status');
+        alert.style.cssText = [
+            'position:fixed',
+            'top:22px',
+            'right:22px',
+            'z-index:2147483647',
+            'width:min(420px,calc(100vw - 32px))',
+            'background:#ffffff',
+            'color:#0f172a',
+            'border:1px solid ' + (isSuccess ? '#bbf7d0' : '#fecaca'),
+            'border-left:5px solid ' + (isSuccess ? '#22c55e' : '#ef4444'),
+            'border-radius:14px',
+            'box-shadow:0 24px 60px rgba(15,23,42,.22)',
+            'font-family:Inter,Segoe UI,Arial,sans-serif',
+            'overflow:hidden',
+            'transform:translateY(-8px)',
+            'opacity:0',
+            'transition:opacity .18s ease, transform .18s ease'
+        ].join(';');
+
+        alert.innerHTML =
+            '<div style="display:flex;gap:12px;align-items:flex-start;padding:16px 18px;">' +
+                '<div style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (isSuccess ? '#dcfce7;color:#15803d' : '#fee2e2;color:#b91c1c') + ';font-weight:800;font-size:18px;">' + (isSuccess ? '&#10003;' : '!') + '</div>' +
+                '<div style="min-width:0;flex:1;">' +
+                    '<div style="font-size:15px;font-weight:800;margin-bottom:3px;">' + (isSuccess ? 'Data berhasil dikirim' : 'Gagal mengirim data') + '</div>' +
+                    '<div style="font-size:13px;line-height:1.5;color:#475569;">' + escapeAlertText(message || (isSuccess ? 'Terima kasih, data sudah tersimpan.' : 'Silakan periksa kembali isian form.')) + '</div>' +
+                '</div>' +
+                '<button type="button" aria-label="Tutup" style="border:0;background:transparent;color:#94a3b8;font-size:22px;line-height:1;cursor:pointer;padding:0 0 0 8px;">&times;</button>' +
+            '</div>';
+
+        alert.querySelector('button').addEventListener('click', function() {
+            alert.remove();
+        });
+
+        document.body.appendChild(alert);
+        requestAnimationFrame(function() {
+            alert.style.opacity = '1';
+            alert.style.transform = 'translateY(0)';
+        });
+
+        clearTimeout(window.__customFormAlertTimer);
+        window.__customFormAlertTimer = setTimeout(function() {
+            if (!alert.parentNode) return;
+            alert.style.opacity = '0';
+            alert.style.transform = 'translateY(-8px)';
+            setTimeout(function() {
+                if (alert.parentNode) alert.remove();
+            }, 220);
+        }, isSuccess ? 4200 : 6500);
+    }
+
+    function escapeAlertText(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function setSubmitting(form, submitting) {
+        var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])');
+        buttons.forEach(function(button) {
+            if (submitting) {
+                button.dataset.originalText = button.tagName === 'INPUT' ? button.value : button.innerHTML;
+                if (button.tagName === 'INPUT') button.value = 'Mengirim...';
+                else button.innerHTML = 'Mengirim...';
+                button.disabled = true;
+            } else {
+                if (button.dataset.originalText !== undefined) {
+                    if (button.tagName === 'INPUT') button.value = button.dataset.originalText;
+                    else button.innerHTML = button.dataset.originalText;
+                }
+                button.disabled = false;
+            }
+        });
+    }
+
+    function submitEmbeddedForm(form) {
+        if (!form || form.__customSubmitting) return;
+        form.__customSubmitting = true;
+        collectInto(form);
+        setSubmitting(form, true);
+
+        fetch(form.action || window.location.href, {
+            method: (form.method || 'POST').toUpperCase(),
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+            .then(function(response) {
+                return response.text().then(function(text) {
+                    var data = null;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (error) {
+                        data = {
+                            success: response.ok,
+                            message: response.ok ? 'Data berhasil dikirim.' : text
+                        };
+                    }
+                    if (!response.ok && data.success !== true) {
+                        data.success = false;
+                    }
+                    return data;
+                });
+            })
+            .then(function(data) {
+                showCustomFormAlert(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
+            })
+            .catch(function(error) {
+                showCustomFormAlert('error', error && error.message ? error.message : 'Terjadi kesalahan jaringan.');
+            })
+            .finally(function() {
+                form.__customSubmitting = false;
+                setSubmitting(form, false);
+            });
+    }
+
     document.addEventListener('submit', function(event) {
-        collectInto(event.target);
+        var form = event.target;
+        collectInto(form);
+        if (!isEmbeddedCustomForm(form)) return;
+        event.preventDefault();
+        submitEmbeddedForm(form);
     }, true);
 
     document.addEventListener('click', function(event) {
@@ -193,6 +329,10 @@ class FormRenderService
         var nativeSubmit = window.HTMLFormElement.prototype.submit;
         window.HTMLFormElement.prototype.submit = function() {
             collectInto(this);
+            if (isEmbeddedCustomForm(this)) {
+                submitEmbeddedForm(this);
+                return;
+            }
             return nativeSubmit.call(this);
         };
     }

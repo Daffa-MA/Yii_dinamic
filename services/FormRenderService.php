@@ -45,6 +45,9 @@ class FormRenderService
         if ($customJs !== '') {
             $html .= '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>';
         }
+        if ($formId > 0) {
+            $html = self::appendCustomFormSubmitCollectorScript($html);
+        }
 
         return $html;
     }
@@ -104,12 +107,12 @@ class FormRenderService
         }
 
         $hasCsrfInput = stripos($html, 'name="' . $csrfParam . '"') !== false || stripos($html, "name='" . $csrfParam . "'") !== false;
-        return preg_replace_callback('/<form\b([^>]*)>/i', static function (array $matches) use ($action, $hidden, $hasCsrfInput): string {
+        $prepared = preg_replace_callback('/<form\b([^>]*)>/i', static function (array $matches) use ($action, $hidden, $hasCsrfInput): string {
             $attrs = $matches[1] ?? '';
             if (!preg_match('/\bmethod\s*=/i', $attrs)) {
                 $attrs .= ' method="post"';
             }
-            if (!preg_match('/\baction\s*=/i', $attrs)) {
+            if (!preg_match('/\baction\s*=\s*([\'"])[^\'"]+\1/i', $attrs)) {
                 $attrs .= ' action="' . Html::encode($action) . '"';
             }
 
@@ -119,7 +122,52 @@ class FormRenderService
             }
 
             return $openTag . $hidden;
-        }, $html, 1) ?? $html;
+        }, $html) ?? $html;
+
+        return self::appendCustomFormSubmitCollectorScript($prepared);
+    }
+
+    private static function appendCustomFormSubmitCollectorScript(string $html): string
+    {
+        $script = self::customFormSubmitCollectorScript();
+        if (stripos($html, 'window.__customFormSubmitCollectorInstalled') !== false) {
+            return $html;
+        }
+        if (stripos($html, '</body>') !== false) {
+            return (string)preg_replace('/<\/body>/i', $script . '</body>', $html, 1);
+        }
+        return $html . $script;
+    }
+
+    private static function customFormSubmitCollectorScript(): string
+    {
+        return <<<'HTML'
+<script>
+(function(){
+    if (window.__customFormSubmitCollectorInstalled) return;
+    window.__customFormSubmitCollectorInstalled = true;
+    document.addEventListener('submit', function(event) {
+        var form = event.target;
+        if (!form || form.tagName !== 'FORM') return;
+        var controls = document.querySelectorAll('input[name], select[name], textarea[name]');
+        controls.forEach(function(control) {
+            if (control.form === form || control.disabled || !control.name) return;
+            if ((control.type === 'checkbox' || control.type === 'radio') && !control.checked) return;
+            var alreadyPresent = false;
+            Array.prototype.forEach.call(form.elements, function(existing) {
+                if (existing.name === control.name) alreadyPresent = true;
+            });
+            if (alreadyPresent) return;
+            var hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = control.name;
+            hidden.value = control.value;
+            form.appendChild(hidden);
+        });
+    }, true);
+})();
+</script>
+HTML;
     }
 
     private static function resolveFormSourceTokens(string $source, array $fields): string

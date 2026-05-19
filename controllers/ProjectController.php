@@ -939,7 +939,7 @@ private function insertDefaultCmsData($newDb): void
         if ($projectId > 0) {
             (new ProjectAuthContext())->logout($projectId);
             $context->clear();
-            return $this->redirect(['project/login']);
+            return $this->redirect(['project/login', 'id' => $projectId, 'force_login' => 1]);
         }
 
         return $this->redirect(['project/index']);

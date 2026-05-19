@@ -18,6 +18,8 @@ $content = $content ?? '';
 $sidebar = new UserSidebar();
 $menuTree = $sidebar->getMenuTree(true);
 $currentRoute = Yii::$app->controller->route;
+$rolePageHero = new \app\components\RolePageHero();
+$roleHeroData = $rolePageHero->build($this->title ?? '');
 
 // breadcrumb dari session
 $breadcrumb = Yii::$app->session->get('breadcrumb', []);
@@ -255,6 +257,9 @@ $breadcrumb = Yii::$app->session->get('breadcrumb', []);
         
         <!-- MAIN CONTENT -->
         <main class="user-main">
+            <?php if (!empty($roleHeroData['should_render']) && $currentRoute !== 'site/dashboard'): ?>
+                <?= $this->render('_role_page_hero', ['hero' => $roleHeroData]) ?>
+            <?php endif; ?>
             <?= $content ?>
         </main>
     </div>

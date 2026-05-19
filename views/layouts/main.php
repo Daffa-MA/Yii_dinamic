@@ -57,6 +57,10 @@ $footerSupportLinks = [
     ['label' => 'API Reference', 'url' => 'https://www.yiiframework.com/doc/api/2.0'],
     ['label' => 'Best Practices', 'url' => 'https://www.yiiframework.com/doc/guide/2.0/id/tutorial-core-validators'],
 ];
+
+$rolePageHero = new \app\components\RolePageHero();
+$roleHeroData = $rolePageHero->build($this->title ?? '');
+$shouldRenderRoleHero = !empty($roleHeroData['should_render']);
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
@@ -198,6 +202,9 @@ $footerSupportLinks = [
             <div id="alert-container">
                 <?= Alert::widget() ?>
             </div>
+            <?php if ($shouldRenderRoleHero): ?>
+                <?= $this->render('_role_page_hero', ['hero' => $roleHeroData]) ?>
+            <?php endif; ?>
             <?= $content ?>
         </div>
     </main>

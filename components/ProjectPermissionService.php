@@ -16,6 +16,123 @@ class ProjectPermissionService
         return (new CommanderAuthContext())->isSuperAdmin();
     }
 
+    /**
+     * @return array{visible:bool,access:bool,deny_reason:string,reason:string,role:string,user_id:int|null,menu_name:string,route:string,menu_key:string}
+     */
+    private function resolveMenuAccessState(array $menu, ?int $projectId = null): array
+    {
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser($projectId);
+        $role = $user !== null ? strtolower(trim((string)$user->role)) : '';
+        $userId = $user !== null ? (int)$user->id : null;
+        $menuName = trim((string)($menu['name'] ?? ''));
+        $route = trim((string)($menu['route'] ?? ''), '/');
+        $menuKey = $this->resolveMenuKey($menu);
+
+        if ($this->isCommanderSuperAdmin()) {
+            return $this->buildMenuAccessState(true, true, 'commander_superadmin', $role, $userId, $menuName, $route, $menuKey);
+        }
+
+        if ($user === null) {
+            return $this->buildMenuAccessState(false, false, 'no_authenticated_user', $role, $userId, $menuName, $route, $menuKey);
+        }
+
+        if ($this->isAdminRole($role)) {
+            return $this->buildMenuAccessState(true, true, 'admin_role', $role, $userId, $menuName, $route, $menuKey);
+        }
+
+        $roles = trim((string)($menu['visibility_roles'] ?? ''));
+        if ($roles !== '') {
+            $allowed = array_map('trim', explode(',', strtolower($roles)));
+            if (in_array($role, $allowed, true)) {
+                return $this->buildMenuAccessState(true, true, 'visibility_roles_match', $role, $userId, $menuName, $route, $menuKey);
+            }
+        }
+
+        if ($menuKey === '') {
+            return $this->buildMenuAccessState(false, false, 'menu_key_missing', $role, $userId, $menuName, $route, $menuKey);
+        }
+
+        if ($this->roleAccessTableHasRows($role) && $this->hasRoleAccess($role, 'menu', $menuKey)) {
+            return $this->buildMenuAccessState(true, true, 'role_access_table_menu_match', $role, $userId, $menuName, $route, $menuKey);
+        }
+
+        $permissionKeys = [
+            "menu.{$menuKey}.view",
+            "menu.{$menuKey}.create",
+            "menu.{$menuKey}.edit",
+            "menu.{$menuKey}.delete",
+        ];
+
+        $menuType = strtolower(trim((string)($menu['type'] ?? '')));
+        if ($menuType === 'route' && $route !== '') {
+            $permissionKeys[] = 'route.' . $this->normalizeRouteKey($route) . '.access';
+        }
+
+        $pageId = (int)($menu['page_id'] ?? 0);
+        if ($pageId > 0) {
+            $page = MasterPage::findOne($pageId);
+            if ($page instanceof MasterPage) {
+                $pageKey = $this->resolvePageKey($page);
+                $permissionKeys[] = "page.{$pageKey}.view";
+                $permissionKeys[] = "builder.page.{$pageKey}.access";
+            }
+        }
+
+        $formId = (int)($menu['form_id'] ?? 0);
+        if ($formId > 0) {
+            $form = MasterForm::findByIdScoped($formId);
+            if ($form instanceof MasterForm) {
+                $formKey = $this->resolveFormKey($form);
+                $permissionKeys[] = "form.{$formKey}.view";
+                $permissionKeys[] = "form.{$formKey}.submit";
+            }
+        }
+
+        if ($this->legacyHasAnyPermission($role, $permissionKeys)) {
+            return $this->buildMenuAccessState(true, true, 'legacy_permission_match', $role, $userId, $menuName, $route, $menuKey);
+        }
+
+        $denyReason = $menuType === 'route'
+            ? 'legacy_permission_missing_for_route_menu'
+            : 'legacy_permission_missing_for_menu';
+
+        return $this->buildMenuAccessState(false, false, $denyReason, $role, $userId, $menuName, $route, $menuKey);
+    }
+
+    /**
+     * @return array{visible:bool,access:bool,deny_reason:string,reason:string,role:string,user_id:int|null,menu_name:string,route:string,menu_key:string}
+     */
+    private function buildMenuAccessState(bool $visible, bool $access, string $reason, string $role, ?int $userId, string $menuName, string $route, string $menuKey): array
+    {
+        return [
+            'visible' => $visible,
+            'access' => $access,
+            'deny_reason' => $visible ? '' : $reason,
+            'reason' => $reason,
+            'role' => $role,
+            'user_id' => $userId,
+            'menu_name' => $menuName,
+            'route' => $route,
+            'menu_key' => $menuKey,
+        ];
+    }
+
+    private function logPermissionDebug(string $scope, array $state, string $route = ''): void
+    {
+        PermissionDebugLogger::log([
+            'scope' => $scope,
+            'user_id' => $state['user_id'] ?? null,
+            'role' => $state['role'] ?? '',
+            'route' => $route !== '' ? $route : ($state['route'] ?? ''),
+            'menu_name' => $state['menu_name'] ?? '',
+            'menu_key' => $state['menu_key'] ?? '',
+            'visible_result' => (bool)($state['visible'] ?? false),
+            'access_result' => (bool)($state['access'] ?? false),
+            'deny_reason' => (string)($state['deny_reason'] ?? $state['reason'] ?? ''),
+        ]);
+    }
+
     public function canAccessRoute(string $route, ?int $projectId = null): bool
     {
         if ($this->isCommanderSuperAdmin()) {
@@ -38,6 +155,10 @@ class ProjectPermissionService
             return false;
         }
 
+        if ($this->canAccessRouteViaMenu($route, $projectId)) {
+            return true;
+        }
+
         $simpleAccess = $this->resolveRouteAccess($route);
         if ($simpleAccess !== null && $this->roleAccessTableHasRows($role)) {
             if ($this->hasRoleAccess($role, $simpleAccess['type'], $simpleAccess['key'])) {
@@ -45,80 +166,30 @@ class ProjectPermissionService
             }
         }
 
-        if ($this->canAccessRouteViaMenu($route, $projectId)) {
-            return true;
+        $permissionKeys = $this->buildRoutePermissionKeys($route, $projectId);
+        $allowed = $this->canAccessPermissionKeys($permissionKeys, $projectId);
+        if (!$allowed) {
+            PermissionDebugLogger::log([
+                'scope' => 'route_access',
+                'user_id' => (int)$user->id,
+                'role' => $role,
+                'route' => trim($route, '/'),
+                'menu_name' => '',
+                'menu_key' => '',
+                'visible_result' => false,
+                'access_result' => false,
+                'deny_reason' => 'route_permission_missing',
+            ]);
         }
 
-        $permissionKeys = $this->buildRoutePermissionKeys($route, $projectId);
-        return $this->canAccessPermissionKeys($permissionKeys, $projectId);
+        return $allowed;
     }
 
     public function canAccessMenu(array $menu, ?int $projectId = null): bool
     {
-        if ($this->isCommanderSuperAdmin()) {
-            return true;
-        }
-
-        $authContext = new ProjectAuthContext();
-        $user = $authContext->getAuthenticatedUser($projectId);
-        if ($user === null) {
-            return false;
-        }
-
-        $role = strtolower(trim((string)$user->role));
-        if ($this->isAdminRole($role)) {
-            return true;
-        }
-
-        $roles = trim((string)($menu['visibility_roles'] ?? ''));
-        if ($roles !== '') {
-            $allowed = array_map('trim', explode(',', strtolower($roles)));
-            if (in_array($role, $allowed, true)) {
-                return true;
-            }
-        }
-
-        $menuKey = $this->resolveMenuKey($menu);
-        if ($menuKey === '') {
-            return false;
-        }
-
-        if ($this->roleAccessTableHasRows($role)) {
-            return $this->hasRoleAccess($role, 'menu', $menuKey);
-        }
-
-        $permissionKeys = [
-            "menu.{$menuKey}.view",
-            "menu.{$menuKey}.create",
-            "menu.{$menuKey}.edit",
-            "menu.{$menuKey}.delete",
-        ];
-
-        $menuType = strtolower(trim((string)($menu['type'] ?? '')));
-        $route = trim((string)($menu['route'] ?? ''), '/');
-        if ($menuType === 'route' && $route !== '') {
-            $permissionKeys[] = 'route.' . $this->normalizeRouteKey($route) . '.access';
-        }
-
-        $pageId = (int)($menu['page_id'] ?? 0);
-        if ($pageId > 0) {
-            $page = MasterPage::findOne($pageId);
-            if ($page instanceof MasterPage) {
-                $permissionKeys[] = 'page.' . $this->resolvePageKey($page) . '.view';
-                $permissionKeys[] = 'builder.page.' . $this->resolvePageKey($page) . '.access';
-            }
-        }
-
-        $formId = (int)($menu['form_id'] ?? 0);
-        if ($formId > 0) {
-            $form = MasterForm::findByIdScoped($formId);
-            if ($form instanceof MasterForm) {
-                $permissionKeys[] = 'form.' . $this->resolveFormKey($form) . '.view';
-                $permissionKeys[] = 'form.' . $this->resolveFormKey($form) . '.submit';
-            }
-        }
-
-        return $this->legacyHasAnyPermission($role, $permissionKeys);
+        $state = $this->resolveMenuAccessState($menu, $projectId);
+        $this->logPermissionDebug('menu_visibility', $state);
+        return (bool)($state['visible'] ?? false);
     }
 
     public function canAccessPage(MasterPage $page, ?int $projectId = null): bool
@@ -897,8 +968,6 @@ class ProjectPermissionService
         $menus = (new Query())
             ->from('master_menu')
             ->where(['is_active' => 1])
-            ->andWhere(['not', ['route' => null]])
-            ->andWhere(['<>', 'route', ''])
             ->all(Yii::$app->db);
 
         foreach ($menus as $menu) {
@@ -906,12 +975,31 @@ class ProjectPermissionService
                 continue;
             }
 
-            $menuRoute = '/' . ltrim(trim((string)($menu['route'] ?? ''), '/'), '/');
-            if (!in_array($menuRoute, $routeVariants, true)) {
+            $menuType = strtolower(trim((string)($menu['type'] ?? '')));
+            $menuMatches = false;
+
+            if ($menuType === 'page') {
+                $menuPageId = (int)($menu['page_id'] ?? 0);
+                $menuMatches = $menuPageId > 0
+                    && in_array('/page/view', $routeVariants, true)
+                    && (int)Yii::$app->request->get('id', 0) === $menuPageId;
+            } elseif ($menuType === 'form') {
+                $menuFormId = (int)($menu['form_id'] ?? 0);
+                $menuMatches = $menuFormId > 0
+                    && (in_array('/master-form/preview', $routeVariants, true) || in_array('/form/view', $routeVariants, true))
+                    && (int)Yii::$app->request->get('id', 0) === $menuFormId;
+            } else {
+                $menuRoute = '/' . ltrim(trim((string)($menu['route'] ?? ''), '/'), '/');
+                $menuMatches = in_array($menuRoute, $routeVariants, true);
+            }
+
+            if (!$menuMatches) {
                 continue;
             }
 
-            if ($this->canAccessMenu($menu, $projectId)) {
+            $state = $this->resolveMenuAccessState($menu, $projectId);
+            $this->logPermissionDebug('route_menu_match', $state, $route);
+            if (($state['visible'] ?? false) === true) {
                 return true;
             }
         }

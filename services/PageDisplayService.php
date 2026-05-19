@@ -466,15 +466,28 @@ class PageDisplayService
         $customCss = trim((string)(($page['page_custom_css'] ?? '') !== '' ? $page['page_custom_css'] : ($page['custom_css'] ?? '')));
         $customJs = trim((string)(($page['page_custom_js'] ?? '') !== '' ? $page['page_custom_js'] : ($page['custom_js'] ?? '')));
 
-        $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches): string {
-            return (new DynamicFormPreviewService())->renderByScopedId((int)$matches[1], true, true, [
-                'render_context' => 'page_content',
-            ]);
-        }, $customHtml);
+        try {
+            $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches): string {
+                try {
+                    return (new DynamicFormPreviewService())->renderByScopedId((int)$matches[1], true, true, [
+                        'render_context' => 'page_content',
+                    ]);
+                } catch (\Throwable $e) {
+                    Yii::warning('Failed to render embedded form in custom page: ' . $e->getMessage(), 'app');
+                    return '<div class="alert alert-warning">Form tidak dapat ditampilkan.</div>';
+                }
+            }, $customHtml) ?? $customHtml;
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to process custom page form tokens: ' . $e->getMessage(), 'app');
+        }
 
         $html = '';
-        if ($customHtml !== '' && (preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1)) {
-            return $customHtml;
+        try {
+            if ($customHtml !== '' && (preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1)) {
+                return $customHtml;
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to detect custom page document type: ' . $e->getMessage(), 'app');
         }
 
         if ($customCss !== '') {

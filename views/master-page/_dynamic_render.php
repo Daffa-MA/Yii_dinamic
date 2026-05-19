@@ -24,18 +24,27 @@ if ($hasCustomPageSource) {
     $formRenderer = new \app\services\DynamicFormPreviewService();
     $replaceFormTokens = static function (string $source) use ($formRenderer, $pageId, $menuId): string {
         return preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($formRenderer, $pageId, $menuId): string {
-            return $formRenderer->renderByScopedId((int)$matches[1], true, true, [
-                'render_context' => 'page_content',
-                'page_id' => $pageId,
-                'menu_id' => $menuId,
-            ]);
-        }, $source);
+            try {
+                return $formRenderer->renderByScopedId((int)$matches[1], true, true, [
+                    'render_context' => 'page_content',
+                    'page_id' => $pageId,
+                    'menu_id' => $menuId,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to render embedded form in custom page renderer: ' . $e->getMessage(), 'app');
+                return '<div style="padding:12px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:10px;">Form tidak dapat ditampilkan.</div>';
+            }
+        }, $source) ?? $source;
     };
 
-    $customHtml = $replaceFormTokens($customHtml);
+    try {
+        $customHtml = $replaceFormTokens($customHtml);
+    } catch (\Throwable $e) {
+        Yii::warning('Failed to expand custom page form tokens: ' . $e->getMessage(), 'app');
+    }
 
     // Check if it looks like a complete HTML document
-    $isCompleteDoc = strpos($customHtml, '<!DOCTYPE') === 0 || 
+    $isCompleteDoc = strpos($customHtml, '<!DOCTYPE') === 0 ||
                      strpos($customHtml, '<html') === 0;
 
     if ($isCompleteDoc) {

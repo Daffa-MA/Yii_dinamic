@@ -30,7 +30,7 @@ class SiteController extends Controller
     
     private function redirectAfterAuthentication()
     {
-        return $this->redirect(['dashboard']);
+        return $this->redirect(['/dashboard']);
     }
 
     /**

@@ -430,7 +430,7 @@ private function insertDefaultCmsData($newDb): void
 
         if (!ProjectSchema::supportsProjectContext()) {
             Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini. Jalankan migrasi terbaru untuk mengaktifkan fitur project.');
-            return $this->redirect(['dashboard']);
+            return $this->redirect(['/dashboard']);
         }
 
         Project::ensureProjectStructure();
@@ -471,7 +471,7 @@ private function insertDefaultCmsData($newDb): void
                     $domainHint = " Domain otomatis '{$model->custom_domain}' tersimpan dan aktif.";
                     Yii::$app->session->setFlash('success', "Project berhasil dibuat dan dipilih. {$serverHint}{$backupHint}{$domainHint}");
 
-                    return $this->redirectToProjectLogin((int)$model->id, ['dashboard']);
+                    return $this->redirectToProjectLogin((int)$model->id, ['/dashboard']);
                 }
 
                 Yii::$app->session->setFlash('error', implode(', ', $model->getFirstErrors()) ?: 'Gagal membuat project.');
@@ -517,7 +517,7 @@ private function insertDefaultCmsData($newDb): void
     {
         if (!ProjectSchema::supportsProjectContext()) {
             Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini.');
-            return $this->redirect(['dashboard']);
+            return $this->redirect(['/dashboard']);
         }
 
         $project = $this->findAccessibleProject((int)$id);
@@ -554,7 +554,7 @@ private function insertDefaultCmsData($newDb): void
             return $this->redirect(['project/index']);
         }
 
-        return $this->redirectToProjectLogin((int)$project->id, ['dashboard']);
+        return $this->redirectToProjectLogin((int)$project->id, ['/dashboard']);
     }
 
     public function actionUpdate($id)
@@ -649,7 +649,7 @@ private function insertDefaultCmsData($newDb): void
         }
     }
 
-    private function redirectToProjectLogin(int $projectId, array $defaultReturnUrl = ['dashboard'])
+    private function redirectToProjectLogin(int $projectId, array $defaultReturnUrl = ['/dashboard'])
     {
         $session = Yii::$app->session;
         $returnUrl = (string)$session->get('project_required_return_url', '');
@@ -774,13 +774,13 @@ private function insertDefaultCmsData($newDb): void
 
         $commanderAuth = new CommanderAuthContext();
         if ($commanderAuth->isSuperAdmin()) {
-            return $this->redirect(['dashboard']);
+            return $this->redirect(['/dashboard']);
         }
 
         $authContext = new ProjectAuthContext();
         $forceLogin = Yii::$app->request->get('force_login', '0') === '1';
         if ($authContext->isAuthenticated($activeProjectId) && !$forceLogin) {
-            return $this->redirectToProjectLogin($activeProjectId, ['dashboard']);
+            return $this->redirectToProjectLogin($activeProjectId, ['/dashboard']);
         }
 
         $model = new ProjectLoginForm();
@@ -872,7 +872,7 @@ private function insertDefaultCmsData($newDb): void
 
         $commanderAuth = new CommanderAuthContext();
         if ($commanderAuth->isSuperAdmin()) {
-            return $this->redirectToProjectLogin($projectId, ['dashboard']);
+            return $this->redirectToProjectLogin($projectId, ['/dashboard']);
         }
 
         $authContext = new ProjectAuthContext();

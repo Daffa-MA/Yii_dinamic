@@ -1191,6 +1191,12 @@ body.dashboard-main-page {
                         Reset Base
                     </button>
                 </div>
+                <div class="code-editor-tools" id="page-code-tools" style="display:none;">
+                    <button type="button" class="btn-reset-base" onclick="resetPageSourceCode()">
+                        <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
+                        Reset Base
+                    </button>
+                </div>
             </div>
             <div id="code-mode-hint" class="code-mode-hint">Edit custom code untuk field yang dipilih (HTML/CSS/JS terpisah).</div>
             <div id="monaco-editor-container" style="flex: 1; min-height: 300px; background: #1e1e1e;"></div>
@@ -1619,6 +1625,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
+    window.resetPageSourceCode = function() {
+        if (!confirm('Reset Page Source ke template generated terbaru?')) return;
+        fullFormCustomHtml = generatePageSource();
+        fullFormCustomCss = '';
+        fullFormCustomJs = '';
+        if (monacoEditor) {
+            isSyncingCode = true;
+            monacoEditor.setValue(fullFormCustomHtml);
+            isSyncingCode = false;
+        }
+        updateCustomCodeInputs();
+        renderCanvasMode();
+    };
+
     // Tab Switching Logic
     document.querySelectorAll('.prop-tab-btn').forEach(btn => {
         btn.addEventListener('click', function() {
@@ -1819,6 +1839,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const tools = document.getElementById('component-code-tools');
         if (tools) {
             tools.style.display = activeCodeScope === 'page' ? 'none' : 'flex';
+        }
+        const pageTools = document.getElementById('page-code-tools');
+        if (pageTools) {
+            pageTools.style.display = activeCodeScope === 'page' ? 'flex' : 'none';
         }
         
         // Handle code scope switching

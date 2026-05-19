@@ -146,13 +146,14 @@ class FormRenderService
 (function(){
     if (window.__customFormSubmitCollectorInstalled) return;
     window.__customFormSubmitCollectorInstalled = true;
-    document.addEventListener('submit', function(event) {
-        var form = event.target;
+
+    function collectInto(form) {
         if (!form || form.tagName !== 'FORM') return;
         var controls = document.querySelectorAll('input[name], select[name], textarea[name]');
         controls.forEach(function(control) {
             if (control.form === form || control.disabled || !control.name) return;
             if ((control.type === 'checkbox' || control.type === 'radio') && !control.checked) return;
+            if (control.name.charAt(0) === '_' && control.type === 'hidden') return;
             var alreadyPresent = false;
             Array.prototype.forEach.call(form.elements, function(existing) {
                 if (existing.name === control.name) alreadyPresent = true;
@@ -164,7 +165,37 @@ class FormRenderService
             hidden.value = control.value;
             form.appendChild(hidden);
         });
+    }
+
+    document.addEventListener('submit', function(event) {
+        collectInto(event.target);
     }, true);
+
+    document.addEventListener('click', function(event) {
+        var button = event.target && event.target.closest ? event.target.closest('button, input[type="submit"]') : null;
+        if (!button) return;
+        var form = button.form || button.closest('form') || document.querySelector('form');
+        collectInto(form);
+    }, true);
+
+    document.addEventListener('formdata', function(event) {
+        var form = event.target;
+        collectInto(form);
+        Array.prototype.forEach.call(form.elements, function(control) {
+            if (!control.name || control.disabled) return;
+            if ((control.type === 'checkbox' || control.type === 'radio') && !control.checked) return;
+            if (!event.formData.has(control.name)) event.formData.append(control.name, control.value);
+        });
+    });
+
+    if (window.HTMLFormElement && !window.__customFormSubmitPatched) {
+        window.__customFormSubmitPatched = true;
+        var nativeSubmit = window.HTMLFormElement.prototype.submit;
+        window.HTMLFormElement.prototype.submit = function() {
+            collectInto(this);
+            return nativeSubmit.call(this);
+        };
+    }
 })();
 </script>
 HTML;

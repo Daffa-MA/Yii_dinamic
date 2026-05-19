@@ -636,6 +636,13 @@ class ProjectPermissionService
         }
 
         $normalizedRoute = strtolower($route);
+        if (in_array($normalizedRoute, ['site/dashboard', 'dashboard'], true)) {
+            return [
+                'type' => 'menu',
+                'key' => 'dashboard',
+            ];
+        }
+
         $simple = $this->mapRouteKeyToSimpleAccess(str_replace('/', '.', $normalizedRoute));
         if ($simple !== null) {
             return $simple;
@@ -889,7 +896,9 @@ class ProjectPermissionService
 
         $menus = (new Query())
             ->from('master_menu')
-            ->where(['type' => 'route', 'is_active' => 1])
+            ->where(['is_active' => 1])
+            ->andWhere(['not', ['route' => null]])
+            ->andWhere(['<>', 'route', ''])
             ->all(Yii::$app->db);
 
         foreach ($menus as $menu) {

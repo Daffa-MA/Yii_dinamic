@@ -315,7 +315,14 @@ class SiteController extends Controller
      */
     public function actionLogin()
     {
-        if ((new CommanderAuthContext())->isAuthenticated() || !Yii::$app->user->isGuest) {
+        $commanderAuth = new CommanderAuthContext();
+        if ($commanderAuth->isAuthenticated()) {
+            return $this->redirectAfterAuthentication();
+        }
+
+        if ((new DomainContext())->isRootDomain() && !Yii::$app->user->isGuest) {
+            Yii::$app->user->logout(false);
+        } elseif (!Yii::$app->user->isGuest) {
             return $this->redirectAfterAuthentication();
         }
 
@@ -357,6 +364,7 @@ class SiteController extends Controller
                 'username=' . ($user !== null ? (string)$user->username : '-') . "\n" .
                 'identity_role=' . ($user !== null ? (string)($user->role ?? '') : '-') . "\n" .
                 'commander_auth=' . json_encode(Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_AUTH, null)) . "\n" .
+                'commander_username=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_USERNAME, '') . "\n" .
                 'commander_role=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_ROLE, '') . "\n" .
                 'app_role=' . (string)Yii::$app->session->get('app_role', '') . "\n" .
                 'redirect=' . $redirectTarget . "\n\n",

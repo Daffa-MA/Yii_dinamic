@@ -528,6 +528,7 @@ private function insertDefaultCmsData($newDb): void
                 Yii::getAlias('@runtime/logs/project-list-access-debug.log'),
                 date('Y-m-d H:i:s') . " forbidden /project-list\n" .
                 'commander_auth=' . json_encode(Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_AUTH, null)) . "\n" .
+                'commander_username=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_USERNAME, '') . "\n" .
                 'commander_role=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_ROLE, '') . "\n" .
                 'app_role=' . (string)Yii::$app->session->get('app_role', '') . "\n" .
                 'identity_role=' . ($identity !== null ? (string)($identity->role ?? '') : '-') . "\n" .

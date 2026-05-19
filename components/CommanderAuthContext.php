@@ -11,6 +11,7 @@ class CommanderAuthContext
     public const SESSION_KEY_LOGIN = 'commander_login';
     public const SESSION_KEY_ROLE = 'commander_role';
     public const SESSION_KEY_USER_ID = 'commander_user_id';
+    public const SESSION_KEY_USERNAME = 'commander_username';
 
     public function login(User $user): void
     {
@@ -18,6 +19,7 @@ class CommanderAuthContext
         Yii::$app->session->set(self::SESSION_KEY_AUTH, true);
         Yii::$app->session->set(self::SESSION_KEY_LOGIN, true);
         Yii::$app->session->set(self::SESSION_KEY_USER_ID, (int)$user->id);
+        Yii::$app->session->set(self::SESSION_KEY_USERNAME, (string)$user->username);
         Yii::$app->session->set(self::SESSION_KEY_ROLE, $role);
     }
 
@@ -26,6 +28,7 @@ class CommanderAuthContext
         Yii::$app->session->remove(self::SESSION_KEY_AUTH);
         Yii::$app->session->remove(self::SESSION_KEY_LOGIN);
         Yii::$app->session->remove(self::SESSION_KEY_USER_ID);
+        Yii::$app->session->remove(self::SESSION_KEY_USERNAME);
         Yii::$app->session->remove(self::SESSION_KEY_ROLE);
     }
 

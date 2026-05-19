@@ -8,136 +8,50 @@ if (empty($hero['should_render'])) {
     return;
 }
 
+$pageTitle = (string)($hero['page_title'] ?? 'Halaman');
 $username = (string)($hero['username'] ?? 'User');
 $role = (string)($hero['role'] ?? 'user');
-$pageTitle = (string)($hero['page_title'] ?? 'Halaman');
 $workspaceName = (string)($hero['workspace_name'] ?? 'Workspace');
 $status = (string)($hero['status'] ?? 'Active');
-$description = (string)($hero['description'] ?? '');
+$welcomeLine = (string)($hero['description'] ?? '');
 ?>
 
-<section class="role-page-hero">
-    <div class="role-page-hero__icon">
-        <span class="material-symbols-outlined role-page-hero__icon-mark">waving_hand</span>
-    </div>
-    <div class="role-page-hero__body">
-        <div class="role-page-hero__title-row">
-            <h1 class="role-page-hero__title">Halo, <?= Html::encode($username) ?></h1>
-            <span class="role-page-hero__status"><?= Html::encode($status) ?></span>
+<div class="mb-6 overflow-hidden rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)] md:p-8">
+    <div class="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+        <div class="max-w-3xl">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                    <span class="material-symbols-outlined text-[16px]">description</span>
+                    <?= Html::encode($pageTitle) ?>
+                </span>
+                <span class="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                    <span class="material-symbols-outlined text-[16px]">workspaces</span>
+                    <?= Html::encode($workspaceName) ?>
+                </span>
+            </div>
+            <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-900 md:text-[28px]">Halo, <?= Html::encode($username) ?></h1>
+            <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                <?= Html::encode($welcomeLine !== '' ? $welcomeLine : 'Selamat datang di halaman ' . $pageTitle . '. Silakan gunakan halaman ini sesuai kebutuhan Anda.') ?>
+            </p>
         </div>
-        <p class="role-page-hero__text">
-            Selamat datang di halaman <?= Html::encode($pageTitle) ?>. Silakan gunakan halaman ini sesuai kebutuhan Anda.
-        </p>
-        <div class="role-page-hero__meta">
-            <span><strong>Role:</strong> <?= Html::encode($role) ?></span>
-            <span><strong>Workspace:</strong> <?= Html::encode($workspaceName) ?></span>
+
+        <div class="grid gap-3 sm:grid-cols-3 lg:min-w-[360px]">
+            <div class="rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Role</p>
+                <p class="mt-2 text-sm font-semibold text-slate-900"><?= Html::encode($role) ?></p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Workspace</p>
+                <p class="mt-2 truncate text-sm font-semibold text-slate-900"><?= Html::encode($workspaceName) ?></p>
+            </div>
+            <div class="rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 shadow-sm">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Status</p>
+                <p class="mt-2">
+                    <span class="inline-flex rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        <?= Html::encode($status) ?>
+                    </span>
+                </p>
+            </div>
         </div>
-        <?php if ($description !== ''): ?>
-            <div class="role-page-hero__note"><?= Html::encode($description) ?></div>
-        <?php endif; ?>
     </div>
-</section>
-
-<style>
-    .role-page-hero {
-        display: flex;
-        gap: 14px;
-        align-items: flex-start;
-        padding: 16px 18px;
-        margin: 0 0 18px;
-        background: #fff;
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        border-radius: 18px;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
-    }
-
-    .role-page-hero__icon {
-        width: 42px;
-        height: 42px;
-        flex: 0 0 42px;
-        border-radius: 12px;
-        display: grid;
-        place-items: center;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        font-size: 18px;
-        line-height: 1;
-    }
-
-    .role-page-hero__icon-mark {
-        font-size: 20px;
-        color: #334155;
-    }
-
-    .role-page-hero__body {
-        min-width: 0;
-        flex: 1;
-    }
-
-    .role-page-hero__title-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        flex-wrap: wrap;
-    }
-
-    .role-page-hero__title {
-        margin: 0;
-        font-size: 20px;
-        line-height: 1.2;
-        font-weight: 700;
-        color: #0f172a;
-    }
-
-    .role-page-hero__status {
-        display: inline-flex;
-        align-items: center;
-        padding: 5px 10px;
-        border-radius: 999px;
-        background: #ecfdf5;
-        border: 1px solid #bbf7d0;
-        color: #047857;
-        font-size: 12px;
-        font-weight: 700;
-    }
-
-    .role-page-hero__text {
-        margin: 8px 0 0;
-        color: #334155;
-        font-size: 14px;
-        line-height: 1.6;
-    }
-
-    .role-page-hero__meta {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px 18px;
-        margin-top: 10px;
-        color: #475569;
-        font-size: 13px;
-    }
-
-    .role-page-hero__meta strong {
-        color: #0f172a;
-    }
-
-    .role-page-hero__note {
-        margin-top: 10px;
-        padding-top: 10px;
-        border-top: 1px solid #e2e8f0;
-        color: #475569;
-        font-size: 13px;
-        line-height: 1.5;
-    }
-
-    @media (max-width: 640px) {
-        .role-page-hero {
-            padding: 14px;
-        }
-
-        .role-page-hero__title {
-            font-size: 18px;
-        }
-    }
-</style>
+</div>

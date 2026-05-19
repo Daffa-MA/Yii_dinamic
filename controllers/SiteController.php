@@ -330,6 +330,15 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
+        file_put_contents(
+            Yii::getAlias('@runtime/logs/logout-hit.log'),
+            date('Y-m-d H:i:s') . " HIT /site/logout\n" .
+            "METHOD=" . Yii::$app->request->method . "\n" .
+            "HOST=" . Yii::$app->request->hostName . "\n" .
+            "URL=" . Yii::$app->request->url . "\n\n",
+            FILE_APPEND
+        );
+
         return $this->performCommanderLogout();
     }
 

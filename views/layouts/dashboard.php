@@ -54,7 +54,7 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 $currentRoute = Yii::$app->controller->route;
 $rolePageHero = new \app\components\RolePageHero();
 $roleHeroData = $rolePageHero->build($this->title ?? '');
-$shouldRenderRoleHero = !empty($roleHeroData['should_render']) && $currentRoute !== 'site/dashboard';
+$shouldRenderRoleHero = !empty($roleHeroData['should_render']);
 $activeMenu = 'dashboard';
 if ($currentRoute === 'site/dashboard') {
     $activeMenu = 'dashboard';

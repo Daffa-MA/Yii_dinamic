@@ -66,6 +66,7 @@ class FormRenderService
             }
             return $field;
         }, FormSystemFieldHelper::filterFields($fields));
+        $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
 
         return [
             'fields' => $fields,
@@ -75,6 +76,78 @@ class FormRenderService
             'customCss' => $customCss,
             'customJs' => $customJs,
         ];
+    }
+
+    private static function resolveFormSourceTokens(string $source, array $fields): string
+    {
+        foreach ($fields as $index => $field) {
+            $name = self::fieldTokenName($field, $index);
+            $label = self::escapeTokenValue(self::fieldLabel($field, $index));
+            $placeholder = self::escapeTokenValue(self::fieldPlaceholder($field, $index));
+            $fieldName = self::escapeTokenValue((string)($field['name'] ?? $name));
+            $fieldId = self::escapeTokenValue((string)($field['id'] ?? $name));
+
+            $source = preg_replace('/\{' . preg_quote($name, '/') . '_label\}/', $label, $source) ?? $source;
+            $source = preg_replace('/\{' . preg_quote($name, '/') . '_placeholder\}/', $placeholder, $source) ?? $source;
+            $source = preg_replace('/\{' . preg_quote($name, '/') . '_name\}/', $fieldName, $source) ?? $source;
+            $source = preg_replace('/\{' . preg_quote($name, '/') . '_id\}/', $fieldId, $source) ?? $source;
+        }
+
+        $labelIndex = 0;
+        $source = preg_replace_callback('/\{label\}/', static function () use ($fields, &$labelIndex): string {
+            $field = $fields[$labelIndex] ?? end($fields) ?: [];
+            $label = self::escapeTokenValue(self::fieldLabel($field, $labelIndex));
+            $labelIndex++;
+            return $label;
+        }, $source) ?? $source;
+
+        $placeholderIndex = 0;
+        return preg_replace_callback('/\{placeholder\}/', static function () use ($fields, &$placeholderIndex): string {
+            $field = $fields[$placeholderIndex] ?? end($fields) ?: [];
+            $placeholder = self::escapeTokenValue(self::fieldPlaceholder($field, $placeholderIndex));
+            $placeholderIndex++;
+            return $placeholder;
+        }, $source) ?? $source;
+    }
+
+    private static function fieldTokenName(array $field, int $index): string
+    {
+        $name = (string)($field['name'] ?? $field['field_name'] ?? $field['column_name'] ?? $field['id'] ?? 'field_' . ($index + 1));
+        $name = trim((string)preg_replace('/[^a-zA-Z0-9_]+/', '_', $name), '_');
+        return $name !== '' ? $name : 'field_' . ($index + 1);
+    }
+
+    private static function fieldLabel(array $field, int $index): string
+    {
+        $label = (string)($field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? '');
+        return $label !== '' ? $label : self::humanizeFieldName(self::fieldTokenName($field, $index));
+    }
+
+    private static function fieldPlaceholder(array $field, int $index): string
+    {
+        $placeholder = (string)($field['placeholder'] ?? '');
+        if ($placeholder !== '') {
+            return $placeholder;
+        }
+
+        $type = (string)($field['type'] ?? $field['inputType'] ?? 'text');
+        if (in_array($type, ['date', 'time', 'datetime-local'], true)) {
+            return '';
+        }
+
+        $label = strtolower(self::fieldLabel($field, $index));
+        return $type === 'select' ? 'Pilih ' . $label : 'Masukkan ' . $label;
+    }
+
+    private static function humanizeFieldName(string $value): string
+    {
+        $value = trim((string)preg_replace('/\s+/', ' ', str_replace(['_', '-'], ' ', $value)));
+        return ucwords(strtolower($value));
+    }
+
+    private static function escapeTokenValue(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 }
 

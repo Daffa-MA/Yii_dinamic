@@ -30,7 +30,6 @@ $activityScore = (int)$todaySubmissions + $recentFormsCount;
 $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
 $commanderAuth = new CommanderAuthContext();
 $projectAuthUser = $activeProjectId !== null ? (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId) : null;
-$workspaceUsername = $projectAuthUser !== null ? (string)$projectAuthUser->username : (Yii::$app->user->identity->username ?? 'User');
 $workspaceRole = $projectAuthUser !== null ? strtolower(trim((string)$projectAuthUser->role)) : '';
 $isAdminDashboard = $commanderAuth->isSuperAdmin() || $workspaceRole === 'admin';
 
@@ -209,34 +208,13 @@ if (!$isAdminDashboard) {
 
 <div class="app-shell-main min-h-screen">
     <div class="workspace-dashboard-content max-w-[1400px] mx-auto px-6 md:px-8 py-7 md:py-9">
-        <?php if (!$isAdminDashboard): ?>
-            <section class="dash-card p-6 md:p-7 mb-6">
-                <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                    <div class="flex items-start gap-4">
-                        <div class="metric-icon">
-                            <span class="material-symbols-outlined text-[20px]">person</span>
-                        </div>
-                        <div>
-                            <h1 class="text-2xl md:text-[28px] font-bold tracking-normal leading-tight m-0">Selamat datang, <?= Html::encode($workspaceUsername) ?></h1>
-                            <p class="muted text-sm md:text-base mt-2 mb-0">
-                                Anda masuk sebagai <span class="font-semibold text-slate-900"><?= Html::encode($workspaceRole !== '' ? $workspaceRole : 'user') ?></span>
-                                di workspace <span class="font-semibold text-slate-900"><?= Html::encode($workspaceName) ?></span>.
-                            </p>
-                        </div>
-                    </div>
-                    <span class="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 w-fit">
-                        <span class="status-dot"></span>
-                        Workspace Active
-                    </span>
-                </div>
-            </section>
-
+<?php if (!$isAdminDashboard): ?>
             <section class="grid grid-cols-1 xl:grid-cols-[1.2fr_.8fr] gap-5 mb-6">
                 <div class="dash-card p-6 md:p-7">
                     <div class="flex items-start justify-between gap-4 mb-6">
                         <div>
                             <p class="soft-label mb-2">Menu Anda</p>
-                            <h2 class="text-xl font-bold m-0">Menu yang tersedia untuk Anda</h2>
+                            <h2 class="text-xl font-bold m-0">Menu yang bisa Anda buka</h2>
                         </div>
                     </div>
 

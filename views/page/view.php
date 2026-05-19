@@ -29,10 +29,10 @@ $displayUsername = $isCommanderSuperAdmin
     : trim((string)($projectAuthUser->username ?? $projectAuthUser->name ?? 'Pengguna'));
 $displayRole = $isCommanderSuperAdmin ? 'Superadmin' : ($workspaceRole !== '' ? ucfirst($workspaceRole) : 'User');
 $workspaceName = $activeProject !== null ? (string)$activeProject->name : 'Workspace';
-$emptyStateTitle = $isWorkspaceAdmin ? 'Belum ada konten' : 'Belum ada informasi tersedia';
+$emptyStateTitle = $isWorkspaceAdmin ? 'Belum ada konten' : 'Informasi belum tersedia';
 $emptyStateDescription = $isWorkspaceAdmin
     ? 'Halaman ini siap digunakan tetapi belum memiliki konten. Tambahkan konten melalui Master Halaman.'
-    : 'Konten untuk halaman ini belum tersedia atau belum dipublikasikan. Silakan hubungi admin workspace apabila Anda merasa seharusnya memiliki akses.';
+    : 'Halaman ini belum memiliki konten untuk ditampilkan. Silakan hubungi admin workspace jika halaman ini seharusnya berisi informasi.';
 
 $layoutClasses = 'grid gap-5';
 if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
@@ -225,15 +225,20 @@ if ($hasCustomPageSource): ?>
                     <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl"><?= Html::encode($page->title) ?></h1>
                     <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600"><?= $page->description !== null && $page->description !== '' ? Html::encode($page->description) : 'Halaman dinamis yang dibangun menggunakan page builder.' ?></p>
                 <?php else: ?>
-                    <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">
-                        <span class="material-symbols-outlined text-base">waving_hand</span>
-                        <?= Html::encode($workspaceName) ?>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                            <span class="material-symbols-outlined text-[16px]">description</span>
+                            <?= Html::encode($page->title) ?>
+                        </span>
+                        <span class="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                            <span class="material-symbols-outlined text-[16px]">workspaces</span>
+                            <?= Html::encode($workspaceName) ?>
+                        </span>
                     </div>
-                    <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 md:text-4xl">Halo, <?= Html::encode($displayUsername) ?></h1>
-                    <p class="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
-                        Selamat datang di halaman <?= Html::encode($page->title) ?>. Silakan gunakan halaman ini sesuai kebutuhan Anda.
+                    <h1 class="mt-4 text-2xl font-bold tracking-tight text-slate-900 md:text-[28px]"><?= Html::encode($page->title) ?></h1>
+                    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                        <?= Html::encode($page->description !== null && $page->description !== '' ? $page->description : 'Konten halaman akan tampil di bawah bagian ini.') ?>
                     </p>
-                    <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-500">Akses informasi dan fitur yang tersedia untuk role Anda.</p>
                 <?php endif; ?>
             </div>
 

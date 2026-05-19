@@ -6,6 +6,7 @@ use Yii;
 use yii\web\Controller;
 use app\models\MasterMenu;
 use app\models\MasterPage;
+use app\components\ActiveProjectContext;
 use yii\web\NotFoundHttpException;
 
 class PageController extends Controller

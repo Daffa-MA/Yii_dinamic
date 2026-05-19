@@ -44,7 +44,7 @@ class CommanderAuthContext
             return true;
         }
 
-        return Yii::$app->user->identity instanceof User;
+        return false;
     }
 
     public function getRole(): string
@@ -59,11 +59,6 @@ class CommanderAuthContext
             return $this->normalizeRole($role);
         }
 
-        $identity = Yii::$app->user->identity;
-        if ($identity instanceof User) {
-            return $this->normalizeRole((string)$identity->role, (string)$identity->username);
-        }
-
         return '';
     }
 
@@ -74,11 +69,6 @@ class CommanderAuthContext
 
     public function getUser(): ?User
     {
-        $identity = Yii::$app->user->identity;
-        if ($identity instanceof User) {
-            return $identity;
-        }
-
         $authData = Yii::$app->session->get(self::SESSION_KEY_AUTH, []);
         $userId = is_array($authData) ? (int)($authData['user_id'] ?? 0) : 0;
         if ($userId <= 0) {

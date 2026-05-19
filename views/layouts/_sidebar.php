@@ -1499,6 +1499,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     [
                         'class' => 'app-sidebar-logout',
                         'style' => 'color: ' . Html::encode($sidebarTextColor) . '; width:100%; text-align:left;',
+                        'data-method' => 'post',
                         'encode' => false,
                     ]
                 ) ?>

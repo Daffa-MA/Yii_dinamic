@@ -1255,6 +1255,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                 <?= Html::a('Logout', ['/site/commander-logout'], [
                                     'class' => 'account-action',
                                     'style' => 'width:100%;display:block;text-align:left;',
+                                    'data-method' => 'post',
                                 ]) ?>
                             </div>
                         </div>

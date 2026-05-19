@@ -3,6 +3,7 @@
 namespace app\models;
 
 use Yii;
+use app\components\WorkspaceMediaStorage;
 use yii\db\Connection;
 use yii\db\Query;
 use yii\helpers\Url;
@@ -212,6 +213,7 @@ class WorkspaceSettings extends \yii\base\Model
             $this->setting_key = $scopeKey;
             $this->loaded_from = 'database';
             $this->loaded_setting_key = (string)($row['setting_key'] ?? $scopeKey);
+            $this->syncWorkspaceMediaFiles();
             return true;
         }
 
@@ -221,6 +223,22 @@ class WorkspaceSettings extends \yii\base\Model
         $this->loaded_setting_key = null;
         Yii::info('No workspace settings row found for scope: ' . $scopeKey . ', using defaults', 'workspace-settings');
         return false;
+    }
+
+    private function syncWorkspaceMediaFiles(): void
+    {
+        $storage = new WorkspaceMediaStorage();
+        foreach ([
+            $this->workspace_logo_image,
+            $this->login_background_image,
+        ] as $value) {
+            $value = trim((string)$value);
+            if ($value === '' || preg_match('#^https?://#i', $value)) {
+                continue;
+            }
+
+            $storage->publicUrl($this->normalizeWorkspaceMediaPath($value));
+        }
     }
 
     public function loadFromSession()
@@ -480,22 +498,17 @@ class WorkspaceSettings extends \yii\base\Model
         $exists = null;
         $logoLocalFile = '';
         $logoExists = null;
+        $storage = new WorkspaceMediaStorage();
 
         if ($value !== '' && !preg_match('#^https?://#i', $value)) {
-            $fileName = ltrim((string)(parse_url($value, PHP_URL_PATH) ?: $value), '/');
-            if (strpos($fileName, 'uploads/workspace/') === 0) {
-                $fileName = substr($fileName, strlen('uploads/workspace/'));
-            }
-            $localFile = Yii::getAlias('@webroot/uploads/workspace/') . $fileName;
+            $fileName = $this->normalizeWorkspaceMediaPath($value);
+            $localFile = $storage->localPath($fileName);
             $exists = is_file($localFile);
         }
 
         if ($logoValue !== '' && !preg_match('#^https?://#i', $logoValue)) {
-            $logoFileName = ltrim((string)(parse_url($logoValue, PHP_URL_PATH) ?: $logoValue), '/');
-            if (strpos($logoFileName, 'uploads/workspace/') === 0) {
-                $logoFileName = substr($logoFileName, strlen('uploads/workspace/'));
-            }
-            $logoLocalFile = Yii::getAlias('@webroot/uploads/workspace/') . $logoFileName;
+            $logoFileName = $this->normalizeWorkspaceMediaPath($logoValue);
+            $logoLocalFile = $storage->localPath($logoFileName);
             $logoExists = is_file($logoLocalFile);
         }
 
@@ -523,28 +536,41 @@ class WorkspaceSettings extends \yii\base\Model
 
     private function buildWorkspaceMediaUrl(string $value): string
     {
-        $path = trim($value);
-        $path = parse_url($path, PHP_URL_PATH) ?: $path;
-        $path = ltrim($path, '/');
-
-        if (strpos($path, 'uploads/workspace/') === 0) {
-            return $this->appendMediaVersion(Url::to('/' . $path, true), substr($path, strlen('uploads/workspace/')));
+        $storage = new WorkspaceMediaStorage();
+        $relativePath = $this->normalizeWorkspaceMediaPath($value);
+        if ($relativePath === '') {
+            return '';
         }
 
-        $relativePath = preg_replace('#[^a-zA-Z0-9_\-./]#', '', $path) ?: basename($path);
-        return $this->appendMediaVersion(Url::to('/uploads/workspace/' . $relativePath, true), $relativePath);
+        return $this->appendMediaVersion($storage->publicUrl($relativePath), $relativePath);
     }
 
     private function appendMediaVersion(string $url, string $relativePath): string
     {
-        $relativePath = ltrim($relativePath, '/');
-        $file = Yii::getAlias('@webroot/uploads/workspace/') . $relativePath;
-        if (!is_file($file)) {
-            $file = Yii::getAlias('@webroot/uploads/workspace/') . basename($relativePath);
-        }
+        $storage = new WorkspaceMediaStorage();
+        $file = $storage->localPath($relativePath);
 
         $version = is_file($file) ? (string)filemtime($file) : date('YmdHis');
         return $url . (strpos($url, '?') !== false ? '&' : '?') . 'v=' . rawurlencode($version);
+    }
+
+    private function normalizeWorkspaceMediaPath(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        $path = parse_url($value, PHP_URL_PATH);
+        $path = is_string($path) && $path !== '' ? $path : $value;
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+
+        if (strpos($path, 'uploads/workspace/') === 0) {
+            $path = substr($path, strlen('uploads/workspace/'));
+        }
+
+        $path = preg_replace('#[^a-zA-Z0-9_\-./]#', '', $path) ?: basename($value);
+        return $path;
     }
 
     public function resolveScopeKey($key = null): string

@@ -1895,7 +1895,68 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getCustomSourceForCanvas() {
         const source = activeCodeScope === 'page' && monacoEditor ? monacoEditor.getValue() : fullFormCustomHtml;
-        return (source || '').trim() || generatePageSource();
+        return resolveFormSourceTokens((source || '').trim() || generatePageSource());
+    }
+
+    function humanizeFieldName(value) {
+        return String(value || '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .replace(/\b\w/g, function(match) {
+                return match.toUpperCase();
+            });
+    }
+
+    function getFieldTokenName(field, index) {
+        return String(field.name || field.field_name || field.column_name || field.id || ('field_' + (index + 1)))
+            .trim()
+            .replace(/[^a-zA-Z0-9_]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+    }
+
+    function getFieldLabel(field, index) {
+        return field.label || field.field_label || field.labelText || humanizeFieldName(getFieldTokenName(field, index));
+    }
+
+    function getFieldPlaceholder(field, index) {
+        if (field.placeholder) return field.placeholder;
+        const type = field.type || 'text';
+        if (type === 'date') return '';
+        if (type === 'select') return 'Pilih ' + getFieldLabel(field, index).toLowerCase();
+        return 'Masukkan ' + getFieldLabel(field, index).toLowerCase();
+    }
+
+    function resolveFormSourceTokens(source) {
+        let resolved = String(source || '');
+
+        formFields.forEach(function(field, index) {
+            const name = getFieldTokenName(field, index);
+            const label = getFieldLabel(field, index);
+            const placeholder = getFieldPlaceholder(field, index);
+            resolved = resolved
+                .replace(new RegExp('\\{' + name + '_label\\}', 'g'), label)
+                .replace(new RegExp('\\{' + name + '_placeholder\\}', 'g'), placeholder)
+                .replace(new RegExp('\\{' + name + '_name\\}', 'g'), field.name || name)
+                .replace(new RegExp('\\{' + name + '_id\\}', 'g'), field.id || name);
+        });
+
+        let sequentialIndex = 0;
+        resolved = resolved.replace(/\{label\}/g, function() {
+            const field = formFields[sequentialIndex] || formFields[formFields.length - 1] || {};
+            const label = getFieldLabel(field, sequentialIndex);
+            sequentialIndex += 1;
+            return label;
+        });
+        sequentialIndex = 0;
+        resolved = resolved.replace(/\{placeholder\}/g, function() {
+            const field = formFields[sequentialIndex] || formFields[formFields.length - 1] || {};
+            const placeholder = getFieldPlaceholder(field, sequentialIndex);
+            sequentialIndex += 1;
+            return placeholder;
+        });
+
+        return resolved;
     }
 
     function renderCanvasMode() {

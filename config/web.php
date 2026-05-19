@@ -115,7 +115,9 @@ $config = [
         ],
         'user' => [
             'identityClass' => 'app\models\User',
-            'enableAutoLogin' => true,
+            // Keep Commander logout verification deterministic: do not restore
+            // superadmin from the Yii identity cookie after /site/logout.
+            'enableAutoLogin' => false,
             'identityCookie' => array_merge(['name' => '_identity'], appSessionCookieParams()),
         ],
         'errorHandler' => [

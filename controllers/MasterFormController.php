@@ -649,6 +649,35 @@ class MasterFormController extends Controller
             }
 
             $preSystemInsertData = $insertData;
+            if (empty($preSystemInsertData)) {
+                $insertData = $this->extractRawPostedTableData($postData, $columns->columns);
+                $preSystemInsertData = $insertData;
+            }
+            if (empty($preSystemInsertData)) {
+                $postedFieldNames = array_keys($postData);
+                $formFieldNames = array_column($fields, 'name');
+                $message = 'No data extracted.';
+                FormFlowDebugLogger::logSubmit([
+                    'host' => Yii::$app->request->hostInfo,
+                    'project_id' => $this->getActiveProjectId(),
+                    'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                    'form_id' => (int)$model->id,
+                    'target_table_id' => $tableId,
+                    'resolved_table_name' => $tableName,
+                    'metadata_found' => true,
+                    'metadata_source' => 'master_form.table_id',
+                    'submitted_fields' => $postedFieldNames,
+                    'system_fields_applied' => [],
+                    'insert_result' => 'no_data',
+                    'error' => $message,
+                ]);
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $message . ' POST: ' . implode(', ', $postedFieldNames)];
+                }
+                Yii::$app->session->setFlash('warning', 'No data extracted. POST: ' . implode(', ', $postedFieldNames) . ' | Form fields: ' . implode(', ', $formFieldNames));
+                $this->activityLogService->log($model, 'submit', 'warning', 'No submission data extracted.');
+                return $this->redirect(['preview', 'id' => $id]);
+            }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
             
@@ -775,6 +804,62 @@ class MasterFormController extends Controller
         }
 
         return null;
+    }
+
+    private function extractRawPostedTableData(array $postData, array $columns): array
+    {
+        $data = [];
+        foreach ($columns as $columnName => $column) {
+            if ($this->isSubmitSystemColumn((string)$columnName, $column)) {
+                continue;
+            }
+
+            $postedValue = $this->resolvePostedColumnValue($postData, (string)$columnName);
+            if ($postedValue === null || $postedValue === '') {
+                continue;
+            }
+
+            $data[(string)$columnName] = is_array($postedValue) ? implode(',', $postedValue) : $postedValue;
+        }
+
+        return $data;
+    }
+
+    private function resolvePostedColumnValue(array $postData, string $columnName)
+    {
+        if (array_key_exists($columnName, $postData)) {
+            return $postData[$columnName];
+        }
+
+        $normalizedColumn = $this->normalizeSubmitKey($columnName);
+        foreach ($postData as $key => $value) {
+            $normalizedKey = $this->normalizeSubmitKey((string)$key);
+            if ($normalizedKey === $normalizedColumn
+                || str_starts_with($normalizedKey, $normalizedColumn . '_')
+                || str_ends_with($normalizedKey, '_' . $normalizedColumn)
+            ) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function isSubmitSystemColumn(string $columnName, $column): bool
+    {
+        $systemColumns = [
+            'id',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            'created_by',
+            'updated_by',
+            'deleted_by',
+            'project_id',
+            'workspace_id',
+        ];
+
+        return in_array($columnName, $systemColumns, true) || !empty($column->isPrimaryKey) || !empty($column->autoIncrement);
     }
 
     private function normalizeSubmitKey(string $value): string

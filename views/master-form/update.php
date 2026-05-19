@@ -2033,6 +2033,10 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Render Fields
     function renderFields() {
+        if (activeCodeScope === 'page') {
+            renderCanvasMode();
+        }
+
         if (formFields.length === 0) {
             if (placeholder) placeholder.style.display = 'block';
             if (container) container.innerHTML = '';

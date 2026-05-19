@@ -686,7 +686,7 @@ private function insertDefaultCmsData($newDb): void
                 return $this->redirect($landingRoute);
             }
 
-            return $this->redirect(['site/dashboard']);
+            return $this->redirect(['project/access-denied', 'id' => $projectId]);
         }
 
         AuthContextDebugLogger::log('redirect_to_project_login', [
@@ -801,8 +801,8 @@ private function insertDefaultCmsData($newDb): void
                     return $this->redirect($landingRoute);
                 }
 
-                Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu. Menampilkan workspace dasar.');
-                return $this->redirect(['site/dashboard']);
+                Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu.');
+                return $this->redirect(['project/access-denied', 'id' => $projectId]);
             }
         }
 
@@ -906,8 +906,8 @@ private function insertDefaultCmsData($newDb): void
                         return $this->redirect($landingRoute);
                     }
 
-                    Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu. Menampilkan workspace dasar.');
-                    return $this->redirect(['site/dashboard']);
+                    Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu.');
+                    return $this->redirect(['project/access-denied', 'id' => $projectId]);
                 }
 
                 Yii::$app->session->setFlash('error', 'Gagal menyimpan password baru.');
@@ -995,6 +995,9 @@ private function insertDefaultCmsData($newDb): void
 
         $permissionService = new \app\components\ProjectPermissionService();
         $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId);
+        if ($landingRoute !== null) {
+            return $this->redirect($landingRoute);
+        }
 
         return $this->render('access-denied', [
             'project' => $project,

@@ -4,6 +4,7 @@ namespace app\controllers;
 
 use Yii;
 use yii\web\Controller;
+use yii\helpers\Url;
 use app\models\LoginForm;
 use app\models\Form;
 use app\models\Project;
@@ -91,6 +92,7 @@ class SiteController extends Controller
                 'class' => \yii\filters\VerbFilter::class,
                 'actions' => [
                     'logout' => ['post', 'get'],
+                    'commander-logout' => ['post', 'get'],
                 ],
             ],
         ];
@@ -335,11 +337,19 @@ class SiteController extends Controller
      */
     public function actionCommanderLogout()
     {
+        $session = Yii::$app->session;
+        if (!$session->isActive) {
+            $session->open();
+        }
+
         (new ActiveProjectContext())->clear();
         (new CommanderAuthContext())->logout();
-        Yii::$app->user->logout(true);
-        Yii::$app->session->destroy();
-        return $this->redirect(['/site/login']);
+        Yii::$app->user->switchIdentity(null);
+        Yii::$app->user->logout(false);
+        $session->removeAll();
+        $session->destroy();
+
+        return Yii::$app->response->redirect(Url::to(['/site/login'], true));
     }
 
     /**

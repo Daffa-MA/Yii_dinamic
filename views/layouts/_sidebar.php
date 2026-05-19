@@ -1492,11 +1492,23 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
         <?php endif; ?>
 
         <div style="display:grid;gap:8px;">
-            <?= Html::beginForm($logoutUrl, 'post') ?>
-                <button type="submit" class="app-sidebar-logout" style="color: <?= Html::encode($sidebarTextColor) ?>; width:100%; text-align:left;">
-                    <span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">Logout</span>
-                </button>
-            <?= Html::endForm() ?>
+            <?php if ($domainContext->isRootDomain() || $logoutUrl === \yii\helpers\Url::to(['/site/commander-logout'])): ?>
+                <?= Html::a(
+                    '<span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">Logout</span>',
+                    $logoutUrl,
+                    [
+                        'class' => 'app-sidebar-logout',
+                        'style' => 'color: ' . Html::encode($sidebarTextColor) . '; width:100%; text-align:left;',
+                        'encode' => false,
+                    ]
+                ) ?>
+            <?php else: ?>
+                <?= Html::beginForm($logoutUrl, 'post') ?>
+                    <button type="submit" class="app-sidebar-logout" style="color: <?= Html::encode($sidebarTextColor) ?>; width:100%; text-align:left;">
+                        <span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">Logout</span>
+                    </button>
+                <?= Html::endForm() ?>
+            <?php endif; ?>
         </div>
     </div>
 </aside>

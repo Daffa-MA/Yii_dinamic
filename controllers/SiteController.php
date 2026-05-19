@@ -384,25 +384,23 @@ class SiteController extends Controller
 
     private function logCommanderLogoutState(string $stage, \yii\web\Session $session, array $extra = []): void
     {
-        $sessionKeys = [];
-        try {
-            $all = $session->getAll();
-            if (is_array($all)) {
-                $sessionKeys = array_values(array_map('strval', array_keys($all)));
-            }
-        } catch (\Throwable $e) {
-            $sessionKeys = ['<unavailable>'];
+        if (!$session->isActive) {
+            $session->open();
         }
 
         LogoutDebugLogger::log($stage, [
             'source_page' => trim((string)Yii::$app->request->pathInfo, '/'),
-            'session_keys' => $sessionKeys,
+            'session_keys' => array_values(array_map('strval', array_keys($_SESSION ?? []))),
         ] + $extra);
     }
 
     private function clearCommanderAndProjectSessions(\yii\web\Session $session): void
     {
-        $keys = array_keys($session->getAll());
+        if (!$session->isActive) {
+            $session->open();
+        }
+
+        $keys = array_keys($_SESSION ?? []);
         foreach ($keys as $key) {
             if (!is_string($key)) {
                 continue;
@@ -422,7 +420,7 @@ class SiteController extends Controller
                 || strpos($key, 'app_user') === 0
                 || strpos($key, 'app_role') === 0
             ) {
-                $session->remove($key);
+                unset($_SESSION[$key]);
             }
         }
     }

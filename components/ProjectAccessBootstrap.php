@@ -106,6 +106,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
                         return;
                     }
 
+                    if ($this->isAllowedWorkspaceDashboardMenuAction($route, $activeProjectId)) {
+                        AuthContextDebugLogger::log('workspace_dashboard_menu_action_allowed', $this->buildEmbeddedFormDebugContext($route, $activeProjectId, true, true, 'menu_visible_allowed'));
+                        return;
+                    }
+
                     if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
                         FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
                             $activeProjectId,
@@ -291,6 +296,25 @@ class ProjectAccessBootstrap implements BootstrapInterface
             'embedded_preview_page_not_authorized'
         ));
         return false;
+    }
+
+    private function isAllowedWorkspaceDashboardMenuAction(string $route, int $activeProjectId): bool
+    {
+        if (!in_array($route, ['dashboard/handle-menu', 'dashboard/get-forms', 'dashboard/render-page'], true)) {
+            return false;
+        }
+
+        $menuId = (int)Yii::$app->request->get('menu_id', Yii::$app->request->post('menu_id', 0));
+        if ($menuId <= 0) {
+            return false;
+        }
+
+        $menu = MasterMenu::findOne($menuId);
+        if (!$menu instanceof MasterMenu) {
+            return false;
+        }
+
+        return (new ProjectPermissionService())->canAccessMenu($menu->toArray(), $activeProjectId);
     }
 
     private function resolveEmbeddedPageId(): int

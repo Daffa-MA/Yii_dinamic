@@ -95,7 +95,7 @@ $projectListUrl = (new DomainContext())->projectListUrl();
 </div>
 
 <?php
-$handleMenuUrl = Url::to(['/dashboard/handle-menu']);
+$handleMenuUrl = Url::to(['/workspace-dashboard/handle-menu']);
 $script = <<<JS
 var currentProjectId = {$projectId};
 var menuTree = {$menuTreeJson};

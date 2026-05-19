@@ -11,7 +11,7 @@ use app\services\PageDisplayService;
 /**
  * DashboardController - Dynamic project dashboard
  * 
- * /dashboard/{project_id}
+ * /workspace-dashboard/{project_id}
  * - Ambil menu dari database berdasarkan project_id
  * - Render sidebar menu (parent-child)
  * - Handle menu click (group/page/route)
@@ -32,7 +32,7 @@ class DashboardController extends Controller
 
     /**
      * Main dashboard page - show sidebar and page content
-     * URL: /dashboard/index or /dashboard/{project_id}
+     * URL: /workspace-dashboard/index or /workspace-dashboard/{project_id}
      */
     public function actionIndex($project_id)
     {
@@ -57,7 +57,7 @@ class DashboardController extends Controller
 
     /**
      * Handle menu click - return JSON for AJAX
-     * URL: /dashboard/handle-menu?project_id=X&menu_id=Y
+     * URL: /workspace-dashboard/handle-menu?project_id=X&menu_id=Y
      */
     public function actionHandleMenu($project_id, $menu_id)
     {
@@ -77,7 +77,7 @@ class DashboardController extends Controller
 
     /**
      * Get forms for a page (AJAX)
-     * URL: /dashboard/get-forms?project_id=X&page_id=Y
+     * URL: /workspace-dashboard/get-forms?project_id=X&page_id=Y
      */
     public function actionGetForms($project_id, $page_id)
     {
@@ -98,7 +98,7 @@ class DashboardController extends Controller
 
     /**
      * Render page content
-     * URL: /dashboard/render-page?project_id=X&page_id=Y
+     * URL: /workspace-dashboard/render-page?project_id=X&page_id=Y
      */
     public function actionRenderPage($project_id, $page_id)
     {

@@ -192,12 +192,12 @@ $config = [
                 'project/change-password' => 'project/change-password',
                 'project/logout' => 'project/logout',
 
-                // Multi-project Dashboard routes (NEW - untuk dynamic)
-                'dashboard' => 'dashboard/index',
-                'dashboard/<project_id:\d+>' => 'dashboard/index',
-                'dashboard/handle-menu' => 'dashboard/handle-menu',
-                'dashboard/get-forms' => 'dashboard/get-forms',
-                'dashboard/render-page' => 'dashboard/render-page',
+                // Multi-project Dashboard routes (pretty URL for internal workspace dashboard)
+                'workspace-dashboard' => 'dashboard/index',
+                'workspace-dashboard/<project_id:\d+>' => 'dashboard/index',
+                'workspace-dashboard/handle-menu' => 'dashboard/handle-menu',
+                'workspace-dashboard/get-forms' => 'dashboard/get-forms',
+                'workspace-dashboard/render-page' => 'dashboard/render-page',
 
                 // Site routes
                 'dashboard' => 'site/dashboard',

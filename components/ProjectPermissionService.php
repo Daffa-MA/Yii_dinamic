@@ -993,6 +993,10 @@ class ProjectPermissionService
                 $menuMatches = in_array($menuRoute, $routeVariants, true);
             }
 
+            if (!$menuMatches && $this->isDashboardRouteVariant($routeVariants) && $this->resolveMenuKey($menu) === 'dashboard') {
+                $menuMatches = true;
+            }
+
             if (!$menuMatches) {
                 continue;
             }
@@ -1005,6 +1009,14 @@ class ProjectPermissionService
         }
 
         return false;
+    }
+
+    /**
+     * @param array<int, string> $routeVariants
+     */
+    private function isDashboardRouteVariant(array $routeVariants): bool
+    {
+        return in_array('/dashboard', $routeVariants, true) || in_array('/site/dashboard', $routeVariants, true);
     }
 
     private function resolvePageFromRequest(string $routeOnly): ?MasterPage

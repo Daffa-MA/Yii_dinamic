@@ -65,6 +65,10 @@ class ProjectPermissionService
         ];
 
         $menuType = strtolower(trim((string)($menu['type'] ?? '')));
+        if ($menuKey === 'dashboard' || in_array($route, ['dashboard', 'site/dashboard'], true)) {
+            $permissionKeys[] = 'route.dashboard.access';
+            $permissionKeys[] = 'route.site.dashboard.access';
+        }
         if ($menuType === 'route' && $route !== '') {
             $permissionKeys[] = 'route.' . $this->normalizeRouteKey($route) . '.access';
         }
@@ -401,6 +405,7 @@ class ProjectPermissionService
         }
 
         $candidates = array_merge($candidates, [
+            'dashboard',
             'site/dashboard',
             'workspace-settings/index',
             'master-menu/index',
@@ -707,7 +712,7 @@ class ProjectPermissionService
         }
 
         $normalizedRoute = strtolower($route);
-        if (in_array($normalizedRoute, ['site/dashboard', 'dashboard'], true)) {
+        if (in_array($normalizedRoute, ['site/dashboard', 'dashboard', 'dashboard/index', 'workspace-dashboard', 'workspace-dashboard/index'], true)) {
             return [
                 'type' => 'menu',
                 'key' => 'dashboard',
@@ -958,11 +963,16 @@ class ProjectPermissionService
         $normalizedRoute = '/' . ltrim(trim($route, '/'), '/');
         $requestPath = '/' . ltrim(trim((string)Yii::$app->request->pathInfo, '/'), '/');
         $routeVariants = array_values(array_unique(array_filter([$normalizedRoute, $requestPath])));
-        if (in_array('/site/dashboard', $routeVariants, true)) {
+        if (
+            in_array('/site/dashboard', $routeVariants, true)
+            || in_array('/dashboard', $routeVariants, true)
+            || in_array('/workspace-dashboard', $routeVariants, true)
+            || in_array('/dashboard/index', $routeVariants, true)
+            || in_array('/workspace-dashboard/index', $routeVariants, true)
+        ) {
             $routeVariants[] = '/dashboard';
-        }
-        if (in_array('/dashboard', $routeVariants, true)) {
             $routeVariants[] = '/site/dashboard';
+            $routeVariants[] = '/workspace-dashboard';
         }
 
         $menus = (new Query())

@@ -31,6 +31,7 @@ class ProjectAccessBootstrap implements BootstrapInterface
     private const PROTECTED_PREFIXES = [
         'site/dashboard',
         'dashboard',
+        'workspace-dashboard',
         'table-builder',
         'workspace-settings',
         'master-form',
@@ -300,7 +301,14 @@ class ProjectAccessBootstrap implements BootstrapInterface
 
     private function isAllowedWorkspaceDashboardMenuAction(string $route, int $activeProjectId): bool
     {
-        if (!in_array($route, ['dashboard/handle-menu', 'dashboard/get-forms', 'dashboard/render-page'], true)) {
+        if (!in_array($route, [
+            'workspace-dashboard/handle-menu',
+            'workspace-dashboard/get-forms',
+            'workspace-dashboard/render-page',
+            'dashboard/handle-menu',
+            'dashboard/get-forms',
+            'dashboard/render-page',
+        ], true)) {
             return false;
         }
 

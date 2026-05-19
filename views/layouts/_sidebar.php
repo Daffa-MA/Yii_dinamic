@@ -4,6 +4,7 @@ use app\components\ProjectSchema;
 use app\components\ProjectAuthContext;
 use app\components\CommanderAuthContext;
 use app\components\DomainContext;
+use app\components\ProjectPermissionRegistry;
 use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\WorkspaceSettings;
@@ -86,6 +87,7 @@ if (!$isRootDomain && ProjectSchema::supportsProjectContext()) {
 $commanderAuth = new CommanderAuthContext();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
 $projectPermissionService = new \app\components\ProjectPermissionService();
+$isWorkspaceAdmin = $canOpenProjectList || (strtolower(trim((string)($projectAuthUser->role ?? ''))) === 'admin');
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['project/logout']) : \yii\helpers\Url::to(['site/logout']);
@@ -99,9 +101,11 @@ $workspaceToolRoutes = [
     'workspace-settings/index' => ['route' => 'workspace-settings/index', 'label' => 'Workspace Settings', 'icon' => 'palette'],
 ];
 
+$menuPermissionRegistry = new ProjectPermissionRegistry();
+$hasAdminToolsAccess = $isWorkspaceAdmin || $projectPermissionService->canAccessPermissionKeys(['admin_tools/access'], $activeProjectId);
 $workspaceToolItems = [];
 foreach ($workspaceToolRoutes as $tool) {
-    if ($canOpenProjectList || $projectPermissionService->canAccessRoute($tool['route'], $activeProjectId)) {
+    if ($hasAdminToolsAccess) {
         $workspaceToolItems[] = $tool;
     }
 }
@@ -1109,6 +1113,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     'name' => $m->getAttribute('name'),
                     'icon' => $m->getAttribute('icon'),
                     'route' => $m->getAttribute('route'),
+                    'menu_key' => $m->getAttribute('menu_key'),
                 ];
             }
             
@@ -1126,6 +1131,8 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     $menuTree[] = &$menuMap[$m['id']];
                 }
             }
+
+            $menuTree = $menuPermissionRegistry->filterMenuTree($menuTree, $activeProjectId);
             
             // Track which specific menu items/IDs have been activated to prevent duplicates
             $activatedIds = [];
@@ -1153,6 +1160,8 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                 $pageId = $item['page_id'] ?? null;
                 $formId = $item['form_id'] ?? null;
                 $itemId = $item['id'] ?? null;
+                $menuKey = strtolower(trim((string)($item['menu_key'] ?? '')));
+                $currentRoute = trim(strtolower((string)Yii::$app->controller->route), '/');
                 
                 // Prevent same item from being checked twice
                 if ($itemId && in_array($itemId, $activatedIds)) {
@@ -1176,6 +1185,11 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                     // Page matching - prevent duplicate page_ids
                     if (in_array($pageId, $activatedPageIds)) {
                         return false; // Another menu already matched this page
+                    }
+                    if ($menuKey === 'dashboard' && in_array($currentRoute, ['dashboard', 'site/dashboard'], true)) {
+                        $activatedIds[] = $itemId;
+                        $activatedPageIds[] = $pageId;
+                        return true;
                     }
                     if ($routeMatches('page/view')) {
                         $pageIdFromRoute = Yii::$app->request->get('id');
@@ -1213,8 +1227,13 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                 $pageId = $item['page_id'] ?? null;
                 $formId = $item['form_id'] ?? null;
                 $itemId = $item['id'] ?? null;
+                $menuKey = strtolower(trim((string)($item['menu_key'] ?? '')));
+                $currentRoute = trim(strtolower((string)Yii::$app->controller->route), '/');
                 
                 if ($type === 'route' && !empty($route) && $routeMatches($route)) {
+                    return true;
+                }
+                if ($type === 'page' && !empty($pageId) && $menuKey === 'dashboard' && in_array($currentRoute, ['dashboard', 'site/dashboard'], true)) {
                     return true;
                 }
                 if ($type === 'page' && !empty($pageId) && $routeMatches('page/view')) {
@@ -1248,6 +1267,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                 $pageId = $item['page_id'] ?? null;
                 $formId = $item['form_id'] ?? null;
                 $itemId = $item['id'] ?? null;
+                $menuKey = strtolower(trim((string)($item['menu_key'] ?? '')));
                 $hasChildren = !empty($item['children']) || $type === 'group';
                 
                 $url = '#';
@@ -1256,7 +1276,9 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
                 } elseif ($type === 'form' && !empty($formId)) {
                     $url = ['/master-form/preview', 'id' => $formId];
                 } elseif ($type === 'page' && !empty($pageId)) {
-                    $url = ['/page/view', 'id' => $pageId];
+                    $url = ($menuKey === 'dashboard')
+                        ? ['/dashboard']
+                        : ['/page/view', 'id' => $pageId];
                 } elseif ($type !== 'group' && !empty($itemId)) {
                     $url = ['/master-menu/resolve-link', 'id' => $itemId];
                 }

@@ -6,6 +6,7 @@ use yii\helpers\Url;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
+use app\components\ProjectPermissionRegistry;
 use app\models\MasterMenu;
 
 /** @var yii\web\View $this */
@@ -78,11 +79,16 @@ $quickActions = [
 ];
 
 $resolveMenuUrl = static function (array $item) {
+    if (!empty($item['url'])) {
+        return $item['url'];
+    }
+
     $type = (string)($item['type'] ?? '');
     $route = trim((string)($item['route'] ?? ''), '/');
     $pageId = (int)($item['page_id'] ?? 0);
     $formId = (int)($item['form_id'] ?? 0);
     $itemId = (int)($item['id'] ?? 0);
+    $menuKey = strtolower(trim((string)($item['menu_key'] ?? '')));
 
     if ($type === 'route' && $route !== '') {
         return ['/' . $route];
@@ -91,6 +97,9 @@ $resolveMenuUrl = static function (array $item) {
         return ['/master-form/preview', 'id' => $formId];
     }
     if ($type === 'page' && $pageId > 0) {
+        if ($menuKey === 'dashboard') {
+            return ['/dashboard'];
+        }
         return ['/page/view', 'id' => $pageId];
     }
     if (!empty($item['url'])) {
@@ -132,7 +141,9 @@ $flattenMenus = static function (array $items) use (&$flattenMenus, $resolveMenu
 $availableMenus = [];
 if (!$isAdminDashboard) {
     try {
-        $availableMenus = array_slice($flattenMenus(MasterMenu::getMenuTree(true)), 0, 8);
+        $permissionRegistry = new ProjectPermissionRegistry();
+        $menuTree = $permissionRegistry->filterMenuTree(MasterMenu::getMenuTree(true), $activeProjectId);
+        $availableMenus = array_slice($flattenMenus($menuTree), 0, 8);
     } catch (\Throwable $e) {
         $availableMenus = [];
     }

@@ -629,6 +629,9 @@ public function __set($name, $value)
         if ($this->type === self::TYPE_ROUTE && !empty($this->route)) {
             return $this->route[0] === '/' ? $this->route : '/' . ltrim($this->route, '/');
         }
+        if ($this->isDashboardMenu()) {
+            return \yii\helpers\Url::to(['/dashboard']);
+        }
         if ($this->type === self::TYPE_PAGE && $this->page_id) {
             return \yii\helpers\Url::to(['/page/view', 'id' => $this->page_id]);
         }
@@ -976,5 +979,18 @@ public function __set($name, $value)
         });
         
         return $branch;
+    }
+
+    private function isDashboardMenu(): bool
+    {
+        $menuKey = strtolower(trim((string)$this->menu_key));
+        $name = strtolower(trim((string)$this->name));
+        $route = strtolower(trim((string)$this->route));
+
+        if ($menuKey === 'dashboard' || $name === 'dashboard') {
+            return true;
+        }
+
+        return in_array($route, ['/dashboard', 'dashboard', '/site/dashboard', 'site/dashboard'], true);
     }
 }

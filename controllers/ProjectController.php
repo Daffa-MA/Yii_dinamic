@@ -426,9 +426,11 @@ private function insertDefaultCmsData($newDb): void
     public function actionIndex()
     {
         if (!$this->isCommanderSuperAdmin()) {
-            $this->logProjectListAccessDenied();
+            $this->logProjectListAccess('not_commander_superadmin');
             throw new ForbiddenHttpException('Akses project list hanya untuk Commander superadmin.');
         }
+
+        $this->logProjectListAccess('allowed');
 
         if (!ProjectSchema::supportsProjectContext()) {
             Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini. Jalankan migrasi terbaru untuk mengaktifkan fitur project.');
@@ -515,7 +517,7 @@ private function insertDefaultCmsData($newDb): void
         ]);
     }
 
-    private function logProjectListAccessDenied(): void
+    private function logProjectListAccess(string $reason): void
     {
         try {
             $session = Yii::$app->session;
@@ -532,7 +534,7 @@ private function insertDefaultCmsData($newDb): void
                 'commander_role=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_ROLE, '') . "\n" .
                 'app_role=' . (string)Yii::$app->session->get('app_role', '') . "\n" .
                 'identity_role=' . ($identity !== null ? (string)($identity->role ?? '') : '-') . "\n" .
-                'reason=not_commander_superadmin' . "\n\n",
+                'reason=' . $reason . "\n\n",
                 FILE_APPEND
             );
         } catch (\Throwable $e) {

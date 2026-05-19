@@ -116,10 +116,11 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
             <?php endif; ?>
 
             <?php if (empty($schema)): ?>
-                <div class="bg-surface-container-lowest rounded-xl p-12 text-center border-t border-outline-variant/10">
-                    <span class="material-symbols-outlined text-6xl text-outline mb-4">warning</span>
-                    <h3 class="text-2xl font-bold mb-2">Form not ready</h3>
-                    <p class="text-on-surface-variant">This form doesn't have any fields yet. Please contact the form creator.</p>
+                <div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/20 p-8 text-center shadow-sm">
+                    <span class="material-symbols-outlined mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface-container text-2xl text-outline">inventory_2</span>
+                    <h3 class="text-xl font-bold text-on-surface">Form belum tersedia</h3>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-on-surface-variant">Form ini belum memiliki field untuk ditampilkan.</p>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-on-surface-variant">Silakan hubungi admin workspace jika form ini seharusnya sudah berisi field.</p>
                 </div>
             <?php else: ?>
                 <div class="bg-surface-container-lowest rounded-xl shadow-[0_20px_40px_rgba(11,28,48,0.03)] overflow-hidden border-t border-outline-variant/10">

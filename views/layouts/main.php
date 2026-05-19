@@ -59,7 +59,7 @@ $footerSupportLinks = [
 ];
 
 $rolePageHero = new \app\components\RolePageHero();
-$roleHeroData = $rolePageHero->build($this->title ?? '');
+$roleHeroData = $rolePageHero->build($this->title ?? '', $this->params['workspacePageHero'] ?? [], null, (string)(Yii::$app->controller->route ?? ''));
 $shouldRenderRoleHero = !empty($roleHeroData['should_render']);
 ?>
 <?php $this->beginPage() ?>

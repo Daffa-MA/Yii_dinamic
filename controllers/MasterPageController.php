@@ -4,6 +4,7 @@ namespace app\controllers;
 
 use Yii;
 use app\models\Form;
+use app\models\Project;
 use app\models\MasterForm;
 use app\models\MasterMenu;
 use app\models\MasterPage;
@@ -332,6 +333,17 @@ class MasterPageController extends Controller
         $previewUrl = Yii::$app->urlManager->createUrl(['master-page/preview-live', 'id' => $page->id]);
         $editUrl = ['dynamic-update', 'id' => $page->id];
         $liveUrl = $previewUrl;
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'page',
+            'hero_label' => 'Dynamic Page',
+            'page_title' => (string)($page->title ?? $page->name ?? 'Page'),
+            'page_description' => (string)($page->description ?? ''),
+            'layout' => (string)($page->layout_type ?? $page->layout ?? 'dynamic'),
+            'form_count' => count($forms),
+            'status' => $page->isActive() ? 'Active' : 'Nonaktif',
+            'workspace_name' => $activeProject instanceof Project ? (string)$activeProject->name : 'Workspace',
+        ];
 
         return $this->render('view-inspector', [
             'page' => $page,
@@ -723,12 +735,29 @@ if ($model->save(false)) {
         }
 
         $layoutJson = !empty($page->layout_json) ? $page->layout_json : '[]';
+        if (method_exists($page, 'loadAssignedFormIds')) {
+            $page->loadAssignedFormIds();
+        }
         $menu = MasterMenu::find()
             ->where(['page_id' => (int)$page->id, 'is_active' => MasterMenu::STATUS_ACTIVE])
             ->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])
             ->one();
 
         $this->layout = 'main';
+        if (method_exists($page, 'loadAssignedFormIds')) {
+            $page->loadAssignedFormIds();
+        }
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'page',
+            'hero_label' => 'Dynamic Page',
+            'page_title' => (string)($page->title ?? $page->name ?? 'Page'),
+            'page_description' => (string)($page->description ?? ''),
+            'layout' => (string)($page->layout_type ?? $page->layout ?? 'dynamic'),
+            'form_count' => is_array($page->assignedForms ?? null) ? count($page->assignedForms) : 0,
+            'status' => $page->isActive() ? 'Active' : 'Nonaktif',
+            'workspace_name' => $activeProject instanceof Project ? (string)$activeProject->name : 'Workspace',
+        ];
         
         return $this->render('@app/views/master-page/_dynamic_render', [
             'layoutJson' => $layoutJson,
@@ -748,6 +777,17 @@ if ($model->save(false)) {
         $layoutJson = !empty($page->layout_json) ? $page->layout_json : '[]';
 
         $this->layout = 'main';
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'page',
+            'hero_label' => 'Dynamic Page',
+            'page_title' => (string)($page->title ?? $page->name ?? 'Page'),
+            'page_description' => (string)($page->description ?? ''),
+            'layout' => (string)($page->layout_type ?? $page->layout ?? 'dynamic'),
+            'form_count' => is_array($page->assignedForms ?? null) ? count($page->assignedForms) : 0,
+            'status' => $page->isActive() ? 'Active' : 'Nonaktif',
+            'workspace_name' => $activeProject instanceof Project ? (string)$activeProject->name : 'Workspace',
+        ];
 
         return $this->render('@app/views/master-page/_dynamic_render', [
             'layoutJson' => $layoutJson,

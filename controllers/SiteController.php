@@ -273,6 +273,15 @@ class SiteController extends Controller
             $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
         }
         $databaseTableCount = (int) $databaseTableQuery->count();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'dashboard',
+            'page_title' => 'Dashboard',
+            'page_description' => 'Halaman utama dashboard',
+            'layout' => 'dashboard',
+            'form_count' => 0,
+            'status' => 'Active',
+            'workspace_name' => $activeProject !== null ? (string)$activeProject->name : 'Workspace',
+        ];
 
         return $this->render('dashboard', [
             'forms' => $forms,

@@ -1279,6 +1279,18 @@ class FormController extends Controller
             ->limit(5)
             ->all();
 
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'form',
+            'hero_label' => 'Dynamic Form',
+            'page_title' => (string)$model->name,
+            'page_description' => (string)($model->description ?? ''),
+            'layout' => (string)($model->form_type ?? 'builder'),
+            'form_count' => count($schema),
+            'status' => 'Active',
+            'workspace_name' => $activeProject instanceof Project ? (string)$activeProject->name : 'Workspace',
+        ];
+
         return $this->render('view', [
             'model' => $model,
             'schema' => $schema,
@@ -1314,6 +1326,18 @@ class FormController extends Controller
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve foreign key config for public-render: ' . $e->getMessage(), 'app');
         }
+
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'form',
+            'hero_label' => 'Dynamic Form',
+            'page_title' => (string)$model->name,
+            'page_description' => '',
+            'layout' => (string)($model->form_type ?? 'builder'),
+            'form_count' => count($schema),
+            'status' => 'Active',
+            'workspace_name' => $activeProject instanceof Project ? (string)$activeProject->name : 'Workspace',
+        ];
 
         return $this->render('public-render', [
             'model' => $model,
@@ -1388,6 +1412,18 @@ class FormController extends Controller
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve foreign key config for render: ' . $e->getMessage(), 'app');
         }
+
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'form',
+            'hero_label' => 'Dynamic Form',
+            'page_title' => (string)$model->name,
+            'page_description' => '',
+            'layout' => (string)($model->form_type ?? 'builder'),
+            'form_count' => count($schema),
+            'status' => 'Active',
+            'workspace_name' => $activeProject instanceof Project ? (string)$activeProject->name : 'Workspace',
+        ];
 
         return $this->render('render', [
             'model' => $model,

@@ -8,65 +8,135 @@ use Yii;
 class RolePageHero
 {
     /**
-     * @return array{should_render:bool,eyebrow?:string,username?:string,role?:string,page_title?:string,workspace_name?:string,status?:string,description?:string,info?:string}
+     * @return array<string, mixed>
      */
-    public function build(string $pageTitle = '', ?int $projectId = null): array
+    public function build(string $pageTitle = '', array $context = [], ?int $projectId = null, string $route = ''): array
     {
-        if ((new CommanderAuthContext())->isSuperAdmin()) {
-            return ['should_render' => false];
-        }
-
         $projectContext = new ActiveProjectContext();
         $resolvedProjectId = $projectId ?? $projectContext->getActiveProjectId();
         $projectAuth = new ProjectAuthContext();
         $user = $resolvedProjectId !== null ? $projectAuth->getAuthenticatedUser($resolvedProjectId) : null;
+        $identity = Yii::$app->user->identity;
+        $commanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 
-        if ($user === null) {
-            $identity = Yii::$app->user->identity;
-            if ($identity === null) {
-                return ['should_render' => false];
-            }
-
-            $role = strtolower(trim((string)($identity->role ?? '')));
-            if ($role === '' || in_array($role, ['admin', 'superadmin'], true)) {
-                return ['should_render' => false];
-            }
-
-            $username = trim((string)($identity->username ?? $identity->name ?? 'User'));
-        } else {
-            $role = strtolower(trim((string)$user->role));
-            if (in_array($role, ['admin', 'superadmin'], true)) {
-                return ['should_render' => false];
-            }
-
-            $username = trim((string)($user->username ?: $user->name ?: 'User'));
+        if ($user === null && $identity === null) {
+            return ['should_render' => false];
         }
 
-        $workspaceName = 'Workspace';
-        if ($resolvedProjectId !== null) {
+        if ($user !== null) {
+            $role = strtolower(trim((string)$user->role));
+            $username = trim((string)($user->username ?: $user->name ?: 'User'));
+        } else {
+            $role = strtolower(trim((string)($identity->role ?? '')));
+            $username = trim((string)($identity->username ?? $identity->name ?? 'User'));
+        }
+
+        if ($role === '' && !$commanderSuperAdmin) {
+            return ['should_render' => false];
+        }
+
+        $isAdminRole = $commanderSuperAdmin || in_array($role, ['admin', 'superadmin'], true);
+        $scope = strtolower(trim((string)($context['scope'] ?? 'page')));
+        if ($scope === '') {
+            $scope = 'page';
+        }
+
+        $workspaceName = trim((string)($context['workspace_name'] ?? ''));
+        if ($workspaceName === '' && $resolvedProjectId !== null) {
             $project = Project::findOne($resolvedProjectId);
             if ($project instanceof Project && trim((string)$project->name) !== '') {
                 $workspaceName = (string)$project->name;
             }
         }
+        if ($workspaceName === '') {
+            $workspaceName = 'Workspace';
+        }
 
-        $resolvedTitle = trim($pageTitle);
+        $resolvedTitle = trim((string)($context['page_title'] ?? $pageTitle));
         if ($resolvedTitle === '') {
-            $resolvedTitle = $this->resolveTitleFromRoute((string)(Yii::$app->controller->route ?? ''));
+            $resolvedTitle = $this->resolveTitleFromRoute($route !== '' ? $route : (string)(Yii::$app->controller->route ?? ''));
         }
         if ($resolvedTitle === '') {
             $resolvedTitle = 'Halaman';
         }
 
+        $pageDescription = trim((string)($context['page_description'] ?? ''));
+        $layout = trim((string)($context['layout'] ?? $context['page_layout'] ?? ''));
+        $formCount = (int)($context['form_count'] ?? 0);
+        $status = trim((string)($context['status'] ?? 'Active'));
+        if ($status === '') {
+            $status = 'Active';
+        }
+
+        $heroLabel = trim((string)($context['hero_label'] ?? ''));
+        if ($heroLabel === '') {
+            $heroLabel = $scope === 'form' ? 'Dynamic Form' : 'Dynamic Page';
+        }
+
+        $defaultDescription = $scope === 'dashboard'
+            ? 'Selamat datang di halaman Dashboard. Silakan gunakan halaman ini sesuai kebutuhan Anda.'
+            : "Selamat datang di halaman {$resolvedTitle}. Silakan gunakan halaman ini sesuai kebutuhan Anda.";
+
+        if ($isAdminRole && $scope === 'dashboard') {
+            return [
+                'should_render' => true,
+                'variant' => 'admin-dashboard',
+                'icon' => 'dashboard',
+                'title' => $resolvedTitle,
+                'subtitle' => trim((string)($context['subtitle'] ?? 'Ringkasan workspace dan shortcut utama.')),
+                'description' => $pageDescription !== '' ? $pageDescription : $defaultDescription,
+                'workspace_name' => $workspaceName,
+                'username' => $username,
+                'role' => $role !== '' ? $role : 'admin',
+                'status' => $status,
+                'layout' => $layout !== '' ? $layout : 'dashboard',
+                'form_count' => $formCount,
+            ];
+        }
+
+        if (!$isAdminRole && $scope === 'dashboard') {
+            return [
+                'should_render' => true,
+                'variant' => 'user-dashboard',
+                'icon' => 'description',
+                'title' => $resolvedTitle,
+                'subtitle' => $workspaceName,
+                'description' => $pageDescription !== '' ? $pageDescription : $defaultDescription,
+                'workspace_name' => $workspaceName,
+                'username' => $username,
+                'role' => $role !== '' ? $role : 'user',
+                'status' => $status,
+            ];
+        }
+
+        if ($isAdminRole) {
+            return [
+                'should_render' => true,
+                'variant' => 'admin-page',
+                'icon' => 'dashboard_customize',
+                'title' => $heroLabel,
+                'subtitle' => $resolvedTitle,
+                'description' => $pageDescription !== '' ? $pageDescription : 'Halaman dinamis yang dibangun menggunakan page builder.',
+                'workspace_name' => $workspaceName,
+                'username' => $username,
+                'role' => $role !== '' ? $role : 'admin',
+                'status' => $status,
+                'layout' => $layout !== '' ? $layout : 'builder',
+                'form_count' => $formCount,
+            ];
+        }
+
         return [
             'should_render' => true,
-            'eyebrow' => 'Sekolah Negeri',
+            'variant' => 'user-page',
+            'icon' => 'description',
+            'title' => $resolvedTitle,
+            'subtitle' => $workspaceName,
             'username' => $username,
             'role' => $role,
-            'page_title' => $resolvedTitle,
             'workspace_name' => $workspaceName,
-            'status' => 'Active',
-            'description' => "Selamat datang di halaman {$resolvedTitle}. Silakan gunakan halaman ini sesuai kebutuhan Anda.",
+            'status' => $status,
+            'description' => $pageDescription !== '' ? $pageDescription : $defaultDescription,
             'info' => 'Akses informasi dan fitur yang tersedia untuk role Anda.',
         ];
     }

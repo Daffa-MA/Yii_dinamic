@@ -76,6 +76,17 @@ class PageController extends Controller
         }
 
         $page->loadAssignedFormIds();
+        $activeProject = (new ActiveProjectContext())->getActiveProject();
+        $this->view->params['workspacePageHero'] = [
+            'scope' => 'page',
+            'hero_label' => 'Dynamic Page',
+            'page_title' => (string)$page->title,
+            'page_description' => (string)($page->description ?? ''),
+            'layout' => (string)($page->layout_type ?? ''),
+            'form_count' => count($page->assignedForms),
+            'status' => $page->isActive() ? 'Active' : 'Nonaktif',
+            'workspace_name' => $activeProject !== null ? (string)$activeProject->name : 'Workspace',
+        ];
 
         return $this->render('view', [
             'page' => $page,

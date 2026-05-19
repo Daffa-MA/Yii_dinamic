@@ -19,7 +19,7 @@ $sidebar = new UserSidebar();
 $menuTree = $sidebar->getMenuTree(true);
 $currentRoute = Yii::$app->controller->route;
 $rolePageHero = new \app\components\RolePageHero();
-$roleHeroData = $rolePageHero->build($this->title ?? '');
+$roleHeroData = $rolePageHero->build($this->title ?? '', $this->params['workspacePageHero'] ?? [], null, (string)$currentRoute);
 
 // breadcrumb dari session
 $breadcrumb = Yii::$app->session->get('breadcrumb', []);

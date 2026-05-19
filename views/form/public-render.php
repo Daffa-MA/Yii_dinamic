@@ -272,12 +272,13 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
             <?php endif; ?>
 
             <?php if (empty($pages)): ?>
-                <div class="text-center py-12 text-gray-500">
-                    <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p class="text-lg font-medium">Form ini belum memiliki field</p>
-                    <p class="text-sm">Hubungi administrator untuk informasi lebih lanjut</p>
+                <div class="mx-8 rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 text-slate-500">
+                        <span class="material-symbols-outlined text-[22px]">inventory_2</span>
+                    </div>
+                    <h3 class="mt-4 text-xl font-bold text-slate-900">Form belum tersedia</h3>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Form ini belum memiliki field untuk ditampilkan.</p>
+                    <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Silakan hubungi admin workspace jika form ini seharusnya sudah berisi field.</p>
                 </div>
             <?php else: ?>
                 <form method="post" action="<?= Url::to(['form/submit', 'id' => $model->id]) ?>" class="<?= !$hasCustomDesign ? 'space-y-6' : '' ?>" enctype="multipart/form-data" id="multi-page-form">

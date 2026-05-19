@@ -92,6 +92,14 @@ class DynamicFormPreviewService
 
         if ($hasOverride) {
             $scriptHtml = $customJs !== '' ? '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>' : '';
+            $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, (int)$form->id, [
+                '_embedded' => $interactive ? '1' : '',
+                'render_context' => $renderContext,
+                'page_id' => $pageId > 0 ? (string)$pageId : '',
+                'menu_id' => (int)($context['menu_id'] ?? 0) > 0 ? (string)(int)$context['menu_id'] : '',
+                'project_id' => $projectId !== null ? (string)$projectId : '',
+                'workspace_role' => $interactive ? $this->getWorkspaceRole() : '',
+            ]);
             FormFlowDebugLogger::logRender([
                 'host' => \Yii::$app->request->hostInfo,
                 'project_id' => $projectId,

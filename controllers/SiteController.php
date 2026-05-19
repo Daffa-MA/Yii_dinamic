@@ -346,20 +346,30 @@ class SiteController extends Controller
 
     private function performCommanderLogout()
     {
-        $session = Yii::$app->session;
-        if (!$session->isActive) {
-            $session->open();
+        try {
+            $session = Yii::$app->session;
+            if (!$session->isActive) {
+                $session->open();
+            }
+
+            $this->clearCommanderAndProjectSessions($session);
+
+            (new ActiveProjectContext())->clear();
+            (new CommanderAuthContext())->logout();
+            Yii::$app->user->logout(false);
+            $session->removeAll();
+            if ($session->isActive) {
+                $session->destroy();
+            }
+        } catch (\Throwable $e) {
+            Yii::error('Commander logout failed: ' . $e->getMessage(), 'auth');
+            try {
+                Yii::$app->user->logout(false);
+            } catch (\Throwable $ignored) {
+            }
         }
 
-        $this->clearCommanderAndProjectSessions($session);
-
-        (new ActiveProjectContext())->clear();
-        (new CommanderAuthContext())->logout();
-        Yii::$app->user->logout(true);
-        $session->removeAll();
-        $session->destroy();
-
-        return Yii::$app->response->redirect((new DomainContext())->commanderUrl('/site/login'));
+        return Yii::$app->response->redirect(Url::to(['/site/login'], true));
     }
 
     private function clearCommanderAndProjectSessions(\yii\web\Session $session): void

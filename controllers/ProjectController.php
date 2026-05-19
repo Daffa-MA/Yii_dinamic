@@ -939,6 +939,9 @@ private function insertDefaultCmsData($newDb): void
         if ($projectId > 0) {
             (new ProjectAuthContext())->logout($projectId);
             $context->clear();
+            if ((string)Yii::$app->request->get('reason', '') === 'access_denied') {
+                Yii::$app->session->setFlash('warning', 'Anda sudah logout karena role akun ini belum memiliki akses aktif. Silakan login dengan akun lain atau minta admin mengatur permission role.');
+            }
             return $this->redirect(['project/login', 'id' => $projectId, 'force_login' => 1]);
         }
 

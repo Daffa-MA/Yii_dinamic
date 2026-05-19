@@ -211,6 +211,27 @@ $this->registerCss(<<<CSS
     color: #64748b;
     line-height: 1.7;
 }
+.project-login-alert {
+    border-radius: 18px;
+    border: 1px solid #fde68a;
+    background: #fffbeb;
+    color: #92400e;
+    padding: 14px 16px;
+    margin-top: 1rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
+    font-weight: 700;
+}
+.project-login-alert.error {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+.project-login-alert.success {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+}
 .project-login-form {
     margin-top: 1.5rem;
     display: grid;
@@ -335,6 +356,22 @@ CSS);
         <div class="project-login-card">
             <h2>Login Aplikasi</h2>
             <p>Gunakan akun yang tersimpan di database aplikasi ini. Layout ini berdiri sendiri dan tidak memakai shell admin.</p>
+
+            <?php if (Yii::$app->session->hasFlash('warning')): ?>
+                <div class="project-login-alert">
+                    <?= Html::encode(Yii::$app->session->getFlash('warning')) ?>
+                </div>
+            <?php endif; ?>
+            <?php if (Yii::$app->session->hasFlash('error')): ?>
+                <div class="project-login-alert error">
+                    <?= Html::encode(Yii::$app->session->getFlash('error')) ?>
+                </div>
+            <?php endif; ?>
+            <?php if (Yii::$app->session->hasFlash('success')): ?>
+                <div class="project-login-alert success">
+                    <?= Html::encode(Yii::$app->session->getFlash('success')) ?>
+                </div>
+            <?php endif; ?>
 
             <?php $form = ActiveForm::begin([
                 'id' => 'project-login-form',

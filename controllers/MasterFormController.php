@@ -636,7 +636,7 @@ class MasterFormController extends Controller
                     continue;
                 }
                 
-                $postedValue = $postData[$fieldName] ?? null;
+                $postedValue = $this->resolvePostedFieldValue($postData, $field, $fieldName);
                 
                 if ($fieldType === 'checkboxes') {
                     $values = is_array($postedValue) ? $postedValue : ($postedValue ? [$postedValue] : []);
@@ -754,6 +754,33 @@ class MasterFormController extends Controller
         }
         
         return $this->redirect(['preview', 'id' => $id]);
+    }
+
+    private function resolvePostedFieldValue(array $postData, array $field, string $fieldName)
+    {
+        $candidates = array_filter(array_unique([
+            $fieldName,
+            (string)($field['field_name'] ?? ''),
+            (string)($field['column_name'] ?? ''),
+            (string)($field['id'] ?? ''),
+            $this->normalizeSubmitKey((string)($field['label'] ?? '')),
+            $this->normalizeSubmitKey((string)($field['field_label'] ?? '')),
+            $this->normalizeSubmitKey((string)($field['labelText'] ?? '')),
+        ]));
+
+        foreach ($candidates as $candidate) {
+            if (array_key_exists($candidate, $postData)) {
+                return $postData[$candidate];
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeSubmitKey(string $value): string
+    {
+        $normalized = strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $value), '_'));
+        return $normalized;
     }
 
     private function canSubmitEmbeddedPageForm(int $formId): bool

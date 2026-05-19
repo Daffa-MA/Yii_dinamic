@@ -6,6 +6,9 @@ use app\components\CustomCodeSandbox;
 use app\helpers\FormSystemFieldHelper;
 use app\models\MasterForm;
 use app\models\MasterFormLayout;
+use Yii;
+use yii\helpers\Html;
+use yii\helpers\Url;
 
 class FormRenderService
 {
@@ -23,6 +26,10 @@ class FormRenderService
         $customHtml = (string)($renderPayload['customHtml'] ?? '');
         $customCss = trim((string)($renderPayload['customCss'] ?? ''));
         $customJs = trim((string)($renderPayload['customJs'] ?? ''));
+        $formId = (int)($renderPayload['formId'] ?? 0);
+        if ($formId > 0) {
+            $customHtml = self::prepareCustomFormSubmission($customHtml, $formId);
+        }
 
         if ($customHtml !== '' && preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1) {
             return $customHtml;
@@ -70,12 +77,49 @@ class FormRenderService
 
         return [
             'fields' => $fields,
+            'formId' => (int)$form->id,
             'hasOverride' => $useCustomCode,
             'useCustomCode' => $useCustomCode,
             'customHtml' => $customHtml,
             'customCss' => $customCss,
             'customJs' => $customJs,
         ];
+    }
+
+    public static function prepareCustomFormSubmission(string $html, int $formId, array $hiddenInputs = []): string
+    {
+        if ($formId <= 0 || trim($html) === '' || stripos($html, '<form') === false) {
+            return $html;
+        }
+
+        $action = Url::to(['/master-form/submit', 'id' => $formId], true);
+        $csrfParam = Yii::$app->request->csrfParam;
+        $csrfToken = Yii::$app->request->getCsrfToken();
+        $hidden = '<input type="hidden" name="' . Html::encode($csrfParam) . '" value="' . Html::encode($csrfToken) . '">';
+        foreach ($hiddenInputs as $name => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $hidden .= '<input type="hidden" name="' . Html::encode((string)$name) . '" value="' . Html::encode((string)$value) . '">';
+        }
+
+        $hasCsrfInput = stripos($html, 'name="' . $csrfParam . '"') !== false || stripos($html, "name='" . $csrfParam . "'") !== false;
+        return preg_replace_callback('/<form\b([^>]*)>/i', static function (array $matches) use ($action, $hidden, $hasCsrfInput): string {
+            $attrs = $matches[1] ?? '';
+            if (!preg_match('/\bmethod\s*=/i', $attrs)) {
+                $attrs .= ' method="post"';
+            }
+            if (!preg_match('/\baction\s*=/i', $attrs)) {
+                $attrs .= ' action="' . Html::encode($action) . '"';
+            }
+
+            $openTag = '<form' . $attrs . '>';
+            if ($hasCsrfInput) {
+                return $openTag;
+            }
+
+            return $openTag . $hidden;
+        }, $html, 1) ?? $html;
     }
 
     private static function resolveFormSourceTokens(string $source, array $fields): string

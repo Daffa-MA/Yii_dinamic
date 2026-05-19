@@ -52,6 +52,9 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);
 
 $currentRoute = Yii::$app->controller->route;
+$rolePageHero = new \app\components\RolePageHero();
+$roleHeroData = $rolePageHero->build($this->title ?? '');
+$shouldRenderRoleHero = !empty($roleHeroData['should_render']) && $currentRoute !== 'site/dashboard';
 $activeMenu = 'dashboard';
 if ($currentRoute === 'site/dashboard') {
     $activeMenu = 'dashboard';
@@ -163,6 +166,9 @@ if ($currentRoute === 'site/dashboard') {
                     <?= is_array($message) ? implode(' ', array_map('yii\helpers\Html::encode', $message)) : Html::encode((string)$message) ?>
                 </div>
             <?php endforeach; ?>
+            <?php if ($shouldRenderRoleHero): ?>
+                <?= $this->render('_role_page_hero', ['hero' => $roleHeroData]) ?>
+            <?php endif; ?>
             <?= $content ?>
         </div>
     </main>

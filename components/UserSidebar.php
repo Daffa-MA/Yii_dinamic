@@ -36,9 +36,11 @@ class UserSidebar extends Component
         if ($activeOnly) {
             $query->where(['is_active' => MasterMenu::STATUS_ACTIVE]);
         }
-        
+
         $menus = $query->all();
-        return $this->buildTree($menus);
+        $tree = $this->buildTree($menus);
+
+        return (new \app\components\ProjectPermissionRegistry())->filterMenuTree($tree);
     }
     
     /**

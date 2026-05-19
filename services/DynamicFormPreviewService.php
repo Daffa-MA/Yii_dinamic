@@ -162,6 +162,10 @@ class DynamicFormPreviewService
             . $formClose
             . '</div>';
 
+        if ($interactive) {
+            $html = FormRenderService::attachAjaxSubmitHandler($html);
+        }
+
         FormFlowDebugLogger::logRender([
             'host' => \Yii::$app->request->hostInfo,
             'project_id' => $projectId,

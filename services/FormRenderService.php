@@ -128,6 +128,11 @@ class FormRenderService
         return self::appendCustomFormSubmitCollectorScript($prepared);
     }
 
+    public static function attachAjaxSubmitHandler(string $html): string
+    {
+        return self::appendCustomFormSubmitCollectorScript($html);
+    }
+
     private static function appendCustomFormSubmitCollectorScript(string $html): string
     {
         $script = self::customFormSubmitCollectorScript();

@@ -46,6 +46,10 @@ class SiteController extends Controller
                 'only' => ['logout', 'commander-logout', 'dashboard', 'profile', 'change-password'],
                 'rules' => [
                     [
+                        'actions' => ['logout', 'commander-logout'],
+                        'allow' => true,
+                    ],
+                    [
                         'actions' => ['profile'],
                         'allow' => true,
                         'matchCallback' => function () {
@@ -326,15 +330,7 @@ class SiteController extends Controller
      */
     public function actionLogout()
     {
-        if ((new CommanderAuthContext())->isSuperAdmin()) {
-            return $this->performCommanderLogout();
-        }
-
-        (new ActiveProjectContext())->clear();
-        (new CommanderAuthContext())->logout();
-        Yii::$app->user->logout(true);
-        Yii::$app->session->destroy();
-        return $this->redirect(['/site/login']);
+        return $this->performCommanderLogout();
     }
 
     /**
@@ -353,19 +349,20 @@ class SiteController extends Controller
                 $session->open();
             }
 
-            $this->logCommanderLogoutState('before_clear', $session);
+            $redirectTarget = (new DomainContext())->commanderUrl('/site/login');
+            $this->logCommanderLogoutState('before_clear', $session, ['redirect' => $redirectTarget]);
             $this->clearCommanderAndProjectSessions($session);
 
             (new ActiveProjectContext())->clear();
             (new CommanderAuthContext())->logout();
             Yii::$app->user->logout(false);
             $session->removeAll();
+            $this->logCommanderLogoutState('after_clear', $session, ['redirect' => $redirectTarget]);
             if ($session->isActive) {
                 $session->destroy();
             }
-            $this->logCommanderLogoutState('after_clear', $session, ['redirect' => '/site/login']);
         } catch (\Throwable $e) {
-            $this->logCommanderLogoutState('failed', Yii::$app->session, ['error' => $e->getMessage(), 'redirect' => '/site/login']);
+            $this->logCommanderLogoutState('failed', Yii::$app->session, ['error' => $e->getMessage(), 'redirect' => Url::to(['/site/login'], true)]);
             Yii::error('Commander logout failed: ' . $e->getMessage(), 'auth');
             try {
                 Yii::$app->user->logout(false);
@@ -407,6 +404,7 @@ class SiteController extends Controller
                 || $key === 'active_workspace_id'
                 || $key === 'resolved_domain_project_id'
                 || $key === 'superadmin_mode'
+                || strpos($key, 'workspace_settings') === 0
                 || strpos($key, 'commander_') === 0
                 || strpos($key, 'project_auth_') === 0
                 || strpos($key, 'project_app_auth:') === 0

@@ -1017,9 +1017,9 @@ $sidebarActiveBgEnd = $isMinimalSidebar ? '#334155' : ($cssVars['sidebar-active-
 $sidebarActiveText = $isMinimalSidebar ? '#f8fafc' : ($cssVars['sidebar-active-text'] ?? '#ffffff');
 $sidebarActiveShadow = $isMinimalSidebar ? '0 10px 24px rgba(2, 6, 23, 0.28)' : ($cssVars['sidebar-active-shadow'] ?? '0 8px 24px rgba(37, 99, 235, 0.28)');
 $logoBg = $isMinimalSidebar ? '#334155' : ($cssVars['workspace-logo-bg'] ?? '#4f46e5');
-$logoImage = $cssVars['workspace-logo-image'] ?? null;
 $logoAsset = $workspaceSettings->getWorkspaceLogoAsset();
 $logoImageUrl = (string)($logoAsset['url'] ?? '');
+$hasLogoImage = $logoImageUrl !== '';
 
 // Debug: Log color values
 Yii::info('Sidebar Text Color: ' . $sidebarTextColor, 'sidebar-debug');
@@ -1046,8 +1046,8 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
 
     <!-- Header -->
     <div class="app-sidebar-header" style="border-color: <?= Html::encode($sidebarBorderColor) ?>;">
-        <div id="sidebar-logo-box" class="app-sidebar-header-icon" style="width: <?= Html::encode($workspaceSettings->workspace_logo_width ?? 44) ?>px; height: <?= Html::encode($workspaceSettings->workspace_logo_height ?? 44) ?>px; background: <?= !empty($logoImage) ? 'transparent' : 'linear-gradient(135deg, ' . Html::encode($logoBg) . ' 0%, ' . Html::encode($logoBg) . ' 100%)' ?>; box-shadow: <?= !empty($logoImage) ? 'none' : '0 12px 24px rgba(79, 70, 229, 0.28)' ?>; font-size: <?= round((($workspaceSettings->workspace_logo_width ?? 44) / 44) * 22) ?>px;">
-            <?php if (!empty($logoImage)): ?>
+        <div id="sidebar-logo-box" class="app-sidebar-header-icon" style="width: <?= Html::encode($workspaceSettings->workspace_logo_width ?? 44) ?>px; height: <?= Html::encode($workspaceSettings->workspace_logo_height ?? 44) ?>px; background: <?= $hasLogoImage ? 'transparent' : 'linear-gradient(135deg, ' . Html::encode($logoBg) . ' 0%, ' . Html::encode($logoBg) . ' 100%)' ?>; box-shadow: <?= $hasLogoImage ? 'none' : '0 12px 24px rgba(79, 70, 229, 0.28)' ?>; font-size: <?= round((($workspaceSettings->workspace_logo_width ?? 44) / 44) * 22) ?>px;">
+            <?php if ($hasLogoImage): ?>
                 <img id="sidebar-logo-image" src="<?= Html::encode($logoImageUrl) ?>" alt="Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 14px;">
             <?php else: ?>
                 <span id="sidebar-logo-icon" class="material-symbols-outlined"><?= Html::encode($cssVars['workspace-logo-icon'] ?? 'folder_open') ?></span>

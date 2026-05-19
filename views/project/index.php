@@ -36,6 +36,7 @@ $activeProjectName = $activeProject !== null ? $activeProject->name : null;
 $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(int) $activeProject->id]))
     ? $projectDatabases[(int) $activeProject->id]
     : null;
+$isProjectListPath = trim((string) Yii::$app->request->pathInfo, '/') === 'project-list';
 ?>
 
 <style>
@@ -1261,6 +1262,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                 </div>
             <?php endif; ?>
 
+            <?php if (!$isProjectListPath): ?>
             <section class="projects-hero">
                 <div class="projects-surface projects-hero-copy">
                     <span class="projects-kicker">
@@ -1365,6 +1367,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                     </div>
                 </div>
             </section>
+            <?php endif; ?>
 
             <div class="row g-4">
                 <div class="col-12 col-xl-4" id="create-project">

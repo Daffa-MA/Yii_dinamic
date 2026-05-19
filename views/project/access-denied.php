@@ -317,14 +317,12 @@ CSS);
                     ['class' => 'access-denied-btn access-denied-btn-secondary']
                 ) ?>
 
-                <?= Html::a(
-                    'Logout',
-                    ['project/logout', 'id' => $project->id, 'reason' => 'access_denied'],
-                    [
-                        'class' => 'access-denied-btn access-denied-btn-secondary',
-                        'data-method' => 'post',
-                    ]
-                ) ?>
+                <?= $this->render('../layouts/_logout_button', [
+                    'label' => 'Logout',
+                    'icon' => '',
+                    'buttonClass' => 'access-denied-btn access-denied-btn-secondary',
+                    'formStyle' => 'margin:0;',
+                ]) ?>
             </div>
 
             <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>

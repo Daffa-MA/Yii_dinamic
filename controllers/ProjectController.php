@@ -426,6 +426,7 @@ private function insertDefaultCmsData($newDb): void
     public function actionIndex()
     {
         if (!$this->isCommanderSuperAdmin()) {
+            $this->logProjectListAccessDenied();
             throw new ForbiddenHttpException('Akses project list hanya untuk Commander superadmin.');
         }
 
@@ -512,6 +513,30 @@ private function insertDefaultCmsData($newDb): void
             'pagination' => $pagination,
             'isCommanderSuperAdmin' => $isCommanderSuperAdmin,
         ]);
+    }
+
+    private function logProjectListAccessDenied(): void
+    {
+        try {
+            $session = Yii::$app->session;
+            if (!$session->isActive) {
+                $session->open();
+            }
+
+            $identity = Yii::$app->user->identity;
+            file_put_contents(
+                Yii::getAlias('@runtime/logs/project-list-access-debug.log'),
+                date('Y-m-d H:i:s') . " forbidden /project-list\n" .
+                'commander_auth=' . json_encode(Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_AUTH, null)) . "\n" .
+                'commander_role=' . (string)Yii::$app->session->get(CommanderAuthContext::SESSION_KEY_ROLE, '') . "\n" .
+                'app_role=' . (string)Yii::$app->session->get('app_role', '') . "\n" .
+                'identity_role=' . ($identity !== null ? (string)($identity->role ?? '') : '-') . "\n" .
+                'reason=not_commander_superadmin' . "\n\n",
+                FILE_APPEND
+            );
+        } catch (\Throwable $e) {
+            Yii::warning('Project list access debug failed: ' . $e->getMessage(), __METHOD__);
+        }
     }
 
     public function actionSelect($id)

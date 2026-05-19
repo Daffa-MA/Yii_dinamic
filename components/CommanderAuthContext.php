@@ -15,11 +15,7 @@ class CommanderAuthContext
     public function login(User $user): void
     {
         $role = $this->normalizeRole((string)$user->role, (string)$user->username);
-        Yii::$app->session->set(self::SESSION_KEY_AUTH, [
-            'user_id' => (int)$user->id,
-            'role' => $role,
-            'logged_in_at' => date('Y-m-d H:i:s'),
-        ]);
+        Yii::$app->session->set(self::SESSION_KEY_AUTH, true);
         Yii::$app->session->set(self::SESSION_KEY_LOGIN, true);
         Yii::$app->session->set(self::SESSION_KEY_USER_ID, (int)$user->id);
         Yii::$app->session->set(self::SESSION_KEY_ROLE, $role);
@@ -36,6 +32,10 @@ class CommanderAuthContext
     public function isAuthenticated(): bool
     {
         $authData = Yii::$app->session->get(self::SESSION_KEY_AUTH, []);
+        if ($authData === true || $authData === 1 || $authData === '1') {
+            return true;
+        }
+
         if (is_array($authData) && !empty($authData['user_id'])) {
             return true;
         }
@@ -49,11 +49,13 @@ class CommanderAuthContext
 
     public function getRole(): string
     {
+        $role = trim((string)Yii::$app->session->get(self::SESSION_KEY_ROLE, ''));
+        if ($role !== '') {
+            return $this->normalizeRole($role);
+        }
+
         $authData = Yii::$app->session->get(self::SESSION_KEY_AUTH, []);
         $role = is_array($authData) ? trim((string)($authData['role'] ?? '')) : '';
-        if ($role === '') {
-            $role = trim((string)Yii::$app->session->get(self::SESSION_KEY_ROLE, ''));
-        }
 
         if ($role !== '') {
             return $this->normalizeRole($role);
@@ -82,7 +84,7 @@ class CommanderAuthContext
     {
         $role = strtolower(trim($role));
         $username = strtolower(trim($username));
-        if ($role === 'super_admin' || $role === 'superadmin' || ($username === 'superadmin' && $role === '')) {
+        if (in_array($username, ['admin', 'superadmin'], true) || in_array($role, ['super_admin', 'superadmin'], true)) {
             return 'superadmin';
         }
 

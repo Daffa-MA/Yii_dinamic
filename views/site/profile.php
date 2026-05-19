@@ -350,9 +350,13 @@ $lastUpdated = $user !== null && !empty($user->updated_at) ? date('d M Y H:i', s
 
                     <div class="commander-actions">
                         <?= Html::a('Back to Project List', (new \app\components\DomainContext())->projectListUrl(), ['class' => 'commander-btn commander-btn-primary']) ?>
-                        <?= Html::a('Logout', ['/site/logout'], [
-                            'class' => 'commander-btn commander-btn-secondary',
-                            'data' => ['method' => 'post'],
+                        <?= $this->render('../layouts/_logout_button', [
+                            'url' => ['/site/logout'],
+                            'label' => 'Logout',
+                            'icon' => '',
+                            'buttonClass' => 'commander-btn commander-btn-secondary',
+                            'buttonStyle' => 'width:100%;',
+                            'formStyle' => 'margin:0;',
                         ]) ?>
                     </div>
                 </div>

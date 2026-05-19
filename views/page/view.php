@@ -57,15 +57,24 @@ $customSourceDoc = '';
 if ($hasCustomPageSource) {
     $previewService = new DynamicFormPreviewService();
     $renderedFormIds = [];
-    $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($previewService, $page, $activeMenuId, &$renderedFormIds): string {
-        $formId = (int)$matches[1];
-        $renderedFormIds[] = $formId;
-        return $previewService->renderByScopedId($formId, true, true, [
-            'render_context' => 'page_content',
-            'page_id' => (int)$page->id,
-            'menu_id' => $activeMenuId,
-        ]);
-    }, $customHtml);
+    try {
+        $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($previewService, $page, $activeMenuId, &$renderedFormIds): string {
+            $formId = (int)$matches[1];
+            $renderedFormIds[] = $formId;
+            try {
+                return $previewService->renderByScopedId($formId, true, true, [
+                    'render_context' => 'page_content',
+                    'page_id' => (int)$page->id,
+                    'menu_id' => $activeMenuId,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to render embedded form on page view: ' . $e->getMessage(), 'app');
+                return '<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Form tidak dapat ditampilkan.</div>';
+            }
+        }, $customHtml) ?? $customHtml;
+    } catch (\Throwable $e) {
+        Yii::warning('Failed to expand custom page tokens on page view: ' . $e->getMessage(), 'app');
+    }
 
     if (stripos($customHtml, '<form') !== false) {
         $fallbackFormId = $renderedFormIds[0] ?? 0;
@@ -78,18 +87,27 @@ if ($hasCustomPageSource) {
         }
 
         if ($fallbackFormId > 0) {
-            $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, $fallbackFormId, [
-                '_embedded' => '1',
-                'render_context' => 'page_content',
-                'page_id' => (string)(int)$page->id,
-                'menu_id' => $activeMenuId > 0 ? (string)$activeMenuId : '',
-                'project_id' => $activeProjectId !== null ? (string)$activeProjectId : '',
-                'workspace_role' => $workspaceRole,
-            ]);
+            try {
+                $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, $fallbackFormId, [
+                    '_embedded' => '1',
+                    'render_context' => 'page_content',
+                    'page_id' => (string)(int)$page->id,
+                    'menu_id' => $activeMenuId > 0 ? (string)$activeMenuId : '',
+                    'project_id' => $activeProjectId !== null ? (string)$activeProjectId : '',
+                    'workspace_role' => $workspaceRole,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to prepare custom form submission on page view: ' . $e->getMessage(), 'app');
+            }
         }
     }
 
-    $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
+    $startsWithHtmlDoc = false;
+    try {
+        $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
+    } catch (\Throwable $e) {
+        Yii::warning('Failed to detect custom page document on page view: ' . $e->getMessage(), 'app');
+    }
     if ($startsWithHtmlDoc) {
         $customSourceDoc = $customHtml;
     } else {

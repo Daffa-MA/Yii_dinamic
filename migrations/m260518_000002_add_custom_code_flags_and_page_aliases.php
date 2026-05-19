@@ -6,6 +6,10 @@ class m260518_000002_add_custom_code_flags_and_page_aliases extends Migration
 {
     public function safeUp()
     {
+        $this->addColumnIfMissing('{{%master_form}}', 'custom_html', $this->db->schema->createColumnSchemaBuilder('longtext'));
+        $this->addColumnIfMissing('{{%master_form}}', 'custom_css', $this->db->schema->createColumnSchemaBuilder('longtext'));
+        $this->addColumnIfMissing('{{%master_form}}', 'custom_js', $this->db->schema->createColumnSchemaBuilder('longtext'));
+        $this->addColumnIfMissing('{{%master_form}}', 'use_custom_code', $this->tinyInteger(1)->defaultValue(0));
         $this->addColumnIfMissing('{{%master_form_layouts}}', 'use_custom_code', $this->tinyInteger(1)->defaultValue(0));
         $this->addColumnIfMissing('{{%master_page}}', 'page_custom_html', $this->text()->null());
         $this->addColumnIfMissing('{{%master_page}}', 'page_custom_css', $this->text()->null());
@@ -20,6 +24,10 @@ class m260518_000002_add_custom_code_flags_and_page_aliases extends Migration
         $this->dropColumnIfExists('{{%master_page}}', 'page_custom_css');
         $this->dropColumnIfExists('{{%master_page}}', 'page_custom_html');
         $this->dropColumnIfExists('{{%master_form_layouts}}', 'use_custom_code');
+        $this->dropColumnIfExists('{{%master_form}}', 'use_custom_code');
+        $this->dropColumnIfExists('{{%master_form}}', 'custom_js');
+        $this->dropColumnIfExists('{{%master_form}}', 'custom_css');
+        $this->dropColumnIfExists('{{%master_form}}', 'custom_html');
     }
 
     private function addColumnIfMissing(string $table, string $column, $type): void

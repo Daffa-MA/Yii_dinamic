@@ -262,6 +262,10 @@ class DatabaseSchemaInitializer
             'form_type' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('dynamic'),
             'database_context' => $this->connection->schema->createColumnSchemaBuilder('string', 100),
             'custom_code_mode' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
+            'custom_html' => $this->connection->schema->createColumnSchemaBuilder('longtext'),
+            'custom_css' => $this->connection->schema->createColumnSchemaBuilder('longtext'),
+            'custom_js' => $this->connection->schema->createColumnSchemaBuilder('longtext'),
+            'use_custom_code' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
             'slug' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->notNull()->unique(),
             'is_active' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(1),
             'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
@@ -358,6 +362,10 @@ class DatabaseSchemaInitializer
             'form_type' => ['type' => 'string', 'length' => 50, 'default' => 'dynamic'],
             'database_context' => ['type' => 'string', 'length' => 100],
             'custom_code_mode' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
+            'custom_html' => ['type' => 'longtext'],
+            'custom_css' => ['type' => 'longtext'],
+            'custom_js' => ['type' => 'longtext'],
+            'use_custom_code' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
         ];
 
         foreach ($columnsToAdd as $column => $config) {

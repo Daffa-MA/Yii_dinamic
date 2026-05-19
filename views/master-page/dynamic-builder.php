@@ -2068,17 +2068,17 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         <div id="properties-code-tab" class="prop-tab-content" style="display: none; flex: 1; flex-direction: column;">
             <div class="code-editor-header">
                 <div class="code-scope-buttons">
-                    <button class="code-scope-btn active" data-scope="component">Component Code</button>
-                    <button class="code-scope-btn" data-scope="page">Page Source</button>
+                    <button type="button" class="code-scope-btn active" data-scope="component" onclick="setCodeScope('component')">Component Code</button>
+                    <button type="button" class="code-scope-btn" data-scope="page" onclick="setCodeScope('page')">Page Source</button>
                 </div>
                 <?php if ($canAccessTools): ?>
                 <div class="code-editor-tools" id="component-code-tools">
                     <div class="code-lang-buttons">
-                        <button class="code-lang-btn active" data-lang="html" onclick="switchCodeLang('html')">HTML</button>
-                        <button class="code-lang-btn" data-lang="css" onclick="switchCodeLang('css')">CSS</button>
-                        <button class="code-lang-btn" data-lang="js" onclick="switchCodeLang('js')">JS</button>
+                        <button type="button" class="code-lang-btn active" data-lang="html" onclick="switchCodeLang('html')">HTML</button>
+                        <button type="button" class="code-lang-btn" data-lang="css" onclick="switchCodeLang('css')">CSS</button>
+                        <button type="button" class="code-lang-btn" data-lang="js" onclick="switchCodeLang('js')">JS</button>
                     </div>
-                    <button class="btn-reset-base" onclick="resetBaseCode()">
+                    <button type="button" class="btn-reset-base" onclick="resetBaseCode()">
                         <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
                         Reset Base
                     </button>
@@ -5420,7 +5420,11 @@ ${html || ''}
     });
 
     document.querySelectorAll('.code-scope-btn').forEach(btn => {
-        btn.addEventListener('click', () => setCodeScope(btn.dataset.scope));
+        btn.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            setCodeScope(btn.dataset.scope);
+        });
     });
 
     // Code Language Switching Logic

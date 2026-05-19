@@ -1177,16 +1177,16 @@ body.dashboard-main-page {
         <div id="properties-code-tab" class="prop-tab-content" style="display: none; flex: 1; flex-direction: column;">
             <div class="code-editor-header">
                 <div class="code-scope-buttons">
-                    <button class="code-scope-btn active" data-scope="component">Component Code</button>
-                    <button class="code-scope-btn" data-scope="page">Page Source</button>
+                    <button type="button" class="code-scope-btn active" data-scope="component" onclick="setCodeScope('component')">Component Code</button>
+                    <button type="button" class="code-scope-btn" data-scope="page" onclick="setCodeScope('page')">Page Source</button>
                 </div>
                 <div class="code-editor-tools" id="component-code-tools">
                     <div class="code-lang-buttons">
-                        <button class="code-lang-btn active" data-lang="html" onclick="switchCodeLang('html')">HTML</button>
-                        <button class="code-lang-btn" data-lang="css" onclick="switchCodeLang('css')">CSS</button>
-                        <button class="code-lang-btn" data-lang="js" onclick="switchCodeLang('js')">JS</button>
+                        <button type="button" class="code-lang-btn active" data-lang="html" onclick="switchCodeLang('html')">HTML</button>
+                        <button type="button" class="code-lang-btn" data-lang="css" onclick="switchCodeLang('css')">CSS</button>
+                        <button type="button" class="code-lang-btn" data-lang="js" onclick="switchCodeLang('js')">JS</button>
                     </div>
-                    <button class="btn-reset-base" onclick="resetFieldCode()">
+                    <button type="button" class="btn-reset-base" onclick="resetFieldCode()">
                         <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
                         Reset Base
                     </button>
@@ -1647,7 +1647,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.initMonacoEditor = function() {
         if (monacoEditor) {
-            loadFieldCodeFromState();
+            if (activeCodeScope === 'page') {
+                loadFormCustomCodeFromState();
+            } else {
+                loadFieldCodeFromState();
+            }
+            renderCanvasMode();
             return;
         }
 
@@ -1683,6 +1688,7 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 loadFieldCodeFromState();
             }
+            setCodeScope(activeCodeScope);
         });
     };
 
@@ -1804,6 +1810,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.querySelectorAll('.code-scope-btn').forEach(function(btn) {
             btn.classList.toggle('active', btn.dataset.scope === activeCodeScope);
         });
+        const hint = document.getElementById('code-mode-hint');
+        if (hint) {
+            hint.textContent = activeCodeScope === 'page'
+                ? 'Preview canvas memakai Page Source ini. HTML/CSS di sini akan menggantikan UI builder default.'
+                : 'Edit custom code untuk field yang dipilih (HTML/CSS/JS terpisah).';
+        }
+        const tools = document.getElementById('component-code-tools');
+        if (tools) {
+            tools.style.display = activeCodeScope === 'page' ? 'none' : 'flex';
+        }
         
         // Handle code scope switching
         if (activeCodeScope === 'page') {
@@ -1821,15 +1837,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         monaco.editor.setModelLanguage(model, 'html');
                     }
                 }
-                document.getElementById('component-code-tools').style.display = 'none';
             }
         } else if (activeCodeScope === 'component') {
             // Show component code
             if (monacoEditor && formFields[selectedIndex]) {
                 loadFieldCodeFromState();
-                document.getElementById('component-code-tools').style.display = 'flex';
             }
         }
+        renderCanvasMode();
     };
 
     function updateFormCustomCodeInState() {
@@ -1838,6 +1853,7 @@ document.addEventListener('DOMContentLoaded', function() {
         fullFormCustomCss = '';
         fullFormCustomJs = '';
         updateCustomCodeInputs();
+        renderCanvasMode();
     }
 
     function loadFormCustomCodeFromState() {
@@ -1845,6 +1861,7 @@ document.addEventListener('DOMContentLoaded', function() {
         isSyncingCode = true;
         monacoEditor.setValue(fullFormCustomHtml || generatePageSource());
         isSyncingCode = false;
+        renderCanvasMode();
     }
 
     function updateCustomCodeInputs() {
@@ -1857,6 +1874,57 @@ document.addEventListener('DOMContentLoaded', function() {
         if (htmlInput) htmlInput.value = useCustom ? fullFormCustomHtml : '';
         if (cssInput) cssInput.value = useCustom ? fullFormCustomCss : '';
         if (jsInput) jsInput.value = useCustom ? fullFormCustomJs : '';
+    }
+
+    function getCustomSourceForCanvas() {
+        const source = activeCodeScope === 'page' && monacoEditor ? monacoEditor.getValue() : fullFormCustomHtml;
+        return (source || '').trim() || generatePageSource();
+    }
+
+    function renderCanvasMode() {
+        const workspace = document.querySelector('.builder-workspace');
+        if (!workspace || !workspace.parentNode) return;
+        const generatorToolbar = workspace.previousElementSibling;
+
+        let preview = document.getElementById('custom-code-canvas-preview');
+        if (activeCodeScope !== 'page') {
+            if (generatorToolbar) {
+                generatorToolbar.style.display = '';
+            }
+            workspace.style.display = '';
+            if (preview) preview.remove();
+            return;
+        }
+
+        if (generatorToolbar) {
+            generatorToolbar.style.display = 'none';
+        }
+        workspace.style.display = 'none';
+        if (!preview) {
+            preview = document.createElement('div');
+            preview.id = 'custom-code-canvas-preview';
+            preview.style.cssText = 'display:flex;flex:1 1 auto;min-height:620px;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,0.08);';
+            workspace.parentNode.insertBefore(preview, workspace.nextSibling);
+        }
+
+        preview.innerHTML = '';
+        const iframe = document.createElement('iframe');
+        iframe.title = 'Custom Code Preview';
+        iframe.srcdoc = getCustomSourceForCanvas();
+        iframe.setAttribute('sandbox', 'allow-scripts allow-forms allow-same-origin');
+        iframe.style.cssText = 'display:block;width:100%;height:100%;min-height:620px;border:0;background:#fff;';
+        preview.appendChild(iframe);
+    }
+
+    function logSubmitPayload(form) {
+        if (!window.console || !console.debug) return;
+        const payload = new FormData(form);
+        console.debug('MasterForm custom code payload', {
+            use_custom_code: payload.get('MasterForm[use_custom_code]'),
+            custom_html_length: String(payload.get('MasterForm[custom_html]') || '').length,
+            custom_css_length: String(payload.get('MasterForm[custom_css]') || '').length,
+            custom_js_length: String(payload.get('MasterForm[custom_js]') || '').length
+        });
     }
     
     // Generate full page HTML source from all fields
@@ -1932,15 +2000,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     
-    // Add click handler for code scope buttons
+    // Add direct and delegated handlers so dynamically refreshed panels still switch renderer.
     document.querySelectorAll('.code-scope-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
             setCodeScope(this.dataset.scope);
         });
+    });
+    document.addEventListener('click', function(event) {
+        const scopeButton = event.target.closest('.code-scope-btn');
+        if (!scopeButton) return;
+        event.preventDefault();
+        setCodeScope(scopeButton.dataset.scope);
     });
     
     // Render Fields
     function renderFields() {
+        if (activeCodeScope === 'page') {
+            renderCanvasMode();
+        }
+
         if (formFields.length === 0) {
             if (placeholder) placeholder.style.display = 'block';
             if (container) container.innerHTML = '';
@@ -2145,6 +2225,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             updateCustomCodeInputs();
         }
+        logSubmitPayload(this);
     });
 
     // Load tables

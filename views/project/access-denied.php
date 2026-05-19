@@ -319,7 +319,7 @@ CSS);
 
                 <?= Html::a(
                     'Logout',
-                    ['project/logout', 'id' => $project->id],
+                    ['project/logout', 'id' => $project->id, 'reason' => 'access_denied'],
                     [
                         'class' => 'access-denied-btn access-denied-btn-secondary',
                         'data-method' => 'post',

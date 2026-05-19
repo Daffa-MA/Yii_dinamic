@@ -92,7 +92,7 @@ class FormRenderService
             return $html;
         }
 
-        $action = Url::to(['/master-form/submit', 'id' => $formId]);
+        $action = Url::to(['/master-form/submit', 'id' => $formId], true);
         $csrfParam = Yii::$app->request->csrfParam;
         $csrfToken = Yii::$app->request->getCsrfToken();
         $hidden = '<input type="hidden" name="' . Html::encode($csrfParam) . '" value="' . Html::encode($csrfToken) . '">';

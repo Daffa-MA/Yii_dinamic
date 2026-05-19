@@ -2,10 +2,12 @@
 
 use app\models\Form;
 use app\models\MasterPage;
+use app\models\MasterForm;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
 use app\services\DynamicFormPreviewService;
+use app\services\FormRenderService;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
@@ -54,13 +56,38 @@ $customSourceDoc = '';
 
 if ($hasCustomPageSource) {
     $previewService = new DynamicFormPreviewService();
-    $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($previewService, $page, $activeMenuId): string {
-        return $previewService->renderByScopedId((int)$matches[1], true, true, [
+    $renderedFormIds = [];
+    $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($previewService, $page, $activeMenuId, &$renderedFormIds): string {
+        $formId = (int)$matches[1];
+        $renderedFormIds[] = $formId;
+        return $previewService->renderByScopedId($formId, true, true, [
             'render_context' => 'page_content',
             'page_id' => (int)$page->id,
             'menu_id' => $activeMenuId,
         ]);
     }, $customHtml);
+
+    if (stripos($customHtml, '<form') !== false) {
+        $fallbackFormId = $renderedFormIds[0] ?? 0;
+        if ($fallbackFormId <= 0) {
+            $fallbackForm = MasterForm::find()
+                ->where(['page_id' => (int)$page->id])
+                ->orderBy(['id' => SORT_DESC])
+                ->one();
+            $fallbackFormId = $fallbackForm ? (int)$fallbackForm->id : 0;
+        }
+
+        if ($fallbackFormId > 0) {
+            $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, $fallbackFormId, [
+                '_embedded' => '1',
+                'render_context' => 'page_content',
+                'page_id' => (string)(int)$page->id,
+                'menu_id' => $activeMenuId > 0 ? (string)$activeMenuId : '',
+                'project_id' => $activeProjectId !== null ? (string)$activeProjectId : '',
+                'workspace_role' => $workspaceRole,
+            ]);
+        }
+    }
 
     $startsWithHtmlDoc = preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1;
     if ($startsWithHtmlDoc) {
@@ -68,6 +95,13 @@ if ($hasCustomPageSource) {
     } else {
         $customSourceDoc = "<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"UTF-8\" />\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\" />\n<style>{$customCss}</style>\n</head>\n<body>\n{$customHtml}\n<script>{$customJs}</script>\n</body>\n</html>";
     }
+
+    $customSourceDoc = preg_replace(
+        '/<head\b[^>]*>/i',
+        '$0<base href="' . Html::encode(Yii::$app->request->hostInfo) . '/">',
+        $customSourceDoc,
+        1
+    ) ?? $customSourceDoc;
 }
 
 $layoutJson = $page->layout_json ?? '[]';

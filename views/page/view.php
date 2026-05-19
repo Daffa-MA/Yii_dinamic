@@ -112,12 +112,104 @@ if ($hasCustomPageSource): ?>
     <div class="rounded-[28px] border border-slate-200 bg-white p-2 shadow-sm overflow-hidden">
         <iframe
             srcdoc="<?= Html::encode($customSourceDoc) ?>"
+            data-custom-page-source-iframe
             class="block w-full border-0 bg-white"
             title="Custom Page Source"
             style="min-height: 780px;"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
         ></iframe>
     </div>
+    <script>
+        (function() {
+            function escapeHtml(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function showSubmitToast(type, message) {
+                var existing = document.getElementById('page-submit-toast');
+                if (existing) existing.remove();
+
+                var isSuccess = type === 'success';
+                var toast = document.createElement('div');
+                toast.id = 'page-submit-toast';
+                toast.setAttribute('role', 'status');
+                toast.style.cssText = [
+                    'position:fixed',
+                    'top:22px',
+                    'right:22px',
+                    'z-index:2147483647',
+                    'width:min(420px,calc(100vw - 32px))',
+                    'background:#ffffff',
+                    'color:#0f172a',
+                    'border:1px solid ' + (isSuccess ? '#bbf7d0' : '#fecaca'),
+                    'border-left:5px solid ' + (isSuccess ? '#22c55e' : '#ef4444'),
+                    'border-radius:14px',
+                    'box-shadow:0 24px 60px rgba(15,23,42,.22)',
+                    'font-family:Inter,Segoe UI,Arial,sans-serif',
+                    'overflow:hidden',
+                    'transform:translateY(-8px)',
+                    'opacity:0',
+                    'transition:opacity .18s ease, transform .18s ease'
+                ].join(';');
+
+                toast.innerHTML =
+                    '<div style="display:flex;gap:12px;align-items:flex-start;padding:16px 18px;">' +
+                        '<div style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:' + (isSuccess ? '#dcfce7;color:#15803d' : '#fee2e2;color:#b91c1c') + ';font-weight:800;font-size:18px;">' + (isSuccess ? '&#10003;' : '!') + '</div>' +
+                        '<div style="min-width:0;flex:1;">' +
+                            '<div style="font-size:15px;font-weight:800;margin-bottom:3px;">' + (isSuccess ? 'Data berhasil dikirim' : 'Gagal mengirim data') + '</div>' +
+                            '<div style="font-size:13px;line-height:1.5;color:#475569;">' + escapeHtml(message || (isSuccess ? 'Terima kasih, data sudah tersimpan.' : 'Silakan periksa kembali isian form.')) + '</div>' +
+                        '</div>' +
+                        '<button type="button" aria-label="Tutup" style="border:0;background:transparent;color:#94a3b8;font-size:22px;line-height:1;cursor:pointer;padding:0 0 0 8px;">&times;</button>' +
+                    '</div>';
+
+                toast.querySelector('button').addEventListener('click', function() {
+                    toast.remove();
+                });
+
+                document.body.appendChild(toast);
+                requestAnimationFrame(function() {
+                    toast.style.opacity = '1';
+                    toast.style.transform = 'translateY(0)';
+                });
+
+                clearTimeout(window.__pageSubmitToastTimer);
+                window.__pageSubmitToastTimer = setTimeout(function() {
+                    if (!toast.parentNode) return;
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-8px)';
+                    setTimeout(function() {
+                        if (toast.parentNode) toast.remove();
+                    }, 220);
+                }, isSuccess ? 4200 : 6500);
+            }
+
+            function looksLikeJsonResponse(text) {
+                var value = String(text || '').trim();
+                return value.charAt(0) === '{' && value.indexOf('"success"') !== -1;
+            }
+
+            document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {
+                var originalSrcdoc = iframe.getAttribute('srcdoc') || '';
+                iframe.addEventListener('load', function() {
+                    try {
+                        var doc = iframe.contentWindow && iframe.contentWindow.document;
+                        var text = doc && doc.body ? doc.body.innerText : '';
+                        if (!looksLikeJsonResponse(text)) return;
+
+                        var data = JSON.parse(String(text).trim());
+                        showSubmitToast(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
+                        iframe.srcdoc = originalSrcdoc;
+                    } catch (error) {
+                    }
+                });
+            });
+        })();
+    </script>
     <?php return; ?>
 <?php endif; ?>
 

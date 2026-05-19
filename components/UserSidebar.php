@@ -104,6 +104,7 @@ class UserSidebar extends Component
             'page_id' => $menu->page_id ? (int) $menu->page_id : null,
             'form_id' => $menu->form_id ? (int) $menu->form_id : null,
             'route' => $menu->route,
+            'menu_key' => $menu->menu_key,
             'parent_id' => $menu->parent_id ? (int) $menu->parent_id : null,
             'order' => (int) ($menu->order ?? $menu->sort_order),
             'has_children' => false,
@@ -121,6 +122,10 @@ class UserSidebar extends Component
     {
         // Debug log
         \Yii::info('resolveUrl UserSidebar - type: ' . ($menu->type ?? 'null') . ', form_id: ' . ($menu->form_id ?? 'null') . ', page_id: ' . ($menu->page_id ?? 'null'), 'menu-url-debug');
+
+        if ($this->isDashboardMenu($menu)) {
+            return Url::to(['/dashboard']);
+        }
         
         switch ($menu->type) {
             case MasterMenu::TYPE_ROUTE:
@@ -148,6 +153,19 @@ class UserSidebar extends Component
             default:
                 return '#';
         }
+    }
+
+    private function isDashboardMenu(MasterMenu $menu): bool
+    {
+        $menuKey = strtolower(trim((string)($menu->menu_key ?? '')));
+        $name = strtolower(trim((string)($menu->name ?? '')));
+        $route = strtolower(trim((string)($menu->route ?? '')));
+
+        if ($menuKey === 'dashboard' || $name === 'dashboard') {
+            return true;
+        }
+
+        return in_array($route, ['/dashboard', 'dashboard', '/site/dashboard', 'site/dashboard'], true);
     }
     
     /**
@@ -203,12 +221,15 @@ class UserSidebar extends Component
             $route = $item['route'] ?? '';
             $pageId = $item['page_id'] ?? null;
             $formId = $item['form_id'] ?? null;
+            $menuKey = strtolower(trim((string)($item['menu_key'] ?? '')));
             
             // Check current item - EXACT match only
             if ($type === 'route' && !empty($route)) {
                 if ($routesMatch($route)) {
                     return true;
                 }
+            } elseif ($type === 'page' && !empty($pageId) && $menuKey === 'dashboard' && in_array(strtolower(trim($currentRoute, '/')), ['dashboard', 'site/dashboard'], true)) {
+                return true;
             } elseif ($type === 'page' && !empty($pageId)) {
                 if ($routesMatch('page/view')) {
                     $pageIdFromRoute = Yii::$app->request->get('id');
@@ -246,6 +267,7 @@ class UserSidebar extends Component
             $route = $item['route'] ?? '';
             $pageId = $item['page_id'] ?? null;
             $formId = $item['form_id'] ?? null;
+            $menuKey = strtolower(trim((string)($item['menu_key'] ?? '')));
             
             // Detect active based on EXACT route matching
             $isActive = false;
@@ -253,6 +275,8 @@ class UserSidebar extends Component
                 if ($routesMatch($route)) {
                     $isActive = true;
                 }
+            } elseif ($type === 'page' && !empty($pageId) && $menuKey === 'dashboard' && in_array(strtolower(trim($currentRoute, '/')), ['dashboard', 'site/dashboard'], true)) {
+                $isActive = true;
             } elseif ($type === 'page' && !empty($pageId)) {
                 if ($routesMatch('page/view')) {
                     $pageIdFromRoute = Yii::$app->request->get('id');

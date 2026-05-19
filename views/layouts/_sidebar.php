@@ -90,7 +90,11 @@ $projectPermissionService = new \app\components\ProjectPermissionService();
 $isWorkspaceAdmin = $canOpenProjectList || (strtolower(trim((string)($projectAuthUser->role ?? ''))) === 'admin');
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
-$logoutUrl = $domainContext->isWorkspaceDomain() ? \yii\helpers\Url::to(['/project/logout']) : \yii\helpers\Url::to(['/site/commander-logout']);
+$logoutUrl = $commanderAuth->isSuperAdmin()
+    ? \yii\helpers\Url::to(['/site/logout'])
+    : ($domainContext->isWorkspaceDomain()
+        ? \yii\helpers\Url::to(['/project/logout'])
+        : \yii\helpers\Url::to(['/site/logout']));
 $projectListUrl = $domainContext->projectListUrl();
 
 $workspaceToolRoutes = [
@@ -1492,17 +1496,15 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
         <?php endif; ?>
 
         <div style="display:grid;gap:8px;">
-            <?php if ($domainContext->isRootDomain() || $logoutUrl === \yii\helpers\Url::to(['/site/commander-logout'])): ?>
-                <?= Html::a(
-                    '<span class="material-symbols-outlined">logout</span><span class="app-sidebar-link-text">Logout</span>',
-                    $logoutUrl,
-                    [
-                        'class' => 'app-sidebar-logout',
-                        'style' => 'color: ' . Html::encode($sidebarTextColor) . '; width:100%; text-align:left;',
-                        'data-method' => 'post',
-                        'encode' => false,
-                    ]
-                ) ?>
+            <?php if ($domainContext->isRootDomain() || $logoutUrl === \yii\helpers\Url::to(['/site/logout'])): ?>
+                <?= $this->render('_logout_button', [
+                    'url' => $logoutUrl,
+                    'label' => 'Logout',
+                    'icon' => 'logout',
+                    'buttonClass' => 'app-sidebar-logout',
+                    'buttonStyle' => 'color: ' . Html::encode($sidebarTextColor) . '; width:100%; text-align:left;',
+                    'formStyle' => 'margin:0;',
+                ]) ?>
             <?php else: ?>
                 <?= Html::beginForm($logoutUrl, 'post') ?>
                     <button type="submit" class="app-sidebar-logout" style="color: <?= Html::encode($sidebarTextColor) ?>; width:100%; text-align:left;">

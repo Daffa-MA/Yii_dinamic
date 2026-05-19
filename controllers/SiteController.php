@@ -14,6 +14,7 @@ use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\DomainContext;
+use app\components\LogoutDebugLogger;
 use app\components\ProjectSchema;
 
 class SiteController extends Controller
@@ -352,6 +353,7 @@ class SiteController extends Controller
                 $session->open();
             }
 
+            $this->logCommanderLogoutState('before_clear', $session);
             $this->clearCommanderAndProjectSessions($session);
 
             (new ActiveProjectContext())->clear();
@@ -361,7 +363,9 @@ class SiteController extends Controller
             if ($session->isActive) {
                 $session->destroy();
             }
+            $this->logCommanderLogoutState('after_clear', $session, ['redirect' => '/site/login']);
         } catch (\Throwable $e) {
+            $this->logCommanderLogoutState('failed', Yii::$app->session, ['error' => $e->getMessage(), 'redirect' => '/site/login']);
             Yii::error('Commander logout failed: ' . $e->getMessage(), 'auth');
             try {
                 Yii::$app->user->logout(false);
@@ -369,7 +373,25 @@ class SiteController extends Controller
             }
         }
 
-        return Yii::$app->response->redirect(Url::to(['/site/login'], true));
+        return Yii::$app->response->redirect((new DomainContext())->commanderUrl('/site/login'));
+    }
+
+    private function logCommanderLogoutState(string $stage, \yii\web\Session $session, array $extra = []): void
+    {
+        $sessionKeys = [];
+        try {
+            $all = $session->getAll();
+            if (is_array($all)) {
+                $sessionKeys = array_values(array_map('strval', array_keys($all)));
+            }
+        } catch (\Throwable $e) {
+            $sessionKeys = ['<unavailable>'];
+        }
+
+        LogoutDebugLogger::log($stage, [
+            'source_page' => trim((string)Yii::$app->request->pathInfo, '/'),
+            'session_keys' => $sessionKeys,
+        ] + $extra);
     }
 
     private function clearCommanderAndProjectSessions(\yii\web\Session $session): void

@@ -204,12 +204,13 @@ $content = $content ?? '';
             </nav>
             
             <div class="admin-sidebar-footer">
-                <?= Html::beginForm(['/site/logout'], 'post') ?>
-                    <button type="submit" class="admin-logout-btn">
-                        <span class="material-symbols-outlined">logout</span>
-                        <span>Sign Out</span>
-                    </button>
-                <?= Html::endForm() ?>
+                <?= $this->render('_logout_button', [
+                    'url' => ['/site/logout'],
+                    'label' => 'Sign Out',
+                    'icon' => 'logout',
+                    'buttonClass' => 'admin-logout-btn',
+                    'formStyle' => 'margin:0;',
+                ]) ?>
             </div>
         </aside>
         

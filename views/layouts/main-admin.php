@@ -111,8 +111,13 @@ function isActive($route) {
 
     <!-- Logout -->
     <div style="padding: 16px; border-top: 1px solid #334155; margin-top: auto;">
-        <?= Html::beginForm(['/site/logout'], 'post') ?>
-            <button type="submit" style="
+        <?= $this->render('_logout_button', [
+            'url' => ['/site/logout'],
+            'label' => 'Sign Out',
+            'icon' => 'logout',
+            'buttonClass' => '',
+            'formStyle' => 'margin:0;',
+            'buttonStyle' => '
                 display: flex;
                 align-items: center;
                 gap: 12px;
@@ -124,11 +129,8 @@ function isActive($route) {
                 border-radius: 8px;
                 cursor: pointer;
                 font-size: 14px;
-            ">
-                <span class="material-symbols-outlined" style="font-size: 20px;">logout</span>
-                <span>Sign Out</span>
-            </button>
-        <?= Html::endForm() ?>
+            ',
+        ]) ?>
     </div>
 </aside>
 

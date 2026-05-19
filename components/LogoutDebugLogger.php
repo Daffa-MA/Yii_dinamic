@@ -14,6 +14,8 @@ class LogoutDebugLogger
             'stage' => $stage,
             'route' => trim((string)Yii::$app->requestedRoute, '/'),
             'path' => trim((string)Yii::$app->request->pathInfo, '/'),
+            'host' => Yii::$app->request->hostName,
+            'url' => Yii::$app->request->absoluteUrl,
             'method' => Yii::$app->request->method,
             'role' => (new CommanderAuthContext())->getRole(),
         ] + $context;

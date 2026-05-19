@@ -28,7 +28,7 @@ class WorkspaceMediaStorage
             return Yii::getAlias($configured);
         }
 
-        return Yii::getAlias(self::STORAGE_ALIAS . '/uploads/workspace');
+        return Yii::getAlias(self::STORAGE_ALIAS . '/uploads');
     }
 
     public function publicBasePath(): string
@@ -57,6 +57,13 @@ class WorkspaceMediaStorage
         return $this->storageBasePath() . DIRECTORY_SEPARATOR . $relativePath;
     }
 
+    public function ensurePersistentDirectories(): void
+    {
+        foreach (['project-assets', 'workspace-logo', 'login-background'] as $directory) {
+            $this->ensureDirectory($this->storageBasePath() . DIRECTORY_SEPARATOR . $directory);
+        }
+    }
+
     public function publicPath(string $relativePath): string
     {
         $relativePath = $this->normalizeRelativePath($relativePath);
@@ -77,6 +84,15 @@ class WorkspaceMediaStorage
         $storagePath = $this->storagePath($relativePath);
         if ($storagePath !== '' && is_file($storagePath)) {
             return $storagePath;
+        }
+
+        $legacyStoragePath = $this->legacyStoragePath($relativePath);
+        if ($legacyStoragePath !== '' && is_file($legacyStoragePath)) {
+            $this->ensureDirectory(dirname($storagePath));
+            if (!is_file($storagePath)) {
+                @copy($legacyStoragePath, $storagePath);
+            }
+            return is_file($storagePath) ? $storagePath : $legacyStoragePath;
         }
 
         $publicPath = $this->publicPath($relativePath);
@@ -114,6 +130,7 @@ class WorkspaceMediaStorage
      */
     public function storeUploadedFile(UploadedFile $uploadedFile, string $prefix, string $relativeDir = ''): array
     {
+        $this->ensurePersistentDirectories();
         $extension = strtolower($uploadedFile->getExtension());
         $relativeDir = $this->normalizeRelativeDir($relativeDir);
         $fileName = $prefix . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
@@ -165,6 +182,14 @@ class WorkspaceMediaStorage
 
         if ($storagePath === '' || $publicPath === '') {
             return;
+        }
+
+        if (!is_file($storagePath)) {
+            $legacyStoragePath = $this->legacyStoragePath($relativePath);
+            if ($legacyStoragePath !== '' && is_file($legacyStoragePath)) {
+                $this->ensureDirectory(dirname($storagePath));
+                @copy($legacyStoragePath, $storagePath);
+            }
         }
 
         if (!is_file($storagePath) && is_file($publicPath)) {
@@ -220,6 +245,16 @@ class WorkspaceMediaStorage
         }
 
         return $this->normalizeRelativePath($path);
+    }
+
+    private function legacyStoragePath(string $relativePath): string
+    {
+        $relativePath = $this->normalizeRelativePath($relativePath);
+        if ($relativePath === '') {
+            return '';
+        }
+
+        return $this->storageBasePath() . DIRECTORY_SEPARATOR . 'workspace' . DIRECTORY_SEPARATOR . $relativePath;
     }
 
     private function ensureDirectory(string $path): void

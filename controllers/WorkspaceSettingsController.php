@@ -564,7 +564,7 @@ class WorkspaceSettingsController extends Controller
         }
         
         $storage = new WorkspaceMediaStorage();
-        $relativeDir = $this->workspaceMediaRelativeDir();
+        $relativeDir = $this->workspaceMediaRelativeDir('workspace-logo');
         $uploadResult = $storage->storeUploadedFile($uploadedFile, 'logo', $relativeDir);
         if (!$uploadResult['success']) {
             return $uploadResult;
@@ -634,7 +634,7 @@ class WorkspaceSettingsController extends Controller
         }
 
         $storage = new WorkspaceMediaStorage();
-        $relativeDir = $this->workspaceMediaRelativeDir();
+        $relativeDir = $this->workspaceMediaRelativeDir('login-background');
         $uploadResult = $storage->storeUploadedFile($uploadedFile, 'login_bg', $relativeDir);
         if (!$uploadResult['success']) {
             return ['success' => false, 'message' => (string)($uploadResult['message'] ?? 'Gagal menyimpan file background login.')];
@@ -654,14 +654,15 @@ class WorkspaceSettingsController extends Controller
         ];
     }
 
-    private function workspaceMediaRelativeDir(): string
+    private function workspaceMediaRelativeDir(string $category = 'project-assets'): string
     {
+        $category = preg_replace('#[^a-zA-Z0-9_\-]#', '', trim($category)) ?: 'project-assets';
         $projectId = null;
         if (class_exists('\app\components\ActiveProjectContext') && class_exists('\app\components\ProjectSchema') && \app\components\ProjectSchema::supportsProjectContext()) {
             $projectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
         }
 
-        return $projectId !== null && $projectId > 0 ? ((int)$projectId . '/') : '';
+        return $category . '/' . ($projectId !== null && $projectId > 0 ? ((int)$projectId . '/') : 'global/');
     }
 
     private function deleteWorkspaceMediaFile(string $value): void

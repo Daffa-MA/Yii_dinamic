@@ -61,6 +61,9 @@ $footerSupportLinks = [
 $rolePageHero = new \app\components\RolePageHero();
 $roleHeroData = $rolePageHero->build($this->title ?? '', $this->params['workspacePageHero'] ?? [], null, (string)(Yii::$app->controller->route ?? ''));
 $shouldRenderRoleHero = !empty($roleHeroData['should_render']);
+if (trim((string) Yii::$app->request->pathInfo, '/') === 'project-list') {
+    $shouldRenderRoleHero = false;
+}
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>

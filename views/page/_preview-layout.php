@@ -35,13 +35,27 @@ $layoutJson = Json::decode($layoutJson, true);
                     if (!props.src) return '';
                     return `<img src="${props.src}" alt="${props.alt || ''}" class="mx-auto my-6 rounded-lg ${props.align === 'center' ? 'mx-auto' : props.align === 'left' ? 'mr-0' : 'ml-0'} w-full max-w-xs" style="width: ${props.width || '100'}%; border-radius: ${props.borderRadius || '0'}px;">`;
                 case "button":
+                    const linkMode = String(props.linkMode || props.link_mode || '').toLowerCase();
+                    const isUiOnly = linkMode === 'ui_only' || props.uiOnly === true || props.ui_only === true;
+                    const pageId = props.pageId || props.page_id || '';
+                    let href = '';
+                    if (!isUiOnly) {
+                        if (linkMode === 'page' && pageId) {
+                            href = '/page/view?id=' + encodeURIComponent(pageId);
+                        } else {
+                            href = String(props.url || props.href || '').trim();
+                        }
+                    }
                     const colors = { 
                         primary: 'bg-blue-600 text-white', 
                         secondary: 'bg-gray-600 text-white', 
                         outline: 'border border-blue-600 text-blue-600 hover:bg-blue-50',
                         ghost: 'text-blue-600 hover:bg-blue-50'
                     };
-                    return `<div class="text-${props.align || 'center'} my-6"><a href="${props.url || '#'}" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}">${props.text || ''}</a></div>`;
+                    if (isUiOnly || !href) {
+                        return `<div class="text-${props.align || 'center'} my-6"><button type="button" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}" style="cursor:default;" aria-disabled="true">${props.text || ''}</button></div>`;
+                    }
+                    return `<div class="text-${props.align || 'center'} my-6"><a href="${href}" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}"${String(props.target || '').trim() ? ' target="' + String(props.target).trim() + '"' : ''}>${props.text || ''}</a></div>`;
                 case "card":
                     return `<div class="bg-white rounded-lg shadow-md p-6 ${props.bgColor && props.bgColor !== '#ffffff' ? 'bg-' + props.bgColor.replace('#', '') : ''} ${props.showShadow ? 'shadow' : 'border'} ${props.showShadow ? '' : 'border border-gray-200'}">
                         <h3 class="text-lg font-bold mb-3 text-gray-900">${props.title || ''}</h3>

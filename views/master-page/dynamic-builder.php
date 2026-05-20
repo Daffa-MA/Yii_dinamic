@@ -5223,7 +5223,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             const previewWindow = window.open('', '_blank', 'width=1200,height=800');
             if (previewWindow) {
                 previewWindow.document.open();
-                previewWindow.document.write(injectLinkSafetyIntoHtml(fullPageSource || getDefaultFullPageSource()));
+                previewWindow.document.write(fullPageSource || getDefaultFullPageSource());
                 previewWindow.document.close();
             }
             loadingNotification.remove();
@@ -5280,7 +5280,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 </head>
 <body>
     <div>
-        ${injectLinkSafetyIntoHtml(data.html)}
+        ${data.html}
     </div>
 </body>
 </html>`);
@@ -5368,62 +5368,6 @@ ${jsContent}
 </html>`;
     }
 
-    function injectLinkSafetyIntoHtml(source) {
-        const html = (source || '').trim();
-        if (!html) {
-            return html;
-        }
-
-        const script = `<script>
-(function() {
-    function shouldHandle(url) {
-        return !!url && !/^(#|javascript:|mailto:|tel:)/i.test(url);
-    }
-
-    function openLink(url, target) {
-        if (!shouldHandle(url)) {
-            return;
-        }
-
-        if (target && target !== '_self') {
-            window.open(url, target === '_blank' ? '_blank' : target, 'noopener,noreferrer');
-            return;
-        }
-
-        try {
-            if (window.top && window.top !== window) {
-                window.top.location.href = url;
-            } else {
-                window.location.href = url;
-            }
-        } catch (error) {
-            window.open(url, '_blank', 'noopener,noreferrer');
-        }
-    }
-
-    document.addEventListener('click', function(event) {
-        var link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
-        if (!link) return;
-
-        var href = link.getAttribute('href') || '';
-        if (!shouldHandle(href)) return;
-
-        event.preventDefault();
-        openLink(href, (link.getAttribute('target') || '').toLowerCase());
-    }, true);
-})();
-</script>`;
-
-        if (looksLikeFullHtmlDocument(html)) {
-            if (html.toLowerCase().includes('</body>')) {
-                return html.replace(/<\/body>/i, script + '\n</body>');
-            }
-            return html + script;
-        }
-
-        return html + script;
-    }
-
     async function generateFullSourceFromLayoutState(state, fallback = '') {
         const normalizedState = Array.isArray(state) ? state : [];
         if (!normalizedState.length) {
@@ -5476,9 +5420,9 @@ ${jsContent}
 
         const iframe = document.createElement('iframe');
         iframe.id = 'full-page-source-preview';
-        iframe.srcdoc = injectLinkSafetyIntoHtml(fullPageSource || getDefaultFullPageSource());
+        iframe.srcdoc = fullPageSource || getDefaultFullPageSource();
         iframe.style.cssText = 'width:100%;min-height:calc(100vh - 180px);border:0;display:block;background:#fff;';
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
 
         wrap.appendChild(iframe);
         canvas.appendChild(wrap);
@@ -5498,7 +5442,7 @@ ${jsContent}
     </style>
 </head>
 <body>
-${injectLinkSafetyIntoHtml(html || '')}
+${html || ''}
 </body>
 </html>`;
     }
@@ -5876,7 +5820,7 @@ ${injectLinkSafetyIntoHtml(html || '')}
                         id="iframe-${block.id}"
                         srcdoc="${srcDoc}"
                         style="width: 100%; border: none; overflow: hidden; display: block; pointer-events: none;"
-                        sandbox="allow-scripts allow-popups allow-top-navigation-by-user-activation"
+                        sandbox="allow-scripts"
                     ></iframe>
                 </div>
             `;

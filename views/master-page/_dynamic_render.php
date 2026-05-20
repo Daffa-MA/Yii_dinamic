@@ -265,7 +265,7 @@ function renderBlockSafe(block) {
         iframe.style.border = 'none';
         iframe.style.overflow = 'hidden';
         iframe.style.display = 'block';
-        iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-popups allow-top-navigation-by-user-activation');
         
         wrap.appendChild(iframe);
         return wrap;

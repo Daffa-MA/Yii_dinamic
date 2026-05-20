@@ -43,6 +43,11 @@ class DomainProjectResolver implements BootstrapInterface
 
             $route = trim((string)Yii::$app->requestedRoute, '/');
             $isIgnoredRoute = $this->isIgnoredRoute($route);
+            SessionCookieDebugLogger::log('domain_project_resolver_start', [
+                'route' => $route,
+                'is_root_domain' => $domainContext->isRootDomain($host),
+                'is_workspace_domain' => $domainContext->isWorkspaceDomain($host),
+            ]);
 
             if ($domainContext->isRootDomain($host)) {
                 $context = new ActiveProjectContext();

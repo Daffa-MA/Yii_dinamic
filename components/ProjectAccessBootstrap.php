@@ -66,6 +66,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
                 return;
             }
 
+            SessionCookieDebugLogger::log('project_access_bootstrap_protected_route', [
+                'project_id' => $activeProjectId,
+                'route' => $route,
+            ]);
+
             if ($commanderAuth->isSuperAdmin()) {
                 $projectContext = new ActiveProjectContext();
                 $projectIdBeforeDomainResolve = $activeProjectId;
@@ -163,6 +168,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
                 'project/login',
                 'id' => $activeProjectId,
                 'return_url' => Yii::$app->request->url,
+            ]);
+            SessionCookieDebugLogger::log('project_access_bootstrap_project_auth_required', [
+                'project_id' => $activeProjectId,
+                'route' => $route,
+                'redirect_target' => $loginUrl,
             ]);
             ProjectOpenDebugLogger::log('bootstrap_blocked', [
                 'project_id' => $activeProjectId,

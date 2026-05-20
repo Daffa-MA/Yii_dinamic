@@ -48,6 +48,7 @@ if (!function_exists('appSessionCookieParams')) {
         $params = [
             'path' => '/',
             'httpOnly' => true,
+            'sameSite' => \yii\web\Cookie::SAME_SITE_LAX,
         ];
 
         $configured = getenv('APP_COOKIE_DOMAIN');
@@ -55,15 +56,19 @@ if (!function_exists('appSessionCookieParams')) {
             $configured = getenv('YII_COOKIE_DOMAIN');
         }
 
+        $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '')));
+        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
+        $isLocalHost = $host === '' || $host === 'localhost' || $host === '127.0.0.1' || str_ends_with($host, '.local');
+
         if (is_string($configured) && trim($configured) !== '') {
             $domain = trim($configured);
             $params['domain'] = str_starts_with($domain, '.') ? $domain : '.' . ltrim($domain, '.');
+            $params['secure'] = true;
             return $params;
         }
 
-        $host = strtolower(trim((string)($_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? '')));
-        $host = preg_replace('/:\d+$/', '', $host) ?? $host;
-        if ($host === '' || $host === 'localhost' || $host === '127.0.0.1' || str_ends_with($host, '.local')) {
+        if ($isLocalHost) {
+            $params['secure'] = false;
             return $params;
         }
 
@@ -76,6 +81,7 @@ if (!function_exists('appSessionCookieParams')) {
 
         if ($rootDomain !== '' && ($host === $rootDomain || str_ends_with($host, '.' . $rootDomain))) {
             $params['domain'] = '.' . $rootDomain;
+            $params['secure'] = true;
         }
 
         return $params;

@@ -64,6 +64,15 @@ class SiteController extends Controller
                         },
                     ],
                     [
+                        'actions' => ['dashboard'],
+                        'allow' => true,
+                        'matchCallback' => function () {
+                            return (new DomainContext())->isRootDomain()
+                                && (new CommanderAuthContext())->isSuperAdmin()
+                                && (new ActiveProjectContext())->getActiveProjectId() !== null;
+                        },
+                    ],
+                    [
                         'actions' => ['logout', 'commander-logout', 'dashboard', 'profile', 'change-password'],
                         'allow' => true,
                         'roles' => ['@'],
@@ -135,17 +144,33 @@ class SiteController extends Controller
     public function actionDashboard()
     {
         $domainContext = new DomainContext();
-        if ($domainContext->isRootDomain()) {
+        $projectContext = new ActiveProjectContext();
+        $projectContextEnabled = ProjectSchema::supportsProjectContext();
+        $activeProjectId = $projectContextEnabled ? $projectContext->getActiveProjectId() : null;
+        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
+        $isRootCommanderWorkspace = $domainContext->isRootDomain() && $isCommanderSuperAdmin && $activeProjectId !== null;
+
+        if ($domainContext->isRootDomain() && !$isRootCommanderWorkspace) {
             return $this->redirect(['project/index']);
         }
 
-        $projectContext = new ActiveProjectContext();
-        $projectContextEnabled = ProjectSchema::supportsProjectContext();
-        $activeProjectId = (!$domainContext->isRootDomain() && $projectContextEnabled) ? $projectContext->getActiveProjectId() : null;
         if (!$domainContext->isRootDomain() && $projectContextEnabled && $activeProjectId === null) {
             Yii::$app->session->set('project_required_return_url', Yii::$app->request->url);
             Yii::$app->session->setFlash('warning', 'Pilih atau buat project terlebih dahulu sebelum mengelola table/form.');
             return $this->redirect(['project/index']);
+        }
+
+        $userId = Yii::$app->user->id;
+        $activeProject = null;
+        $projectDatabaseName = null;
+        if ($projectContextEnabled && $activeProjectId !== null) {
+            $activeProject = $isCommanderSuperAdmin
+                ? Project::findOne(['id' => $activeProjectId])
+                : Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
+            if ($activeProject !== null) {
+                $projectController = new ProjectController('project', Yii::$app);
+                $projectDatabaseName = $projectController->resolveProjectDatabaseName($activeProject);
+            }
         }
 
         $databaseContext = (new ActiveDatabaseContext())->resolveAndApply();
@@ -153,20 +178,6 @@ class SiteController extends Controller
             Yii::$app->session->setFlash('warning', $databaseContext['switchError']);
         }
 
-        $userId = Yii::$app->user->id;
-        $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
-        $activeProject = null;
-        $projectDatabaseName = null;
-        if ($projectContextEnabled && $activeProjectId !== null) {
-            $activeProject = $isCommanderSuperAdmin
-                ? Project::findOne(['id' => $activeProjectId])
-                : Project::findOne(['id' => $activeProjectId, 'user_id' => $userId]);
-            // Get the project's database name
-            if ($activeProject !== null) {
-                $projectController = new ProjectController('project', Yii::$app);
-                $projectDatabaseName = $projectController->resolveProjectDatabaseName($activeProject);
-            }
-        }
         $schemaColumn = Form::getSchemaStorageColumn();
         $cacheSuffix = '-' . ($databaseContext['activeDatabase'] ?? 'default');
         if ($projectContextEnabled && $activeProjectId !== null) {

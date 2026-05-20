@@ -2711,7 +2711,7 @@ return html;</pre>
                     title: 'Welcome to Our Site',
                     subtitle: 'Build amazing things',
                     buttonText: 'Get Started',
-                    buttonUrl: '#'
+                    buttonUrl: ''
                 },
                 team: {
                     type: 'team',
@@ -2824,7 +2824,7 @@ return html;</pre>
                     title: 'Ready to get started?',
                     subtitle: 'Join thousands of happy users',
                     buttonText: 'Start Now',
-                    buttonUrl: '#'
+                    buttonUrl: ''
                 },
                 'social-links': {
                     type: 'social-links',
@@ -3125,23 +3125,37 @@ return html;</pre>
                         outline: 'transparent;border:2px solid var(--primary);color:var(--primary)'
                     };
                     const buttonLinkMode = String(block.linkMode || block.link_mode || '').trim().toLowerCase();
+                    const buttonPageId = String(block.pageId || block.page_id || '').trim();
+                    const buttonPageHref = buttonPageId ? '/page/view/' + encodeURIComponent(buttonPageId) : '';
                     const isUiOnlyButton = buttonLinkMode === 'ui_only' || block.uiOnly === true || block.ui_only === true;
-                    const buttonHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
+                    const buttonHrefRaw = String(block.href || block.url || block.route || block.action || block.buttonUrl || buttonPageHref || '').trim();
+                    const buttonHref = buttonHrefRaw === '#' ? '' : buttonHrefRaw;
                     const buttonTarget = String(block.target || '').trim();
                     const targetIsReserved = ['_blank', '_self', '_parent', '_top'].indexOf(buttonTarget) !== -1;
-                    const hasDestination = buttonHref !== '' || (!targetIsReserved && buttonTarget !== '');
+                    const targetHref = !targetIsReserved && buttonTarget !== '' ? buttonTarget : '';
+                    const buttonIsExternal = /^(https?:|mailto:|tel:)/i.test(buttonHref);
+                    const resolvedButtonTarget = targetIsReserved ? buttonTarget : (buttonIsExternal ? '_blank' : '');
+                    const resolvedButtonHref = buttonHref || targetHref;
+                    const hasDestination = resolvedButtonHref !== '';
                     if (isUiOnlyButton) {
                         return '<button type="button" class="preview-button" aria-disabled="true" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';cursor:default;pointer-events:none;">' + escapeHtml(block.text || 'Button') + '</button>';
                     }
                     if (!hasDestination) {
                         return '<button type="button" class="preview-button" data-empty-action="true" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';">' + escapeHtml(block.text || 'Button') + '</button>';
                     }
-                    return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="' + escapeHtml(buttonHref || buttonTarget) + '"' + (targetIsReserved ? ' target="' + escapeHtml(buttonTarget) + '"' : '') + '>' + escapeHtml(block.text || 'Button') + '</a>';
+                    return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="' + escapeHtml(resolvedButtonHref) + '"' + (resolvedButtonTarget ? ' target="' + escapeHtml(resolvedButtonTarget) + '"' : '') + (resolvedButtonTarget === '_blank' ? ' rel="noopener noreferrer"' : '') + '>' + escapeHtml(block.text || 'Button') + '</a>';
                 case 'link':
-                    const linkHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
+                    const linkPageId = String(block.pageId || block.page_id || '').trim();
+                    const linkPageHref = linkPageId ? '/page/view/' + encodeURIComponent(linkPageId) : '';
+                    const linkHrefRaw = String(block.href || block.url || block.route || block.action || block.buttonUrl || linkPageHref || '').trim();
+                    const linkHref = linkHrefRaw === '#' ? '' : linkHrefRaw;
                     const linkTarget = String(block.target || '').trim();
                     const linkTargetIsReserved = ['_blank', '_self', '_parent', '_top'].indexOf(linkTarget) !== -1;
-                    const linkHasDestination = linkHref !== '' || (!linkTargetIsReserved && linkTarget !== '');
+                    const linkTargetHref = !linkTargetIsReserved && linkTarget !== '' ? linkTarget : '';
+                    const linkIsExternal = /^(https?:|mailto:|tel:)/i.test(linkHref);
+                    const resolvedLinkTarget = linkTargetIsReserved ? linkTarget : (linkIsExternal ? '_blank' : '');
+                    const resolvedLinkHref = linkHref || linkTargetHref;
+                    const linkHasDestination = resolvedLinkHref !== '';
                     const isUiOnlyLink = buttonLinkMode === 'ui_only' || block.uiOnly === true || block.ui_only === true;
                     if (isUiOnlyLink) {
                         return '<button type="button" class="preview-link" aria-disabled="true" style="background:none;border:none;color:var(--primary);padding:0;text-decoration:none;cursor:default;pointer-events:none;">' + escapeHtml(block.text || 'Link') + ' →</button>';
@@ -3149,7 +3163,7 @@ return html;</pre>
                     if (!linkHasDestination) {
                         return '<button type="button" class="preview-link" data-empty-action="true" style="background:none;border:none;color:var(--primary);padding:0;text-decoration:none;cursor:pointer;">' + escapeHtml(block.text || 'Link') + ' →</button>';
                     }
-                    return '<a href="' + escapeHtml(linkHref || linkTarget) + '"' + (linkTargetIsReserved ? ' target="' + escapeHtml(linkTarget) + '"' : '') + ' style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
+                    return '<a href="' + escapeHtml(resolvedLinkHref) + '"' + (resolvedLinkTarget ? ' target="' + escapeHtml(resolvedLinkTarget) + '"' : '') + (resolvedLinkTarget === '_blank' ? ' rel="noopener noreferrer"' : '') + ' style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
                 case 'tabs':
                     const tabs = (block.tabs || 'Tab 1\nTab 2').split('\n');
                     return '<div class="preview-tabs">' + tabs.map(function(t, i) {
@@ -3385,7 +3399,10 @@ return html;</pre>
                         const urlInput = document.getElementById('prop-url');
                         const urlBadge = document.getElementById('prop-url-badge');
                         const reservedTargets = ['_blank', '_self', '_parent', '_top'];
-                        const buttonHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
+                        const buttonPageId = String(block.pageId || block.page_id || '').trim();
+                        const buttonPageHref = buttonPageId ? '/page/view/' + encodeURIComponent(buttonPageId) : '';
+                        const buttonHrefRaw = String(block.href || block.url || block.route || block.action || block.buttonUrl || buttonPageHref || '').trim();
+                        const buttonHref = buttonHrefRaw === '#' ? '' : buttonHrefRaw;
                         const buttonTarget = String(block.target || '').trim();
                         const hasTargetOnlyUrl = buttonTarget !== '' && reservedTargets.indexOf(buttonTarget) === -1;
                         const resolvedButtonUrl = buttonHref || (hasTargetOnlyUrl ? buttonTarget : '');

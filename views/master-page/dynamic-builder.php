@@ -2307,12 +2307,9 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             if (block.props.url === '#') {
                 block.props.url = '';
             }
-            if (block.props.linkMode === 'none' || block.props.linkMode === 'ui' || block.props.uiOnly === true) {
-                block.props.linkMode = 'ui_only';
-                block.props.url = '';
-                block.props.pageId = '';
-                block.props.pageSlug = '';
-                block.props.uiOnly = true;
+            if (block.props.linkMode === 'none' || block.props.linkMode === 'ui' || block.props.uiOnly === true || block.props.linkMode === 'ui_only') {
+                block.props.linkMode = (block.props.pageId || block.props.pageSlug) ? 'page' : 'manual';
+                block.props.uiOnly = false;
             }
             if (block.props.pageId && !block.props.linkMode) {
                 block.props.linkMode = 'page';
@@ -2437,7 +2434,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 };
                 const style = props.style || 'primary';
                 const linkMode = props.linkMode || (props.pageId ? 'page' : 'manual');
-                const isUiOnly = linkMode === 'ui_only';
+                const isUiOnly = false;
                 const hasUrl = isUiOnly || (linkMode === 'page' ? !!props.pageId : !!(props.url && props.url.trim() !== '' && props.url.trim() !== '#'));
                 const uiHint = isUiOnly ? '<span style="display:block;font-size:10px;color:#64748b;margin-top:4px">UI only: tidak ada aksi saat diklik</span>' : '';
                 const urlWarning = !hasUrl && !isUiOnly ? '<span style="display:block;font-size:10px;color:#ef4444;margin-top:4px">⚠️ URL kosong</span>' : '';
@@ -2713,11 +2710,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 <div class="prop-group">
                     <label>Target Link</label>
                     <select class="prop-select" onchange="setButtonLinkMode('${blockId}', this.value)">
-                        <option value="ui_only" ${buttonLinkMode === 'ui_only' ? 'selected' : ''}>Tanpa aksi / UI only</option>
-                        <option value="manual" ${buttonLinkMode === 'manual' ? 'selected' : ''}>Link Manual</option>
-                        <option value="page" ${buttonLinkMode === 'page' ? 'selected' : ''}>Page Workspace</option>
+                        <option value="page" ${buttonLinkMode === 'page' ? 'selected' : ''}>Workspace page/menu/form</option>
+                        <option value="manual" ${buttonLinkMode === 'manual' ? 'selected' : ''}>Manual URL</option>
                     </select>
-                    <small class="text-gray-500">Pilih tanpa aksi, page internal, atau isi link manual.</small>
+                    <small class="text-gray-500">Pilih tujuan internal atau isi URL manual.</small>
                 </div>
                 <div class="prop-group" style="display:${buttonLinkMode === 'page' ? 'block' : 'none'};">
                     <label>Pilih Page</label>
@@ -2732,9 +2728,6 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     <small id="button-url-help-${blockId}" class="text-gray-500">
                         ${props.url ? 'Contoh: https://example.com atau /page/path' : 'URL masih kosong. Isi manual atau pilih page.'}
                     </small>
-                </div>
-                <div class="prop-group" style="display:${buttonLinkMode === 'ui_only' ? 'block' : 'none'};">
-                    <small class="text-gray-500">Button ini hanya untuk tampilan UI. Saat diklik tidak akan berpindah halaman.</small>
                 </div>
             </div>
             <div class="prop-section">
@@ -2985,9 +2978,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
     function getButtonLinkMode(props) {
         if (!props) return 'manual';
-        if ((props.linkMode || '').toLowerCase() === 'ui_only' || props.uiOnly === true) return 'ui_only';
         if ((props.linkMode || '').toLowerCase() === 'page') return 'page';
-        if ((props.linkMode || '').toLowerCase() === 'none' || (props.linkMode || '').toLowerCase() === 'ui') return 'ui_only';
         if (props.pageId || props.pageSlug || props.page_id) return 'page';
         return 'manual';
     }
@@ -3051,13 +3042,13 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             linkMode: 'manual',
             pageId: '',
             pageSlug: '',
-            uiOnly: false,
-            url: normalizedValue
+            url: normalizedValue,
+            href: normalizedValue
         });
     }
 
     function setButtonLinkMode(blockId, mode) {
-        const normalizedMode = ['page', 'ui_only', 'manual'].includes(mode) ? mode : 'manual';
+        const normalizedMode = ['page', 'manual'].includes(mode) ? mode : 'manual';
         const block = window.pageState.find(b => b.id === blockId);
         if (!block) return;
 
@@ -3068,16 +3059,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         if (normalizedMode === 'page') {
             updates.url = '';
-            updates.uiOnly = false;
-        } else if (normalizedMode === 'ui_only') {
-            updates.url = '';
-            updates.pageId = '';
-            updates.pageSlug = '';
-            updates.uiOnly = true;
+            updates.href = '';
         } else {
             updates.pageId = '';
             updates.pageSlug = '';
-            updates.uiOnly = false;
+            updates.href = '';
         }
 
         block.props = Object.assign({}, props, updates);
@@ -3090,12 +3076,13 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         if (!block) return;
 
         const selectedPage = (window.workspacePages || []).find(page => String(page.id) === String(pageId));
+        const pageRoute = pageId ? '/page/view/' + encodeURIComponent(String(pageId)) : '';
         block.props = Object.assign({}, block.props || {}, {
             linkMode: 'page',
             pageId: pageId ? String(pageId) : '',
             pageSlug: selectedPage?.slug || '',
-            uiOnly: false,
-            url: ''
+            url: pageRoute,
+            href: pageRoute
         });
         renderBuilder(window.pageState);
         renderProperties(blockId);

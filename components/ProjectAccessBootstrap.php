@@ -67,17 +67,20 @@ class ProjectAccessBootstrap implements BootstrapInterface
             }
 
             if ($commanderAuth->isSuperAdmin()) {
+                $projectContext = new ActiveProjectContext();
                 if ($activeProjectId === null) {
                     $host = (new DomainContext())->currentHost();
                     $project = Project::findByCustomDomain($host);
                     if ($project !== null) {
-                        $projectContext = new ActiveProjectContext();
                         $projectContext->setResolvedDomainProject((int)$project->id);
                         $projectContext->setActiveProject((int)$project->id);
-                        $projectContext->setSuperAdminMode(true);
-                        (new ActiveDatabaseContext())->resolveAndApply();
                         $activeProjectId = (int)$project->id;
                     }
+                }
+
+                if ($activeProjectId !== null) {
+                    $projectContext->setSuperAdminMode(true);
+                    (new ActiveDatabaseContext())->resolveAndApply();
                 }
 
                 AuthContextDebugLogger::log('workspace_superadmin_bypass', [

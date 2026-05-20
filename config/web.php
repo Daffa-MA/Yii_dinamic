@@ -188,6 +188,8 @@ $config = [
                 // Project routes (main landing after login)
                 'project-list' => 'project/index',
                 'project-list/select/<id:\d+>' => 'project/select',
+                'project-list/activate/<id:\d+>' => 'project/activate',
+                'project-list/open-workspace/<id:\d+>' => 'project/open-workspace',
                 'project-list/firebase-users' => 'project/firebase-users',
                 'project/profile' => 'project/profile',
                 'project/login/<id:\d+>' => 'project/login',

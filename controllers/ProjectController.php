@@ -25,6 +25,7 @@ use app\components\AuthContextDebugLogger;
 use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
 use app\components\ProjectSchema;
+use app\components\ProjectOpenDebugLogger;
 use app\components\DatabaseSchemaInitializer;
 use yii\helpers\Url;
 
@@ -407,7 +408,7 @@ private function insertDefaultCmsData($newDb): void
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index'],
+                        'actions' => ['index', 'select', 'activate', 'open-workspace'],
                         'allow' => true,
                     ],
                     [
@@ -544,24 +545,47 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionSelect($id)
     {
+        $context = new ActiveProjectContext();
+        $activeProjectIdBefore = $context->getActiveProjectId();
+        ProjectOpenDebugLogger::log('project_select_start', [
+            'project_id' => (int)$id,
+            'active_project_id_before' => $activeProjectIdBefore,
+        ]);
+
         if (!ProjectSchema::supportsProjectContext()) {
+            ProjectOpenDebugLogger::log('project_select_blocked', [
+                'project_id' => (int)$id,
+                'reason' => 'project_context_not_supported',
+                'redirect_target' => '/dashboard',
+            ]);
             Yii::$app->session->setFlash('warning', 'Workspace project belum tersedia di database saat ini.');
             return $this->redirect(['/dashboard']);
         }
 
         $project = $this->findAccessibleProject((int)$id);
         if ($project === null) {
+            ProjectOpenDebugLogger::log('project_select_blocked', [
+                'project_id' => (int)$id,
+                'reason' => 'project_not_found_or_not_accessible',
+            ]);
             throw new NotFoundHttpException('Project not found.');
         }
 
         try {
             $databaseName = $this->ensureProjectDatabase($project);
         } catch (\Throwable $e) {
+            ProjectOpenDebugLogger::log('project_select_blocked', [
+                'project_id' => (int)$project->id,
+                'project_slug' => (string)($project->slug ?? ''),
+                'project_domain' => (string)($project->custom_domain ?? ''),
+                'reason' => 'database_prepare_failed',
+                'error' => $e->getMessage(),
+                'redirect_target' => 'project/index',
+            ]);
             Yii::$app->session->setFlash('error', "Project ditemukan, tapi database project gagal disiapkan: {$e->getMessage()}");
             return $this->redirect(['project/index']);
         }
 
-        $context = new ActiveProjectContext();
         $context->setActiveProject((int)$project->id);
 
         $dbHostHint = (new ActiveDatabaseContext())->mysqlHostFromConnection();
@@ -570,6 +594,15 @@ private function insertDefaultCmsData($newDb): void
         if ($this->isCommanderSuperAdmin()) {
             $context->setSuperAdminMode(true);
             $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+            ProjectOpenDebugLogger::log('project_select_commander_redirect', [
+                'project_id' => (int)$project->id,
+                'project_slug' => (string)($project->slug ?? ''),
+                'project_domain' => (string)($project->custom_domain ?? ''),
+                'database_name' => $databaseName,
+                'active_project_id_before' => $activeProjectIdBefore,
+                'active_project_id_after' => $context->getActiveProjectId(),
+                'redirect_target' => $workspaceUrl,
+            ]);
             AuthContextDebugLogger::log('commander_open_workspace', [
                 'project_id' => (int)$project->id,
                 'target_project_domain' => (string)($project->custom_domain ?? ''),
@@ -581,11 +614,38 @@ private function insertDefaultCmsData($newDb): void
                 return $this->redirect($workspaceUrl);
             }
 
+            ProjectOpenDebugLogger::log('project_select_blocked', [
+                'project_id' => (int)$project->id,
+                'project_slug' => (string)($project->slug ?? ''),
+                'project_domain' => (string)($project->custom_domain ?? ''),
+                'reason' => 'workspace_url_missing',
+                'active_project_id_after' => $context->getActiveProjectId(),
+                'redirect_target' => 'project/index',
+            ]);
             Yii::$app->session->setFlash('warning', 'Domain project belum diset. Silakan lengkapi custom domain terlebih dahulu.');
             return $this->redirect(['project/index']);
         }
 
+        ProjectOpenDebugLogger::log('project_select_project_login_redirect', [
+            'project_id' => (int)$project->id,
+            'project_slug' => (string)($project->slug ?? ''),
+            'project_domain' => (string)($project->custom_domain ?? ''),
+            'active_project_id_before' => $activeProjectIdBefore,
+            'active_project_id_after' => $context->getActiveProjectId(),
+            'redirect_target' => 'project/login',
+            'reason' => 'normal_workspace_user',
+        ]);
         return $this->redirectToProjectLogin((int)$project->id, ['/dashboard']);
+    }
+
+    public function actionActivate($id)
+    {
+        return $this->actionSelect($id);
+    }
+
+    public function actionOpenWorkspace($id)
+    {
+        return $this->actionSelect($id);
     }
 
     public function actionUpdate($id)

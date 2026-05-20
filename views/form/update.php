@@ -3124,10 +3124,15 @@ return html;</pre>
                         danger: 'var(--danger)',
                         outline: 'transparent;border:2px solid var(--primary);color:var(--primary)'
                     };
+                    const buttonLinkMode = String(block.linkMode || block.link_mode || '').trim().toLowerCase();
+                    const isUiOnlyButton = buttonLinkMode === 'ui_only' || block.uiOnly === true || block.ui_only === true;
                     const buttonHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
                     const buttonTarget = String(block.target || '').trim();
                     const targetIsReserved = ['_blank', '_self', '_parent', '_top'].indexOf(buttonTarget) !== -1;
                     const hasDestination = buttonHref !== '' || (!targetIsReserved && buttonTarget !== '');
+                    if (isUiOnlyButton) {
+                        return '<button type="button" class="preview-button" aria-disabled="true" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';cursor:default;pointer-events:none;">' + escapeHtml(block.text || 'Button') + '</button>';
+                    }
                     if (!hasDestination) {
                         return '<button type="button" class="preview-button" data-empty-action="true" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';">' + escapeHtml(block.text || 'Button') + '</button>';
                     }
@@ -3137,6 +3142,10 @@ return html;</pre>
                     const linkTarget = String(block.target || '').trim();
                     const linkTargetIsReserved = ['_blank', '_self', '_parent', '_top'].indexOf(linkTarget) !== -1;
                     const linkHasDestination = linkHref !== '' || (!linkTargetIsReserved && linkTarget !== '');
+                    const isUiOnlyLink = buttonLinkMode === 'ui_only' || block.uiOnly === true || block.ui_only === true;
+                    if (isUiOnlyLink) {
+                        return '<button type="button" class="preview-link" aria-disabled="true" style="background:none;border:none;color:var(--primary);padding:0;text-decoration:none;cursor:default;pointer-events:none;">' + escapeHtml(block.text || 'Link') + ' →</button>';
+                    }
                     if (!linkHasDestination) {
                         return '<button type="button" class="preview-link" data-empty-action="true" style="background:none;border:none;color:var(--primary);padding:0;text-decoration:none;cursor:pointer;">' + escapeHtml(block.text || 'Link') + ' →</button>';
                     }

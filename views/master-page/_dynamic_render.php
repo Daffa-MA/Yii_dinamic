@@ -26,8 +26,12 @@ if ($hasCustomPageSource) {
         $script = <<<'HTML'
 <script>
 (function() {
+    function isExternalUrl(url) {
+        return /^(https?:|mailto:|tel:)/i.test(String(url || '').trim());
+    }
+
     function shouldHandle(url) {
-        return !!url && !/^(#|javascript:|mailto:|tel:)/i.test(url);
+        return !!url && !/^(#|javascript:)/i.test(url);
     }
 
     function navigate(url, target) {
@@ -36,16 +40,17 @@ if ($hasCustomPageSource) {
         }
 
         try {
+            if (isExternalUrl(url)) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+                return;
+            }
+
             if (target && target !== '_self') {
                 window.open(url, target === '_blank' ? '_blank' : target, 'noopener,noreferrer');
                 return;
             }
 
-            if (window.top && window.top !== window) {
-                window.top.location.href = url;
-            } else {
-                window.location.href = url;
-            }
+            window.location.href = url;
         } catch (e) {
             window.open(url, '_blank', 'noopener,noreferrer');
         }
@@ -63,7 +68,12 @@ if ($hasCustomPageSource) {
         }
 
         var target = (link.getAttribute('target') || '').toLowerCase();
+        if (isExternalUrl(href)) {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        }
         event.preventDefault();
+        event.stopPropagation();
         navigate(href, target);
     }, true);
 })();
@@ -265,7 +275,7 @@ function renderBlockSafe(block) {
         iframe.style.border = 'none';
         iframe.style.overflow = 'hidden';
         iframe.style.display = 'block';
-        iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
         
         wrap.appendChild(iframe);
         return wrap;

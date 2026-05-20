@@ -227,6 +227,11 @@ function renderBlockSafe(block) {
         return '';
     }
 
+    function isUiOnlyButton(buttonProps) {
+        const linkMode = normalizeValue(buttonProps.linkMode || buttonProps.link_mode);
+        return linkMode === 'ui_only' || buttonProps.uiOnly === true || buttonProps.ui_only === true;
+    }
+
     function resolveButtonTarget(buttonProps) {
         const target = normalizeValue(buttonProps.target);
         return ['_blank', '_self', '_parent', '_top'].includes(target) ? target : '';
@@ -321,6 +326,7 @@ function renderBlockSafe(block) {
             wrap.className = 'mb-4';
             wrap.style.textAlign = props.align || 'center';
 
+            const isUiOnly = isUiOnlyButton(props);
             const buttonHref = resolveButtonHref(props);
             const buttonTarget = resolveButtonTarget(props);
             const style = props.style || 'primary';
@@ -339,6 +345,35 @@ function renderBlockSafe(block) {
                 // keep
             } else if (style === 'secondary') {
             } else if (style === 'outline') {
+            }
+
+            if (isUiOnly) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.setAttribute('aria-disabled', 'true');
+                applyButtonStyles(button);
+                button.style.cursor = 'default';
+                button.style.pointerEvents = 'none';
+                if (style === 'primary') {
+                    button.style.backgroundColor = '#4f46e5';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                } else if (style === 'secondary') {
+                    button.style.backgroundColor = '#4b5563';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                } else if (style === 'outline') {
+                    button.style.backgroundColor = 'transparent';
+                    button.style.border = '2px solid #4f46e5';
+                    button.style.color = '#4f46e5';
+                } else {
+                    button.style.backgroundColor = '#4f46e5';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                }
+                button.textContent = props.text || 'Button';
+                wrap.appendChild(button);
+                return wrap;
             }
 
             if (!buttonHref) {

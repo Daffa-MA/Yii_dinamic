@@ -598,7 +598,7 @@ private function insertDefaultCmsData($newDb): void
         Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}{$hostSuffix}.");
         if ($this->isCommanderSuperAdmin()) {
             $context->setSuperAdminMode(true);
-            $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+            $dashboardUrl = Yii::$app->urlManager->createUrl(['/dashboard']);
             ProjectOpenDebugLogger::log('project_select_commander_redirect', [
                 'project_id' => (int)$project->id,
                 'project_slug' => (string)($project->slug ?? ''),
@@ -606,36 +606,23 @@ private function insertDefaultCmsData($newDb): void
                 'database_name' => $databaseName,
                 'active_project_id_before' => $activeProjectIdBefore,
                 'active_project_id_after' => $context->getActiveProjectId(),
-                'redirect_target' => $workspaceUrl,
+                'redirect_target' => $dashboardUrl,
+                'reason' => 'commander_same_domain_dashboard',
             ]);
             SessionCookieDebugLogger::log('project_select_commander_redirect', [
                 'project_id' => (int)$project->id,
                 'project_slug' => (string)($project->slug ?? ''),
                 'project_domain' => (string)($project->custom_domain ?? ''),
                 'active_project_id_after' => $context->getActiveProjectId(),
-                'redirect_target' => $workspaceUrl,
+                'redirect_target' => $dashboardUrl,
             ]);
             AuthContextDebugLogger::log('commander_open_workspace', [
                 'project_id' => (int)$project->id,
                 'target_project_domain' => (string)($project->custom_domain ?? ''),
-                'workspace_url' => $workspaceUrl,
+                'workspace_url' => $dashboardUrl,
                 'commander_superadmin' => true,
             ]);
-            if ($workspaceUrl !== null) {
-                Yii::$app->session->close();
-                return $this->redirect($workspaceUrl);
-            }
-
-            ProjectOpenDebugLogger::log('project_select_blocked', [
-                'project_id' => (int)$project->id,
-                'project_slug' => (string)($project->slug ?? ''),
-                'project_domain' => (string)($project->custom_domain ?? ''),
-                'reason' => 'workspace_url_missing',
-                'active_project_id_after' => $context->getActiveProjectId(),
-                'redirect_target' => 'project/index',
-            ]);
-            Yii::$app->session->setFlash('warning', 'Domain project belum diset. Silakan lengkapi custom domain terlebih dahulu.');
-            return $this->redirect(['project/index']);
+            return $this->redirect(['/dashboard']);
         }
 
         ProjectOpenDebugLogger::log('project_select_project_login_redirect', [
@@ -768,21 +755,19 @@ private function insertDefaultCmsData($newDb): void
                 $context = new ActiveProjectContext();
                 $context->setActiveProject($projectId);
                 $context->setSuperAdminMode(true);
-                $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
+                $dashboardUrl = Yii::$app->urlManager->createUrl(['/dashboard']);
                 AuthContextDebugLogger::log('redirect_to_workspace_for_commander', [
                     'project_id' => $projectId,
                     'target_project_domain' => (string)($project->custom_domain ?? ''),
-                    'workspace_url' => $workspaceUrl,
+                    'workspace_url' => $dashboardUrl,
                     'requested_return_url' => $targetReturnUrl,
                     'commander_superadmin' => true,
+                    'reason' => 'commander_same_domain_dashboard',
                 ]);
-                if ($workspaceUrl !== null) {
-                    Yii::$app->session->close();
-                    return $this->redirect($workspaceUrl);
-                }
+                return $this->redirect(['/dashboard']);
             }
 
-            Yii::$app->session->setFlash('warning', 'Domain project belum diset. Silakan lengkapi custom domain terlebih dahulu.');
+            Yii::$app->session->setFlash('warning', 'Project tidak ditemukan.');
             return $this->redirect(['project/index']);
         }
 

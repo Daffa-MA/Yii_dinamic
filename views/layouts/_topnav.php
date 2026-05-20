@@ -39,7 +39,11 @@ $canOpenProjectList = $commanderAuth->isSuperAdmin();
 $projectListUrl = $domainContext->projectListUrl();
 if ($isRootDomain) {
     $commanderUser = $commanderAuth->getUser();
-    if ($commanderUser !== null) {
+    if ($commanderAuth->isSuperAdmin() && $activeProjectId !== null && $currentRoute !== 'project/index') {
+        $profileUsername = 'Superadmin';
+        $profileRole = 'Commander Mode';
+        $profileAvatar = 'S';
+    } elseif ($commanderUser !== null) {
         $profileUsername = (string)($commanderUser->username ?? 'admin');
         $profileRole = 'Superadmin';
         $profileAvatar = strtoupper(substr($profileUsername, 0, 1));

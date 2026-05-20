@@ -30,6 +30,7 @@ $activeMenu = $activeMenu ?? '';
 $currentRoute = Yii::$app->controller->route;
 $domainContext = new DomainContext();
 $isRootDomain = $domainContext->isRootDomain();
+$commanderAuth = new CommanderAuthContext();
 
 // Auto-detect active menu untuk System Builder routes
 $systemBuilderRoutes = [
@@ -46,16 +47,30 @@ foreach ($systemBuilderRoutes as $prefix => $menuKey) {
     }
 }
 
-$activeDatabase = $isRootDomain ? null : Yii::$app->session->get('active_dashboard_database');
+// Hardcoded selector pages must stay isolated from workspace DB/theme switching.
+$isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
+$rootCommanderWorkspace = false;
+if ($isRootDomain && ProjectSchema::supportsProjectContext() && $commanderAuth->isSuperAdmin()) {
+    $rootCommanderWorkspace = !$isProjectListPage
+        && (new \app\components\ActiveProjectContext())->getActiveProjectId() !== null;
+}
+
+$activeDatabase = ($isRootDomain && !$rootCommanderWorkspace) ? null : Yii::$app->session->get('active_dashboard_database');
 $activeProject = null;
 $activeProjectId = null;
 $projectAuthUser = null;
 
-// Hardcoded selector pages must stay isolated from workspace DB/theme switching.
-$isProjectListPage = ($currentRoute === 'project/index' || $currentRoute === 'project-list/index');
-$shouldResolveWorkspaceDatabase = !$isProjectListPage && !$isRootDomain;
-$sidebarVariant = ($isProjectListPage || $isRootDomain) ? 'minimal' : 'full';
+$shouldResolveWorkspaceDatabase = !$isProjectListPage && (!$isRootDomain || $rootCommanderWorkspace);
+$sidebarVariant = ($isProjectListPage || ($isRootDomain && !$rootCommanderWorkspace)) ? 'minimal' : 'full';
 $isMinimalSidebar = $sidebarVariant === 'minimal';
+
+if ((!$isRootDomain || $rootCommanderWorkspace) && ProjectSchema::supportsProjectContext()) {
+    $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
+    if ($activeProjectId !== null) {
+        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId]);
+        $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
+    }
+}
 
 // Resolve database context only for dynamic workspace layouts.
 // Project selector pages must remain on the neutral/default database.
@@ -76,15 +91,6 @@ $projectNavLabel = $isMinimalSidebar ? 'Projects' : 'Project List';
 $activeProjectLabel = $isMinimalSidebar ? 'Project Aktif' : 'Active Project';
 $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
 
-if (!$isRootDomain && ProjectSchema::supportsProjectContext()) {
-    $activeProjectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
-    if ($activeProjectId !== null) {
-        $activeProject = \app\models\Project::findOne(['id' => $activeProjectId]);
-        $projectAuthUser = (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId);
-    }
-}
-
-$commanderAuth = new CommanderAuthContext();
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
 $projectPermissionService = new \app\components\ProjectPermissionService();
 $isWorkspaceAdmin = $canOpenProjectList || (strtolower(trim((string)($projectAuthUser->role ?? ''))) === 'admin');

@@ -234,7 +234,17 @@ function renderBlockSafe(block) {
 
     function resolveButtonTarget(buttonProps) {
         const target = normalizeValue(buttonProps.target);
-        return ['_blank', '_self', '_parent', '_top'].includes(target) ? target : '';
+        if (['_blank', '_self', '_parent', '_top'].includes(target)) {
+            return target;
+        }
+
+        const linkMode = normalizeValue(buttonProps.linkMode || buttonProps.link_mode);
+        const pageHref = resolveButtonPageHref(buttonProps);
+        if (linkMode === 'page' && pageHref) {
+            return '_blank';
+        }
+
+        return '';
     }
 
     function isExternalDestination(value) {

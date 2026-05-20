@@ -90,6 +90,13 @@ class DomainProjectResolver implements BootstrapInterface
                 $context->setActiveProject((int)$project->id);
                 $context->setSuperAdminMode(true);
                 (new ActiveDatabaseContext())->resolveAndApply();
+                ProjectOpenDebugLogger::log('domain_resolver_commander_context', [
+                    'project_id' => (int)$project->id,
+                    'project_slug' => (string)($project->slug ?? ''),
+                    'project_domain' => (string)($project->custom_domain ?? ''),
+                    'active_project_id_after' => $context->getActiveProjectId(),
+                    'reason' => 'workspace_domain_commander_superadmin',
+                ]);
             } else {
                 $context->setSuperAdminMode(false);
             }
@@ -108,6 +115,13 @@ class DomainProjectResolver implements BootstrapInterface
             $authContext = new ProjectAuthContext();
             if ($route === '' || $route === 'site/index' || $route === 'site/login') {
                 if ((new CommanderAuthContext())->isSuperAdmin()) {
+                    ProjectOpenDebugLogger::log('domain_resolver_redirect', [
+                        'project_id' => (int)$project->id,
+                        'project_slug' => (string)($project->slug ?? ''),
+                        'project_domain' => (string)($project->custom_domain ?? ''),
+                        'redirect_target' => Url::to(['/dashboard']),
+                        'reason' => 'workspace_superadmin_dashboard',
+                    ]);
                     $this->redirectSafely($event, Url::to(['/dashboard']), 'workspace_superadmin_dashboard', (int)$project->id);
                     return;
                 }
@@ -118,6 +132,13 @@ class DomainProjectResolver implements BootstrapInterface
                 }
 
                 $this->redirectSafely($event, Url::to(['project/login', 'id' => (int)$project->id]), 'workspace_project_login_required', (int)$project->id);
+                ProjectOpenDebugLogger::log('domain_resolver_blocked', [
+                    'project_id' => (int)$project->id,
+                    'project_slug' => (string)($project->slug ?? ''),
+                    'project_domain' => (string)($project->custom_domain ?? ''),
+                    'redirect_target' => Url::to(['project/login', 'id' => (int)$project->id]),
+                    'reason' => 'workspace_project_login_required',
+                ]);
                 return;
             }
 

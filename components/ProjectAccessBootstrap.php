@@ -68,6 +68,7 @@ class ProjectAccessBootstrap implements BootstrapInterface
 
             if ($commanderAuth->isSuperAdmin()) {
                 $projectContext = new ActiveProjectContext();
+                $projectIdBeforeDomainResolve = $activeProjectId;
                 if ($activeProjectId === null) {
                     $host = (new DomainContext())->currentHost();
                     $project = Project::findByCustomDomain($host);
@@ -83,6 +84,12 @@ class ProjectAccessBootstrap implements BootstrapInterface
                     (new ActiveDatabaseContext())->resolveAndApply();
                 }
 
+                ProjectOpenDebugLogger::log('bootstrap_commander_bypass', [
+                    'project_id' => $activeProjectId,
+                    'active_project_id_before' => $projectIdBeforeDomainResolve,
+                    'active_project_id_after' => $activeProjectId,
+                    'reason' => 'commander_superadmin_bypass',
+                ]);
                 AuthContextDebugLogger::log('workspace_superadmin_bypass', [
                     'route' => $route,
                     'active_project_id' => $activeProjectId,
@@ -91,6 +98,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
             }
 
             if ($activeProjectId === null) {
+                ProjectOpenDebugLogger::log('bootstrap_blocked', [
+                    'project_id' => null,
+                    'reason' => 'protected_route_without_active_project',
+                    'redirect_target' => Url::to(['project/index']),
+                ]);
                 AuthContextDebugLogger::log('workspace_redirect_project_index_missing_project', [
                     'route' => $route,
                 ]);
@@ -151,6 +163,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
                 'project/login',
                 'id' => $activeProjectId,
                 'return_url' => Yii::$app->request->url,
+            ]);
+            ProjectOpenDebugLogger::log('bootstrap_blocked', [
+                'project_id' => $activeProjectId,
+                'reason' => 'project_auth_required',
+                'redirect_target' => $loginUrl,
             ]);
             $this->redirectSafely($event, $loginUrl, 'project_auth_required', $activeProjectId, $authContext->getSessionKey($activeProjectId));
         });

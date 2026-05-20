@@ -150,6 +150,127 @@ main#main > .container > .alert {
     flex-wrap: wrap;
 }
 
+.table-index-page .structure-section {
+    border: 1px solid #e8eef6;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fcfdff, #f7fbff);
+    overflow: hidden;
+}
+
+.table-index-page .structure-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e8eef6;
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.table-index-page .structure-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.table-index-page .structure-count {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.table-index-page .structure-list {
+    max-height: 280px;
+    overflow: auto;
+}
+
+.table-index-page .structure-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 0.75fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.table-index-page .structure-row:last-child {
+    border-bottom: none;
+}
+
+.table-index-page .column-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.table-index-page .column-name strong {
+    font-size: 14px;
+    line-height: 1.2;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+.table-index-page .column-name span {
+    font-size: 12px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+}
+
+.table-index-page .column-type,
+.table-index-page .column-default {
+    font-size: 12px;
+    color: var(--ink);
+    background: #f4f8fc;
+    border: 1px solid #e2eaf4;
+    border-radius: 12px;
+    padding: 8px 10px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.table-index-page .column-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.table-index-page .column-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.table-index-page .column-badge.pk {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.table-index-page .column-badge.ai {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.table-index-page .column-badge.fk {
+    background: #e0f2fe;
+    color: #075985;
+}
+
+.table-index-page .column-badge.null {
+    background: #f1f5f9;
+    color: #475569;
+}
+
 .table-index-page .hero-actions {
     justify-content: flex-end;
 }
@@ -437,6 +558,14 @@ main#main > .container > .alert {
     .table-index-page .meta-grid {
         grid-template-columns: 1fr;
     }
+
+    .table-index-page .structure-row {
+        grid-template-columns: 1fr;
+    }
+
+    .table-index-page .column-badges {
+        justify-content: flex-start;
+    }
 }
 </style>
 
@@ -613,6 +742,55 @@ main#main > .container > .alert {
                                     <?php if (count($columns) > 4): ?>
                                         <span class="column-chip">+<?= count($columns) - 4 ?> more</span>
                                     <?php endif; ?>
+                                </div>
+
+                                <div class="structure-section">
+                                    <div class="structure-header">
+                                        <h4 class="structure-title">Struktur Kolom</h4>
+                                        <span class="structure-count"><?= count($columns) ?> columns</span>
+                                    </div>
+                                    <div class="structure-list">
+                                        <?php foreach ($columns as $column): ?>
+                                            <?php
+                                            $isPrimary = (bool)($column->is_primary ?? false);
+                                            $isAutoIncrement = (bool)($column->hasAttribute('is_auto_increment') ? $column->getAttribute('is_auto_increment') : false);
+                                            $isForeignKey = (bool)($column->hasAttribute('is_foreign_key') ? $column->getAttribute('is_foreign_key') : false);
+                                            $nullableLabel = (bool)$column->is_nullable ? 'NULL' : 'NOT NULL';
+                                            $defaultValue = $column->default_value !== null && $column->default_value !== ''
+                                                ? (string)$column->default_value
+                                                : 'no default';
+                                            $displayType = trim((string)$column->type);
+                                            if ((string)$column->length !== '') {
+                                                $displayType .= '(' . (string)$column->length . ')';
+                                            }
+                                            ?>
+                                            <div class="structure-row">
+                                                <div class="column-name">
+                                                    <strong><?= Html::encode($column->name) ?></strong>
+                                                    <span><?= Html::encode($column->label ?: $column->name) ?></span>
+                                                </div>
+                                                <div class="column-type">
+                                                    <?= Html::encode($displayType ?: '-') ?><br>
+                                                    <span style="color:<?= $column->is_nullable ? '#16a34a' : '#b45309' ?>;font-weight:700;"><?= Html::encode($nullableLabel) ?></span>
+                                                </div>
+                                                <div class="column-default">
+                                                    Default: <?= Html::encode($defaultValue) ?>
+                                                </div>
+                                                <div class="column-badges">
+                                                    <?php if ($isPrimary): ?>
+                                                        <span class="column-badge pk">PK</span>
+                                                    <?php endif; ?>
+                                                    <?php if ($isAutoIncrement): ?>
+                                                        <span class="column-badge ai">AI</span>
+                                                    <?php endif; ?>
+                                                    <?php if ($isForeignKey): ?>
+                                                        <span class="column-badge fk">FK</span>
+                                                    <?php endif; ?>
+                                                    <span class="column-badge null"><?= Html::encode($nullableLabel) ?></span>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </div>
                                 </div>
 
                                 <div class="card-actions">

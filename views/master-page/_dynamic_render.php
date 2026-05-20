@@ -22,6 +22,60 @@ $hasCustomPageSource = $isCustomCode && ($customHtml !== '' || $customCss !== ''
 
 if ($hasCustomPageSource) {
     $formRenderer = new \app\services\DynamicFormPreviewService();
+    $injectLinkHandler = static function (string $source): string {
+        $script = <<<'HTML'
+<script>
+(function() {
+    function shouldHandle(url) {
+        return !!url && !/^(#|javascript:|mailto:|tel:)/i.test(url);
+    }
+
+    function navigate(url, target) {
+        if (!shouldHandle(url)) {
+            return;
+        }
+
+        try {
+            if (target && target !== '_self') {
+                window.open(url, target === '_blank' ? '_blank' : target, 'noopener,noreferrer');
+                return;
+            }
+
+            if (window.top && window.top !== window) {
+                window.top.location.href = url;
+            } else {
+                window.location.href = url;
+            }
+        } catch (e) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    document.addEventListener('click', function(event) {
+        var link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+        if (!link) {
+            return;
+        }
+
+        var href = link.getAttribute('href') || '';
+        if (!shouldHandle(href)) {
+            return;
+        }
+
+        var target = (link.getAttribute('target') || '').toLowerCase();
+        event.preventDefault();
+        navigate(href, target);
+    }, true);
+})();
+</script>
+HTML;
+
+        if (stripos($source, '</body>') !== false) {
+            return preg_replace('~</body>~i', $script . "\n</body>", $source, 1) ?? ($source . $script);
+        }
+
+        return $source . $script;
+    };
     $replaceFormTokens = static function (string $source) use ($formRenderer, $pageId, $menuId): string {
         return preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($formRenderer, $pageId, $menuId): string {
             try {
@@ -39,6 +93,7 @@ if ($hasCustomPageSource) {
 
     try {
         $customHtml = $replaceFormTokens($customHtml);
+        $customHtml = $injectLinkHandler($customHtml);
     } catch (\Throwable $e) {
         Yii::warning('Failed to expand custom page form tokens: ' . $e->getMessage(), 'app');
     }

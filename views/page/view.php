@@ -55,6 +55,105 @@ $hasCustomPageSource = $useCustomPageSource && ($customHtml !== '' || $customCss
 $customSourceDoc = '';
 
 if ($hasCustomPageSource) {
+    $injectLinkHandler = static function (string $source): string {
+        $script = <<<'HTML'
+<script>
+(function() {
+    function isExternalUrl(url) {
+        return /^(https?:|mailto:|tel:)/i.test(String(url || '').trim());
+    }
+
+    function shouldHandle(url) {
+        return !!url && !/^(#|javascript:)/i.test(url);
+    }
+
+    function openLink(url, target) {
+        if (!shouldHandle(url)) {
+            return;
+        }
+
+        try {
+            if (isExternalUrl(url)) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+                return;
+            }
+
+            if (target && target !== '_self') {
+                window.open(url, target === '_blank' ? '_blank' : target, 'noopener,noreferrer');
+                return;
+            }
+
+            window.location.href = url;
+        } catch (e) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    function decorateExternalLinks(root) {
+        var links = (root || document).querySelectorAll('a[href]');
+        links.forEach(function(link) {
+            var href = link.getAttribute('href') || '';
+            if (!isExternalUrl(href)) {
+                return;
+            }
+
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+        });
+    }
+
+    document.addEventListener('click', function(event) {
+        var link = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+        if (!link) {
+            return;
+        }
+
+        var href = link.getAttribute('href') || '';
+        if (!shouldHandle(href)) {
+            return;
+        }
+
+        var target = (link.getAttribute('target') || '').toLowerCase();
+        if (isExternalUrl(href)) {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+            event.preventDefault();
+            event.stopPropagation();
+            openLink(href, '_blank');
+            return;
+        }
+
+        if (target && target !== '_self') {
+            event.preventDefault();
+            event.stopPropagation();
+            openLink(href, target);
+        }
+    }, true);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            decorateExternalLinks(document);
+        });
+    } else {
+        decorateExternalLinks(document);
+    }
+
+    if (window.MutationObserver) {
+        var observer = new MutationObserver(function() {
+            decorateExternalLinks(document);
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+})();
+</script>
+HTML;
+
+        if (stripos($source, '</body>') !== false) {
+            return preg_replace('~</body>~i', $script . "\n</body>", $source, 1) ?? ($source . $script);
+        }
+
+        return $source . $script;
+    };
     $previewService = new DynamicFormPreviewService();
     $renderedFormIds = [];
     try {
@@ -120,6 +219,7 @@ if ($hasCustomPageSource) {
         $customSourceDoc,
         1
     ) ?? $customSourceDoc;
+    $customSourceDoc = $injectLinkHandler($customSourceDoc);
 }
 
 $layoutJson = $page->layout_json ?? '[]';
@@ -134,7 +234,7 @@ if ($hasCustomPageSource): ?>
             class="block w-full border-0 bg-white"
             title="Custom Page Source"
             style="min-height: 780px;"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
         ></iframe>
     </div>
     <script>

@@ -2006,8 +2006,12 @@ display: none;
                                         <textarea class="property-textarea" id="prop-desc" placeholder="Enter description..."></textarea>
                                     </div>
                                     <div class="property-field">
-                                        <label class="property-label">URL/Link</label>
+                                        <label class="property-label" id="prop-url-label">URL/Link</label>
                                         <input type="text" class="property-input" id="prop-url" placeholder="https://...">
+                                        <div id="prop-url-badge" style="display:none;margin-top:8px;font-size:12px;font-weight:700;color:#b45309;background:#fffbeb;border:1px solid #fcd34d;padding:6px 10px;border-radius:999px;align-items:center;gap:6px;">
+                                            <span class="material-symbols-outlined" style="font-size:16px;">warning</span>
+                                            No destination configured
+                                        </div>
                                     </div>
                                     <div class="property-field">
                                         <label class="property-label">Image URL</label>
@@ -2763,14 +2767,14 @@ return html;</pre>
                     type: 'button',
                     label: 'Button',
                     text: 'Click Me',
-                    url: '#',
+                    url: '',
                     variant: 'primary'
                 },
                 link: {
                     type: 'link',
                     label: 'Link',
                     text: 'Click here',
-                    url: '#'
+                    url: ''
                 },
                 tabs: {
                     type: 'tabs',
@@ -3120,9 +3124,23 @@ return html;</pre>
                         danger: 'var(--danger)',
                         outline: 'transparent;border:2px solid var(--primary);color:var(--primary)'
                     };
-                    return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="#">' + escapeHtml(block.text || 'Button') + '</a>';
+                    const buttonHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
+                    const buttonTarget = String(block.target || '').trim();
+                    const targetIsReserved = ['_blank', '_self', '_parent', '_top'].indexOf(buttonTarget) !== -1;
+                    const hasDestination = buttonHref !== '' || (!targetIsReserved && buttonTarget !== '');
+                    if (!hasDestination) {
+                        return '<button type="button" class="preview-button" data-empty-action="true" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';">' + escapeHtml(block.text || 'Button') + '</button>';
+                    }
+                    return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="' + escapeHtml(buttonHref || buttonTarget) + '"' + (targetIsReserved ? ' target="' + escapeHtml(buttonTarget) + '"' : '') + '>' + escapeHtml(block.text || 'Button') + '</a>';
                 case 'link':
-                    return '<a href="#" style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
+                    const linkHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
+                    const linkTarget = String(block.target || '').trim();
+                    const linkTargetIsReserved = ['_blank', '_self', '_parent', '_top'].indexOf(linkTarget) !== -1;
+                    const linkHasDestination = linkHref !== '' || (!linkTargetIsReserved && linkTarget !== '');
+                    if (!linkHasDestination) {
+                        return '<button type="button" class="preview-link" data-empty-action="true" style="background:none;border:none;color:var(--primary);padding:0;text-decoration:none;cursor:pointer;">' + escapeHtml(block.text || 'Link') + ' →</button>';
+                    }
+                    return '<a href="' + escapeHtml(linkHref || linkTarget) + '"' + (linkTargetIsReserved ? ' target="' + escapeHtml(linkTarget) + '"' : '') + ' style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
                 case 'tabs':
                     const tabs = (block.tabs || 'Tab 1\nTab 2').split('\n');
                     return '<div class="preview-tabs">' + tabs.map(function(t, i) {
@@ -3354,9 +3372,38 @@ return html;</pre>
                             return;
                         }
                         const block = blocks[selectedIndex];
+                        const urlLabel = document.getElementById('prop-url-label');
+                        const urlInput = document.getElementById('prop-url');
+                        const urlBadge = document.getElementById('prop-url-badge');
+                        const reservedTargets = ['_blank', '_self', '_parent', '_top'];
+                        const buttonHref = String(block.href || block.url || block.route || block.action || block.buttonUrl || '').trim();
+                        const buttonTarget = String(block.target || '').trim();
+                        const hasTargetOnlyUrl = buttonTarget !== '' && reservedTargets.indexOf(buttonTarget) === -1;
+                        const resolvedButtonUrl = buttonHref || (hasTargetOnlyUrl ? buttonTarget : '');
+
                         document.getElementById('prop-label').value = block.label || '';
                         document.getElementById('prop-desc').value = block.content || block.description || block.subtitle || block.text || '';
-                        document.getElementById('prop-url').value = block.url || block.buttonUrl || block.src || '';
+
+                        if (block.type === 'button') {
+                            if (urlLabel) urlLabel.textContent = 'Button URL / Route';
+                            if (urlInput) {
+                                urlInput.placeholder = 'https://example.com or /dashboard';
+                                urlInput.value = resolvedButtonUrl;
+                            }
+                            if (urlBadge) {
+                                urlBadge.style.display = resolvedButtonUrl ? 'none' : 'inline-flex';
+                            }
+                        } else {
+                            if (urlLabel) urlLabel.textContent = 'URL/Link';
+                            if (urlInput) {
+                                urlInput.placeholder = 'https://...';
+                                urlInput.value = String(block.url || block.buttonUrl || block.src || '').trim();
+                            }
+                            if (urlBadge) {
+                                urlBadge.style.display = 'none';
+                            }
+                        }
+
                         document.getElementById('prop-image').value = block.src || block.image || '';
                         document.getElementById('prop-bg-color').value = block.bgColor || '#ffffff';
                         document.getElementById('prop-text-color').value = block.color || block.textColor || '#1f2937';
@@ -3802,6 +3849,9 @@ return html;</pre>
                         const url = document.getElementById('prop-url').value;
                         if (block.url !== undefined) block.url = url;
                         if (block.buttonUrl !== undefined) block.buttonUrl = url;
+                        if (block.href !== undefined) block.href = url;
+                        if (block.route !== undefined) block.route = url;
+                        if (block.action !== undefined) block.action = url;
                         if (block.src !== undefined && !block.image) block.src = url;
 
                         const img = document.getElementById('prop-image').value;
@@ -4010,6 +4060,49 @@ return html;</pre>
                         div.textContent = str || '';
                         return div.innerHTML;
                     }
+
+                    function showEmptyDestinationToast(message) {
+                        const existing = document.getElementById('empty-action-toast');
+                        if (existing) {
+                            existing.remove();
+                        }
+
+                        const toast = document.createElement('div');
+                        toast.id = 'empty-action-toast';
+                        toast.setAttribute('role', 'status');
+                        toast.style.cssText = [
+                            'position:fixed',
+                            'right:20px',
+                            'bottom:20px',
+                            'z-index:99999',
+                            'max-width:360px',
+                            'padding:14px 16px',
+                            'border-radius:14px',
+                            'background:#0f172a',
+                            'color:#fff',
+                            'box-shadow:0 18px 40px rgba(15,23,42,.22)',
+                            'font-size:14px',
+                            'line-height:1.5'
+                        ].join(';');
+                        toast.textContent = message || 'Button destination is not configured.';
+                        document.body.appendChild(toast);
+                        setTimeout(function() {
+                            if (toast.parentNode) {
+                                toast.remove();
+                            }
+                        }, 2400);
+                    }
+
+                    document.addEventListener('click', function(event) {
+                        const emptyAction = event.target.closest('[data-empty-action="true"]');
+                        if (!emptyAction) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        event.stopPropagation();
+                        showEmptyDestinationToast('Button destination is not configured.');
+                    }, true);
 
                     updateEmptyState();
 

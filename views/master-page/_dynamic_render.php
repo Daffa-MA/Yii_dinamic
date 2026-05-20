@@ -113,6 +113,33 @@ function renderBlockSafe(block) {
     const props = (block && block.props) ? block.props : {};
     const type = block ? block.type : null;
 
+    function normalizeValue(value) {
+        return (value === null || value === undefined) ? '' : String(value).trim();
+    }
+
+    function resolveButtonHref(buttonProps) {
+        const reservedTargets = ['_blank', '_self', '_parent', '_top'];
+        const href = normalizeValue(buttonProps.href)
+            || normalizeValue(buttonProps.url)
+            || normalizeValue(buttonProps.route)
+            || normalizeValue(buttonProps.action);
+        if (href) {
+            return href;
+        }
+
+        const target = normalizeValue(buttonProps.target);
+        if (target && !reservedTargets.includes(target)) {
+            return target;
+        }
+
+        return '';
+    }
+
+    function resolveButtonTarget(buttonProps) {
+        const target = normalizeValue(buttonProps.target);
+        return ['_blank', '_self', '_parent', '_top'].includes(target) ? target : '';
+    }
+
     // Handle Block-level Custom Code
     if (props.customHtml || props.customCss || props.customJs) {
         const wrap = document.createElement('div');
@@ -201,28 +228,63 @@ function renderBlockSafe(block) {
             const wrap = document.createElement('div');
             wrap.className = 'mb-4';
             wrap.style.textAlign = props.align || 'center';
-            
-            const a = document.createElement('a');
-            const buttonUrl = props.url || '';
+
+            const buttonHref = resolveButtonHref(props);
+            const buttonTarget = resolveButtonTarget(props);
             const style = props.style || 'primary';
-            
-            // Handle empty/null URL - prevent navigation
-            if (!buttonUrl || buttonUrl === '#' || buttonUrl === '#nothing') {
-                a.href = 'javascript:void(0)';
-                a.dataset.noNavigate = '1';
-            } else {
-                a.href = buttonUrl;
-                a.target = '_blank';
+
+            const applyButtonStyles = function(el) {
+                el.style.display = props.fullWidth ? 'block' : 'inline-block';
+                el.style.padding = props.size === 'lg' ? '12px 32px' : (props.size === 'sm' ? '8px 16px' : '10px 24px');
+                el.style.borderRadius = '8px';
+                el.style.textDecoration = 'none';
+                el.style.fontWeight = '600';
+                el.style.fontSize = '14px';
+                el.style.cursor = 'pointer';
+            };
+
+            if (style === 'primary') {
+                // keep
+            } else if (style === 'secondary') {
+            } else if (style === 'outline') {
             }
-            
-            a.style.display = props.fullWidth ? 'block' : 'inline-block';
-            a.style.padding = props.size === 'lg' ? '12px 32px' : (props.size === 'sm' ? '8px 16px' : '10px 24px');
-            a.style.borderRadius = '8px';
-            a.style.textDecoration = 'none';
-            a.style.fontWeight = '600';
-            a.style.fontSize = '14px';
-            a.style.cursor = 'pointer';
-            
+
+            if (!buttonHref) {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.emptyAction = 'true';
+                applyButtonStyles(button);
+                if (style === 'primary') {
+                    button.style.backgroundColor = '#4f46e5';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                } else if (style === 'secondary') {
+                    button.style.backgroundColor = '#4b5563';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                } else if (style === 'outline') {
+                    button.style.backgroundColor = 'transparent';
+                    button.style.border = '2px solid #4f46e5';
+                    button.style.color = '#4f46e5';
+                } else {
+                    button.style.backgroundColor = '#4f46e5';
+                    button.style.color = 'white';
+                    button.style.border = 'none';
+                }
+                button.textContent = props.text || 'Button';
+                wrap.appendChild(button);
+                return wrap;
+            }
+
+            const a = document.createElement('a');
+            a.href = buttonHref;
+            if (buttonTarget) {
+                a.target = buttonTarget;
+                if (buttonTarget === '_blank') {
+                    a.rel = 'noopener noreferrer';
+                }
+            }
+            applyButtonStyles(a);
             if (style === 'primary') {
                 a.style.backgroundColor = '#4f46e5';
                 a.style.color = 'white';
@@ -230,22 +292,14 @@ function renderBlockSafe(block) {
                 a.style.backgroundColor = '#4b5563';
                 a.style.color = 'white';
             } else if (style === 'outline') {
+                a.style.backgroundColor = 'transparent';
                 a.style.border = '2px solid #4f46e5';
                 a.style.color = '#4f46e5';
             } else {
-                a.style.color = '#4f46e5';
+                a.style.backgroundColor = '#4f46e5';
+                a.style.color = 'white';
             }
-            
-            a.textContent = props.text || '';
-            
-            // Prevent parent navigation for buttons without valid URL
-            a.addEventListener('click', function(e) {
-                if (this.dataset.noNavigate === '1') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            });
-            
+            a.textContent = props.text || 'Button';
             wrap.appendChild(a);
             return wrap;
         }
@@ -368,20 +422,47 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(renderBlockSafe(block));
     }
 
-    // Prevent all links from navigating within iframe (prevents 404)
-    container.querySelectorAll('a').forEach(link => {
-        const href = link.getAttribute('href');
-        // If link is empty, '#', or not an external URL, prevent navigation
-        if (!href || href === '#' || href === 'javascript:void(0)' || !href.startsWith('http')) {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-            });
-        } else {
-            // External links should open in new tab
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
+    const showEmptyDestinationToast = function(message) {
+        const existing = document.getElementById('empty-action-toast');
+        if (existing) {
+            existing.remove();
         }
+
+        const toast = document.createElement('div');
+        toast.id = 'empty-action-toast';
+        toast.setAttribute('role', 'status');
+        toast.style.cssText = [
+            'position:fixed',
+            'right:20px',
+            'bottom:20px',
+            'z-index:99999',
+            'max-width:360px',
+            'padding:14px 16px',
+            'border-radius:14px',
+            'background:#0f172a',
+            'color:#fff',
+            'box-shadow:0 18px 40px rgba(15,23,42,.22)',
+            'font-size:14px',
+            'line-height:1.5'
+        ].join(';');
+        toast.textContent = message || 'Button destination is not configured.';
+        document.body.appendChild(toast);
+        setTimeout(function() {
+            if (toast.parentNode) {
+                toast.remove();
+            }
+        }, 2400);
+    };
+
+    container.addEventListener('click', function(event) {
+        const emptyAction = event.target.closest('[data-empty-action=\'true\']');
+        if (!emptyAction) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        showEmptyDestinationToast('Button destination is not configured.');
     });
 
     hydrateDynamicForms(container);

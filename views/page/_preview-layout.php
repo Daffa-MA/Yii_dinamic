@@ -39,9 +39,13 @@ $layoutJson = Json::decode($layoutJson, true);
                     const isUiOnly = linkMode === 'ui_only' || props.uiOnly === true || props.ui_only === true;
                     const pageId = props.pageId || props.page_id || '';
                     let href = '';
+                    let target = String(props.target || '').trim();
                     if (!isUiOnly) {
                         if (linkMode === 'page' && pageId) {
                             href = '/page/view?id=' + encodeURIComponent(pageId);
+                            if (!target) {
+                                target = '_blank';
+                            }
                         } else {
                             href = String(props.url || props.href || '').trim();
                         }
@@ -55,7 +59,7 @@ $layoutJson = Json::decode($layoutJson, true);
                     if (isUiOnly || !href) {
                         return `<div class="text-${props.align || 'center'} my-6"><button type="button" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}" style="cursor:default;" aria-disabled="true">${props.text || ''}</button></div>`;
                     }
-                    return `<div class="text-${props.align || 'center'} my-6"><a href="${href}" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}"${String(props.target || '').trim() ? ' target="' + String(props.target).trim() + '"' : ''}>${props.text || ''}</a></div>`;
+                    return `<div class="text-${props.align || 'center'} my-6"><a href="${href}" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}"${target ? ' target="' + target + '"' : ''}${target === '_blank' ? ' rel="noopener noreferrer"' : ''}>${props.text || ''}</a></div>`;
                 case "card":
                     return `<div class="bg-white rounded-lg shadow-md p-6 ${props.bgColor && props.bgColor !== '#ffffff' ? 'bg-' + props.bgColor.replace('#', '') : ''} ${props.showShadow ? 'shadow' : 'border'} ${props.showShadow ? '' : 'border border-gray-200'}">
                         <h3 class="text-lg font-bold mb-3 text-gray-900">${props.title || ''}</h3>

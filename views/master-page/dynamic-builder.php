@@ -2434,14 +2434,34 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 };
                 const style = props.style || 'primary';
                 const linkMode = props.linkMode || (props.pageId ? 'page' : 'manual');
-                const isUiOnly = false;
-                const hasUrl = isUiOnly || (linkMode === 'page' ? !!props.pageId : !!(props.url && props.url.trim() !== '' && props.url.trim() !== '#'));
+                const isUiOnly = linkMode === 'ui_only' || props.uiOnly === true || props.ui_only === true;
+                const pageId = props.pageId || props.page_id || '';
+                const manualHref = String(props.url || props.href || '').trim();
+                const pageHref = pageId ? '/page/view/' + encodeURIComponent(String(pageId)) : '';
+                const buttonHref = isUiOnly ? '' : (linkMode === 'page' ? pageHref : manualHref);
+                const target = String(props.target || '').trim();
+                const isExternal = /^(https?:|mailto:|tel:)/i.test(buttonHref);
+                const resolvedTarget = target && ['_blank', '_self', '_parent', '_top'].includes(target)
+                    ? target
+                    : (linkMode === 'page' && buttonHref ? '_blank' : '');
+                const hasUrl = !!buttonHref;
                 const uiHint = isUiOnly ? '<span style="display:block;font-size:10px;color:#64748b;margin-top:4px">UI only: tidak ada aksi saat diklik</span>' : '';
                 const urlWarning = !hasUrl && !isUiOnly ? '<span style="display:block;font-size:10px;color:#ef4444;margin-top:4px">⚠️ URL kosong</span>' : '';
                 const wrapperStyle = isUiOnly ? '' : (!hasUrl ? 'border:1px dashed #ef4444;border-radius:8px;background:#fef2f2;' : '');
                 const emptyNotice = !hasUrl && !isUiOnly ? '<div style="color:#ef4444;font-size:11px;margin-bottom:4px">⚠️ URL belum diatur</div>' : '';
                 const buttonAttrs = isUiOnly ? ' type="button" onclick="return false;" aria-disabled="true"' : ' type="button"';
-                return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<button${buttonAttrs} style="background:${colors[style]};color:white;border:none;border-radius:8px;padding:${sizes[props.size || 'md']};cursor:${isUiOnly ? 'default' : 'pointer'};font-weight:600;font-size:14px;width:${props.fullWidth ? '100%' : 'auto'}">${props.text || 'Button'}</button>${uiHint}${urlWarning}</div>`;
+                const linkAttrs = [
+                    'href="' + buttonHref.replace(/"/g, '&quot;') + '"',
+                    resolvedTarget ? 'target="' + resolvedTarget + '"' : '',
+                    (resolvedTarget === '_blank' || isExternal) ? 'rel="noopener noreferrer"' : '',
+                    'style="background:' + colors[style] + ';color:white;border:none;border-radius:8px;padding:' + sizes[props.size || 'md'] + ';cursor:pointer;font-weight:600;font-size:14px;width:' + (props.fullWidth ? '100%' : 'auto') + ';display:inline-block;text-decoration:none;"'
+                ].filter(Boolean).join(' ');
+                const buttonStyles = 'background:' + colors[style] + ';color:white;border:none;border-radius:8px;padding:' + sizes[props.size || 'md'] + ';cursor:' + (isUiOnly ? 'default' : 'pointer') + ';font-weight:600;font-size:14px;width:' + (props.fullWidth ? '100%' : 'auto') + ';display:inline-block;';
+                const label = props.text || 'Button';
+                if (isUiOnly || !hasUrl) {
+                    return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<button${buttonAttrs} style="${buttonStyles}">${label}</button>${uiHint}${urlWarning}</div>`;
+                }
+                return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
             case 'card':
                 return `<div style="border-radius:12px;padding:${props.padding || '20'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
             case 'spacer':
@@ -2714,6 +2734,14 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                         <option value="manual" ${buttonLinkMode === 'manual' ? 'selected' : ''}>Manual URL</option>
                     </select>
                     <small class="text-gray-500">Pilih tujuan internal atau isi URL manual.</small>
+                </div>
+                <div class="prop-group">
+                    <label>Open In</label>
+                    <select class="prop-select" onchange="setButtonTargetMode('${blockId}', this.value)">
+                        <option value="_blank" ${(props.target ? String(props.target).trim() === '_blank' : buttonLinkMode === 'page') ? 'selected' : ''}>Open in new tab</option>
+                        <option value="_self" ${(props.target ? String(props.target).trim() === '_self' : buttonLinkMode !== 'page') ? 'selected' : ''}>Open in same tab</option>
+                    </select>
+                    <small class="text-gray-500">Tentukan apakah button dibuka di tab baru atau tab yang sama.</small>
                 </div>
                 <div class="prop-group" style="display:${buttonLinkMode === 'page' ? 'block' : 'none'};">
                     <label>Pilih Page</label>
@@ -3043,7 +3071,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             pageId: '',
             pageSlug: '',
             url: normalizedValue,
-            href: normalizedValue
+            href: normalizedValue,
+            target: ''
         });
     }
 
@@ -3060,6 +3089,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         if (normalizedMode === 'page') {
             updates.url = '';
             updates.href = '';
+            updates.target = props.target || '_blank';
         } else {
             updates.pageId = '';
             updates.pageSlug = '';
@@ -3067,6 +3097,18 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         }
 
         block.props = Object.assign({}, props, updates);
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function setButtonTargetMode(blockId, targetMode) {
+        const normalizedTarget = ['_blank', '_self'].includes(targetMode) ? targetMode : '_self';
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+
+        block.props = Object.assign({}, block.props || {}, {
+            target: normalizedTarget
+        });
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }
@@ -3082,7 +3124,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             pageId: pageId ? String(pageId) : '',
             pageSlug: selectedPage?.slug || '',
             url: pageRoute,
-            href: pageRoute
+            href: pageRoute,
+            target: block.props?.target || '_blank'
         });
         renderBuilder(window.pageState);
         renderProperties(blockId);

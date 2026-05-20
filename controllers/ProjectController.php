@@ -26,6 +26,7 @@ use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
 use app\components\ProjectSchema;
 use app\components\ProjectOpenDebugLogger;
+use app\components\SessionCookieDebugLogger;
 use app\components\DatabaseSchemaInitializer;
 use yii\helpers\Url;
 
@@ -551,6 +552,10 @@ private function insertDefaultCmsData($newDb): void
             'project_id' => (int)$id,
             'active_project_id_before' => $activeProjectIdBefore,
         ]);
+        SessionCookieDebugLogger::log('project_select_start', [
+            'project_id' => (int)$id,
+            'active_project_id_before' => $activeProjectIdBefore,
+        ]);
 
         if (!ProjectSchema::supportsProjectContext()) {
             ProjectOpenDebugLogger::log('project_select_blocked', [
@@ -600,6 +605,13 @@ private function insertDefaultCmsData($newDb): void
                 'project_domain' => (string)($project->custom_domain ?? ''),
                 'database_name' => $databaseName,
                 'active_project_id_before' => $activeProjectIdBefore,
+                'active_project_id_after' => $context->getActiveProjectId(),
+                'redirect_target' => $workspaceUrl,
+            ]);
+            SessionCookieDebugLogger::log('project_select_commander_redirect', [
+                'project_id' => (int)$project->id,
+                'project_slug' => (string)($project->slug ?? ''),
+                'project_domain' => (string)($project->custom_domain ?? ''),
                 'active_project_id_after' => $context->getActiveProjectId(),
                 'redirect_target' => $workspaceUrl,
             ]);

@@ -30,19 +30,22 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 
 <style>
 .table-index-page {
-    --ink: #142033;
-    --muted: #60708a;
-    --line: #d9e2ef;
-    --panel: #ffffff;
-    --accent: #1d4ed8;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #dbe3ee;
+    --panel: rgba(255, 255, 255, 0.92);
+    --panel-strong: #ffffff;
+    --accent: #2563eb;
     --accent-soft: #dbeafe;
-    --success: #15803d;
+    --accent-ghost: #eff6ff;
+    --success: #166534;
     --success-soft: #dcfce7;
-    --warning: #b45309;
+    --warning: #92400e;
     --warning-soft: #fef3c7;
     --danger: #b91c1c;
     --danger-soft: #fee2e2;
-    --shadow: 0 20px 55px rgba(20, 32, 51, 0.08);
+    --shadow: 0 18px 50px rgba(15, 23, 42, 0.06);
+    --shadow-hover: 0 24px 60px rgba(15, 23, 42, 0.1);
     color: var(--ink);
 }
 
@@ -59,9 +62,9 @@ body.has-app-sidebar .table-index-main {
 
 .table-index-content {
     width: 100%;
-    max-width: 1480px;
+    max-width: 1620px;
     margin: 0 auto;
-    padding: 32px clamp(24px, 3vw, 48px);
+    padding: 30px clamp(20px, 2.4vw, 42px) 42px;
 }
 
 main#main > .container > .alert {
@@ -73,23 +76,24 @@ main#main > .container > .alert {
 
 .table-index-page .page-shell {
     display: grid;
-    gap: 24px;
+    gap: 22px;
 }
 
 .table-index-page .hero,
 .table-index-page .panel,
 .table-index-page .table-card {
     background: var(--panel);
-    border: 1px solid #e4ebf3;
-    border-radius: 24px;
+    border: 1px solid rgba(219, 227, 238, 0.95);
+    border-radius: 22px;
     box-shadow: var(--shadow);
+    backdrop-filter: blur(10px);
 }
 
 .table-index-page .hero {
-    padding: 28px;
+    padding: 26px;
     background:
-        radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 28%),
-        linear-gradient(180deg, #ffffff, #f8fbff);
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 25%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92));
 }
 
 .table-index-page .hero-top {
@@ -97,19 +101,19 @@ main#main > .container > .alert {
     justify-content: space-between;
     align-items: flex-start;
     gap: 20px;
-    margin-bottom: 24px;
+    margin-bottom: 22px;
 }
 
 .table-index-page .hero-title {
     display: flex;
-    gap: 16px;
+    gap: 14px;
     align-items: flex-start;
 }
 
 .table-index-page .hero-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -119,11 +123,11 @@ main#main > .container > .alert {
 }
 
 .table-index-page h1 {
-    margin: 0 0 8px;
-    font-size: 34px;
-    line-height: 1.08;
-    font-weight: 800;
-    letter-spacing: -0.03em;
+    margin: 0 0 10px;
+    font-size: clamp(30px, 2.6vw, 38px);
+    line-height: 1.04;
+    font-weight: 850;
+    letter-spacing: -0.04em;
 }
 
 .table-index-page .hero-text,
@@ -137,12 +141,12 @@ main#main > .container > .alert {
 
 .table-index-page .hero-text {
     margin: 0;
-    max-width: 780px;
+    max-width: 820px;
     font-size: 14px;
+    line-height: 1.7;
 }
 
 .table-index-page .hero-actions,
-.table-index-page .card-actions,
 .table-index-page .meta-chips,
 .table-index-page .column-chips {
     display: flex;
@@ -150,136 +154,18 @@ main#main > .container > .alert {
     flex-wrap: wrap;
 }
 
-.table-index-page .structure-section {
-    border: 1px solid #e8eef6;
-    border-radius: 18px;
-    background: linear-gradient(180deg, #fcfdff, #f7fbff);
-    overflow: hidden;
-}
-
-.table-index-page .structure-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    align-items: center;
-    padding: 14px 16px;
-    border-bottom: 1px solid #e8eef6;
-    background: rgba(255, 255, 255, 0.75);
-}
-
-.table-index-page .structure-title {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--muted);
-}
-
-.table-index-page .structure-count {
-    font-size: 12px;
-    color: var(--muted);
-    font-weight: 700;
-}
-
-.table-index-page .structure-list {
-    max-height: 280px;
-    overflow: auto;
-}
-
-.table-index-page .structure-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr) minmax(0, 0.75fr) auto;
-    gap: 10px;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #edf2f7;
-}
-
-.table-index-page .structure-row:last-child {
-    border-bottom: none;
-}
-
-.table-index-page .column-name {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-}
-
-.table-index-page .column-name strong {
-    font-size: 14px;
-    line-height: 1.2;
-    color: var(--ink);
-    overflow-wrap: anywhere;
-}
-
-.table-index-page .column-name span {
-    font-size: 12px;
-    color: var(--muted);
-    overflow-wrap: anywhere;
-}
-
-.table-index-page .column-type,
-.table-index-page .column-default {
-    font-size: 12px;
-    color: var(--ink);
-    background: #f4f8fc;
-    border: 1px solid #e2eaf4;
-    border-radius: 12px;
-    padding: 8px 10px;
-    min-width: 0;
-    overflow-wrap: anywhere;
-}
-
-.table-index-page .column-badges {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-}
-
-.table-index-page .column-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 8px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 800;
-    letter-spacing: 0.03em;
-    background: #eef2ff;
-    color: #4338ca;
-}
-
-.table-index-page .column-badge.pk {
-    background: #fef3c7;
-    color: #92400e;
-}
-
-.table-index-page .column-badge.ai {
-    background: #dcfce7;
-    color: #166534;
-}
-
-.table-index-page .column-badge.fk {
-    background: #e0f2fe;
-    color: #075985;
-}
-
-.table-index-page .column-badge.null {
-    background: #f1f5f9;
-    color: #475569;
-}
-
 .table-index-page .hero-actions {
     justify-content: flex-end;
 }
 
 .table-index-page .btn-clean {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     border-radius: 12px;
-    padding: 11px 16px;
-    border: 1px solid var(--line);
-    background: #fff;
+    padding: 11px 15px;
+    border: 1px solid rgba(219, 227, 238, 0.95);
+    background: rgba(255, 255, 255, 0.96);
     color: var(--ink);
     text-decoration: none;
     font-size: 14px;
@@ -303,6 +189,63 @@ main#main > .container > .alert {
     color: #fff;
 }
 
+.table-index-page .action-btn {
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    border: 1px solid transparent;
+    line-height: 1;
+}
+
+.table-index-page .action-btn .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.table-index-page .action-view {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-color: #dbeafe;
+}
+
+.table-index-page .action-view:hover {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.table-index-page .action-edit {
+    background: #f8fafc;
+    color: #334155;
+    border-color: #e2e8f0;
+}
+
+.table-index-page .action-edit:hover {
+    background: #eef2f7;
+    color: #0f172a;
+}
+
+.table-index-page .action-delete {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+}
+
+.table-index-page .action-delete:hover {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.table-index-page .action-create {
+    background: #ecfeff;
+    color: #0f766e;
+    border-color: #cffafe;
+}
+
+.table-index-page .action-create:hover {
+    background: #cffafe;
+    color: #115e59;
+}
+
 .table-index-page .hero-stats {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -310,10 +253,10 @@ main#main > .container > .alert {
 }
 
 .table-index-page .stat-card {
-    padding: 18px;
+    padding: 17px 18px;
     border-radius: 18px;
-    border: 1px solid #e7edf5;
-    background: rgba(255, 255, 255, 0.84);
+    border: 1px solid rgba(231, 237, 245, 0.95);
+    background: rgba(255, 255, 255, 0.88);
 }
 
 .table-index-page .stat-label {
@@ -329,7 +272,7 @@ main#main > .container > .alert {
 .table-index-page .stat-value {
     font-size: 26px;
     line-height: 1;
-    font-weight: 800;
+    font-weight: 850;
     margin-bottom: 6px;
 }
 
@@ -339,25 +282,26 @@ main#main > .container > .alert {
 }
 
 .table-index-page .panel-header {
-    padding: 20px 24px;
+    padding: 22px 24px;
     border-bottom: 1px solid #edf2f7;
     display: flex;
     justify-content: space-between;
     gap: 16px;
     align-items: flex-start;
-    background: linear-gradient(180deg, #ffffff, #f9fbfd);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(249, 251, 253, 0.96));
 }
 
 .table-index-page .panel-title {
-    margin: 0 0 4px;
-    font-size: 20px;
-    font-weight: 760;
-    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+    font-size: clamp(18px, 1.45vw, 22px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
 }
 
 .table-index-page .panel-subtitle {
     margin: 0;
     font-size: 13px;
+    line-height: 1.6;
 }
 
 .table-index-page .panel-body {
@@ -367,22 +311,24 @@ main#main > .container > .alert {
 .table-index-page .table-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 20px;
+    gap: 18px;
     align-items: stretch;
 }
 
 .table-index-page .table-card {
     padding: 22px;
     display: grid;
-    gap: 18px;
-    transition: all 0.2s ease;
+    gap: 16px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
     align-content: start;
     min-height: 100%;
+    overflow: hidden;
 }
 
 .table-index-page .table-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 24px 60px rgba(20, 32, 51, 0.1);
+    box-shadow: var(--shadow-hover);
+    border-color: rgba(191, 208, 230, 0.9);
 }
 
 .table-index-page .card-top {
@@ -398,36 +344,37 @@ main#main > .container > .alert {
 }
 
 .table-index-page .card-title {
-    margin: 0 0 4px;
-    font-size: 22px;
+    margin: 0 0 6px;
+    font-size: 20px;
     line-height: 1.1;
-    font-weight: 780;
-    letter-spacing: -0.02em;
+    font-weight: 820;
+    letter-spacing: -0.03em;
     overflow-wrap: anywhere;
 }
 
 .table-index-page .card-name {
     display: inline-block;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    font-size: 12px;
-    color: var(--muted);
+    font-size: 11px;
+    color: #475569;
     background: #f3f7fb;
     border-radius: 999px;
     padding: 5px 10px;
+    border: 1px solid #e2e8f0;
 }
 
 .table-index-page .card-description {
     margin: 0;
     font-size: 14px;
     line-height: 1.6;
-    min-height: 4.8em;
+    min-height: 4.2em;
 }
 
 .table-index-page .status-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 7px 12px;
+    padding: 7px 11px;
     border-radius: 999px;
     font-size: 12px;
     font-weight: 700;
@@ -456,13 +403,13 @@ main#main > .container > .alert {
 .table-index-page .meta-box {
     border: 1px solid #e8eef6;
     border-radius: 16px;
-    padding: 14px 16px;
-    background: #fbfdff;
+    padding: 14px 15px;
+    background: linear-gradient(180deg, #ffffff, #fbfdff);
 }
 
 .table-index-page .meta-value {
     display: block;
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1;
     font-weight: 800;
     margin-top: 4px;
@@ -472,10 +419,178 @@ main#main > .container > .alert {
 .table-index-page .column-chip {
     padding: 6px 10px;
     border-radius: 999px;
-    background: #eff6ff;
+    background: var(--accent-ghost);
     color: #1d4ed8;
     font-size: 12px;
     font-weight: 700;
+    border: 1px solid #dbeafe;
+}
+
+.table-index-page .structure-section {
+    border: 1px solid #e6edf5;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fcfdff, #f7fafc);
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.table-index-page .structure-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    padding: 13px 16px;
+    border-bottom: 1px solid #e6edf5;
+    background: rgba(255, 255, 255, 0.86);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    backdrop-filter: blur(8px);
+}
+
+.table-index-page .structure-title {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #475569;
+}
+
+.table-index-page .structure-count {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 5px 9px;
+    white-space: nowrap;
+}
+
+.table-index-page .structure-list {
+    max-height: 220px;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.table-index-page .structure-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.table-index-page .structure-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.table-index-page .structure-list::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.table-index-page .structure-list::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+
+.table-index-page .structure-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(0, 0.95fr) auto;
+    gap: 10px;
+    align-items: start;
+    padding: 12px 16px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.table-index-page .structure-row:last-child {
+    border-bottom: none;
+}
+
+.table-index-page .column-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.table-index-page .column-name strong {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    line-height: 1.25;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+.table-index-page .column-name span {
+    font-size: 12px;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+}
+
+.table-index-page .column-type,
+.table-index-page .column-default {
+    font-size: 12px;
+    color: var(--ink);
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 8px 10px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+}
+
+.table-index-page .column-default {
+    color: #334155;
+}
+
+.table-index-page .column-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    padding-top: 1px;
+}
+
+.table-index-page .column-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #e0e7ff;
+}
+
+.table-index-page .column-badge.pk {
+    background: #fef9c3;
+    color: #854d0e;
+    border-color: #fde68a;
+}
+
+.table-index-page .column-badge.ai {
+    background: #dcfce7;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.table-index-page .column-badge.fk {
+    background: #e0f2fe;
+    color: #075985;
+    border-color: #bae6fd;
+}
+
+.table-index-page .column-badge.null {
+    background: #f8fafc;
+    color: #475569;
+    border-color: #e2e8f0;
 }
 
 .table-index-page .btn-danger-clean:hover {
@@ -485,32 +600,39 @@ main#main > .container > .alert {
 }
 
 .table-index-page .card-actions {
-    margin-top: auto;
+    margin-top: 2px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding-top: 2px;
 }
 
 .table-index-page .empty-state {
     text-align: center;
-    padding: 44px 24px;
-    border: 1px dashed #ccd8e8;
-    background: #f9fbfe;
+    padding: 52px 24px;
+    border: 1px dashed #cbd5e1;
+    background:
+        radial-gradient(circle at top, rgba(37, 99, 235, 0.05), transparent 34%),
+        linear-gradient(180deg, #ffffff, #f8fafc);
     border-radius: 22px;
 }
 
 .table-index-page .empty-state .material-symbols-outlined {
     font-size: 42px;
-    color: #8ea0b8;
-    margin-bottom: 10px;
+    color: #94a3b8;
+    margin-bottom: 12px;
 }
 
 .table-index-page .empty-title {
     margin: 0 0 8px;
     font-size: 20px;
-    font-weight: 760;
+    font-weight: 800;
 }
 
 .table-index-page .empty-text {
     margin: 0 0 18px;
     font-size: 14px;
+    line-height: 1.65;
 }
 
 @media (max-width: 1100px) {
@@ -565,6 +687,10 @@ main#main > .container > .alert {
 
     .table-index-page .column-badges {
         justify-content: flex-start;
+    }
+
+    .table-index-page .structure-list {
+        max-height: 260px;
     }
 }
 </style>
@@ -794,19 +920,27 @@ main#main > .container > .alert {
                                 </div>
 
                                 <div class="card-actions">
-                                    <?= Html::a('View', ['table-builder/view', 'id' => $table->id], ['class' => 'btn-clean']) ?>
-                                    <?= Html::a('Edit', ['table-builder/update', 'id' => $table->id], ['class' => 'btn-clean']) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined">visibility</span><span>View</span>', ['table-builder/view', 'id' => $table->id], [
+                                        'class' => 'btn-clean action-btn action-view',
+                                        'encode' => false,
+                                    ]) ?>
+                                    <?= Html::a('<span class="material-symbols-outlined">edit</span><span>Edit</span>', ['table-builder/update', 'id' => $table->id], [
+                                        'class' => 'btn-clean action-btn action-edit',
+                                        'encode' => false,
+                                    ]) ?>
                                     <?php if (!$table->is_created): ?>
-                                        <?= Html::a('Create in DB', ['table-builder/execute-sql', 'id' => $table->id], [
-                                            'class' => 'btn-clean',
+                                        <?= Html::a('<span class="material-symbols-outlined">database</span><span>Create in DB</span>', ['table-builder/execute-sql', 'id' => $table->id], [
+                                            'class' => 'btn-clean action-btn action-create',
+                                            'encode' => false,
                                             'data' => [
                                                 'confirm' => 'Create this table in the database?',
                                                 'method' => 'post',
                                             ],
                                         ]) ?>
                                     <?php endif; ?>
-                                    <?= Html::a('Delete', ['table-builder/delete', 'id' => $table->id], [
-                                        'class' => 'btn-clean btn-danger-clean',
+                                    <?= Html::a('<span class="material-symbols-outlined">delete</span><span>Delete</span>', ['table-builder/delete', 'id' => $table->id], [
+                                        'class' => 'btn-clean action-btn action-delete',
+                                        'encode' => false,
                                         'data' => [
                                             'confirm' => 'Are you sure you want to delete this table? All related metadata will be removed.',
                                             'method' => 'post',

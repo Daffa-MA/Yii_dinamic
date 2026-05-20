@@ -49,8 +49,14 @@ if ($isRootDomain) {
         $profileAvatar = 'A';
     }
 } elseif ($commanderAuth->isSuperAdmin() && $isWorkspaceDomain) {
-    $profileUsername = 'Superadmin';
-    $profileAvatar = 'S';
+    $commanderUser = $commanderAuth->getUser();
+    if ($commanderUser !== null) {
+        $profileUsername = (string)($commanderUser->username ?? 'admin');
+        $profileAvatar = strtoupper(substr($profileUsername, 0, 1));
+    } else {
+        $profileUsername = 'admin';
+        $profileAvatar = 'A';
+    }
     $profileRole = 'Commander Mode';
 } elseif ($projectAuthUser !== null) {
     $profileUsername = (string)$projectAuthUser->username;

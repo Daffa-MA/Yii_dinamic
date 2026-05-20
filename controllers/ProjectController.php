@@ -568,7 +568,6 @@ private function insertDefaultCmsData($newDb): void
         $hostSuffix = $dbHostHint !== '' ? " (server: {$dbHostHint})" : '';
         Yii::$app->session->setFlash('success', "{$project->name} aktif. Database project: {$databaseName}{$hostSuffix}.");
         if ($this->isCommanderSuperAdmin()) {
-            $context->setSuperAdminMode(true);
             $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
             AuthContextDebugLogger::log('commander_open_workspace', [
                 'project_id' => (int)$project->id,
@@ -577,7 +576,6 @@ private function insertDefaultCmsData($newDb): void
                 'commander_superadmin' => true,
             ]);
             if ($workspaceUrl !== null) {
-                Yii::$app->session->close();
                 return $this->redirect($workspaceUrl);
             }
 
@@ -693,9 +691,6 @@ private function insertDefaultCmsData($newDb): void
         if ($commanderAuth->isSuperAdmin()) {
             $project = Project::findOne(['id' => $projectId]);
             if ($project !== null) {
-                $context = new ActiveProjectContext();
-                $context->setActiveProject($projectId);
-                $context->setSuperAdminMode(true);
                 $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
                 AuthContextDebugLogger::log('redirect_to_workspace_for_commander', [
                     'project_id' => $projectId,
@@ -705,7 +700,6 @@ private function insertDefaultCmsData($newDb): void
                     'commander_superadmin' => true,
                 ]);
                 if ($workspaceUrl !== null) {
-                    Yii::$app->session->close();
                     return $this->redirect($workspaceUrl);
                 }
             }
@@ -809,7 +803,6 @@ private function insertDefaultCmsData($newDb): void
 
         $commanderAuth = new CommanderAuthContext();
         if ($commanderAuth->isSuperAdmin()) {
-            $context->setSuperAdminMode(true);
             return $this->redirect(['/dashboard']);
         }
 

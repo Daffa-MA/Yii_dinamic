@@ -3682,7 +3682,7 @@ return html;</pre>
                     title: 'Welcome to Our Site',
                     subtitle: 'Build amazing things',
                     buttonText: 'Get Started',
-                    buttonUrl: '#'
+                    buttonUrl: ''
                 },
                 team: {
                     type: 'team',
@@ -3738,14 +3738,14 @@ return html;</pre>
                     type: 'button',
                     label: 'Button',
                     text: 'Click Me',
-                    url: '#',
+                    url: '',
                     variant: 'primary'
                 },
                 link: {
                     type: 'link',
                     label: 'Link',
                     text: 'Click here',
-                    url: '#'
+                    url: ''
                 },
                 tabs: {
                     type: 'tabs',
@@ -3795,7 +3795,7 @@ return html;</pre>
                     title: 'Ready to get started?',
                     subtitle: 'Join thousands of happy users',
                     buttonText: 'Start Now',
-                    buttonUrl: '#'
+                    buttonUrl: ''
                 },
                 'social-links': {
                     type: 'social-links',
@@ -4095,9 +4095,11 @@ return html;</pre>
                         danger: 'var(--danger)',
                         outline: 'transparent;border:2px solid var(--primary);color:var(--primary)'
                     };
-                    return '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="#">' + escapeHtml(block.text || 'Button') + '</a>';
+                    const buttonUrl = block.url && block.url !== '#' ? block.url : '';
+                    return buttonUrl ? '<a class="preview-button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';" href="' + escapeHtml(buttonUrl) + '">' + escapeHtml(block.text || 'Button') + '</a>' : '<button class="preview-button" type="button" style="background:' + (btnVars[block.variant] || 'var(--primary)') + ';">' + escapeHtml(block.text || 'Button') + '</button>';
                 case 'link':
-                    return '<a href="#" style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>';
+                    const linkUrl = block.url && block.url !== '#' ? block.url : '';
+                    return linkUrl ? '<a href="' + escapeHtml(linkUrl) + '" style="color:var(--primary);">' + escapeHtml(block.text || 'Link') + ' →</a>' : '<span style="color:var(--gray-400);">' + escapeHtml(block.text || 'Link') + ' →</span>';
                 case 'tabs':
                     const tabs = (block.tabs || 'Tab 1\nTab 2').split('\n');
                     return '<div class="preview-tabs">' + tabs.map(function(t, i) {

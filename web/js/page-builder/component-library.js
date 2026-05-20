@@ -77,7 +77,7 @@ const COMPONENT_LIBRARY = {
         category: 'content',
         defaultProps: {
             text: 'Click me',
-            link: '#',
+            link: '',
             backgroundColor: '#007bff',
             color: '#ffffff',
             padding: '10px 20px',

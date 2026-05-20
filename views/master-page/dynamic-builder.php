@@ -2159,7 +2159,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         },
         button: {
             text: 'Klik Saya',
-            url: '#',
+            url: '',
             style: 'primary',
             size: 'md',
             align: 'center',
@@ -2275,6 +2275,9 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     window.dynamicFormPreviewEndpoint = <?= json_encode(Url::to(['master-page/form-preview'])) ?>;
     window.dynamicFormPreviewCache = {};
     window.dynamicFormPreviewPending = {};
+    window.workspacePages = [];
+    window.workspacePagesLoaded = false;
+    window.workspacePagesLoading = false;
     let selectedBlockId = null;
     let isAddingBlock = false;
     const PAGE_TYPE_BUILDER = 'builder';
@@ -2290,6 +2293,37 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     let activeCodeScope = initialPageTypeValue === PAGE_TYPE_CUSTOM_CODE ? 'page' : 'component';
     let fullPageSource = '';
     let fullPageSourceDerivedFromBuilder = !hasInitialFullPageSource;
+
+    function normalizeButtonLinkData(blocks) {
+        (blocks || []).forEach(block => {
+            if (!block || block.type !== 'button') {
+                if (Array.isArray(block?.children)) {
+                    normalizeButtonLinkData(block.children);
+                }
+                return;
+            }
+
+            block.props = block.props || {};
+            if (block.props.url === '#') {
+                block.props.url = '';
+            }
+            if (block.props.linkMode === 'none' || block.props.linkMode === 'ui' || block.props.uiOnly === true) {
+                block.props.linkMode = 'ui_only';
+                block.props.url = '';
+                block.props.pageId = '';
+                block.props.pageSlug = '';
+                block.props.uiOnly = true;
+            }
+            if (block.props.pageId && !block.props.linkMode) {
+                block.props.linkMode = 'page';
+            }
+            if (block.props.linkMode === 'page' && !block.props.pageId) {
+                block.props.linkMode = 'manual';
+            }
+        });
+    }
+
+    normalizeButtonLinkData(window.pageState);
 
     function generateId() {
         return 'block-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
@@ -2402,9 +2436,14 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     lg: '16px 32px'
                 };
                 const style = props.style || 'primary';
-                const hasUrl = props.url && props.url.trim() !== '';
-                const urlWarning = !hasUrl ? '<span style="display:block;font-size:10px;color:#ef4444;margin-top:4px">⚠️ URL kosong</span>' : '';
-                return `<div style="text-align:${props.align || 'center'};padding:12px;${!hasUrl ? 'border:1px dashed #ef4444;border-radius:8px;background:#fef2f2;' : ''}">${!hasUrl ? '<div style="color:#ef4444;font-size:11px;margin-bottom:4px">⚠️ URL belum diatur</div>' : ''}<button style="background:${colors[style]};color:white;border:none;border-radius:8px;padding:${sizes[props.size || 'md']};cursor:pointer;font-weight:600;font-size:14px;width:${props.fullWidth ? '100%' : 'auto'}">${props.text || 'Button'}</button>${urlWarning}</div>`;
+                const linkMode = props.linkMode || (props.pageId ? 'page' : 'manual');
+                const isUiOnly = linkMode === 'ui_only';
+                const hasUrl = isUiOnly || (linkMode === 'page' ? !!props.pageId : !!(props.url && props.url.trim() !== '' && props.url.trim() !== '#'));
+                const uiHint = isUiOnly ? '<span style="display:block;font-size:10px;color:#64748b;margin-top:4px">UI only: tidak ada aksi saat diklik</span>' : '';
+                const urlWarning = !hasUrl && !isUiOnly ? '<span style="display:block;font-size:10px;color:#ef4444;margin-top:4px">⚠️ URL kosong</span>' : '';
+                const wrapperStyle = isUiOnly ? '' : (!hasUrl ? 'border:1px dashed #ef4444;border-radius:8px;background:#fef2f2;' : '');
+                const emptyNotice = !hasUrl && !isUiOnly ? '<div style="color:#ef4444;font-size:11px;margin-bottom:4px">⚠️ URL belum diatur</div>' : '';
+                return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<button style="background:${colors[style]};color:white;border:none;border-radius:8px;padding:${sizes[props.size || 'md']};cursor:pointer;font-weight:600;font-size:14px;width:${props.fullWidth ? '100%' : 'auto'}">${props.text || 'Button'}</button>${uiHint}${urlWarning}</div>`;
             case 'card':
                 return `<div style="border-radius:12px;padding:${props.padding || '20'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
             case 'spacer':
@@ -2662,6 +2701,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 break;
 
             case 'button':
+                const buttonLinkMode = getButtonLinkMode(props);
+                const buttonPageId = props.pageId || props.page_id || '';
                 html += `<div class="prop-section">
                 <div class="prop-section-title">🔘 Teks & Link</div>
                 <div class="prop-group">
@@ -2669,11 +2710,30 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     <input type="text" class="prop-input" value="${props.text || ''}" onchange="updateProp('${blockId}', 'text', this.value)">
                 </div>
                 <div class="prop-group">
+                    <label>Target Link</label>
+                    <select class="prop-select" onchange="setButtonLinkMode('${blockId}', this.value)">
+                        <option value="ui_only" ${buttonLinkMode === 'ui_only' ? 'selected' : ''}>Tanpa aksi / UI only</option>
+                        <option value="manual" ${buttonLinkMode === 'manual' ? 'selected' : ''}>Link Manual</option>
+                        <option value="page" ${buttonLinkMode === 'page' ? 'selected' : ''}>Page Workspace</option>
+                    </select>
+                    <small class="text-gray-500">Pilih tanpa aksi, page internal, atau isi link manual.</small>
+                </div>
+                <div class="prop-group" style="display:${buttonLinkMode === 'page' ? 'block' : 'none'};">
+                    <label>Pilih Page</label>
+                    <select class="prop-select" id="button-page-select-${blockId}" onchange="setButtonPageTarget('${blockId}', this.value)">
+                        ${window.workspacePagesLoaded ? getWorkspacePageOptions(buttonPageId) : '<option value="">Memuat daftar page...</option>'}
+                    </select>
+                    <small class="text-gray-500">Halaman yang tersedia dari workspace aktif.</small>
+                </div>
+                <div class="prop-group" style="display:${buttonLinkMode === 'manual' ? 'block' : 'none'};">
                     <label>URL / Link</label>
-                    <input type="text" class="prop-input" id="button-url-input-${blockId}" value="${props.url || ''}" onchange="validateButtonUrl('${blockId}', this.value)">
-                    <small id="button-url-help-${blockId}" class="${!props.url ? 'text-red-500' : 'text-gray-500'}">
-                        ${!props.url ? '⚠️ Warning: URL kosong - tombol tidak akan navigasi' : 'Contoh: https://example.com atau /page/path'}
+                    <input type="text" class="prop-input" id="button-url-input-${blockId}" value="${props.url || ''}" onchange="validateButtonUrl('${blockId}', this.value)" placeholder="https://example.com atau /page/path">
+                    <small id="button-url-help-${blockId}" class="text-gray-500">
+                        ${props.url ? 'Contoh: https://example.com atau /page/path' : 'URL masih kosong. Isi manual atau pilih page.'}
                     </small>
+                </div>
+                <div class="prop-group" style="display:${buttonLinkMode === 'ui_only' ? 'block' : 'none'};">
+                    <small class="text-gray-500">Button ini hanya untuk tampilan UI. Saat diklik tidak akan berpindah halaman.</small>
                 </div>
             </div>
             <div class="prop-section">
@@ -2904,36 +2964,140 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
     function updateProp(blockId, key, value) {
         const block = window.pageState.find(b => b.id === blockId);
-        if (block) {
-            block.props[key] = value;
-            renderBuilder(window.pageState);
-            renderProperties(blockId);
+        if (!block) return;
+
+        block.props = block.props || {};
+        block.props[key] = value;
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateBlockProps(blockId, updates) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+
+        block.props = block.props || {};
+        Object.assign(block.props, updates);
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function getButtonLinkMode(props) {
+        if (!props) return 'manual';
+        if ((props.linkMode || '').toLowerCase() === 'ui_only' || props.uiOnly === true) return 'ui_only';
+        if ((props.linkMode || '').toLowerCase() === 'page') return 'page';
+        if ((props.linkMode || '').toLowerCase() === 'none' || (props.linkMode || '').toLowerCase() === 'ui') return 'ui_only';
+        if (props.pageId || props.pageSlug || props.page_id) return 'page';
+        return 'manual';
+    }
+
+    function getWorkspacePageOptions(selectedPageId) {
+        const pages = window.workspacePages || [];
+        const selected = String(selectedPageId || '');
+
+        const options = ['<option value="">Pilih page...</option>'];
+        pages.forEach(page => {
+            const pageId = String(page.id || '');
+            const pageName = (page.name || ('Page ' + pageId)).replace(/[&<>"]/g, function(ch) {
+                return ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch] || ch);
+            });
+            const slugPart = page.slug ? ' (' + String(page.slug).replace(/[&<>"]/g, function(ch) {
+                return ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[ch] || ch);
+            }) + ')' : '';
+            options.push('<option value="' + pageId + '"' + (selected === pageId ? ' selected' : '') + '>' + pageName + slugPart + '</option>');
+        });
+
+        return options.join('');
+    }
+
+    async function loadWorkspacePages(force = false) {
+        if (window.workspacePagesLoaded && !force) {
+            return window.workspacePages;
         }
+
+        if (window.workspacePagesLoading) {
+            return window.workspacePages;
+        }
+
+        window.workspacePagesLoading = true;
+
+        try {
+            const response = await fetch('<?= Url::to(['get-pages']) ?>', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const data = await response.json();
+            window.workspacePages = Array.isArray(data.pages) ? data.pages : [];
+        } catch (error) {
+            console.warn('Failed to load workspace pages', error);
+            window.workspacePages = [];
+        } finally {
+            window.workspacePagesLoaded = true;
+            window.workspacePagesLoading = false;
+        }
+
+        if (selectedBlockId) {
+            renderProperties(selectedBlockId);
+        }
+
+        return window.workspacePages;
     }
 
     function validateButtonUrl(blockId, value) {
-        const helpText = document.getElementById('button-url-help-' + blockId);
-        const input = document.getElementById('button-url-input-' + blockId);
-        
-        if (!value || value.trim() === '') {
-            if (helpText) {
-                helpText.className = 'text-red-500';
-                helpText.textContent = '⚠️ Warning: URL kosong - tombol tidak akan navigasi';
-            }
-            if (input) {
-                input.classList.add('url-warning');
-                input.classList.remove('url-valid');
-            }
-        } else if (helpText) {
-            helpText.className = 'text-gray-500';
-            helpText.textContent = '✓ URL valid: ' + value;
-            if (input) {
-                input.classList.remove('url-warning');
-                input.classList.add('url-valid');
-            }
+        const normalizedValue = (value || '').trim() === '#' ? '' : (value || '').trim();
+        updateBlockProps(blockId, {
+            linkMode: 'manual',
+            pageId: '',
+            pageSlug: '',
+            uiOnly: false,
+            url: normalizedValue
+        });
+    }
+
+    function setButtonLinkMode(blockId, mode) {
+        const normalizedMode = ['page', 'ui_only', 'manual'].includes(mode) ? mode : 'manual';
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+
+        const props = block.props || {};
+        const updates = {
+            linkMode: normalizedMode
+        };
+
+        if (normalizedMode === 'page') {
+            updates.url = '';
+            updates.uiOnly = false;
+        } else if (normalizedMode === 'ui_only') {
+            updates.url = '';
+            updates.pageId = '';
+            updates.pageSlug = '';
+            updates.uiOnly = true;
+        } else {
+            updates.pageId = '';
+            updates.pageSlug = '';
+            updates.uiOnly = false;
         }
-        
-        updateProp(blockId, 'url', value);
+
+        block.props = Object.assign({}, props, updates);
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function setButtonPageTarget(blockId, pageId) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+
+        const selectedPage = (window.workspacePages || []).find(page => String(page.id) === String(pageId));
+        block.props = Object.assign({}, block.props || {}, {
+            linkMode: 'page',
+            pageId: pageId ? String(pageId) : '',
+            pageSlug: selectedPage?.slug || '',
+            uiOnly: false,
+            url: ''
+        });
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
     }
 
     // Template Modal
@@ -2982,7 +3146,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     type: 'button',
                     props: {
                         text: 'Konsultasi Gratis',
-                        url: '#',
+                        url: '',
                         style: 'primary',
                         size: 'lg'
                     }
@@ -2992,7 +3156,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     type: 'button',
                     props: {
                         text: 'Pelajari Lebih Lanjut',
-                        url: '#',
+                        url: '',
                         style: 'outline',
                         size: 'lg'
                     }
@@ -3051,7 +3215,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     type: 'button',
                     props: {
                         text: 'Mulai Sekarang',
-                        url: '#',
+                        url: '',
                         style: 'primary'
                     }
                 },
@@ -3060,7 +3224,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     type: 'button',
                     props: {
                         text: 'Lihat Demo',
-                        url: '#',
+                        url: '',
                         style: 'ghost'
                     }
                 }
@@ -3842,7 +4006,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     type: 'button',
                     props: {
                         text: 'Lihat Semua Proyek',
-                        url: '#',
+                        url: '',
                         style: 'primary'
                     }
                 }
@@ -4363,7 +4527,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     type: 'button',
                     props: {
                         text: 'Berlangganan Info',
-                        url: '#',
+                        url: '',
                         style: 'primary'
                     }
                 }
@@ -4978,6 +5142,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             return;
         }
 
+        loadWorkspacePages();
+
         const hasExisting = <?= json_encode(!empty($initialState)) ?>;
         const isNewRecord = <?= json_encode($model->isNewRecord) ?>;
 
@@ -5541,7 +5707,7 @@ ${html || ''}
                     .replace(/{title}/g, props.title || 'Judul')
                     .replace(/{src}/g, props.src || '')
                     .replace(/{alt}/g, props.alt || 'Image')
-                    .replace(/{url}/g, props.url || '#')
+                    .replace(/{url}/g, props.url || '')
                     .replace(/{action}/g, props.action || '/submit');
             }
             code = baseCode;

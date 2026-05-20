@@ -1542,10 +1542,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                 <?php foreach ($projects as $project): ?>
                                     <?php
                                     $isActive = (int) $activeProjectId === (int) $project->id;
-                                    $workspaceUrl = $project->getWorkspaceUrl('/dashboard');
-                                    $openWorkspaceUrl = $isCommanderSuperAdmin && $workspaceUrl !== null
-                                        ? $workspaceUrl
-                                        : ['project/select', 'id' => $project->id];
+                                    $openWorkspaceUrl = ['project/select', 'id' => $project->id];
                                     ?>
                                     <article class="projects-project-card<?= $isActive ? ' is-active' : '' ?>">
                                         <div class="projects-project-main">

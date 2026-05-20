@@ -78,6 +78,10 @@ class ProjectAccessBootstrap implements BootstrapInterface
                         (new ActiveDatabaseContext())->resolveAndApply();
                         $activeProjectId = (int)$project->id;
                     }
+                } else {
+                    $projectContext = new ActiveProjectContext();
+                    $projectContext->setSuperAdminMode(true);
+                    (new ActiveDatabaseContext())->resolveAndApply();
                 }
 
                 AuthContextDebugLogger::log('workspace_superadmin_bypass', [

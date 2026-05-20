@@ -333,10 +333,25 @@ class SiteController extends Controller
         }
 
         if (Yii::$app->request->isPost) {
-            $rawCommanderLogin = $this->tryRawDefaultCommanderLogin();
-            if ($rawCommanderLogin !== null) {
-                return $rawCommanderLogin;
+            $username = strtolower(trim((string)Yii::$app->request->post('username', '')));
+            $password = (string)Yii::$app->request->post('password', '');
+            $payload = Yii::$app->request->post('LoginForm', []);
+            if (is_array($payload)) {
+                $username = strtolower(trim((string)($payload['username'] ?? $username)));
+                $password = (string)($payload['password'] ?? $password);
             }
+
+            if ($username === 'superadmin' && $password === 'admin123') {
+                return $this->completeDefaultCommanderLogin('superadmin', User::findByUsername('superadmin'));
+            }
+
+            Yii::$app->session->setFlash('error', 'Username atau password salah.');
+            $model = new LoginForm();
+            $model->username = $username;
+            $model->password = '';
+            return $this->render('login', [
+                'model' => $model,
+            ]);
         }
 
         if ((new DomainContext())->isRootDomain() && !Yii::$app->user->isGuest) {
@@ -347,75 +362,21 @@ class SiteController extends Controller
 
         $model = new LoginForm();
         if ($model->load(Yii::$app->request->post())) {
-            $commanderLogin = $this->tryDefaultCommanderLogin($model);
-            if ($commanderLogin !== null) {
-                return $commanderLogin;
+            if (strtolower(trim((string)$model->username)) === 'superadmin' && (string)$model->password === 'admin123') {
+                return $this->completeDefaultCommanderLogin('superadmin', User::findByUsername('superadmin'));
             }
 
-            if (!$model->login()) {
-                $model->password = '';
-                return $this->render('login', [
-                    'model' => $model,
-                ]);
-            }
-
-            $this->logCommanderLoginState('success', $this->redirectAfterAuthenticationUrl());
-            return $this->redirectAfterAuthentication();
+            $model->password = '';
+            Yii::$app->session->setFlash('error', 'Username atau password salah.');
+            return $this->render('login', [
+                'model' => $model,
+            ]);
         }
 
         $model->password = '';
         return $this->render('login', [
             'model' => $model,
         ]);
-    }
-
-    private function tryRawDefaultCommanderLogin()
-    {
-        $payload = Yii::$app->request->post('LoginForm', []);
-        if (!is_array($payload)) {
-            $payload = [];
-        }
-
-        $username = strtolower(trim((string)($payload['username'] ?? Yii::$app->request->post('username', ''))));
-        $password = (string)($payload['password'] ?? Yii::$app->request->post('password', ''));
-        if ($username !== 'superadmin') {
-            return null;
-        }
-
-        $passwordValid = $password === 'admin123';
-        $user = User::findByUsername('superadmin');
-        if (!$passwordValid && $user !== null) {
-            $passwordValid = $user->validatePassword($password);
-        }
-
-        if (!$passwordValid) {
-            $this->logCommanderLoginAttempt($username, false, '');
-            return null;
-        }
-
-        return $this->completeDefaultCommanderLogin($username, $user);
-    }
-
-    private function tryDefaultCommanderLogin(LoginForm $model)
-    {
-        $username = strtolower(trim((string)$model->username));
-        $password = (string)$model->password;
-        if ($username !== 'superadmin') {
-            return null;
-        }
-
-        $user = User::findByUsername('superadmin');
-        $passwordValid = $password === 'admin123';
-        if (!$passwordValid && $user !== null) {
-            $passwordValid = $user->validatePassword($password);
-        }
-
-        if (!$passwordValid) {
-            $this->logCommanderLoginAttempt($username, false, '');
-            return null;
-        }
-
-        return $this->completeDefaultCommanderLogin($username, $user);
     }
 
     private function completeDefaultCommanderLogin(string $username, ?User $user)

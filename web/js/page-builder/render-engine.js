@@ -68,7 +68,9 @@ class RenderEngine {
                 wrapper.innerHTML = `<img src="${node.props.src}" alt="${node.props.alt}" style="width:${node.props.width};height:${node.props.height};">`;
                 break;
             case 'button':
-                wrapper.innerHTML = `<a href="${node.props.link}" class="btn btn-primary" style="background-color:${node.props.backgroundColor};color:${node.props.color};">${this.escapeHtml(node.props.text)}</a>`;
+                wrapper.innerHTML = node.props.link && node.props.link !== '#'
+                    ? `<a href="${node.props.link}" class="btn btn-primary" style="background-color:${node.props.backgroundColor};color:${node.props.color};">${this.escapeHtml(node.props.text)}</a>`
+                    : `<button type="button" class="btn btn-primary" style="background-color:${node.props.backgroundColor};color:${node.props.color};">${this.escapeHtml(node.props.text)}</button>`;
                 break;
             case 'form':
                 this.renderForm(wrapper, node);

@@ -117,14 +117,41 @@ function renderBlockSafe(block) {
         return (value === null || value === undefined) ? '' : String(value).trim();
     }
 
+    function resolveButtonPageHref(buttonProps) {
+        const pageId = normalizeValue(buttonProps.pageId || buttonProps.page_id);
+        if (!pageId) {
+            return '';
+        }
+
+        return '/page/view?id=' + encodeURIComponent(pageId);
+    }
+
     function resolveButtonHref(buttonProps) {
         const reservedTargets = ['_blank', '_self', '_parent', '_top'];
-        const href = normalizeValue(buttonProps.href)
-            || normalizeValue(buttonProps.url)
-            || normalizeValue(buttonProps.route)
-            || normalizeValue(buttonProps.action);
-        if (href) {
-            return href;
+        const linkMode = normalizeValue(buttonProps.linkMode || buttonProps.link_mode);
+        const pageHref = resolveButtonPageHref(buttonProps);
+        if (linkMode === 'ui_only') {
+            return '';
+        }
+        if (linkMode === 'page' && pageHref) {
+            return pageHref;
+        }
+
+        if (pageHref && !normalizeValue(buttonProps.url) && !normalizeValue(buttonProps.href)) {
+            return pageHref;
+        }
+
+        const href = normalizeValue(buttonProps.href);
+        const url = normalizeValue(buttonProps.url);
+        const route = normalizeValue(buttonProps.route);
+        const action = normalizeValue(buttonProps.action);
+        const resolvedHref = [href, url, route, action].find((value) => value && value !== '#') || '';
+        if (resolvedHref) {
+            return resolvedHref;
+        }
+
+        if (linkMode === 'page') {
+            return pageHref;
         }
 
         const target = normalizeValue(buttonProps.target);

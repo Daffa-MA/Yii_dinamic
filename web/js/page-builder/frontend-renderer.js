@@ -102,7 +102,12 @@ class FrontendRenderer {
             case 'button':
                 element = document.createElement('a');
                 element.className = 'btn btn-primary page-button';
-                element.href = node.props?.link || '#';
+                if (node.props?.link && node.props.link !== '#') {
+                    element.href = node.props.link;
+                } else {
+                    element.removeAttribute('href');
+                    element.setAttribute('role', 'button');
+                }
                 element.textContent = node.props?.text || 'Button';
                 break;
 

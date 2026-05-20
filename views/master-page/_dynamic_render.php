@@ -188,7 +188,7 @@ function renderBlockSafe(block) {
             return '';
         }
 
-        return '/page/view?id=' + encodeURIComponent(pageId);
+        return '/page/view/' + encodeURIComponent(pageId);
     }
 
     function resolveButtonHref(buttonProps) {
@@ -235,6 +235,11 @@ function renderBlockSafe(block) {
     function resolveButtonTarget(buttonProps) {
         const target = normalizeValue(buttonProps.target);
         return ['_blank', '_self', '_parent', '_top'].includes(target) ? target : '';
+    }
+
+    function isExternalDestination(value) {
+        const normalized = normalizeValue(value);
+        return /^(https?:|mailto:|tel:)/i.test(normalized);
     }
 
     // Handle Block-level Custom Code
@@ -405,9 +410,10 @@ function renderBlockSafe(block) {
 
             const a = document.createElement('a');
             a.href = buttonHref;
-            if (buttonTarget) {
-                a.target = buttonTarget;
-                if (buttonTarget === '_blank') {
+            const resolvedButtonTarget = buttonTarget || (isExternalDestination(buttonHref) ? '_blank' : '');
+            if (resolvedButtonTarget) {
+                a.target = resolvedButtonTarget;
+                if (resolvedButtonTarget === '_blank') {
                     a.rel = 'noopener noreferrer';
                 }
             }

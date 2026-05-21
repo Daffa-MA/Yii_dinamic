@@ -371,12 +371,6 @@ class WorkspaceSettingsController extends Controller
                 ],
                 [
                     'type' => 'system_builder',
-                    'key' => 'master_datatable',
-                    'label' => 'Master Datatable',
-                    'description' => 'Kelola preset datatable untuk halaman dinamis.',
-                ],
-                [
-                    'type' => 'system_builder',
                     'key' => 'workspace_settings',
                     'label' => 'Workspace Settings',
                     'description' => 'Pengaturan workspace aktif.',
@@ -431,7 +425,6 @@ class WorkspaceSettingsController extends Controller
                 'master_page' => 'master-page/index',
                 'master_form' => 'master-form/index',
                 'master_table' => 'table-builder/index',
-                'master_datatable' => 'master-datatable/index',
                 'workspace_settings' => 'settings/workspace',
                 default => null,
             };
@@ -915,7 +908,6 @@ class WorkspaceSettingsController extends Controller
             'master-menu/index' => 'Master Menu',
             'master-page/index' => 'Master Page',
             'master-form/index' => 'Master Form',
-            'master-datatable/index' => 'Master Datatable',
             'table-builder/index' => 'Master Table',
             'settings/workspace' => 'Workspace Settings',
             'workspace-settings/index' => 'Workspace Settings',
@@ -998,7 +990,6 @@ class WorkspaceSettingsController extends Controller
             'Master Menu' => ['master-menu/index'],
             'Master Page' => ['master-page/index'],
             'Master Form' => ['master-form/index'],
-            'Master Datatable' => ['master-datatable/index'],
             'Master Table' => ['table-builder/index'],
             'Workspace Settings' => ['settings/workspace', 'workspace-settings/index'],
         ];

@@ -870,6 +870,61 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
         margin: 0;
     }
 
+    .ws-header-actions {
+        margin-top: 16px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .ws-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 16px;
+        border-radius: 14px;
+        font-weight: 600;
+        line-height: 1;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .ws-action-btn .material-symbols-outlined {
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .ws-action-btn-primary {
+        background: linear-gradient(135deg, #111827 0%, #1f2937 100%);
+        color: #ffffff;
+        border-color: #111827;
+    }
+
+    .ws-action-btn-primary:hover {
+        color: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
+    }
+
+    .ws-action-btn-secondary {
+        background: rgba(255, 255, 255, 0.82);
+        color: #334155;
+        border-color: #cbd5e1;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .ws-action-btn-secondary:hover {
+        color: #0f172a;
+        border-color: #94a3b8;
+        background: rgba(248, 250, 252, 0.96);
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
+    }
+
     @media (max-width: 860px) {
         .ws-media-picker {
             grid-template-columns: 1fr;
@@ -896,10 +951,16 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
             </div>
             <h1>Workspace Settings</h1>
             <p>Atur logo, warna sidebar, state aktif, dan navigasi workspace dari satu tempat dengan tampilan yang lebih tenang dan rapi.</p>
-            <div style="margin-top:16px;display:flex;gap:12px;flex-wrap:wrap;">
-<a href="<?= \yii\helpers\Url::to(['permissions']) ?>" class="btn btn-dark" style="border-radius:14px;padding:10px 16px;font-weight:700;">Akses Workspace</a>
+            <div class="ws-header-actions">
+<a href="<?= \yii\helpers\Url::to(['permissions']) ?>" class="ws-action-btn ws-action-btn-primary">
+                    <span class="material-symbols-outlined">security</span>
+                    <span>Akses Workspace</span>
+                </a>
                 <?php if ((new \app\components\CommanderAuthContext())->isSuperAdmin()): ?>
-                    <a href="<?= \yii\helpers\Html::encode((new \app\components\DomainContext())->projectListUrl()) ?>" class="btn btn-outline-secondary" style="border-radius:14px;padding:10px 16px;font-weight:700;">Kembali ke Project List</a>
+                    <a href="<?= \yii\helpers\Html::encode((new \app\components\DomainContext())->projectListUrl()) ?>" class="ws-action-btn ws-action-btn-secondary">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                        <span>Kembali ke Project List</span>
+                    </a>
                 <?php endif; ?>
             </div>
         </div>

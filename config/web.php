@@ -88,11 +88,68 @@ if (!function_exists('appSessionCookieParams')) {
     }
 }
 
+if (!function_exists('appCacheComponentConfig')) {
+    /**
+     * Returns the most suitable cache backend available in the current runtime.
+     * Falls back to FileCache when Redis/Memcached is unavailable.
+     *
+     * @return array<string, mixed>
+     */
+    function appCacheComponentConfig(): array
+    {
+        $driver = strtolower(trim((string)(getenv('YII_CACHE_DRIVER') ?: getenv('APP_CACHE_DRIVER') ?: 'file')));
+
+        if ($driver === 'redis' || $driver === 'auto') {
+            if (class_exists('yii\\redis\\Cache') && class_exists('yii\\redis\\Connection')) {
+                return [
+                    'class' => 'yii\\redis\\Cache',
+                    'redis' => [
+                        'class' => 'yii\\redis\\Connection',
+                        'hostname' => getenv('YII_REDIS_HOST') ?: getenv('REDIS_HOST') ?: '127.0.0.1',
+                        'port' => (int)(getenv('YII_REDIS_PORT') ?: getenv('REDIS_PORT') ?: 6379),
+                        'database' => (int)(getenv('YII_REDIS_DATABASE') ?: getenv('REDIS_DATABASE') ?: 0),
+                    ],
+                    'keyPrefix' => (string)(getenv('YII_CACHE_PREFIX') ?: getenv('APP_CACHE_PREFIX') ?: 'yii-dynamic:'),
+                ];
+            }
+            if ($driver === 'redis') {
+                Yii::warning('YII_CACHE_DRIVER=redis requested but yii2-redis is not available. Falling back to FileCache.', 'app');
+            }
+        }
+
+        if ($driver === 'memcached' || $driver === 'auto') {
+            if (class_exists('yii\\caching\\MemCache') && (extension_loaded('memcached') || extension_loaded('memcache'))) {
+                return [
+                    'class' => 'yii\\caching\\MemCache',
+                    'useMemcached' => extension_loaded('memcached'),
+                    'servers' => [[
+                        'host' => getenv('YII_MEMCACHED_HOST') ?: getenv('MEMCACHED_HOST') ?: '127.0.0.1',
+                        'port' => (int)(getenv('YII_MEMCACHED_PORT') ?: getenv('MEMCACHED_PORT') ?: 11211),
+                        'weight' => 100,
+                    ]],
+                    'keyPrefix' => (string)(getenv('YII_CACHE_PREFIX') ?: getenv('APP_CACHE_PREFIX') ?: 'yii-dynamic:'),
+                ];
+            }
+            if ($driver === 'memcached') {
+                Yii::warning('YII_CACHE_DRIVER=memcached requested but memcached/memcache is not available. Falling back to FileCache.', 'app');
+            }
+        }
+
+        return [
+            'class' => 'yii\\caching\\FileCache',
+            'cachePath' => '@runtime/cache',
+            'defaultDuration' => 86400,
+            'directoryLevel' => 1,
+            'keyPrefix' => (string)(getenv('YII_CACHE_PREFIX') ?: getenv('APP_CACHE_PREFIX') ?: 'yii-dynamic:'),
+        ];
+    }
+}
+
 $config = [
     'id' => 'basic',
     'name' => 'Architectural Editor',
     'basePath' => dirname(__DIR__),
-    'bootstrap' => ['log', 'app\\components\\DomainProjectResolver', 'app\\components\\ProjectAccessBootstrap'],
+    'bootstrap' => ['log', 'app\\components\\DomainProjectResolver', 'app\\components\\ProjectAccessBootstrap', 'app\\components\\AppSecurityBootstrap'],
     'aliases' => [
         '@bower' => '@vendor/bower-asset',
         '@npm'   => '@vendor/npm-asset',
@@ -109,12 +166,7 @@ $config = [
         'assetManager' => [
             'appendTimestamp' => true,
         ],
-        'cache' => [
-            'class' => 'yii\caching\FileCache',
-            'cachePath' => '@runtime/cache',
-            'defaultDuration' => 86400,
-            'directoryLevel' => 1,
-        ],
+        'cache' => appCacheComponentConfig(),
         'session' => [
             'class' => 'app\components\NoSetPathSession',
             'cookieParams' => appSessionCookieParams(),

@@ -78,8 +78,10 @@ class FormPlacementController extends Controller
             return false;
         }
 
-        (new \app\components\ActiveDatabaseContext())->resolveAndApply();
-        Yii::$app->db->schema->refresh();
+        $result = (new \app\components\ActiveDatabaseContext())->resolveAndApply();
+        if (!empty($result['isSwitched'])) {
+            Yii::$app->db->schema->refresh();
+        }
 
         if (!ProjectSchema::supportsProjectContext()) {
             return true;

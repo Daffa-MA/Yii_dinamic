@@ -28,7 +28,9 @@ class MasterMenuController extends Controller
     {
         $dbContext = new ActiveDatabaseContext();
         $result = $dbContext->resolveAndApply();
-        Yii::$app->db->schema->refresh();
+        if (!empty($result['isSwitched'])) {
+            Yii::$app->db->schema->refresh();
+        }
         return parent::beforeAction($action);
     }
 

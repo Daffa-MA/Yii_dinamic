@@ -11,9 +11,23 @@ use yii\helpers\Url;
 
 class ProjectPermissionService
 {
+    private static array $menuAccessStateCache = [];
+    private static array $canAccessRouteCache = [];
+    private static array $canAccessPermissionKeysCache = [];
+    private static array $hasRoleAccessCache = [];
+    private static array $roleAccessTableHasRowsCache = [];
+    private static array $legacyPermissionCache = [];
+    private static array $resolveRouteAccessCache = [];
+    private static array $canAccessRouteViaMenuCache = [];
+
     private function isCommanderSuperAdmin(): bool
     {
         return (new CommanderAuthContext())->isSuperAdmin();
+    }
+
+    private function buildCacheKey(string $prefix, array $parts): string
+    {
+        return $prefix . ':' . md5(json_encode($parts));
     }
 
     /**
@@ -21,6 +35,22 @@ class ProjectPermissionService
      */
     private function resolveMenuAccessState(array $menu, ?int $projectId = null): array
     {
+        $cacheKey = $this->buildCacheKey('menu_access', [
+            $projectId,
+            Yii::$app->user->id,
+            Yii::$app->user->isGuest ? 1 : 0,
+            strtolower(trim((string)($menu['name'] ?? ''))),
+            strtolower(trim((string)($menu['route'] ?? ''), '/')),
+            strtolower(trim((string)($menu['menu_key'] ?? ''))),
+            strtolower(trim((string)($menu['type'] ?? ''))),
+            (int)($menu['page_id'] ?? 0),
+            (int)($menu['form_id'] ?? 0),
+            strtolower(trim((string)($menu['visibility_roles'] ?? ''))),
+        ]);
+        if (array_key_exists($cacheKey, self::$menuAccessStateCache)) {
+            return self::$menuAccessStateCache[$cacheKey];
+        }
+
         $authContext = new ProjectAuthContext();
         $user = $authContext->getAuthenticatedUser($projectId);
         $role = $user !== null ? strtolower(trim((string)$user->role)) : '';
@@ -30,31 +60,31 @@ class ProjectPermissionService
         $menuKey = $this->resolveMenuKey($menu);
 
         if ($this->isCommanderSuperAdmin()) {
-            return $this->buildMenuAccessState(true, true, 'commander_superadmin', $role, $userId, $menuName, $route, $menuKey);
+            return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(true, true, 'commander_superadmin', $role, $userId, $menuName, $route, $menuKey);
         }
 
         if ($user === null) {
-            return $this->buildMenuAccessState(false, false, 'no_authenticated_user', $role, $userId, $menuName, $route, $menuKey);
+            return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(false, false, 'no_authenticated_user', $role, $userId, $menuName, $route, $menuKey);
         }
 
         if ($this->isAdminRole($role)) {
-            return $this->buildMenuAccessState(true, true, 'admin_role', $role, $userId, $menuName, $route, $menuKey);
+            return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(true, true, 'admin_role', $role, $userId, $menuName, $route, $menuKey);
         }
 
         $roles = trim((string)($menu['visibility_roles'] ?? ''));
         if ($roles !== '') {
             $allowed = array_map('trim', explode(',', strtolower($roles)));
             if (in_array($role, $allowed, true)) {
-                return $this->buildMenuAccessState(true, true, 'visibility_roles_match', $role, $userId, $menuName, $route, $menuKey);
+                return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(true, true, 'visibility_roles_match', $role, $userId, $menuName, $route, $menuKey);
             }
         }
 
         if ($menuKey === '') {
-            return $this->buildMenuAccessState(false, false, 'menu_key_missing', $role, $userId, $menuName, $route, $menuKey);
+            return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(false, false, 'menu_key_missing', $role, $userId, $menuName, $route, $menuKey);
         }
 
         if ($this->roleAccessTableHasRows($role) && $this->hasRoleAccess($role, 'menu', $menuKey)) {
-            return $this->buildMenuAccessState(true, true, 'role_access_table_menu_match', $role, $userId, $menuName, $route, $menuKey);
+            return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(true, true, 'role_access_table_menu_match', $role, $userId, $menuName, $route, $menuKey);
         }
 
         $permissionKeys = [
@@ -94,14 +124,14 @@ class ProjectPermissionService
         }
 
         if ($this->legacyHasAnyPermission($role, $permissionKeys)) {
-            return $this->buildMenuAccessState(true, true, 'legacy_permission_match', $role, $userId, $menuName, $route, $menuKey);
+            return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(true, true, 'legacy_permission_match', $role, $userId, $menuName, $route, $menuKey);
         }
 
         $denyReason = $menuType === 'route'
             ? 'legacy_permission_missing_for_route_menu'
             : 'legacy_permission_missing_for_menu';
 
-        return $this->buildMenuAccessState(false, false, $denyReason, $role, $userId, $menuName, $route, $menuKey);
+        return self::$menuAccessStateCache[$cacheKey] = $this->buildMenuAccessState(false, false, $denyReason, $role, $userId, $menuName, $route, $menuKey);
     }
 
     /**
@@ -139,34 +169,48 @@ class ProjectPermissionService
 
     public function canAccessRoute(string $route, ?int $projectId = null): bool
     {
+        $cacheKey = $this->buildCacheKey('can_access_route', [
+            $route,
+            $projectId,
+            Yii::$app->user->id,
+            Yii::$app->user->isGuest ? 1 : 0,
+            Yii::$app->request->pathInfo,
+            Yii::$app->request->get('id', Yii::$app->request->post('id', 0)),
+            Yii::$app->request->get('slug', Yii::$app->request->post('slug', '')),
+            Yii::$app->request->get('form_id', Yii::$app->request->post('form_id', 0)),
+        ]);
+        if (array_key_exists($cacheKey, self::$canAccessRouteCache)) {
+            return self::$canAccessRouteCache[$cacheKey];
+        }
+
         if ($this->isCommanderSuperAdmin()) {
-            return true;
+            return self::$canAccessRouteCache[$cacheKey] = true;
         }
 
         $authContext = new ProjectAuthContext();
         $user = $authContext->getAuthenticatedUser($projectId);
         if ($user === null) {
-            return false;
+            return self::$canAccessRouteCache[$cacheKey] = false;
         }
 
         $route = trim(preg_replace('/[?#].*$/', '', $route), '/');
         $role = strtolower(trim((string)$user->role));
         if ($this->isAdminRole($role)) {
-            return true;
+            return self::$canAccessRouteCache[$cacheKey] = true;
         }
 
         if ($route === '') {
-            return false;
+            return self::$canAccessRouteCache[$cacheKey] = false;
         }
 
         if ($this->canAccessRouteViaMenu($route, $projectId)) {
-            return true;
+            return self::$canAccessRouteCache[$cacheKey] = true;
         }
 
         $simpleAccess = $this->resolveRouteAccess($route);
         if ($simpleAccess !== null && $this->roleAccessTableHasRows($role)) {
             if ($this->hasRoleAccess($role, $simpleAccess['type'], $simpleAccess['key'])) {
-                return true;
+                return self::$canAccessRouteCache[$cacheKey] = true;
             }
         }
 
@@ -186,7 +230,7 @@ class ProjectPermissionService
             ]);
         }
 
-        return $allowed;
+        return self::$canAccessRouteCache[$cacheKey] = $allowed;
     }
 
     public function canAccessMenu(array $menu, ?int $projectId = null): bool
@@ -318,27 +362,38 @@ class ProjectPermissionService
 
     public function canAccessPermissionKeys(array $permissionKeys, ?int $projectId = null): bool
     {
+        $permissionKeys = array_values(array_filter(array_map(static function ($value) {
+            return trim((string)$value);
+        }, $permissionKeys)));
+        sort($permissionKeys);
+
+        $cacheKey = $this->buildCacheKey('can_access_permission_keys', [
+            $projectId,
+            Yii::$app->user->id,
+            Yii::$app->user->isGuest ? 1 : 0,
+            $permissionKeys,
+        ]);
+        if (array_key_exists($cacheKey, self::$canAccessPermissionKeysCache)) {
+            return self::$canAccessPermissionKeysCache[$cacheKey];
+        }
+
         if ($this->isCommanderSuperAdmin()) {
-            return true;
+            return self::$canAccessPermissionKeysCache[$cacheKey] = true;
         }
 
         $authContext = new ProjectAuthContext();
         $user = $authContext->getAuthenticatedUser($projectId);
         if ($user === null) {
-            return false;
+            return self::$canAccessPermissionKeysCache[$cacheKey] = false;
         }
 
         $role = strtolower(trim((string)$user->role));
         if ($this->isAdminRole($role)) {
-            return true;
+            return self::$canAccessPermissionKeysCache[$cacheKey] = true;
         }
 
-        $permissionKeys = array_values(array_filter(array_map(static function ($value) {
-            return trim((string)$value);
-        }, $permissionKeys)));
-
         if (empty($permissionKeys)) {
-            return false;
+            return self::$canAccessPermissionKeysCache[$cacheKey] = false;
         }
 
         $simpleCandidates = [];
@@ -358,26 +413,26 @@ class ProjectPermissionService
         if ($this->roleAccessTableHasRows($role) && !empty($simpleCandidates)) {
             foreach ($simpleCandidates as $candidate) {
                 if ($this->hasRoleAccess($role, (string)$candidate['type'], (string)$candidate['key'])) {
-                    return true;
+                    return self::$canAccessPermissionKeysCache[$cacheKey] = true;
                 }
             }
 
             if (!empty($legacyCandidates)) {
-                return $this->legacyHasAnyPermission($role, $legacyCandidates);
+                return self::$canAccessPermissionKeysCache[$cacheKey] = $this->legacyHasAnyPermission($role, $legacyCandidates);
             }
 
-            return false;
+            return self::$canAccessPermissionKeysCache[$cacheKey] = false;
         }
 
         if (!empty($simpleCandidates)) {
             foreach ($simpleCandidates as $candidate) {
                 if ($this->hasRoleAccess($role, (string)$candidate['type'], (string)$candidate['key'])) {
-                    return true;
+                    return self::$canAccessPermissionKeysCache[$cacheKey] = true;
                 }
             }
         }
 
-        return $this->legacyHasAnyPermission($role, array_merge($legacyCandidates, $permissionKeys));
+        return self::$canAccessPermissionKeysCache[$cacheKey] = $this->legacyHasAnyPermission($role, array_merge($legacyCandidates, $permissionKeys));
     }
 
     public function resolveAccessibleLandingRoute(?int $projectId = null, ?string $preferredRoute = null): ?string
@@ -425,12 +480,17 @@ class ProjectPermissionService
 
     private function hasRoleAccess(string $role, string $accessType, string $accessKey): bool
     {
-        $schema = Yii::$app->db->schema;
-        if ($schema->getTableSchema('role_access', true) === null) {
-            return false;
+        $cacheKey = $this->buildCacheKey('has_role_access', [$role, strtolower(trim($accessType)), strtolower(trim($accessKey))]);
+        if (array_key_exists($cacheKey, self::$hasRoleAccessCache)) {
+            return self::$hasRoleAccessCache[$cacheKey];
         }
 
-        return (new Query())
+        $schema = Yii::$app->db->schema;
+        if ($schema->getTableSchema('role_access', true) === null) {
+            return self::$hasRoleAccessCache[$cacheKey] = false;
+        }
+
+        return self::$hasRoleAccessCache[$cacheKey] = (new Query())
             ->from('role_access')
             ->where([
                 'role' => $role,
@@ -519,12 +579,17 @@ class ProjectPermissionService
 
     private function roleAccessTableHasRows(string $role): bool
     {
-        $schema = Yii::$app->db->schema;
-        if ($schema->getTableSchema('role_access', true) === null) {
-            return false;
+        $cacheKey = $this->buildCacheKey('role_access_table_has_rows', [$role]);
+        if (array_key_exists($cacheKey, self::$roleAccessTableHasRowsCache)) {
+            return self::$roleAccessTableHasRowsCache[$cacheKey];
         }
 
-        return (new Query())
+        $schema = Yii::$app->db->schema;
+        if ($schema->getTableSchema('role_access', true) === null) {
+            return self::$roleAccessTableHasRowsCache[$cacheKey] = false;
+        }
+
+        return self::$roleAccessTableHasRowsCache[$cacheKey] = (new Query())
             ->from('role_access')
             ->where(['role' => $role])
             ->exists(Yii::$app->db);
@@ -535,14 +600,20 @@ class ProjectPermissionService
         $permissionKeys = array_values(array_filter(array_map(static function ($value) {
             return trim((string)$value);
         }, $permissionKeys)));
+        sort($permissionKeys);
+
+        $cacheKey = $this->buildCacheKey('legacy_permissions', [$role, $permissionKeys]);
+        if (array_key_exists($cacheKey, self::$legacyPermissionCache)) {
+            return self::$legacyPermissionCache[$cacheKey];
+        }
 
         if (empty($permissionKeys)) {
-            return false;
+            return self::$legacyPermissionCache[$cacheKey] = false;
         }
 
         $schema = Yii::$app->db->schema;
         if ($schema->getTableSchema('roles', true) === null || $schema->getTableSchema('permissions', true) === null || $schema->getTableSchema('role_permissions', true) === null) {
-            return false;
+            return self::$legacyPermissionCache[$cacheKey] = false;
         }
 
         $roleId = (new Query())
@@ -552,7 +623,7 @@ class ProjectPermissionService
             ->scalar(Yii::$app->db);
 
         if (!$roleId) {
-            return false;
+            return self::$legacyPermissionCache[$cacheKey] = false;
         }
 
         $permissionIds = (new Query())
@@ -562,10 +633,10 @@ class ProjectPermissionService
             ->column(Yii::$app->db);
 
         if (empty($permissionIds)) {
-            return false;
+            return self::$legacyPermissionCache[$cacheKey] = false;
         }
 
-        return (new Query())
+        return self::$legacyPermissionCache[$cacheKey] = (new Query())
             ->from('role_permissions')
             ->where([
                 'role_id' => (int)$roleId,
@@ -712,14 +783,27 @@ class ProjectPermissionService
 
     private function resolveRouteAccess(string $route): ?array
     {
+        $cacheKey = $this->buildCacheKey('resolve_route_access', [
+            $route,
+            Yii::$app->user->id,
+            Yii::$app->user->isGuest ? 1 : 0,
+            Yii::$app->request->pathInfo,
+            Yii::$app->request->get('id', Yii::$app->request->post('id', 0)),
+            Yii::$app->request->get('slug', Yii::$app->request->post('slug', '')),
+            Yii::$app->request->get('form_id', Yii::$app->request->post('form_id', 0)),
+        ]);
+        if (array_key_exists($cacheKey, self::$resolveRouteAccessCache)) {
+            return self::$resolveRouteAccessCache[$cacheKey];
+        }
+
         $route = trim($route, '/');
         if ($route === '') {
-            return null;
+            return self::$resolveRouteAccessCache[$cacheKey] = null;
         }
 
         $normalizedRoute = strtolower($route);
         if (in_array($normalizedRoute, ['site/dashboard', 'dashboard', 'dashboard/index', 'workspace-dashboard', 'workspace-dashboard/index'], true)) {
-            return [
+            return self::$resolveRouteAccessCache[$cacheKey] = [
                 'type' => 'menu',
                 'key' => 'dashboard',
             ];
@@ -727,7 +811,7 @@ class ProjectPermissionService
 
         $simple = $this->mapRouteKeyToSimpleAccess(str_replace('/', '.', $normalizedRoute));
         if ($simple !== null) {
-            return $simple;
+            return self::$resolveRouteAccessCache[$cacheKey] = $simple;
         }
 
         $request = Yii::$app->request;
@@ -738,7 +822,7 @@ class ProjectPermissionService
             if ($pageId > 0) {
                 $page = MasterPage::findOne($pageId);
                 if ($page instanceof MasterPage) {
-                    return [
+                    return self::$resolveRouteAccessCache[$cacheKey] = [
                         'type' => 'page',
                         'key' => $this->resolvePageKey($page),
                     ];
@@ -747,7 +831,7 @@ class ProjectPermissionService
         }
 
         if (in_array($routeOnly, ['master-form/preview', 'master-form/submit'], true)) {
-            return [
+            return self::$resolveRouteAccessCache[$cacheKey] = [
                 'type' => 'system_builder',
                 'key' => 'master_form',
             ];
@@ -758,7 +842,7 @@ class ProjectPermissionService
             if ($formId > 0) {
                 $form = MasterForm::findByIdScoped($formId);
                 if ($form instanceof MasterForm) {
-                    return [
+                    return self::$resolveRouteAccessCache[$cacheKey] = [
                         'type' => 'form',
                         'key' => $this->resolveFormKey($form),
                     ];
@@ -766,7 +850,7 @@ class ProjectPermissionService
             }
         }
 
-        return null;
+        return self::$resolveRouteAccessCache[$cacheKey] = null;
     }
 
     private function resolveMenuKey(array $menu): string
@@ -961,9 +1045,21 @@ class ProjectPermissionService
 
     private function canAccessRouteViaMenu(string $route, ?int $projectId = null): bool
     {
+        $cacheKey = $this->buildCacheKey('can_access_route_via_menu', [
+            $route,
+            $projectId,
+            Yii::$app->user->id,
+            Yii::$app->user->isGuest ? 1 : 0,
+            Yii::$app->request->pathInfo,
+            Yii::$app->request->get('id', Yii::$app->request->post('id', 0)),
+        ]);
+        if (array_key_exists($cacheKey, self::$canAccessRouteViaMenuCache)) {
+            return self::$canAccessRouteViaMenuCache[$cacheKey];
+        }
+
         $schema = Yii::$app->db->schema;
         if ($schema->getTableSchema('master_menu', true) === null) {
-            return false;
+            return self::$canAccessRouteViaMenuCache[$cacheKey] = false;
         }
 
         $normalizedRoute = '/' . ltrim(trim($route, '/'), '/');
@@ -1020,11 +1116,11 @@ class ProjectPermissionService
             $state = $this->resolveMenuAccessState($menu, $projectId);
             $this->logPermissionDebug('route_menu_match', $state, $route);
             if (($state['visible'] ?? false) === true) {
-                return true;
+                return self::$canAccessRouteViaMenuCache[$cacheKey] = true;
             }
         }
 
-        return false;
+        return self::$canAccessRouteViaMenuCache[$cacheKey] = false;
     }
 
     /**

@@ -114,12 +114,30 @@ if (!function_exists('dbMysqlConnectionOptions')) {
      */
     function dbMysqlConnectionOptions(): array
     {
+        $schemaCacheEnabled = true;
+        $schemaCacheEnv = getenv('YII_DISABLE_SCHEMA_CACHE');
+        if ($schemaCacheEnv === false || $schemaCacheEnv === '') {
+            $schemaCacheEnv = getenv('APP_DISABLE_SCHEMA_CACHE');
+        }
+        if (filter_var($schemaCacheEnv, FILTER_VALIDATE_BOOLEAN)) {
+            $schemaCacheEnabled = false;
+        }
+
+        $queryCacheEnabled = true;
+        $queryCacheEnv = getenv('YII_DISABLE_QUERY_CACHE');
+        if ($queryCacheEnv === false || $queryCacheEnv === '') {
+            $queryCacheEnv = getenv('APP_DISABLE_QUERY_CACHE');
+        }
+        if (filter_var($queryCacheEnv, FILTER_VALIDATE_BOOLEAN)) {
+            $queryCacheEnabled = false;
+        }
+
         return [
             'charset' => 'utf8mb4',
-            'enableSchemaCache' => true,
+            'enableSchemaCache' => $schemaCacheEnabled,
             'schemaCache' => 'cache',
             'schemaCacheDuration' => 86400,
-            'enableQueryCache' => true,
+            'enableQueryCache' => $queryCacheEnabled,
             'queryCacheDuration' => 120,
         ];
     }

@@ -214,89 +214,106 @@ class SiteController extends Controller
         $totalSubmissions = $dashboardStats['totalSubmissions'];
         $todaySubmissions = $dashboardStats['todaySubmissions'];
 
-        $recentFormsQuery = Form::find()
-            ->select(['id'])
-            ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
-            ->limit(5);
-        if (!$isCommanderSuperAdmin) {
-            $recentFormsQuery->where(['user_id' => $userId]);
-        }
-        if ($projectContextEnabled && $activeProjectId !== null) {
-            $recentFormsQuery->andWhere(['project_id' => $activeProjectId]);
-        }
-        $recentForms = $recentFormsQuery->all();
-
-        $submissionCountSubQuery = FormSubmission::find()
-            ->select(['form_id', 'submission_count' => 'COUNT(*)'])
-            ->groupBy('form_id');
-
-        $formsQuery = Form::find()
-            ->alias('f')
-            ->select([
-                'f.id',
-                'f.user_id',
-                'f.name',
-                'schema_js' => new \yii\db\Expression('f.' . $schemaColumn),
-                'f.created_at',
-                'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
-            ])
-            ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
-            ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC])
-            ->limit(6);
-        if (!$isCommanderSuperAdmin) {
-            $formsQuery->where(['f.user_id' => $userId]);
-        }
-        if ($projectContextEnabled && $activeProjectId !== null) {
-            $formsQuery->andWhere(['f.project_id' => $activeProjectId]);
-        }
-        $forms = $formsQuery->all();
-
-        $recentSubmissionsQuery = FormSubmission::find()
-            ->select(['form_submissions.id', 'form_submissions.form_id', 'form_submissions.created_at'])
-            ->innerJoin('forms', 'forms.id = form_submissions.form_id')
-            ->with([
-                'form' => function ($q) {
-                    $q->select(['id', 'name']);
-                }
-            ])
-            ->orderBy(['created_at' => SORT_DESC])
-            ->limit(10);
-        if (!$isCommanderSuperAdmin) {
-            $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
-        }
-        if ($projectContextEnabled && $activeProjectId !== null) {
-            $recentSubmissionsQuery->andWhere(['forms.project_id' => $activeProjectId]);
-        }
-        $recentSubmissions = $recentSubmissionsQuery->all();
-
-        $recentFormIds = array_unique(array_map(function ($submission) {
-            return (int) $submission->form_id;
-        }, $recentSubmissions));
-
-        $formSubmissionCounts = [];
-        if (!empty($recentFormIds)) {
-            $countRows = FormSubmission::find()
-                ->select(['form_id', 'total' => 'COUNT(*)'])
-                ->where(['form_id' => $recentFormIds])
-                ->groupBy('form_id')
-                ->asArray()
-                ->all();
-
-            foreach ($countRows as $row) {
-                $formSubmissionCounts[(int) $row['form_id']] = (int) $row['total'];
+        $dashboardDetails = Yii::$app->cache->getOrSet('dashboard-details-' . $userId . $cacheSuffix, function () use ($userId, $activeProjectId, $projectContextEnabled, $isCommanderSuperAdmin, $schemaColumn) {
+            $recentFormsQuery = Form::find()
+                ->select(['id'])
+                ->orderBy(['created_at' => SORT_DESC, 'id' => SORT_DESC])
+                ->limit(5);
+            if (!$isCommanderSuperAdmin) {
+                $recentFormsQuery->where(['user_id' => $userId]);
             }
-        }
+            if ($projectContextEnabled && $activeProjectId !== null) {
+                $recentFormsQuery->andWhere(['project_id' => $activeProjectId]);
+            }
+            $recentForms = $recentFormsQuery->all();
+
+            $submissionCountSubQuery = FormSubmission::find()
+                ->select(['form_id', 'submission_count' => 'COUNT(*)'])
+                ->groupBy('form_id');
+
+            $formsQuery = Form::find()
+                ->alias('f')
+                ->select([
+                    'f.id',
+                    'f.user_id',
+                    'f.name',
+                    'schema_js' => new \yii\db\Expression('f.' . $schemaColumn),
+                    'f.created_at',
+                    'submission_count' => new \yii\db\Expression('COALESCE(fs_count.submission_count, 0)'),
+                ])
+                ->leftJoin(['fs_count' => $submissionCountSubQuery], 'fs_count.form_id = f.id')
+                ->orderBy(['f.created_at' => SORT_DESC, 'f.id' => SORT_DESC])
+                ->limit(6);
+            if (!$isCommanderSuperAdmin) {
+                $formsQuery->where(['f.user_id' => $userId]);
+            }
+            if ($projectContextEnabled && $activeProjectId !== null) {
+                $formsQuery->andWhere(['f.project_id' => $activeProjectId]);
+            }
+            $forms = $formsQuery->all();
+
+            $recentSubmissionsQuery = FormSubmission::find()
+                ->select(['form_submissions.id', 'form_submissions.form_id', 'form_submissions.created_at'])
+                ->innerJoin('forms', 'forms.id = form_submissions.form_id')
+                ->with([
+                    'form' => function ($q) {
+                        $q->select(['id', 'name']);
+                    }
+                ])
+                ->orderBy(['created_at' => SORT_DESC])
+                ->limit(10);
+            if (!$isCommanderSuperAdmin) {
+                $recentSubmissionsQuery->where(['forms.user_id' => $userId]);
+            }
+            if ($projectContextEnabled && $activeProjectId !== null) {
+                $recentSubmissionsQuery->andWhere(['forms.project_id' => $activeProjectId]);
+            }
+            $recentSubmissions = $recentSubmissionsQuery->all();
+
+            $recentFormIds = array_unique(array_map(function ($submission) {
+                return (int) $submission->form_id;
+            }, $recentSubmissions));
+
+            $formSubmissionCounts = [];
+            if (!empty($recentFormIds)) {
+                $countRows = FormSubmission::find()
+                    ->select(['form_id', 'total' => 'COUNT(*)'])
+                    ->where(['form_id' => $recentFormIds])
+                    ->groupBy('form_id')
+                    ->asArray()
+                    ->all();
+
+                foreach ($countRows as $row) {
+                    $formSubmissionCounts[(int) $row['form_id']] = (int) $row['total'];
+                }
+            }
+
+            $databaseTableQuery = DbTable::find();
+            if (!$isCommanderSuperAdmin) {
+                $databaseTableQuery->where(['user_id' => $userId]);
+            }
+            if ($projectContextEnabled && $activeProjectId !== null) {
+                $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
+            }
+            $databaseTableCount = (int) $databaseTableQuery->count();
+
+            return [
+                'recentForms' => $recentForms,
+                'forms' => $forms,
+                'recentSubmissions' => $recentSubmissions,
+                'formSubmissionCounts' => $formSubmissionCounts,
+                'databaseTableCount' => $databaseTableCount,
+            ];
+        }, 30);
+
+        $recentForms = $dashboardDetails['recentForms'];
+        $forms = $dashboardDetails['forms'];
+        $recentSubmissions = $dashboardDetails['recentSubmissions'];
+        $formSubmissionCounts = $dashboardDetails['formSubmissionCounts'];
+        $databaseTableCount = $dashboardDetails['databaseTableCount'];
 
         // Use project database name if available, otherwise use the general active database
         $displayDatabase = $projectDatabaseName ?: ($databaseContext['activeDatabase'] ?? 'default');
-        $databaseTableQuery = DbTable::find();
-        if (!$isCommanderSuperAdmin) {
-            $databaseTableQuery->where(['user_id' => $userId]);
-        }
-        if ($projectContextEnabled && $activeProjectId !== null) {
-            $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
-        }
-        $databaseTableCount = (int) $databaseTableQuery->count();
         $this->view->params['workspacePageHero'] = [
             'scope' => 'dashboard',
             'page_title' => 'Dashboard',

@@ -34,6 +34,7 @@ class ProjectAccessBootstrap implements BootstrapInterface
         'workspace-dashboard',
         'table-builder',
         'workspace-settings',
+        'master-datatable',
         'master-form',
         'master-menu',
         'master-page',

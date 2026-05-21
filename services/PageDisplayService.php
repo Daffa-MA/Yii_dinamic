@@ -477,6 +477,16 @@ class PageDisplayService
                     return '<div class="alert alert-warning">Form tidak dapat ditampilkan.</div>';
                 }
             }, $customHtml) ?? $customHtml;
+            $customHtml = preg_replace_callback('/\{\{\s*datatable\s*:\s*(\d+)\s*\}\}/i', static function (array $matches): string {
+                try {
+                    return (new MasterDatatableRenderService())->renderByPresetId((int)$matches[1], [
+                        'render_context' => 'page_content',
+                    ]);
+                } catch (\Throwable $e) {
+                    Yii::warning('Failed to render embedded datatable in custom page: ' . $e->getMessage(), 'app');
+                    return '<div class="alert alert-warning">Datatable tidak dapat ditampilkan.</div>';
+                }
+            }, $customHtml) ?? $customHtml;
         } catch (\Throwable $e) {
             Yii::warning('Failed to process custom page form tokens: ' . $e->getMessage(), 'app');
         }

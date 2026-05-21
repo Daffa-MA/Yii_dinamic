@@ -37,7 +37,6 @@ $systemBuilderRoutes = [
     'master-menu' => 'master-menu',
     'master-page' => 'master-page', 
     'master-form' => 'master-form',
-    'master-datatable' => 'master-datatable',
     'table-builder' => 'table-builder'
 ];
 
@@ -108,7 +107,6 @@ $workspaceToolRoutes = [
     'master-menu/index' => ['route' => 'master-menu/index', 'label' => 'Master Menu', 'icon' => 'list_alt'],
     'master-page/index' => ['route' => 'master-page/index', 'label' => 'Master Page', 'icon' => 'description'],
     'master-form/index' => ['route' => 'master-form/index', 'label' => 'Master Form', 'icon' => 'dynamic_form'],
-    'master-datatable/index' => ['route' => 'master-datatable/index', 'label' => 'Master Datatable', 'icon' => 'table_chart'],
     'table-builder/index' => ['route' => 'table-builder/index', 'label' => 'Master Table', 'icon' => 'table_chart'],
     'workspace-settings/index' => ['route' => 'workspace-settings/index', 'label' => 'Workspace Settings', 'icon' => 'palette'],
 ];

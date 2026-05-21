@@ -1997,7 +1997,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         <?php endif; ?>
         <div class="component-item" data-type="datatable">
             <span class="material-symbols-outlined">table_chart</span>
-            <span>Master Datatable</span>
+            <span>Datatable</span>
         </div>
         <div class="component-item" data-type="card">
             <span class="material-symbols-outlined">square</span>
@@ -2596,7 +2596,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         if (!table) {
             return `<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
                 <div style="font-weight:700;color:#1e293b;font-size:16px">Datatable Belum Dipilih</div>
-                <div style="font-size:13px;color:#64748b;margin-top:4px">Pilih source table atau preset Master Datatable di panel kanan</div>
+                <div style="font-size:13px;color:#64748b;margin-top:4px">Pilih source table atau preset datatable di panel kanan</div>
             </div>`;
         }
 
@@ -2987,7 +2987,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 html += `<div class="prop-section">
                 <div class="prop-section-title">Konfigurasi Datatable</div>
                 <div class="prop-group">
-                    <label>Preset Master Datatable</label>
+                    <label>Preset Datatable</label>
                     <select class="prop-select" onchange="setDatatablePreset('${blockId}', this.value)">
                         <option value="">-- Tanpa Preset --</option>
                         ${(window.availableDatatables || []).map(dt => `<option value="${dt.id}" ${String(props.datatableId || '') === String(dt.id) ? 'selected' : ''}>${dt.name}</option>`).join('')}

@@ -181,6 +181,13 @@ $config = [
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',
                 'tables/delete/<id:\d+>' => 'table-builder/delete',
 
+                // Master Datatable routes
+                'master-datatable' => 'master-datatable/index',
+                'master-datatable/create' => 'master-datatable/create',
+                'master-datatable/update/<id:\d+>' => 'master-datatable/update',
+                'master-datatable/delete/<id:\d+>' => 'master-datatable/delete',
+                'master-datatable/delete-row/<table_id:\d+>' => 'master-datatable/delete-row',
+
                 // Master Form routes
                 'master-form' => 'master-form/index',
                 'master-form/create' => 'master-form/create',

@@ -22,6 +22,7 @@ $hasCustomPageSource = $isCustomCode && ($customHtml !== '' || $customCss !== ''
 
 if ($hasCustomPageSource) {
     $formRenderer = new \app\services\DynamicFormPreviewService();
+    $datatableRenderer = new \app\services\MasterDatatableRenderService();
     $injectLinkHandler = static function (string $source): string {
         $script = <<<'HTML'
 <script>
@@ -86,8 +87,8 @@ HTML;
 
         return $source . $script;
     };
-    $replaceFormTokens = static function (string $source) use ($formRenderer, $pageId, $menuId): string {
-        return preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($formRenderer, $pageId, $menuId): string {
+    $replaceFormTokens = static function (string $source) use ($formRenderer, $datatableRenderer, $pageId, $menuId): string {
+        $source = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($formRenderer, $pageId, $menuId): string {
             try {
                 return $formRenderer->renderByScopedId((int)$matches[1], true, true, [
                     'render_context' => 'page_content',
@@ -97,6 +98,19 @@ HTML;
             } catch (\Throwable $e) {
                 Yii::warning('Failed to render embedded form in custom page renderer: ' . $e->getMessage(), 'app');
                 return '<div style="padding:12px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:10px;">Form tidak dapat ditampilkan.</div>';
+            }
+        }, $source) ?? $source;
+
+        return preg_replace_callback('/\{\{\s*datatable\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($datatableRenderer, $pageId, $menuId): string {
+            try {
+                return $datatableRenderer->renderByPresetId((int)$matches[1], [
+                    'render_context' => 'page_content',
+                    'page_id' => $pageId,
+                    'menu_id' => $menuId,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to render embedded datatable in custom page renderer: ' . $e->getMessage(), 'app');
+                return '<div style="padding:12px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:10px;">Datatable tidak dapat ditampilkan.</div>';
             }
         }, $source) ?? $source;
     };
@@ -134,6 +148,26 @@ if (!is_array($state)) {
 }
 
 $state = $permissionRegistry->filterPageState($state, $pageKey);
+$datatableHtmlByBlock = [];
+$datatableRenderer = new \app\services\MasterDatatableRenderService();
+foreach ($state as $block) {
+    if (!is_array($block) || ($block['type'] ?? '') !== 'datatable') {
+        continue;
+    }
+    $blockId = (string)($block['id'] ?? '');
+    if ($blockId === '') {
+        continue;
+    }
+    try {
+        $datatableHtmlByBlock[$blockId] = $datatableRenderer->renderFromConfig((array)($block['props'] ?? []), [
+            'page_id' => $pageId,
+            'menu_id' => $menuId,
+        ]);
+    } catch (\Throwable $e) {
+        Yii::warning('Failed to render datatable block: ' . $e->getMessage(), 'master-page-datatable');
+        $datatableHtmlByBlock[$blockId] = '<div style="padding:16px;border:1px solid #fecaca;background:#fff1f2;color:#9f1239;border-radius:12px;">Datatable tidak dapat ditampilkan.</div>';
+    }
+}
 ?>
 <style>
     .dynamic-page-container {
@@ -173,6 +207,7 @@ $state = $permissionRegistry->filterPageState($state, $pageKey);
 <?php
 $js = "
 window.dynamicPageState = " . \yii\helpers\Json::htmlEncode($state) . ";
+window.dynamicDatatableHtml = " . \yii\helpers\Json::htmlEncode($datatableHtmlByBlock) . ";
 
 function renderBlockSafe(block) {
     const props = (block && block.props) ? block.props : {};
@@ -438,6 +473,14 @@ function renderBlockSafe(block) {
             const formId = props.formId || '';
             const showTitle = props.showTitle ? '1' : '0';
             el.innerHTML = `<div class=\"dynamic-form-slot\" data-form-id=\"\${formId}\" data-show-title=\"\${showTitle}\"><div style=\"font-size:12px;color:#64748b;\">Loading form...</div></div>`;
+            return el;
+        }
+        case 'datatable': {
+            const el = document.createElement('div');
+            el.className = 'mb-8 dynamic-datatable-slot';
+            el.innerHTML = (window.dynamicDatatableHtml && window.dynamicDatatableHtml[block.id])
+                ? window.dynamicDatatableHtml[block.id]
+                : '<div style=\"padding:24px;border:1px solid #e2e8f0;border-radius:16px;background:#fff;text-align:center;color:#64748b;\"><strong style=\"display:block;color:#0f172a;\">No data available</strong>This table does not have any data yet.</div>';
             return el;
         }
         case 'card': {

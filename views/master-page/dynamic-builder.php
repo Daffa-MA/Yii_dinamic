@@ -6,6 +6,8 @@ use yii\helpers\Url;
  * @var \app\models\MasterPage $model
  * @var array $initialState
  * @var array $forms
+ * @var array $datatables
+ * @var array $tables
  */
 
 $this->title = $model->isNewRecord ? 'Buat Halaman Baru' : 'Edit Halaman: ' . $model->title;
@@ -20,6 +22,8 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44
 
 $initialState = $initialState ?? [];
 $forms = $forms ?? [];
+$datatables = $datatables ?? [];
+$tables = $tables ?? [];
 $permissionContext = $permissionContext ?? [];
 $canAccessBuilder = (bool)($permissionContext['canAccessBuilder'] ?? true);
 $canAccessPalette = (bool)($permissionContext['canAccessPalette'] ?? $canAccessBuilder);
@@ -1991,6 +1995,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             <span>Form Builder</span>
         </div>
         <?php endif; ?>
+        <div class="component-item" data-type="datatable">
+            <span class="material-symbols-outlined">table_chart</span>
+            <span>Master Datatable</span>
+        </div>
         <div class="component-item" data-type="card">
             <span class="material-symbols-outlined">square</span>
             <span>Card</span>
@@ -2170,6 +2178,18 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             showTitle: true,
             fields: []
         },
+        datatable: {
+            datatableId: '',
+            tableId: '',
+            columns: [],
+            actions: {
+                view: true,
+                edit: true,
+                delete: true
+            },
+            search: true,
+            pagination: true
+        },
         card: {
             title: 'Card Title',
             content: 'Konten card',
@@ -2272,6 +2292,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
     window.pageState = <?= json_encode($initialState) ?>;
     window.availableForms = <?= json_encode($forms ?? []) ?>;
+    window.availableDatatables = <?= json_encode($datatables ?? []) ?>;
+    window.availableTables = <?= json_encode($tables ?? []) ?>;
     window.dynamicFormPreviewEndpoint = <?= json_encode(Url::to(['master-page/form-preview'])) ?>;
     window.dynamicFormPreviewCache = {};
     window.dynamicFormPreviewPending = {};
@@ -2485,6 +2507,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     <div style="font-weight:700;color:#1e293b;font-size:14px;margin-bottom:6px;">${form ? form.name : ('Form #' + props.formId)}</div>
                     <div style="font-size:12px;">Loading form preview...</div>
                 </div>`;
+            case 'datatable':
+                return renderDatatableBuilderPreview(props);
             case 'section':
                 return `<div style="padding:${props.padding || '40'}px;margin:${props.margin || '0'}px;background:${props.background || '#fff'};border-radius:8px;border:1px dashed #cbd5e1;color:#94a3b8;text-align:center;">📦 Section</div>`;
             default:
@@ -2533,6 +2557,54 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             .finally(() => {
                 delete window.dynamicFormPreviewPending[cacheKey];
             });
+    }
+
+    function getDatatableTable(props = {}) {
+        return (window.availableTables || []).find(t => String(t.id) === String(props.tableId || props.table_id || ''));
+    }
+
+    function getDatatableColumns(props = {}) {
+        const table = getDatatableTable(props);
+        if (!table) return [];
+        const configured = Array.isArray(props.columns) ? props.columns : [];
+        if (configured.length) return configured;
+        return (table.columns || [])
+            .filter(col => !col.primary)
+            .slice(0, 5)
+            .map(col => ({ field: col.field, label: col.label || col.field, visible: true }));
+    }
+
+    function renderDatatableBuilderPreview(props = {}) {
+        const table = getDatatableTable(props);
+        if (!table) {
+            return `<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
+                <div style="font-weight:700;color:#1e293b;font-size:16px">Datatable Belum Dipilih</div>
+                <div style="font-size:13px;color:#64748b;margin-top:4px">Pilih source table atau preset Master Datatable di panel kanan</div>
+            </div>`;
+        }
+
+        const columns = getDatatableColumns(props).filter(col => col.visible !== false);
+        const headers = columns.length ? columns : (table.columns || []).slice(0, 4).map(col => ({ field: col.field, label: col.label || col.field }));
+        return `<div style="border:1px solid #dbe3ef;border-radius:12px;overflow:hidden;background:white;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;padding:14px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                <div>
+                    <div style="font-size:14px;font-weight:800;color:#0f172a">${table.label || table.name}</div>
+                    <div style="font-size:12px;color:#64748b">${props.search ? 'Search on' : 'Search off'} · ${props.pagination ? 'Pagination on' : 'Pagination off'}</div>
+                </div>
+                <span style="font-size:12px;font-weight:700;color:#2563eb;background:#eff6ff;border-radius:999px;padding:5px 10px">Datatable</span>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+                <thead><tr>${headers.map(col => `<th style="text-align:left;padding:10px 12px;font-size:11px;color:#64748b;background:#fff;border-bottom:1px solid #e2e8f0">${col.label || col.field}</th>`).join('')}${hasDatatableActions(props) ? '<th style="text-align:left;padding:10px 12px;font-size:11px;color:#64748b;background:#fff;border-bottom:1px solid #e2e8f0">Actions</th>' : ''}</tr></thead>
+                <tbody>
+                    <tr>${headers.map(() => '<td style="padding:12px;border-bottom:1px solid #f1f5f9;color:#94a3b8">Sample data</td>').join('')}${hasDatatableActions(props) ? '<td style="padding:12px;border-bottom:1px solid #f1f5f9;color:#64748b">View Edit Delete</td>' : ''}</tr>
+                </tbody>
+            </table>
+        </div>`;
+    }
+
+    function hasDatatableActions(props = {}) {
+        const actions = props.actions || {};
+        return actions.view !== false || !!actions.edit || !!actions.delete;
     }
 
     function buildDynamicFormPreviewSrcDoc(contentHtml) {
@@ -2611,6 +2683,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             image: 'image',
             button: 'smart_button',
             form: 'dynamic_form',
+            datatable: 'table_chart',
             card: 'square',
             spacer: 'space_bar',
             divider: 'horizontal_rule',
@@ -2889,6 +2962,53 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             </div>`;
                 break;
 
+            case 'datatable':
+                html += `<div class="prop-section">
+                <div class="prop-section-title">Konfigurasi Datatable</div>
+                <div class="prop-group">
+                    <label>Preset Master Datatable</label>
+                    <select class="prop-select" onchange="setDatatablePreset('${blockId}', this.value)">
+                        <option value="">-- Tanpa Preset --</option>
+                        ${(window.availableDatatables || []).map(dt => `<option value="${dt.id}" ${String(props.datatableId || '') === String(dt.id) ? 'selected' : ''}>${dt.name}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="prop-group">
+                    <label>Source Table</label>
+                    <select class="prop-select" onchange="setDatatableSourceTable('${blockId}', this.value)">
+                        <option value="">-- Pilih Table --</option>
+                        ${(window.availableTables || []).map(t => `<option value="${t.id}" ${String(props.tableId || '') === String(t.id) ? 'selected' : ''}>${t.label || t.name} (${t.name})</option>`).join('')}
+                    </select>
+                </div>
+            </div>
+            <div class="prop-section">
+                <div class="prop-section-title">Kolom & Header</div>
+                ${renderDatatableColumnEditor(blockId, props)}
+            </div>
+            <div class="prop-section">
+                <div class="prop-section-title">Fitur & Action</div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${props.search !== false ? 'checked' : ''} onchange="updateProp('${blockId}', 'search', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">Search</label>
+                </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${props.pagination !== false ? 'checked' : ''} onchange="updateProp('${blockId}', 'pagination', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">Pagination</label>
+                </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${(props.actions || {}).view !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'view', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">View action</label>
+                </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${(props.actions || {}).edit !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'edit', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">Edit action</label>
+                </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${(props.actions || {}).delete !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'delete', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">Delete action</label>
+                </div>
+            </div>`;
+                break;
+
             case 'divider':
                 html += `<div class="prop-section">
                 <div class="prop-section-title">📏 Ukuran</div>
@@ -2961,6 +3081,111 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         }
 
         panel.innerHTML = html;
+    }
+
+    function escapeAttr(value) {
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'}[ch]));
+    }
+
+    function renderDatatableColumnEditor(blockId, props = {}) {
+        const table = getDatatableTable(props);
+        if (!table) {
+            return '<p style="font-size:12px;color:#64748b;margin:0;">Pilih source table untuk mengatur kolom.</p>';
+        }
+        const columns = getDatatableColumns(props);
+        const known = new Set(columns.map(col => col.field));
+        (table.columns || []).forEach(col => {
+            if (!known.has(col.field) && !col.primary) {
+                columns.push({ field: col.field, label: col.label || col.field, visible: false });
+            }
+        });
+
+        return columns.map((col, index) => `
+            <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;margin-bottom:8px;background:#fff;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+                    <label style="display:flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:700;color:#334155;">
+                        <input type="checkbox" ${col.visible !== false ? 'checked' : ''} onchange="updateDatatableColumn('${blockId}', ${index}, 'visible', this.checked)">
+                        ${escapeAttr(col.field)}
+                    </label>
+                    <div style="display:flex;gap:4px;">
+                        <button type="button" class="prop-option-btn" style="padding:4px 8px;" onclick="moveDatatableColumn('${blockId}', ${index}, -1)">Up</button>
+                        <button type="button" class="prop-option-btn" style="padding:4px 8px;" onclick="moveDatatableColumn('${blockId}', ${index}, 1)">Down</button>
+                    </div>
+                </div>
+                <input type="text" class="prop-input" value="${escapeAttr(col.label || col.field)}" onchange="updateDatatableColumn('${blockId}', ${index}, 'label', this.value)" placeholder="Custom header">
+            </div>
+        `).join('');
+    }
+
+    function setDatatablePreset(blockId, presetId) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        const preset = (window.availableDatatables || []).find(dt => String(dt.id) === String(presetId));
+        block.props = block.props || {};
+        if (!preset) {
+            block.props.datatableId = '';
+        } else {
+            Object.assign(block.props, {
+                datatableId: preset.id,
+                tableId: preset.tableId,
+                columns: JSON.parse(JSON.stringify(preset.columns || [])),
+                actions: Object.assign({view: true, edit: true, delete: true}, preset.actions || {}),
+                search: preset.search !== false,
+                pagination: preset.pagination !== false
+            });
+        }
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function setDatatableSourceTable(blockId, tableId) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        const table = (window.availableTables || []).find(t => String(t.id) === String(tableId));
+        block.props.tableId = tableId;
+        block.props.datatableId = '';
+        block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => ({
+            field: col.field,
+            label: col.label || col.field,
+            visible: true
+        })) : [];
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableColumn(blockId, index, key, value) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.columns = getDatatableColumns(block.props);
+        if (!block.props.columns[index]) return;
+        block.props.columns[index][key] = value;
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function moveDatatableColumn(blockId, index, direction) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.columns = getDatatableColumns(block.props);
+        const next = index + direction;
+        if (next < 0 || next >= block.props.columns.length) return;
+        const item = block.props.columns.splice(index, 1)[0];
+        block.props.columns.splice(next, 0, item);
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableAction(blockId, action, enabled) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.actions = Object.assign({view: true, edit: true, delete: true}, block.props.actions || {});
+        block.props.actions[action] = enabled;
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
     }
 
     function updateProp(blockId, key, value) {

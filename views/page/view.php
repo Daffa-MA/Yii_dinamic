@@ -8,6 +8,7 @@ use app\components\CommanderAuthContext;
 use app\components\ProjectAuthContext;
 use app\services\DynamicFormPreviewService;
 use app\services\FormRenderService;
+use app\services\MasterDatatableRenderService;
 use yii\helpers\Html;
 use yii\helpers\Url;
 
@@ -155,6 +156,7 @@ HTML;
         return $source . $script;
     };
     $previewService = new DynamicFormPreviewService();
+    $datatableService = new MasterDatatableRenderService();
     $renderedFormIds = [];
     try {
         $customHtml = preg_replace_callback('/\{\{\s*form\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($previewService, $page, $activeMenuId, &$renderedFormIds): string {
@@ -169,6 +171,18 @@ HTML;
             } catch (\Throwable $e) {
                 Yii::warning('Failed to render embedded form on page view: ' . $e->getMessage(), 'app');
                 return '<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Form tidak dapat ditampilkan.</div>';
+            }
+        }, $customHtml) ?? $customHtml;
+        $customHtml = preg_replace_callback('/\{\{\s*datatable\s*:\s*(\d+)\s*\}\}/i', static function (array $matches) use ($datatableService, $page, $activeMenuId): string {
+            try {
+                return $datatableService->renderByPresetId((int)$matches[1], [
+                    'render_context' => 'page_content',
+                    'page_id' => (int)$page->id,
+                    'menu_id' => $activeMenuId,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to render embedded datatable on page view: ' . $e->getMessage(), 'app');
+                return '<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Datatable tidak dapat ditampilkan.</div>';
             }
         }, $customHtml) ?? $customHtml;
     } catch (\Throwable $e) {
@@ -463,6 +477,14 @@ if ($hasCustomPageSource): ?>
                             'page_id' => (int)$page->id,
                             'menu_id' => $activeMenuId,
                         ]) . "</div>";
+                        break;
+
+                    case 'datatable':
+                        $datatableService = new MasterDatatableRenderService();
+                        echo $datatableService->renderFromConfig($props, [
+                            'page_id' => (int)$page->id,
+                            'menu_id' => $activeMenuId,
+                        ]);
                         break;
                         
                     case 'video':

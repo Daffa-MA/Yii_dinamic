@@ -8,6 +8,8 @@ use app\models\Project;
 use app\models\MasterForm;
 use app\models\MasterMenu;
 use app\models\MasterPage;
+use app\models\MasterDatatable;
+use app\models\DbTable;
 use app\services\PageService;
 use app\services\DynamicFormPreviewService;
 use app\components\ActiveDatabaseContext;
@@ -513,6 +515,62 @@ class MasterPageController extends Controller
         return $forms;
     }
 
+    private function findAvailableDatatables(): array
+    {
+        MasterDatatable::ensureStructure();
+        $rows = MasterDatatable::findScoped()
+            ->andWhere(['is_active' => 1])
+            ->all();
+
+        $items = [];
+        foreach ($rows as $row) {
+            $items[] = [
+                'id' => (int)$row->id,
+                'name' => (string)$row->name,
+                'tableId' => (int)$row->table_id,
+                'columns' => $row->getColumnsConfigArray(),
+                'actions' => $row->getActionsConfigArray(),
+                'search' => (bool)$row->search_enabled,
+                'pagination' => (bool)$row->pagination_enabled,
+            ];
+        }
+
+        return $items;
+    }
+
+    private function findAvailableTablesForBuilder(): array
+    {
+        $query = DbTable::find()->with('columns')->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
+        $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+            $query->andWhere(['project_id' => $activeProjectId]);
+        }
+        if (!(new \app\components\CommanderAuthContext())->isSuperAdmin() && !Yii::$app->user->isGuest) {
+            $query->andWhere(['user_id' => Yii::$app->user->id]);
+        }
+
+        $items = [];
+        foreach ($query->all() as $table) {
+            $columns = [];
+            foreach ($table->columns as $column) {
+                $columns[] = [
+                    'field' => (string)$column->name,
+                    'label' => (string)($column->label ?: $column->name),
+                    'type' => (string)$column->type,
+                    'primary' => (bool)$column->is_primary,
+                ];
+            }
+            $items[] = [
+                'id' => (int)$table->id,
+                'name' => (string)$table->name,
+                'label' => (string)($table->label ?: $table->name),
+                'columns' => $columns,
+            ];
+        }
+
+        return $items;
+    }
+
     private function buildBuilderPermissionContext(?MasterPage $model = null): array
     {
         $permissionService = new ProjectPermissionService();
@@ -635,6 +693,8 @@ class MasterPageController extends Controller
             'model' => $model,
             'initialState' => !empty($model->layout_json) ? json_decode($model->layout_json, true) : [],
             'forms' => $this->findAvailableForms(),
+            'datatables' => $this->findAvailableDatatables(),
+            'tables' => $this->findAvailableTablesForBuilder(),
             'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
     }
@@ -675,6 +735,8 @@ if ($model->save(false)) {
             'model' => $model,
             'initialState' => !empty($model->layout_json) ? json_decode($model->layout_json, true) : [],
             'forms' => $this->findAvailableForms(),
+            'datatables' => $this->findAvailableDatatables(),
+            'tables' => $this->findAvailableTablesForBuilder(),
             'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
     }

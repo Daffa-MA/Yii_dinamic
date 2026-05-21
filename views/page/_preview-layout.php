@@ -75,6 +75,22 @@ $layoutJson = Json::decode($layoutJson, true);
                     return `<div class="dynamic-form-slot p-3 bg-white rounded-lg border border-slate-200" data-form-id="${props.formId || ''}" data-show-title="${props.showTitle ? '1' : '0'}">
                         <div class="text-xs text-slate-500">Loading form...</div>
                     </div>`;
+                case "datatable":
+                    const columns = Array.isArray(props.columns) ? props.columns.filter(col => col.visible !== false) : [];
+                    const headers = columns.length ? columns : [{field:'name', label:'Name'}, {field:'status', label:'Status'}];
+                    return `<div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
+                            <div>
+                                <div class="text-sm font-bold text-slate-900">Datatable Preview</div>
+                                <div class="text-xs text-slate-500">Source table #${props.tableId || '-'}</div>
+                            </div>
+                            ${props.search !== false ? '<input class="rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Search...">' : ''}
+                        </div>
+                        <table class="w-full border-collapse">
+                            <thead><tr>${headers.map(col => `<th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">${col.label || col.field}</th>`).join('')}<th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Actions</th></tr></thead>
+                            <tbody><tr>${headers.map(() => '<td class="border-b border-slate-100 px-4 py-3 text-sm text-slate-400">Sample data</td>').join('')}<td class="border-b border-slate-100 px-4 py-3 text-xs font-semibold text-slate-500">View Edit Delete</td></tr></tbody>
+                        </table>
+                    </div>`;
                 default:
                     return `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded">Unknown block: ${block.type}</div>`;
             }

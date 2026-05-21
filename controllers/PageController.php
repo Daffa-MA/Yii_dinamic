@@ -25,12 +25,13 @@ class PageController extends Controller
     {
         // Apply database context
         $dbContext = new \app\components\ActiveDatabaseContext();
-        $dbContext->resolveAndApply();
+        $result = $dbContext->resolveAndApply();
         
         // Ensure tables exist
         $this->ensureTablesExist();
-        
-        Yii::$app->db->schema->refresh();
+        if (!empty($result['isSwitched'])) {
+            Yii::$app->db->schema->refresh();
+        }
         return parent::beforeAction($action);
     }
     
@@ -38,6 +39,7 @@ class PageController extends Controller
     {
         $db = Yii::$app->db;
         $schema = $db->getTableSchema('master_page_form', true);
+        $createdTable = false;
         
         if ($schema === null) {
             // Create master_page_form table
@@ -52,9 +54,12 @@ class PageController extends Controller
             
             $db->createCommand()->createIndex('idx-mpf-page_id', 'master_page_form', 'page_id')->execute();
             $db->createCommand()->createIndex('idx-mpf-form_id', 'master_page_form', 'form_id')->execute();
+            $createdTable = true;
         }
         
-        $db->schema->refresh();
+        if ($createdTable) {
+            $db->schema->refresh();
+        }
     }
 
     /**

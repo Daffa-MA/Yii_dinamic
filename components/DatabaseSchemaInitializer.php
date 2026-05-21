@@ -18,6 +18,7 @@ class DatabaseSchemaInitializer
 {
     /** @var Connection */
     private $connection;
+    private bool $schemaChanged = false;
 
     /**
      * @param Connection $connection
@@ -63,7 +64,7 @@ class DatabaseSchemaInitializer
         $initializer->insertDefaultData();
     }
 
-    public static function ensureMasterFormStructure(Connection $connection): void
+    public static function ensureMasterFormStructure(Connection $connection): bool
     {
         $initializer = new self($connection);
         $initializer->createMasterFormTable();
@@ -72,6 +73,12 @@ class DatabaseSchemaInitializer
         $initializer->ensureMasterFormColumnsExist();
         $initializer->ensureMasterFormFieldsColumnsExist();
         $initializer->ensureMasterFormLayoutsColumnsExist();
+        return $initializer->schemaChanged;
+    }
+
+    private function markSchemaChanged(): void
+    {
+        $this->schemaChanged = true;
     }
 
     /**
@@ -277,6 +284,7 @@ class DatabaseSchemaInitializer
         $this->connection->createCommand()->createIndex('idx-master_form-table_id', 'master_form', 'table_id')->execute();
         $this->connection->createCommand()->createIndex('idx-master_form-project_id', 'master_form', 'project_id')->execute();
         $this->connection->createCommand()->createIndex('idx-master_form-slug', 'master_form', 'slug', true)->execute();
+        $this->markSchemaChanged();
 
         try {
             $this->connection->createCommand()->addForeignKey(
@@ -322,6 +330,7 @@ class DatabaseSchemaInitializer
 
         $this->connection->createCommand()->createIndex('idx-master_form_fields-form_id', 'master_form_fields', 'form_id')->execute();
         $this->connection->createCommand()->createIndex('idx-master_form_fields-sort_order', 'master_form_fields', 'sort_order')->execute();
+        $this->markSchemaChanged();
     }
 
     private function createMasterFormLayoutsTable(): void
@@ -349,6 +358,7 @@ class DatabaseSchemaInitializer
 
         $this->connection->createCommand()->createIndex('idx-master_form_layouts-form_id', 'master_form_layouts', 'form_id')->execute();
         $this->connection->createCommand()->createIndex('idx-master_form_layouts-is_default', 'master_form_layouts', 'is_default')->execute();
+        $this->markSchemaChanged();
     }
 
     private function ensureMasterFormColumnsExist(): void
@@ -375,6 +385,7 @@ class DatabaseSchemaInitializer
                     $columnSchema->defaultValue($config['default']);
                 }
                 $this->connection->createCommand()->addColumn('master_form', $column, $columnSchema)->execute();
+                $this->markSchemaChanged();
             }
         }
     }
@@ -406,6 +417,7 @@ class DatabaseSchemaInitializer
                     $columnSchema->defaultValue($config['default']);
                 }
                 $this->connection->createCommand()->addColumn('master_form_fields', $column, $columnSchema)->execute();
+                $this->markSchemaChanged();
             }
         }
     }
@@ -434,6 +446,7 @@ class DatabaseSchemaInitializer
                     $columnSchema->defaultValue($config['default']);
                 }
                 $this->connection->createCommand()->addColumn('master_form_layouts', $column, $columnSchema)->execute();
+                $this->markSchemaChanged();
             }
         }
     }

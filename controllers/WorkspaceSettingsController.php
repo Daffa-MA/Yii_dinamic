@@ -37,7 +37,6 @@ class WorkspaceSettingsController extends Controller
         
         $dbContext = new \app\components\ActiveDatabaseContext();
         $dbContext->resolveAndApply();
-        Yii::$app->db->schema->refresh();
         
         return true;
     }

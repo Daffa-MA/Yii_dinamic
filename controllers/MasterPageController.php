@@ -40,10 +40,14 @@ class MasterPageController extends Controller
         }
 
         $dbContext = new ActiveDatabaseContext();
-        $dbContext->resolveAndApply();
+        $result = $dbContext->resolveAndApply();
 
         if (in_array($action->id, ['dynamic-create', 'dynamic-update', 'view-dynamic', 'ajax-save'], true)) {
             $this->ensureMasterPageAdvancedColumnsExist();
+        }
+
+        if (!empty($result['isSwitched'])) {
+            Yii::$app->db->schema->refresh();
         }
 
         return parent::beforeAction($action);

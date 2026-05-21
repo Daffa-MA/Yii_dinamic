@@ -57,8 +57,9 @@ class MasterForm extends ActiveRecord
         }
 
         (new ActiveDatabaseContext())->resolveAndApply();
-        DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db);
-        Yii::$app->db->schema->refresh();
+        if (DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db)) {
+            Yii::$app->db->schema->refresh();
+        }
     }
 
     public static function findScoped(): ActiveQuery

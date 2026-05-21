@@ -314,8 +314,10 @@ class MasterFormController extends Controller
 
         $dbContext = new ActiveDatabaseContext();
         $dbContext->resolveAndApply();
-        DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db);
-        Yii::$app->db->schema->refresh();
+        $schemaChanged = DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db);
+        if ($schemaChanged) {
+            Yii::$app->db->schema->refresh();
+        }
 
         if (!ProjectSchema::supportsProjectContext()) {
             return true;

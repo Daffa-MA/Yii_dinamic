@@ -10,6 +10,9 @@ use yii\db\Query;
 class ActiveDatabaseContext
 {
     public const SESSION_KEY = 'active_dashboard_database';
+    private static array $currentDatabaseNameCache = [];
+    private static array $databaseExistsCache = [];
+    private static array $activeProjectDatabaseCache = [];
 
     /**
      * Host portion of a mysql: DSN (for user-facing hints about which server holds a database).
@@ -49,6 +52,22 @@ class ActiveDatabaseContext
 
         if (!$this->isValidDatabaseName($targetDatabase)) {
             $targetDatabase = $defaultDatabase;
+        }
+
+        if ($targetDatabase !== '' && $targetDatabase === $defaultDatabase) {
+            if ($requestedDatabase !== '' && $targetDatabase !== '') {
+                $session->set(self::SESSION_KEY, $targetDatabase);
+            } else {
+                $session->remove(self::SESSION_KEY);
+            }
+
+            return [
+                'activeDatabase' => $targetDatabase ?: $defaultDatabase,
+                'defaultDatabase' => $defaultDatabase,
+                'requestedDatabase' => $requestedDatabase,
+                'isSwitched' => false,
+                'switchError' => null,
+            ];
         }
 
         $isSwitched = false;
@@ -181,7 +200,12 @@ class ActiveDatabaseContext
             return false;
         }
 
-        return (new Query())
+        $cacheKey = md5($connection->dsn . '|' . strtolower(trim($databaseName)));
+        if (array_key_exists($cacheKey, self::$databaseExistsCache)) {
+            return self::$databaseExistsCache[$cacheKey];
+        }
+
+        return self::$databaseExistsCache[$cacheKey] = (new Query())
             ->from('INFORMATION_SCHEMA.SCHEMATA')
             ->where(['SCHEMA_NAME' => $databaseName])
             ->exists($connection);
@@ -194,15 +218,20 @@ class ActiveDatabaseContext
 
     private function resolveCurrentDatabaseName(Connection $connection): string
     {
+        $cacheKey = md5($connection->dsn);
+        if (array_key_exists($cacheKey, self::$currentDatabaseNameCache)) {
+            return self::$currentDatabaseNameCache[$cacheKey];
+        }
+
         if (preg_match('/dbname=([^;]+)/i', $connection->dsn, $matches)) {
-            return trim((string)$matches[1]);
+            return self::$currentDatabaseNameCache[$cacheKey] = trim((string)$matches[1]);
         }
 
         try {
             $dbName = (string)$connection->createCommand('SELECT DATABASE()')->queryScalar();
-            return trim($dbName);
+            return self::$currentDatabaseNameCache[$cacheKey] = trim($dbName);
         } catch (\Throwable $e) {
-            return '';
+            return self::$currentDatabaseNameCache[$cacheKey] = '';
         }
     }
 
@@ -227,6 +256,11 @@ class ActiveDatabaseContext
             return '';
         }
 
+        $cacheKey = md5((string)$project->id . '|' . (string)$project->user_id . '|' . (string)$project->name);
+        if (array_key_exists($cacheKey, self::$activeProjectDatabaseCache)) {
+            return self::$activeProjectDatabaseCache[$cacheKey];
+        }
+
         $legacyDatabaseName = sprintf('proj_u%d_p%d', (int)$project->user_id, (int)$project->id);
         $customDatabaseName = $this->buildCustomProjectDatabaseName((string)$project->name);
 
@@ -234,10 +268,10 @@ class ActiveDatabaseContext
             $this->databaseExistsOnCurrentServer($legacyDatabaseName)
             && !$this->databaseExistsOnCurrentServer($customDatabaseName)
         ) {
-            return $legacyDatabaseName;
+            return self::$activeProjectDatabaseCache[$cacheKey] = $legacyDatabaseName;
         }
 
-        return $customDatabaseName;
+        return self::$activeProjectDatabaseCache[$cacheKey] = $customDatabaseName;
     }
 
     private function buildCustomProjectDatabaseName(string $projectName): string

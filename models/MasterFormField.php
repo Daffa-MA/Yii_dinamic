@@ -26,8 +26,9 @@ class MasterFormField extends ActiveRecord
         }
 
         (new ActiveDatabaseContext())->resolveAndApply();
-        DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db);
-        Yii::$app->db->schema->refresh();
+        if (DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db)) {
+            Yii::$app->db->schema->refresh();
+        }
     }
 
     public function rules()

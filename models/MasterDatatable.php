@@ -98,7 +98,13 @@ class MasterDatatable extends ActiveRecord
     public function getActionsConfigArray(): array
     {
         $decoded = json_decode((string)$this->actions_config, true);
-        return is_array($decoded) ? $decoded : ['view' => true, 'edit' => true, 'delete' => true];
+        $decoded = is_array($decoded) ? $decoded : [];
+        return array_merge([
+            'view' => true,
+            'edit' => true,
+            'delete' => true,
+            'edit_mode' => 'custom',
+        ], $decoded);
     }
 
     public function toComponentConfig(): array

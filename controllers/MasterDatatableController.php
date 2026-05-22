@@ -105,10 +105,15 @@ class MasterDatatableController extends Controller
         $model->pagination_enabled = !empty($post['pagination_enabled']) ? 1 : 0;
         $model->is_active = !empty($post['is_active']) ? 1 : 0;
         $model->columns_config = $this->normalizeColumnsConfig($post['columns'] ?? []);
+        $editMode = strtolower(trim((string)($post['actions']['edit_mode'] ?? 'custom')));
+        if (!in_array($editMode, ['custom', 'default'], true)) {
+            $editMode = 'custom';
+        }
         $model->actions_config = json_encode([
             'view' => !empty($post['actions']['view']),
             'edit' => !empty($post['actions']['edit']),
             'delete' => !empty($post['actions']['delete']),
+            'edit_mode' => $editMode,
         ]);
 
         return $model->save();

@@ -71,7 +71,14 @@ $selectedTableId = (int)$model->table_id;
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[search_enabled]" value="1" <?= $model->isNewRecord || $model->search_enabled ? 'checked' : '' ?>> Search</label>
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[pagination_enabled]" value="1" <?= $model->isNewRecord || $model->pagination_enabled ? 'checked' : '' ?>> Pagination</label>
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[actions][view]" value="1" <?= !empty($actionsConfig['view']) ? 'checked' : '' ?>> View</label>
-            <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[actions][edit]" value="1" <?= !empty($actionsConfig['edit']) ? 'checked' : '' ?>> Edit</label>
+            <div class="rounded-xl border border-slate-200 p-3 text-sm font-semibold">
+                <label class="block"><input type="checkbox" name="MasterDatatable[actions][edit]" value="1" <?= !empty($actionsConfig['edit']) ? 'checked' : '' ?>> Edit</label>
+                <select class="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700" name="MasterDatatable[actions][edit_mode]">
+                    <option value="custom" <?= (($actionsConfig['edit_mode'] ?? 'custom') === 'custom') ? 'selected' : '' ?>>Custom form modal</option>
+                    <option value="default" <?= (($actionsConfig['edit_mode'] ?? 'custom') === 'default') ? 'selected' : '' ?>>Default modal</option>
+                </select>
+                <p class="mt-2 text-xs font-normal leading-5 text-slate-500">Pilih tampilan modal edit yang akan dipakai saat admin membuka action Edit.</p>
+            </div>
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[actions][delete]" value="1" <?= !empty($actionsConfig['delete']) ? 'checked' : '' ?>> Delete</label>
         </div>
 

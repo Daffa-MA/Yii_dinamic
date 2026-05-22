@@ -5,12 +5,14 @@ namespace app\services;
 use app\components\ActiveProjectContext;
 use app\components\ProjectPermissionService;
 use app\components\ProjectSchema;
+use app\components\SystemFieldService;
 use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\models\MasterDatatable;
 use Yii;
 use yii\db\Query;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\helpers\Url;
 
 class MasterDatatableRenderService
@@ -84,10 +86,10 @@ class MasterDatatableRenderService
 
         $rows = $query->all(Yii::$app->db);
         $actions = $this->resolveActions($config);
-        $primaryKey = $tableSchema->primaryKey[0] ?? null;
+        $primaryKeys = !empty($tableSchema->primaryKey) ? array_values($tableSchema->primaryKey) : [];
         $uid = 'dt-' . $tableId . '-' . substr(md5(json_encode($config)), 0, 8);
 
-        return $this->renderTable($uid, $table, $columns, $rows, $actions, $primaryKey, [
+        return $this->renderTable($uid, $table, $columns, $rows, $actions, $primaryKeys, [
             'searchEnabled' => $searchEnabled,
             'paginationEnabled' => $paginationEnabled,
             'page' => $page,
@@ -191,11 +193,12 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, ?string $primaryKey, array $state): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $state): string
     {
-        $hasActions = in_array(true, $actions, true) && $primaryKey !== null;
+        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $colspan = count($columns) + ($hasActions ? 1 : 0);
         $totalPages = max(1, (int)ceil(($state['total'] ?: 0) / $state['pageSize']));
+        $rowFields = $this->resolveRowFields($table, $columns);
 
         ob_start();
         ?>
@@ -219,6 +222,45 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 20px; color:#64748b; font-size:12px; background:#fff; }
                 #<?= Html::encode($uid) ?> .dt-page { display:flex; gap:8px; align-items:center; }
                 #<?= Html::encode($uid) ?> .dt-page a { border:1px solid #dbe3ef; border-radius:10px; padding:7px 10px; color:#334155; text-decoration:none; font-weight:700; }
+                #<?= Html::encode($uid) ?> .dt-row-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.6); backdrop-filter:blur(10px); z-index:9999; }
+                #<?= Html::encode($uid) ?> .dt-row-modal.open { display:flex; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card { width:min(980px, 100%); max-height:min(90vh, 920px); overflow:hidden; display:flex; flex-direction:column; border-radius:24px; background:#fff; box-shadow:0 28px 90px rgba(15,23,42,.3); border:1px solid #e2e8f0; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:20px 22px; border-bottom:1px solid #e2e8f0; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-title { margin:0; color:#0f172a; font-size:18px; font-weight:800; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-subtitle { margin:4px 0 0; color:#64748b; font-size:13px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; }
+                #<?= Html::encode($uid) ?> .dt-row-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+                #<?= Html::encode($uid) ?> .dt-summary-card { border:1px solid #e2e8f0; border-radius:16px; background:#f8fafc; padding:14px 16px; }
+                #<?= Html::encode($uid) ?> .dt-summary-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+                #<?= Html::encode($uid) ?> .dt-summary-value { color:#0f172a; font-size:14px; font-weight:700; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2e8f0; border-radius:16px; background:#fff; padding:14px 16px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#0f172a; font-size:14px; line-height:1.6; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-row-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+                #<?= Html::encode($uid) ?> .dt-row-field { border:1px solid #e2e8f0; border-radius:16px; background:#fff; padding:14px 16px; }
+                #<?= Html::encode($uid) ?> .dt-row-field.wide { grid-column:1 / -1; }
+                #<?= Html::encode($uid) ?> .dt-row-field label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-field input,
+                #<?= Html::encode($uid) ?> .dt-row-field select,
+                #<?= Html::encode($uid) ?> .dt-row-field textarea { width:100%; border:1px solid #cbd5e1; border-radius:12px; padding:10px 12px; font-size:14px; color:#0f172a; background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-row-field textarea { min-height:92px; resize:vertical; }
+                #<?= Html::encode($uid) ?> .dt-row-field .dt-check { display:flex; align-items:center; gap:10px; font-weight:700; color:#0f172a; }
+                #<?= Html::encode($uid) ?> .dt-row-muted { color:#64748b; font-size:13px; line-height:1.6; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid #e2e8f0; background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
+                #<?= Html::encode($uid) ?> .dt-row-mode { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-mode.active { display:block; }
+                @media (max-width: 768px) {
+                    #<?= Html::encode($uid) ?> .dt-row-summary,
+                    #<?= Html::encode($uid) ?> .dt-row-view-grid,
+                    #<?= Html::encode($uid) ?> .dt-row-form-grid { grid-template-columns:1fr; }
+                    #<?= Html::encode($uid) ?> .dt-row-modal { padding:12px; }
+                    #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:16px; }
+                    #<?= Html::encode($uid) ?> .dt-row-modal-head,
+                    #<?= Html::encode($uid) ?> .dt-row-modal-footer { padding:16px; }
+                }
             </style>
             <div class="dt-head">
                 <div>
@@ -251,24 +293,24 @@ class MasterDatatableRenderService
                         <tr><td colspan="<?= (int)$colspan ?>"><div class="dt-empty"><strong>No data available</strong>This table does not have any data yet.</div></td></tr>
                     <?php else: ?>
                         <?php foreach ($rows as $row): ?>
-                            <tr>
+                            <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
+                            <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>">
                                 <?php foreach ($columns as $column): ?>
                                     <td><?= Html::encode($this->formatValue($row[$column['field']] ?? null)) ?></td>
                                 <?php endforeach; ?>
                                 <?php if ($hasActions): ?>
                                     <td>
                                         <div class="dt-actions">
-                                            <?php $rowKey = [$primaryKey => $row[$primaryKey] ?? null]; ?>
                                             <?php if ($actions['view']): ?>
-                                                <a class="dt-btn" href="<?= Html::encode(Url::to(['/table-builder/view', 'id' => $table->id, 'row_key' => json_encode($rowKey)])) ?>">View</a>
+                                                <button type="button" class="dt-btn" data-row-action="view">View</button>
                                             <?php endif; ?>
                                             <?php if ($actions['edit']): ?>
-                                                <a class="dt-btn" href="<?= Html::encode(Url::to(['/table-builder/view', 'id' => $table->id, 'row_key' => json_encode($rowKey), 'edit' => 1])) ?>">Edit</a>
+                                                <button type="button" class="dt-btn" data-row-action="edit">Edit</button>
                                             <?php endif; ?>
                                             <?php if ($actions['delete']): ?>
                                                 <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>" onsubmit="return confirm('Delete this row?');">
                                                     <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
-                                                    <input type="hidden" name="row_key" value="<?= Html::encode(json_encode($rowKey)) ?>">
+                                                    <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
                                                     <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
                                                 </form>
                                             <?php endif; ?>
@@ -294,6 +336,272 @@ class MasterDatatableRenderService
                     </div>
                 </div>
             <?php endif; ?>
+            <div class="dt-row-modal" data-row-modal aria-hidden="true">
+                <div class="dt-row-modal-card" role="dialog" aria-modal="true" aria-labelledby="<?= Html::encode($uid) ?>-row-modal-title">
+                    <div class="dt-row-modal-head">
+                        <div>
+                            <h4 class="dt-row-modal-title" id="<?= Html::encode($uid) ?>-row-modal-title">Row Details</h4>
+                            <p class="dt-row-modal-subtitle" data-row-modal-subtitle>Lihat detail atau ubah data row tanpa pindah halaman.</p>
+                        </div>
+                        <button type="button" class="dt-row-modal-close dt-btn" data-row-modal-close>Tutup</button>
+                    </div>
+                    <div class="dt-row-modal-body">
+                        <div class="dt-row-mode" data-row-view-mode>
+                            <div class="dt-row-summary" data-row-summary></div>
+                            <div class="dt-row-view-grid" data-row-view-grid></div>
+                        </div>
+                        <form class="dt-row-mode" data-row-edit-mode id="<?= Html::encode($uid) ?>-row-form" method="post">
+                            <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
+                            <input type="hidden" name="table_id" value="<?= (int)$table->id ?>">
+                            <input type="hidden" name="operation" value="upsert_row">
+                            <input type="hidden" name="row_key" value="" data-row-key-input>
+                            <div class="dt-row-form-grid" data-row-form-grid></div>
+                        </form>
+                    </div>
+                    <div class="dt-row-modal-footer">
+                        <button type="button" class="dt-btn" data-row-modal-close>Batal</button>
+                        <button type="submit" class="dt-btn" data-row-save-btn form="<?= Html::encode($uid) ?>-row-form">Simpan Perubahan</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <script>
+            (function() {
+                const root = document.getElementById(<?= Json::encode($uid) ?>);
+                if (!root) {
+                    return;
+                }
+
+                const payload = <?= Json::encode([
+                    'tableId' => (int)$table->id,
+                    'saveUrl' => Url::to(['/table-builder/spreadsheet-action', 'id' => $table->id]),
+                    'csrfToken' => Yii::$app->request->csrfToken,
+                    'fields' => $rowFields,
+                ]) ?>;
+                const modal = root.querySelector('[data-row-modal]');
+                const viewMode = root.querySelector('[data-row-view-mode]');
+                const editMode = root.querySelector('[data-row-edit-mode]');
+                const summary = root.querySelector('[data-row-summary]');
+                const viewGrid = root.querySelector('[data-row-view-grid]');
+                const formGrid = root.querySelector('[data-row-form-grid]');
+                const keyInput = root.querySelector('[data-row-key-input]');
+                const saveButton = root.querySelector('[data-row-save-btn]');
+                const modalTitle = root.querySelector('.dt-row-modal-title');
+                const modalSubtitle = root.querySelector('[data-row-modal-subtitle]');
+                let activeRow = null;
+
+                function escapeHtml(value) {
+                    return String(value === null || value === undefined ? '' : value)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                }
+
+                function getRowData(row) {
+                    try {
+                        return JSON.parse(row.getAttribute('data-row-values') || '{}') || {};
+                    } catch (error) {
+                        return {};
+                    }
+                }
+
+                function getRowKey(row) {
+                    try {
+                        return JSON.parse(row.getAttribute('data-row-key') || '{}') || {};
+                    } catch (error) {
+                        return {};
+                    }
+                }
+
+                function openModal() {
+                    modal.classList.add('open');
+                    modal.setAttribute('aria-hidden', 'false');
+                    document.body.style.overflow = 'hidden';
+                }
+
+                function closeModal() {
+                    modal.classList.remove('open');
+                    modal.setAttribute('aria-hidden', 'true');
+                    document.body.style.overflow = '';
+                    activeRow = null;
+                }
+
+                function formatViewValue(field, value) {
+                    if (value === null || value === undefined || value === '') {
+                        return '<span class="dt-row-muted">-</span>';
+                    }
+
+                    if (field.inputType === 'boolean') {
+                        const active = String(value) === '1' || String(value).toLowerCase() === 'true';
+                        return '<span class="dt-btn" style="display:inline-flex;align-items:center;gap:6px;">' + (active ? 'Aktif' : 'Nonaktif') + '</span>';
+                    }
+
+                    if (typeof value === 'object') {
+                        return '<pre style="margin:0;white-space:pre-wrap;word-break:break-word;">' + escapeHtml(JSON.stringify(value, null, 2)) + '</pre>';
+                    }
+
+                    return escapeHtml(value);
+                }
+
+                function inputValue(field, value) {
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    if (field.inputType === 'datetime') {
+                        return String(value).slice(0, 16).replace(' ', 'T');
+                    }
+                    return String(value);
+                }
+
+                function renderSummary(rowKey) {
+                    const items = Object.keys(rowKey || {});
+                    if (!items.length) {
+                        summary.innerHTML = '<div class="dt-summary-card"><span class="dt-summary-label">Row</span><div class="dt-summary-value">Primary key tidak tersedia</div></div>';
+                        return;
+                    }
+                    summary.innerHTML = items.map(function(key) {
+                        return '<div class="dt-summary-card"><span class="dt-summary-label">' + escapeHtml(key) + '</span><div class="dt-summary-value">' + escapeHtml(rowKey[key]) + '</div></div>';
+                    }).join('');
+                }
+
+                function renderView(rowData) {
+                    viewGrid.innerHTML = payload.fields.map(function(field) {
+                        const value = rowData[field.field];
+                        return '<div class="dt-row-view-item">' +
+                            '<span class="dt-row-view-label">' + escapeHtml(field.label) + '</span>' +
+                            '<div class="dt-row-view-value">' + formatViewValue(field, value) + '</div>' +
+                        '</div>';
+                    }).join('');
+                }
+
+                function renderEdit(rowData) {
+                    formGrid.innerHTML = payload.fields.map(function(field) {
+                        const value = inputValue(field, rowData[field.field]);
+                        const wide = field.inputType === 'textarea';
+                        let control = '';
+
+                        if (field.inputType === 'boolean') {
+                            const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
+                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(field.field) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                        } else if (field.inputType === 'date') {
+                            control = '<input type="date" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                        } else if (field.inputType === 'datetime') {
+                            control = '<input type="datetime-local" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                        } else if (field.inputType === 'number') {
+                            control = '<input type="number" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                        } else if (field.inputType === 'textarea') {
+                            control = '<textarea data-row-field="' + escapeHtml(field.field) + '" rows="4"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(value) + '</textarea>';
+                        } else {
+                            control = '<input type="text" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                        }
+
+                        return '<div class="dt-row-field' + (wide ? ' wide' : '') + '">' +
+                            '<label>' + escapeHtml(field.label) + '</label>' +
+                            control +
+                        '</div>';
+                    }).join('');
+                }
+
+                function openRow(row, mode) {
+                    const rowData = getRowData(row);
+                    const rowKey = getRowKey(row);
+                    activeRow = row;
+                    modalTitle.textContent = mode === 'edit' ? 'Edit Row' : 'View Row';
+                    modalSubtitle.textContent = mode === 'edit'
+                        ? 'Ubah data langsung dari modal yang sudah terisi nilai lama.'
+                        : 'Lihat detail row dalam format yang lebih nyaman dibaca.';
+                    renderSummary(rowKey);
+                    renderView(rowData);
+                    renderEdit(rowData);
+                    keyInput.value = JSON.stringify(rowKey || {});
+                    viewMode.classList.toggle('active', mode === 'view');
+                    editMode.classList.toggle('active', mode === 'edit');
+                    saveButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
+                    openModal();
+                }
+
+                root.querySelectorAll('[data-row-action]').forEach(function(button) {
+                    button.addEventListener('click', function() {
+                        const row = button.closest('tr');
+                        if (!row) {
+                            return;
+                        }
+                        openRow(row, button.getAttribute('data-row-action') === 'edit' ? 'edit' : 'view');
+                    });
+                });
+
+                root.querySelectorAll('[data-row-modal-close]').forEach(function(button) {
+                    button.addEventListener('click', closeModal);
+                });
+
+                modal.addEventListener('click', function(event) {
+                    if (event.target === modal) {
+                        closeModal();
+                    }
+                });
+
+                document.addEventListener('keydown', function(event) {
+                    if (event.key === 'Escape' && modal.classList.contains('open')) {
+                        closeModal();
+                    }
+                });
+
+                editMode.addEventListener('submit', function(event) {
+                    event.preventDefault();
+                    if (!activeRow) {
+                        return;
+                    }
+
+                    const values = {};
+                    payload.fields.forEach(function(field) {
+                        const input = editMode.querySelector('[data-row-field="' + field.field + '"]');
+                        if (!input) {
+                            return;
+                        }
+
+                        if (field.inputType === 'boolean') {
+                            values[field.field] = input.checked ? 1 : 0;
+                            return;
+                        }
+
+                        values[field.field] = input.value;
+                    });
+
+                    const request = new FormData();
+                    request.append('_csrf', payload.csrfToken || '');
+                    request.append('table_id', String(payload.tableId));
+                    request.append('operation', 'upsert_row');
+                    request.append('row_key', keyInput.value || '{}');
+                    request.append('row_data', JSON.stringify(values));
+
+                    saveButton.disabled = true;
+                    const previousLabel = saveButton.textContent;
+                    saveButton.textContent = 'Menyimpan...';
+
+                    fetch(payload.saveUrl, {
+                        method: 'POST',
+                        body: request,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    }).then(function(response) {
+                        return response.json();
+                    }).then(function(data) {
+                        if (!data || !data.success) {
+                            throw new Error((data && data.message) ? data.message : 'Gagal menyimpan data');
+                        }
+                        window.location.reload();
+                    }).catch(function(error) {
+                        alert(error && error.message ? error.message : 'Gagal menyimpan data');
+                    }).finally(function() {
+                        saveButton.disabled = false;
+                        saveButton.textContent = previousLabel;
+                    });
+                });
+            })();
+        </script>
         </section>
         <?php
         return (string)ob_get_clean();
@@ -317,6 +625,87 @@ class MasterDatatableRenderService
             return json_encode($value, JSON_UNESCAPED_UNICODE) ?: '';
         }
         return (string)$value;
+    }
+
+    private function buildRowKeyFromRow(array $row, array $primaryKeys): array
+    {
+        $key = [];
+        foreach ($primaryKeys as $primaryKey) {
+            if (array_key_exists($primaryKey, $row)) {
+                $key[$primaryKey] = $row[$primaryKey];
+            }
+        }
+
+        return $key;
+    }
+
+    private function resolveRowFields(DbTable $table, array $columns): array
+    {
+        $schema = Yii::$app->db->schema->getTableSchema($table->name, true);
+        $metadataColumns = $table->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+        $metadataMap = [];
+        foreach ($metadataColumns as $metadataColumn) {
+            $metadataMap[$metadataColumn->name] = $metadataColumn;
+        }
+
+        $fields = [];
+        foreach ($columns as $column) {
+            $fieldName = (string)($column['field'] ?? '');
+            if ($fieldName === '' || !isset($metadataMap[$fieldName])) {
+                continue;
+            }
+
+            $metadataColumn = $metadataMap[$fieldName];
+            $schemaColumn = $schema !== null && isset($schema->columns[$fieldName]) ? $schema->columns[$fieldName] : null;
+            if (SystemFieldService::shouldHideFromForm($metadataColumn, $schemaColumn)) {
+                continue;
+            }
+
+            $fields[] = [
+                'field' => $fieldName,
+                'label' => (string)($column['label'] ?? $metadataColumn->label ?? $fieldName),
+                'inputType' => $this->inferInputType($metadataColumn, $schemaColumn),
+                'readonly' => SystemFieldService::shouldBeReadonlyInGrid($metadataColumn, $schemaColumn),
+            ];
+        }
+
+        return $fields;
+    }
+
+    private function inferInputType(DbTableColumn $metadataColumn, $schemaColumn = null): string
+    {
+        $type = strtoupper((string)($schemaColumn->type ?? $metadataColumn->type ?? 'TEXT'));
+        $length = (int)($schemaColumn->size ?? $metadataColumn->length ?? 0);
+
+        if (SystemFieldService::isForeignKey($metadataColumn, $schemaColumn)) {
+            return 'text';
+        }
+
+        if (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ($length <= 1 || $type === 'BOOLEAN')) {
+            return 'boolean';
+        }
+
+        if (in_array($type, ['DATE'], true)) {
+            return 'date';
+        }
+
+        if (in_array($type, ['DATETIME', 'TIMESTAMP'], true)) {
+            return 'datetime';
+        }
+
+        if (in_array($type, ['INT', 'BIGINT', 'SMALLINT', 'MEDIUMINT', 'DECIMAL', 'FLOAT', 'DOUBLE', 'REAL', 'SERIAL'], true)) {
+            return 'number';
+        }
+
+        if (in_array($type, ['JSON'], true)) {
+            return 'textarea';
+        }
+
+        if ($length >= 255 || in_array($type, ['TEXT', 'MEDIUMTEXT', 'LONGTEXT'], true)) {
+            return 'textarea';
+        }
+
+        return 'text';
     }
 
     private function pageUrl(string $pageParam, int $page): string

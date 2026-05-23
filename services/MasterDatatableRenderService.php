@@ -289,41 +289,71 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.6); backdrop-filter:blur(10px); z-index:9999; }
                 #<?= Html::encode($uid) ?> .dt-row-modal.open { display:flex; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card { width:min(980px, 100%); max-height:min(90vh, 920px); overflow:hidden; display:flex; flex-direction:column; border-radius:24px; background:#fff; box-shadow:0 28px 90px rgba(15,23,42,.3); border:1px solid #e2e8f0; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme { background:#262523; border-color:#3a3732; box-shadow:0 28px 90px rgba(0,0,0,.55); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:20px 22px; border-bottom:1px solid #e2e8f0; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-head { background:#262523; border-bottom-color:#3a3732; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-title { margin:0; color:#0f172a; font-size:18px; font-weight:800; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-title { color:#fff; font-weight:500; font-size:19px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-subtitle { margin:4px 0 0; color:#64748b; font-size:13px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-subtitle { color:#c4bfb6; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-badge { background:#34322f; color:#bfb9ae; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border-color:#5a554e; background:transparent; color:#fff; border-radius:10px; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; background:linear-gradient(180deg,#fbfdff 0%,#fff 18%); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body.view-mode { padding:18px 22px 22px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body,
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body.view-mode { background:#262523; }
                 #<?= Html::encode($uid) ?> .dt-row-view-shell { display:grid; grid-template-columns:minmax(260px, 0.92fr) minmax(0, 1.4fr); gap:16px; align-items:start; }
                 #<?= Html::encode($uid) ?> .dt-row-view-aside { display:grid; gap:12px; align-content:start; }
                 #<?= Html::encode($uid) ?> .dt-row-view-hero { border:1px solid #dbe3ef; border-radius:22px; background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#0f172a 100%); padding:18px; color:#fff; box-shadow:0 18px 36px rgba(15,23,42,.14); position:relative; overflow:hidden; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero { border-color:#4a4540; background:linear-gradient(135deg,#191915 0%,#252521 100%); box-shadow:none; }
                 #<?= Html::encode($uid) ?> .dt-row-view-hero::after { content:''; position:absolute; inset:auto -20% -28px auto; width:180px; height:180px; border-radius:999px; background:radial-gradient(circle, rgba(96,165,250,.22) 0%, rgba(96,165,250,0) 70%); pointer-events:none; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero::after { background:radial-gradient(circle, rgba(255,255,255,.09) 0%, rgba(255,255,255,0) 70%); }
                 #<?= Html::encode($uid) ?> .dt-row-view-hero-kicker { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:rgba(255,255,255,.08); color:#bfdbfe; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero-kicker { background:#31302c; color:#d0cabf; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-row-view-hero h5 { margin:0 0 8px; color:#fff; font-size:18px; font-weight:800; line-height:1.25; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero h5 { font-size:24px; font-weight:500; letter-spacing:-0.02em; }
                 #<?= Html::encode($uid) ?> .dt-row-view-hero p { margin:0; color:rgba(255,255,255,.78); font-size:13px; line-height:1.6; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero p { color:#d0cabf; font-size:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 10px 24px rgba(15,23,42,.04); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-panel { border-color:#403b35; background:#2b2825; box-shadow:none; }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel h5 { margin:0 0 10px; color:#0f172a; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-panel h5 { color:#d0cabf; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel p { margin:0; color:#475569; font-size:13px; line-height:1.6; }
-                #<?= Html::encode($uid) ?> .dt-row-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-panel p { color:#d0cabf; }
+                #<?= Html::encode($uid) ?> .dt-row-summary { display:block; }
+                #<?= Html::encode($uid) ?> .dt-row-summary .dt-summary-card { width:100%; }
                 #<?= Html::encode($uid) ?> .dt-summary-card { border:1px solid #e2e8f0; border-radius:16px; background:linear-gradient(180deg,#f8fafc 0%,#fff 100%); padding:14px 16px; box-shadow:0 8px 20px rgba(15,23,42,.04); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-card { border-color:#403b35; background:#2b2825; box-shadow:none; }
                 #<?= Html::encode($uid) ?> .dt-summary-card.primary { background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%); border-color:#bfdbfe; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-card.primary { background:#2b2825; border-color:#403b35; }
                 #<?= Html::encode($uid) ?> .dt-summary-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-label { color:#a7a297; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-summary-value { color:#0f172a; font-size:14px; font-weight:700; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-value { color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-summary-main { display:flex; align-items:center; gap:10px; margin-top:10px; }
                 #<?= Html::encode($uid) ?> .dt-summary-avatar { width:36px; height:36px; border-radius:999px; background:#fef3e2; color:#ba7517; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-avatar { background:#8a6a09; color:#f9e6aa; }
                 #<?= Html::encode($uid) ?> .dt-summary-meta { min-width:0; }
                 #<?= Html::encode($uid) ?> .dt-summary-name { font-size:14px; font-weight:700; color:#111827; line-height:1.35; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-name { color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-summary-role { font-size:12px; color:#6b7280; margin-top:2px; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-role { color:#b8b2a6; }
                 #<?= Html::encode($uid) ?> .dt-row-view-main { display:grid; gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item { border:0.5px solid rgba(0,0,0,0.08); border-radius:10px; background:#f8f8f6; padding:14px 16px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item--lead { background:linear-gradient(180deg,#f8f8f6 0%,#ffffff 100%); }
-                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#a3a3a3; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#111; font-size:14px; line-height:1.6; word-break:break-word; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2ddd4; border-radius:12px; background:#f6f3ee; padding:16px 16px 14px; min-height:76px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item--lead { background:linear-gradient(180deg,#f6f3ee 0%,#fbfaf8 100%); }
+                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#9b9488; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.13em; margin-bottom:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#111; font-size:15px; line-height:1.45; word-break:break-word; font-weight:600; }
                 #<?= Html::encode($uid) ?> .dt-row-view-badge { display:inline-flex; align-items:center; gap:6px; }
                 #<?= Html::encode($uid) ?> .dt-row-view-badge-circle { width:22px; height:22px; border-radius:999px; background:#e8f0fe; color:#185fa5; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+                #<?= Html::encode($uid) ?> .dt-row-view-chips { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-item { background:#2b2825; border-color:#403b35; box-shadow:none; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-item--lead { background:#2f2c28; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-label { color:#a7a297; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-value { color:#fff; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-badge-circle { background:#304f82; color:#cfe0ff; }
                 #<?= Html::encode($uid) ?> .dt-row-form-note { margin:0 0 16px; color:#64748b; font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid-default { grid-template-columns:1fr; gap:12px; }
@@ -365,11 +395,16 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid #e2e8f0; background:#fff; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer.is-hidden { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer.view-footer { justify-content:space-between; align-items:center; gap:16px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer { background:#262422; border-top-color:#3a3732; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-info { display:flex; align-items:center; gap:8px; color:#a3a3a3; font-size:12px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { color:#a7a297; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-actions { display:flex; gap:8px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary { border:0.5px solid rgba(0,0,0,0.15); background:#111; color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary:hover { opacity:.85; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn { border-color:#5a554e; background:transparent; color:#e5dfd2; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn-primary { background:#f4efe6; color:#111; border-color:#f4efe6; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn-primary:hover { opacity:1; background:#fff; }
                 #<?= Html::encode($uid) ?> .dt-row-mode { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-mode.active { display:block; }
                 @media (max-width: 768px) {
@@ -377,6 +412,7 @@ class MasterDatatableRenderService
                     #<?= Html::encode($uid) ?> .dt-row-summary,
                     #<?= Html::encode($uid) ?> .dt-row-view-grid,
                     #<?= Html::encode($uid) ?> .dt-row-form-grid { grid-template-columns:1fr; }
+                    #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero h5 { font-size:20px; }
                     #<?= Html::encode($uid) ?> .dt-row-modal { padding:12px; }
                     #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:16px; }
                     #<?= Html::encode($uid) ?> .dt-row-modal-head,
@@ -538,9 +574,9 @@ class MasterDatatableRenderService
                 const saveButton = root.querySelector('[data-row-save-btn]');
                 const modalFooter = root.querySelector('.dt-row-modal-footer');
                 const footerInfo = root.querySelector('[data-row-footer-info]');
+                const modalCard = root.querySelector('.dt-row-modal-card');
                 const heroTitle = root.querySelector('[data-row-hero-title]');
                 const heroSubtitle = root.querySelector('[data-row-hero-subtitle]');
-                const heroChips = root.querySelector('[data-row-hero-chips]');
                 const modalTitle = root.querySelector('.dt-row-modal-title');
                 const modalSubtitle = root.querySelector('[data-row-modal-subtitle]');
                 const rowReference = root.querySelector('[data-row-reference]');
@@ -728,13 +764,36 @@ class MasterDatatableRenderService
                     '</div>';
                 }
 
+                function getHeroMetaText(rowData) {
+                    const priorityFields = payload.fields.filter(function(field) {
+                        const label = String(field.label || field.field || '').toLowerCase();
+                        const name = String(field.field || '').toLowerCase();
+                        return /^(user|role|status|type|tipe|kelas|level|kategori|group|grup|jabatan|bagian)$/.test(label)
+                            || /(user|role|status|type|tipe|kelas|level|kategori|group|grup|jabatan|bagian)/.test(name);
+                    });
+
+                    if (priorityFields.length) {
+                        const candidate = priorityFields[0];
+                        const candidateValue = getDisplayValue(candidate, rowData[candidate.field]);
+                        if (candidateValue && candidateValue !== '-') {
+                            return candidateValue;
+                        }
+                    }
+
+                    if (payload.editForm && payload.editForm.name) {
+                        return String(payload.editForm.name).trim();
+                    }
+
+                    return 'record detail';
+                }
+
                 function renderSummary(rowKey) {
                     const primaryField = payload.fields[0] || null;
                     const secondaryField = payload.fields[1] || null;
                     const primaryValue = primaryField ? getDisplayValue(primaryField, activeRow ? activeRow[primaryField.field] : '') : '';
                     const secondaryValue = secondaryField ? getDisplayValue(secondaryField, activeRow ? activeRow[secondaryField.field] : '') : '';
                     const displayName = primaryValue && primaryValue !== '-' ? primaryValue : (primaryField ? primaryField.label : 'Data Row');
-                    const roleText = secondaryValue && secondaryValue !== '-' ? secondaryValue : 'record detail';
+                    const roleText = getHeroMetaText(activeRow || {});
                     const idText = Object.keys(rowKey || {}).length ? 'ID #' + Object.values(rowKey).join(' · ') : 'Record detail';
                     const initials = getInitials(displayName);
 
@@ -742,13 +801,7 @@ class MasterDatatableRenderService
                         heroTitle.textContent = displayName;
                     }
                     if (heroSubtitle) {
-                        heroSubtitle.innerHTML = escapeHtml(roleText) + ' &nbsp;·&nbsp; ' + escapeHtml(idText);
-                    }
-                    if (heroChips) {
-                        const chips = [];
-                        chips.push('<span class="dt-row-view-chip"><i class="ti ti-database" style="font-size:12px;" aria-hidden="true"></i> ' + escapeHtml(idText) + '</span>');
-                        chips.push('<span class="dt-row-view-chip"><i class="ti ti-id-badge" style="font-size:12px;" aria-hidden="true"></i> ' + escapeHtml(payload.editForm && payload.editForm.name ? payload.editForm.name : 'row detail') + '</span>');
-                        heroChips.innerHTML = chips.join('');
+                        heroSubtitle.textContent = roleText + ' · ' + idText;
                     }
                     if (rowReference) {
                         rowReference.textContent = 'Data ini ditampilkan dengan ringkasan singkat di kiri dan detail field di kanan, supaya mudah dipindai tanpa terasa penuh.';
@@ -767,11 +820,10 @@ class MasterDatatableRenderService
 
                 function renderView(rowData) {
                     const primaryField = payload.fields[0] || null;
-                    const primaryValue = primaryField ? rowData[primaryField.field] : '';
                     const detailFields = primaryField ? payload.fields.slice(1) : payload.fields;
                     const gridFields = detailFields.length ? detailFields : payload.fields;
 
-                    viewGrid.innerHTML = gridFields.map(function(field) {
+                    viewGrid.innerHTML = gridFields.map(function(field, index) {
                         const value = rowData[field.field];
                         const displayValue = getDisplayValue(field, value);
                         const isGenderLike = /^(jk|jenis kelamin|gender|sex)$/i.test(String(field.label || field.field || ''));
@@ -779,7 +831,7 @@ class MasterDatatableRenderService
                         const valueHtml = isGenderLike && icon
                             ? '<div class="dt-row-view-badge"><span class="dt-row-view-badge-circle">' + escapeHtml(icon) + '</span><span class="dt-row-view-value">' + escapeHtml(displayValue) + '</span></div>'
                             : '<div class="dt-row-view-value">' + formatViewValue(field, value) + '</div>';
-                        return '<div class="dt-row-view-item">' +
+                        return '<div class="dt-row-view-item' + (index === 0 ? ' dt-row-view-item--lead' : '') + '">' +
                             '<span class="dt-row-view-label">' + escapeHtml(field.label) + '</span>' +
                             valueHtml +
                         '</div>';
@@ -978,7 +1030,7 @@ class MasterDatatableRenderService
                     modalSubtitle.textContent = mode === 'edit'
                         ? 'Ubah data langsung dari modal yang sudah terisi nilai lama. Mode: ' + editModeLabel + (formName ? ' · ' + formName : '')
                         : 'Lihat detail row dalam format yang lebih nyaman dibaca.';
-                    renderSummary(rowKey);
+                    renderSummary(rowKey, rowData);
                     renderView(rowData);
                     if (mode === 'edit') {
                         if (payload.editMode === 'default') {
@@ -990,6 +1042,9 @@ class MasterDatatableRenderService
                     keyInput.value = JSON.stringify(rowKey || {});
                     viewMode.classList.toggle('active', mode === 'view');
                     editFormEl.classList.toggle('active', mode === 'edit');
+                    if (modalCard) {
+                        modalCard.classList.toggle('view-theme', mode === 'view');
+                    }
                     saveButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
                     if (modalFooter) {
                         modalFooter.classList.toggle('is-hidden', mode === 'edit' && payload.editMode === 'custom');

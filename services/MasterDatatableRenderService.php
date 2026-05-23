@@ -6,8 +6,10 @@ use app\components\ActiveProjectContext;
 use app\components\ProjectPermissionService;
 use app\components\ProjectSchema;
 use app\components\SystemFieldService;
+use app\helpers\FormSystemFieldHelper;
 use app\models\DbTable;
 use app\models\DbTableColumn;
+use app\models\MasterForm;
 use app\models\MasterDatatable;
 use Yii;
 use yii\db\Query;
@@ -87,10 +89,11 @@ class MasterDatatableRenderService
         $rows = $query->all(Yii::$app->db);
         $actions = $this->resolveActions($config);
         $editMode = $this->resolveEditMode($config);
+        $editForm = $this->resolveEditForm($config);
         $primaryKeys = !empty($tableSchema->primaryKey) ? array_values($tableSchema->primaryKey) : [];
         $uid = 'dt-' . $tableId . '-' . substr(md5(json_encode($config)), 0, 8);
 
-        return $this->renderTable($uid, $table, $columns, $rows, $actions, $editMode, $primaryKeys, [
+        return $this->renderTable($uid, $table, $columns, $rows, $actions, $editMode, $editForm, $primaryKeys, [
             'searchEnabled' => $searchEnabled,
             'paginationEnabled' => $paginationEnabled,
             'page' => $page,
@@ -191,6 +194,52 @@ class MasterDatatableRenderService
         return in_array($mode, ['default', 'custom'], true) ? $mode : 'custom';
     }
 
+    private function resolveEditForm(array $config): array
+    {
+        $requested = is_array($config['actions'] ?? null) ? $config['actions'] : [];
+        $formId = (int)($requested['edit_form_id'] ?? 0);
+        if ($formId <= 0) {
+            return [];
+        }
+
+        $form = MasterForm::findByIdScoped($formId);
+        if (!$form instanceof MasterForm) {
+            return [];
+        }
+
+        $engine = new FormEngineService();
+        $schema = $engine->getResolvedFormSchema($form);
+        $fields = [];
+        foreach ((array)($schema['fields'] ?? []) as $field) {
+            if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
+            $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? ''));
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $fields[] = [
+                'field' => $fieldName,
+                'name' => $fieldName,
+                'label' => trim((string)($field['label'] ?? $fieldName)) ?: $fieldName,
+                'inputType' => FormSystemFieldHelper::resolveFieldInputType($field),
+                'placeholder' => (string)($field['placeholder'] ?? ''),
+                'required' => !empty($field['required']),
+                'defaultValue' => $field['default_value'] ?? null,
+                'options' => $this->normalizeFormFieldOptions($field),
+                'componentType' => (string)($field['component_type'] ?? ($field['type'] ?? 'text')),
+            ];
+        }
+
+        return [
+            'id' => (int)$form->id,
+            'name' => (string)$form->form_name,
+            'fields' => $fields,
+        ];
+    }
+
     private function canUseTable(DbTable $table): bool
     {
         if (!ProjectSchema::supportsProjectContext()) {
@@ -201,7 +250,7 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $primaryKeys, array $state): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state): string
     {
         $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $colspan = count($columns) + ($hasActions ? 1 : 0);
@@ -412,11 +461,12 @@ class MasterDatatableRenderService
                     'saveUrl' => Url::to(['/table-builder/spreadsheet-action', 'id' => $table->id]),
                     'csrfToken' => Yii::$app->request->csrfToken,
                     'editMode' => $editMode,
+                    'editForm' => $editForm,
                     'fields' => $rowFields,
                 ]) ?>;
                 const modal = root.querySelector('[data-row-modal]');
                 const viewMode = root.querySelector('[data-row-view-mode]');
-                const editForm = root.querySelector('[data-row-edit-mode]');
+                const editFormEl = root.querySelector('[data-row-edit-mode]');
                 const summary = root.querySelector('[data-row-summary]');
                 const viewGrid = root.querySelector('[data-row-view-grid]');
                 const formGrid = root.querySelector('[data-row-form-grid]');
@@ -487,7 +537,7 @@ class MasterDatatableRenderService
                     if (value === null || value === undefined) {
                         return '';
                     }
-                    if (field.inputType === 'datetime') {
+                    if (field.inputType === 'datetime' || field.inputType === 'datetime-local') {
                         return String(value).slice(0, 16).replace(' ', 'T');
                     }
                     return String(value);
@@ -523,33 +573,45 @@ class MasterDatatableRenderService
                 function renderCustomEdit(rowData) {
                     formGrid.className = 'dt-row-form-grid dt-row-form-grid-custom';
                     if (formNote) {
-                        formNote.textContent = 'Custom form modal menampilkan input yang lebih terstruktur dan cocok untuk edit cepat.';
+                        const formName = payload.editForm && payload.editForm.name ? payload.editForm.name : 'form terpilih';
+                        formNote.textContent = 'Custom form modal memakai schema dari ' + formName + ' dan mengikuti struktur yang sudah kamu buat.';
                     }
-                    formGrid.innerHTML = payload.fields.map(function(field) {
-                        const value = inputValue(field, rowData[field.field]);
+                    const fields = (payload.editForm && Array.isArray(payload.editForm.fields) && payload.editForm.fields.length)
+                        ? payload.editForm.fields
+                        : payload.fields;
+                    formGrid.innerHTML = fields.map(function(field) {
+                        const fieldName = field.field || field.name || '';
+                        const value = inputValue(field, rowData[fieldName]);
                         const wide = field.inputType === 'textarea';
                         let control = '';
 
-                        if (field.inputType === 'boolean') {
+                        if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
                             const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(field.field) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                        } else if (field.inputType === 'select') {
+                            const options = Array.isArray(field.options) && field.options.length ? field.options : [];
+                            const optionHtml = ['<option value="">-- Pilih --</option>'].concat(options.map(function(option) {
+                                const selected = String(option.value ?? '') === String(value) ? ' selected' : '';
+                                return '<option value="' + escapeHtml(option.value ?? '') + '"' + selected + '>' + escapeHtml(option.label ?? option.value ?? '') + '</option>';
+                            })).join('');
+                            control = '<select data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>' + optionHtml + '</select>';
                         } else if (field.inputType === 'date') {
-                            control = '<input type="date" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
-                        } else if (field.inputType === 'datetime') {
-                            control = '<input type="datetime-local" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                            control = '<input type="date" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                        } else if (field.inputType === 'datetime' || field.inputType === 'datetime-local') {
+                            control = '<input type="datetime-local" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
                         } else if (field.inputType === 'number') {
-                            control = '<input type="number" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                            control = '<input type="number" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
                         } else if (field.inputType === 'textarea') {
-                            control = '<textarea data-row-field="' + escapeHtml(field.field) + '" rows="4"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(value) + '</textarea>';
+                            control = '<textarea data-row-field="' + escapeHtml(fieldName) + '" rows="4"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(value) + '</textarea>';
                         } else {
-                            control = '<input type="text" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                            control = '<input type="text" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
                         }
 
                         return '<div class="dt-row-field' + (wide ? ' wide' : '') + '">' +
                             '<label>' + escapeHtml(field.label) + '</label>' +
                             control +
                         '</div>';
-                        }).join('');
+                    }).join('');
                 }
 
                 function renderDefaultEdit(rowData) {
@@ -558,23 +620,31 @@ class MasterDatatableRenderService
                         formNote.textContent = 'Default modal menggunakan layout sederhana dan ringkas untuk input yang lebih familiar.';
                     }
                     formGrid.innerHTML = payload.fields.map(function(field) {
-                        const value = inputValue(field, rowData[field.field]);
+                        const fieldName = field.field || field.name || '';
+                        const value = inputValue(field, rowData[fieldName]);
                         const wide = field.inputType === 'textarea';
                         let control = '';
 
-                        if (field.inputType === 'boolean') {
+                        if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
                             const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(field.field) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                        } else if (field.inputType === 'select') {
+                            const options = Array.isArray(field.options) && field.options.length ? field.options : [];
+                            const optionHtml = ['<option value="">-- Pilih --</option>'].concat(options.map(function(option) {
+                                const selected = String(option.value ?? '') === String(value) ? ' selected' : '';
+                                return '<option value="' + escapeHtml(option.value ?? '') + '"' + selected + '>' + escapeHtml(option.label ?? option.value ?? '') + '</option>';
+                            })).join('');
+                            control = '<select data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>' + optionHtml + '</select>';
                         } else if (field.inputType === 'date') {
-                            control = '<input type="date" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
-                        } else if (field.inputType === 'datetime') {
-                            control = '<input type="datetime-local" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                            control = '<input type="date" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                        } else if (field.inputType === 'datetime' || field.inputType === 'datetime-local') {
+                            control = '<input type="datetime-local" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
                         } else if (field.inputType === 'number') {
-                            control = '<input type="number" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                            control = '<input type="number" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
                         } else if (field.inputType === 'textarea') {
-                            control = '<textarea data-row-field="' + escapeHtml(field.field) + '" rows="3"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(value) + '</textarea>';
+                            control = '<textarea data-row-field="' + escapeHtml(fieldName) + '" rows="3"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(value) + '</textarea>';
                         } else {
-                            control = '<input type="text" data-row-field="' + escapeHtml(field.field) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                            control = '<input type="text" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
                         }
 
                         return '<div class="dt-row-field dt-row-field-default' + (wide ? ' wide' : '') + '">' +
@@ -589,9 +659,10 @@ class MasterDatatableRenderService
                     const rowKey = getRowKey(row);
                     activeRow = row;
                     const editModeLabel = payload.editMode === 'default' ? 'Default modal' : 'Custom form modal';
+                    const formName = payload.editForm && payload.editForm.name ? payload.editForm.name : '';
                     modalTitle.textContent = mode === 'edit' ? 'Edit Row' : 'View Row';
                     modalSubtitle.textContent = mode === 'edit'
-                        ? 'Ubah data langsung dari modal yang sudah terisi nilai lama. Mode: ' + editModeLabel
+                        ? 'Ubah data langsung dari modal yang sudah terisi nilai lama. Mode: ' + editModeLabel + (formName ? ' · ' + formName : '')
                         : 'Lihat detail row dalam format yang lebih nyaman dibaca.';
                     renderSummary(rowKey);
                     renderView(rowData);
@@ -604,7 +675,7 @@ class MasterDatatableRenderService
                     }
                     keyInput.value = JSON.stringify(rowKey || {});
                     viewMode.classList.toggle('active', mode === 'view');
-                    editForm.classList.toggle('active', mode === 'edit');
+                    editFormEl.classList.toggle('active', mode === 'edit');
                     saveButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
                     openModal();
                 }
@@ -635,25 +706,29 @@ class MasterDatatableRenderService
                     }
                 });
 
-                editForm.addEventListener('submit', function(event) {
+                editFormEl.addEventListener('submit', function(event) {
                     event.preventDefault();
                     if (!activeRow) {
                         return;
                     }
 
                     const values = {};
-                    payload.fields.forEach(function(field) {
-                        const input = editForm.querySelector('[data-row-field="' + field.field + '"]');
+                    const fields = (payload.editForm && Array.isArray(payload.editForm.fields) && payload.editForm.fields.length && payload.editMode === 'custom')
+                        ? payload.editForm.fields
+                        : payload.fields;
+                    fields.forEach(function(field) {
+                        const fieldName = field.field || field.name || '';
+                        const input = editFormEl.querySelector('[data-row-field="' + fieldName + '"]');
                         if (!input) {
                             return;
                         }
 
-                        if (field.inputType === 'boolean') {
-                            values[field.field] = input.checked ? 1 : 0;
+                        if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
+                            values[fieldName] = input.checked ? 1 : 0;
                             return;
                         }
 
-                        values[field.field] = input.value;
+                        values[fieldName] = input.value;
                     });
 
                     const request = new FormData();
@@ -793,6 +868,46 @@ class MasterDatatableRenderService
         }
 
         return 'text';
+    }
+
+    private function normalizeFormFieldOptions(array $field): array
+    {
+        $raw = $field['options'] ?? $field['field_options'] ?? $field['dropdown_options'] ?? [];
+        if (is_string($raw) && $raw !== '') {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                $raw = $decoded;
+            }
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $options = [];
+        foreach ($raw as $option) {
+            if (is_array($option)) {
+                $value = $option['value'] ?? $option['id'] ?? $option['key'] ?? '';
+                $label = $option['label'] ?? $option['name'] ?? $value;
+                if ($value === '' && $label === '') {
+                    continue;
+                }
+                $options[] = [
+                    'value' => (string)$value,
+                    'label' => (string)$label,
+                ];
+                continue;
+            }
+
+            if (is_scalar($option)) {
+                $options[] = [
+                    'value' => (string)$option,
+                    'label' => (string)$option,
+                ];
+            }
+        }
+
+        return $options;
     }
 
     private function pageUrl(string $pageParam, int $page): string

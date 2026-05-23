@@ -104,6 +104,7 @@ class MasterDatatable extends ActiveRecord
             'edit' => true,
             'delete' => true,
             'edit_mode' => 'custom',
+            'edit_form_id' => '',
         ], $decoded);
     }
 

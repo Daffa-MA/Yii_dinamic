@@ -7,6 +7,7 @@ use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
 use app\components\ProjectSchema;
 use app\models\DbTable;
+use app\models\MasterForm;
 use app\models\MasterDatatable;
 use app\services\MasterDatatableRenderService;
 use Yii;
@@ -58,6 +59,7 @@ class MasterDatatableController extends Controller
         return $this->render('form', [
             'model' => $model,
             'tables' => $this->findAvailableTables(),
+            'forms' => $this->findAvailableForms(),
         ]);
     }
 
@@ -72,6 +74,7 @@ class MasterDatatableController extends Controller
         return $this->render('form', [
             'model' => $model,
             'tables' => $this->findAvailableTables(),
+            'forms' => $this->findAvailableForms(),
         ]);
     }
 
@@ -109,11 +112,16 @@ class MasterDatatableController extends Controller
         if (!in_array($editMode, ['custom', 'default'], true)) {
             $editMode = 'custom';
         }
+        $editFormId = (int)($post['actions']['edit_form_id'] ?? $post['actions']['editFormId'] ?? 0);
+        if ($editMode !== 'custom') {
+            $editFormId = 0;
+        }
         $model->actions_config = json_encode([
             'view' => !empty($post['actions']['view']),
             'edit' => !empty($post['actions']['edit']),
             'delete' => !empty($post['actions']['delete']),
             'edit_mode' => $editMode,
+            'edit_form_id' => $editFormId > 0 ? $editFormId : '',
         ]);
 
         return $model->save();
@@ -162,6 +170,24 @@ class MasterDatatableController extends Controller
             $query->andWhere(['user_id' => Yii::$app->user->id]);
         }
         return $query->all();
+    }
+
+    private function findAvailableForms(): array
+    {
+        $query = MasterForm::findScoped()->orderBy(['form_name' => SORT_ASC, 'id' => SORT_ASC]);
+        if (!(new CommanderAuthContext())->isSuperAdmin() && !Yii::$app->user->isGuest) {
+            $query->andWhere(['user_id' => Yii::$app->user->id]);
+        }
+
+        $items = [];
+        foreach ($query->all() as $form) {
+            $items[] = [
+                'id' => (int)$form->id,
+                'name' => (string)($form->form_name ?: $form->name ?: ('Form #' . $form->id)),
+            ];
+        }
+
+        return $items;
     }
 
     private function findModel(int $id): MasterDatatable

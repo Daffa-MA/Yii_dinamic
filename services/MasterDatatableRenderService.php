@@ -190,14 +190,14 @@ class MasterDatatableRenderService
     private function resolveEditMode(array $config): string
     {
         $requested = is_array($config['actions'] ?? null) ? $config['actions'] : [];
-        $mode = strtolower(trim((string)($requested['edit_mode'] ?? 'custom')));
+        $mode = strtolower(trim((string)($requested['edit_mode'] ?? $requested['editMode'] ?? 'custom')));
         return in_array($mode, ['default', 'custom'], true) ? $mode : 'custom';
     }
 
     private function resolveEditForm(array $config): array
     {
         $requested = is_array($config['actions'] ?? null) ? $config['actions'] : [];
-        $formId = (int)($requested['edit_form_id'] ?? 0);
+        $formId = (int)($requested['edit_form_id'] ?? $requested['editFormId'] ?? $config['editFormId'] ?? 0);
         if ($formId <= 0) {
             return [];
         }

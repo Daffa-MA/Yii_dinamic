@@ -2593,6 +2593,20 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             .map(col => ({ field: col.field, label: col.label || col.field, visible: true }));
     }
 
+    function normalizeDatatableActions(actions = {}) {
+        const normalized = Object.assign({view: true, edit: true, delete: true, editMode: 'custom', editFormId: ''}, actions || {});
+        if (normalized.edit_mode !== undefined && normalized.edit_mode !== null && normalized.edit_mode !== '') {
+            normalized.editMode = normalized.edit_mode;
+        }
+        if ((normalized.editFormId === '' || normalized.editFormId === null || normalized.editFormId === undefined) && normalized.edit_form_id !== undefined && normalized.edit_form_id !== null) {
+            normalized.editFormId = normalized.edit_form_id;
+        }
+        if ((normalized.editFormId === '' || normalized.editFormId === null || normalized.editFormId === undefined) && normalized.edit_form !== undefined && normalized.edit_form !== null) {
+            normalized.editFormId = normalized.edit_form;
+        }
+        return normalized;
+    }
+
     function renderDatatableBuilderPreview(props = {}) {
         const table = getDatatableTable(props);
         if (!table) {
@@ -2604,7 +2618,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         const columns = getDatatableColumns(props).filter(col => col.visible !== false);
         const headers = columns.length ? columns : (table.columns || []).slice(0, 4).map(col => ({ field: col.field, label: col.label || col.field }));
-        const actions = props.actions || {};
+        const actions = normalizeDatatableActions(props.actions || {});
         const editMode = actions.editMode || 'custom';
         const editForm = (window.availableForms || []).find(f => String(f.id) === String(actions.editFormId || ''));
         const editModeLabel = editMode === 'default' ? 'Default modal' : 'Custom form modal';
@@ -3011,42 +3025,42 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 <div class="prop-section-title">Kolom & Header</div>
                 ${renderDatatableColumnEditor(blockId, props)}
             </div>
-            <div class="prop-section">
-                <div class="prop-section-title">Fitur & Action</div>
-                <div class="prop-checkbox-group">
-                    <input type="checkbox" class="prop-checkbox" ${props.search !== false ? 'checked' : ''} onchange="updateProp('${blockId}', 'search', this.checked)">
-                    <label style="margin: 0; cursor: pointer;">Search</label>
+                <div class="prop-section">
+                    <div class="prop-section-title">Fitur & Action</div>
+                    <div class="prop-checkbox-group">
+                        <input type="checkbox" class="prop-checkbox" ${props.search !== false ? 'checked' : ''} onchange="updateProp('${blockId}', 'search', this.checked)">
+                        <label style="margin: 0; cursor: pointer;">Search</label>
                 </div>
                 <div class="prop-checkbox-group">
                     <input type="checkbox" class="prop-checkbox" ${props.pagination !== false ? 'checked' : ''} onchange="updateProp('${blockId}', 'pagination', this.checked)">
                     <label style="margin: 0; cursor: pointer;">Pagination</label>
                 </div>
                 <div class="prop-checkbox-group">
-                    <input type="checkbox" class="prop-checkbox" ${(props.actions || {}).view !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'view', this.checked)">
+                    <input type="checkbox" class="prop-checkbox" ${normalizeDatatableActions(props.actions || {}).view !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'view', this.checked)">
                     <label style="margin: 0; cursor: pointer;">View action</label>
                 </div>
                 <div class="prop-checkbox-group">
-                    <input type="checkbox" class="prop-checkbox" ${(props.actions || {}).edit !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'edit', this.checked)">
+                    <input type="checkbox" class="prop-checkbox" ${normalizeDatatableActions(props.actions || {}).edit !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'edit', this.checked)">
                     <label style="margin: 0; cursor: pointer;">Edit action</label>
                 </div>
                 <div class="prop-group" style="margin-left: 28px; margin-top: -2px;">
                     <label>Mode Modal Edit</label>
                     <select class="prop-select" onchange="updateDatatableEditMode('${blockId}', this.value)">
-                        <option value="custom" ${((props.actions || {}).editMode || 'custom') === 'custom' ? 'selected' : ''}>Custom form modal</option>
-                        <option value="default" ${((props.actions || {}).editMode || 'custom') === 'default' ? 'selected' : ''}>Default modal</option>
+                        <option value="custom" ${((normalizeDatatableActions(props.actions || {}).editMode || 'custom') === 'custom' ? 'selected' : '')}>Custom form modal</option>
+                        <option value="default" ${((normalizeDatatableActions(props.actions || {}).editMode || 'custom') === 'default' ? 'selected' : '')}>Default modal</option>
                     </select>
                     <div style="font-size:12px;color:#64748b;margin-top:4px;">Custom form akan memakai form yang kamu pilih di bawah.</div>
                 </div>
                 <div class="prop-group" style="margin-left: 28px;">
                     <label>Form untuk Modal Edit</label>
-                    <select class="prop-select" onchange="updateDatatableEditForm('${blockId}', this.value)" ${((props.actions || {}).editMode || 'custom') === 'custom' ? '' : 'disabled'}>
+                    <select class="prop-select" onchange="updateDatatableEditForm('${blockId}', this.value)" ${((normalizeDatatableActions(props.actions || {}).editMode || 'custom') === 'custom' ? '' : 'disabled')}>
                         <option value="">-- Pilih Form --</option>
-                        ${(window.availableForms || []).map(f => `<option value="${f.id}" ${(props.actions || {}).editFormId == f.id ? 'selected' : ''}>${f.name}</option>`).join('')}
+                        ${(window.availableForms || []).map(f => `<option value="${f.id}" ${String(normalizeDatatableActions(props.actions || {}).editFormId || '') === String(f.id) ? 'selected' : ''}>${f.name}</option>`).join('')}
                     </select>
                     <div style="font-size:12px;color:#64748b;margin-top:4px;">Form ini akan dipakai saat admin klik Edit.</div>
                 </div>
                 <div class="prop-checkbox-group">
-                    <input type="checkbox" class="prop-checkbox" ${(props.actions || {}).delete !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'delete', this.checked)">
+                    <input type="checkbox" class="prop-checkbox" ${normalizeDatatableActions(props.actions || {}).delete !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'delete', this.checked)">
                     <label style="margin: 0; cursor: pointer;">Delete action</label>
                 </div>
             </div>`;
@@ -3164,7 +3178,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const block = window.pageState.find(b => b.id === blockId);
         if (!block) return;
         const preset = (window.availableDatatables || []).find(dt => String(dt.id) === String(presetId));
-        const existingActions = Object.assign({view: true, edit: true, delete: true, editMode: 'custom', editFormId: ''}, (block.props && block.props.actions) || {});
+        const existingActions = normalizeDatatableActions((block.props && block.props.actions) || {});
         block.props = block.props || {};
         if (!preset) {
             block.props.datatableId = '';
@@ -3173,7 +3187,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 datatableId: preset.id,
                 tableId: preset.tableId,
                 columns: JSON.parse(JSON.stringify(preset.columns || [])),
-                actions: Object.assign({}, existingActions, preset.actions || {}),
+                actions: normalizeDatatableActions(Object.assign({}, existingActions, preset.actions || {})),
                 search: preset.search !== false,
                 pagination: preset.pagination !== false
             });
@@ -3187,7 +3201,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         if (!block) return;
         block.props = block.props || {};
         const table = (window.availableTables || []).find(t => String(t.id) === String(tableId));
-        const existingActions = Object.assign({view: true, edit: true, delete: true, editMode: 'custom', editFormId: ''}, block.props.actions || {});
+        const existingActions = normalizeDatatableActions(block.props.actions || {});
         block.props.tableId = tableId;
         block.props.datatableId = '';
         block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => ({
@@ -3195,7 +3209,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             label: col.label || col.field,
             visible: true
         })) : [];
-        block.props.actions = existingActions;
+        block.props.actions = normalizeDatatableActions(existingActions);
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }
@@ -3228,7 +3242,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const block = window.pageState.find(b => b.id === blockId);
         if (!block) return;
         block.props = block.props || {};
-        block.props.actions = Object.assign({view: true, edit: true, delete: true}, block.props.actions || {});
+        block.props.actions = normalizeDatatableActions(block.props.actions || {});
         block.props.actions[action] = enabled;
         if (action === 'edit' && !enabled) {
             block.props.actions.editMode = 'custom';
@@ -3241,7 +3255,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const block = window.pageState.find(b => b.id === blockId);
         if (!block) return;
         block.props = block.props || {};
-        block.props.actions = Object.assign({view: true, edit: true, delete: true, editMode: 'custom', editFormId: ''}, block.props.actions || {});
+        block.props.actions = normalizeDatatableActions(block.props.actions || {});
         block.props.actions.editMode = value === 'default' ? 'default' : 'custom';
         if (block.props.actions.editMode !== 'custom') {
             block.props.actions.editFormId = '';
@@ -3254,7 +3268,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const block = window.pageState.find(b => b.id === blockId);
         if (!block) return;
         block.props = block.props || {};
-        block.props.actions = Object.assign({view: true, edit: true, delete: true, editMode: 'custom', editFormId: ''}, block.props.actions || {});
+        block.props.actions = normalizeDatatableActions(block.props.actions || {});
         block.props.actions.editFormId = value || '';
         block.props.actions.editMode = 'custom';
         renderBuilder(window.pageState);

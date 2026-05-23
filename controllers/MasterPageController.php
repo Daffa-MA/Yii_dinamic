@@ -528,12 +528,16 @@ class MasterPageController extends Controller
 
         $items = [];
         foreach ($rows as $row) {
+            $actions = $row->getActionsConfigArray();
             $items[] = [
                 'id' => (int)$row->id,
                 'name' => (string)$row->name,
                 'tableId' => (int)$row->table_id,
                 'columns' => $row->getColumnsConfigArray(),
-                'actions' => $row->getActionsConfigArray(),
+                'actions' => array_merge($actions, [
+                    'editMode' => $actions['edit_mode'] ?? 'custom',
+                    'editFormId' => $actions['edit_form_id'] ?? '',
+                ]),
                 'search' => (bool)$row->search_enabled,
                 'pagination' => (bool)$row->pagination_enabled,
             ];

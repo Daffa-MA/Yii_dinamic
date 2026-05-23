@@ -4,11 +4,13 @@ use yii\helpers\Html;
 
 /** @var app\models\MasterDatatable $model */
 /** @var app\models\DbTable[] $tables */
+/** @var app\models\MasterForm[] $forms */
 
 $this->title = $model->isNewRecord ? 'Create Master Datatable' : 'Edit Master Datatable';
 $columnsConfig = $model->getColumnsConfigArray();
 $actionsConfig = $model->getActionsConfigArray();
 $selectedTableId = (int)$model->table_id;
+$forms = $forms ?? [];
 ?>
 
 <div class="mx-auto max-w-5xl px-6 py-8">
@@ -76,6 +78,14 @@ $selectedTableId = (int)$model->table_id;
                 <select class="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700" name="MasterDatatable[actions][edit_mode]">
                     <option value="custom" <?= (($actionsConfig['edit_mode'] ?? 'custom') === 'custom') ? 'selected' : '' ?>>Custom form modal</option>
                     <option value="default" <?= (($actionsConfig['edit_mode'] ?? 'custom') === 'default') ? 'selected' : '' ?>>Default modal</option>
+                </select>
+                <select class="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700" name="MasterDatatable[actions][edit_form_id]">
+                    <option value="">Pilih form edit</option>
+                    <?php foreach ($forms as $form): ?>
+                        <option value="<?= (int)$form['id'] ?>" <?= ((int)($actionsConfig['edit_form_id'] ?? 0) === (int)$form['id']) ? 'selected' : '' ?>>
+                            <?= Html::encode($form['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
                 </select>
                 <p class="mt-2 text-xs font-normal leading-5 text-slate-500">Pilih tampilan modal edit yang akan dipakai saat admin membuka action Edit.</p>
             </div>

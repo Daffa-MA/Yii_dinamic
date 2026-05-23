@@ -209,6 +209,8 @@ class MasterDatatableRenderService
 
         $engine = new FormEngineService();
         $schema = $engine->getResolvedFormSchema($form);
+        $renderer = new FormRenderService();
+        $renderPayload = $renderer->buildRenderPayload($form, (array)($schema['fields'] ?? []), $schema['layout'] ?? null);
         $fields = [];
         foreach ((array)($schema['fields'] ?? []) as $field) {
             if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
@@ -237,6 +239,10 @@ class MasterDatatableRenderService
             'id' => (int)$form->id,
             'name' => (string)$form->form_name,
             'fields' => $fields,
+            'customHtml' => (string)($renderPayload['customHtml'] ?? ''),
+            'customCss' => (string)($renderPayload['customCss'] ?? ''),
+            'customJs' => (string)($renderPayload['customJs'] ?? ''),
+            'useCustomCode' => !empty($renderPayload['useCustomCode']),
         ];
     }
 
@@ -685,15 +691,132 @@ class MasterDatatableRenderService
                     }).join('');
                 }
 
+                function getCustomFormFields() {
+                    if (payload.editForm && Array.isArray(payload.editForm.fields) && payload.editForm.fields.length) {
+                        return payload.editForm.fields;
+                    }
+                    return payload.fields;
+                }
+
+                function getControlByFieldName(rootEl, fieldName) {
+                    return rootEl.querySelector('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+                }
+
+                function stripOuterFormTags(html) {
+                    return String(html || '')
+                        .replace(/<form\b/gi, '<div')
+                        .replace(/<\/form>/gi, '</div>');
+                }
+
+                function applyValuesToCustomMarkup(rootEl, rowData) {
+                    const fields = getCustomFormFields();
+                    fields.forEach(function(field) {
+                        const fieldName = field.field || field.name || '';
+                        if (!fieldName) {
+                            return;
+                        }
+                        const inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+                        if (!inputs || !inputs.length) {
+                            return;
+                        }
+
+                        const rawValue = rowData[fieldName];
+                        const normalized = inputValue(field, rawValue);
+                        const selectedArray = Array.isArray(rawValue) ? rawValue.map(function(item) { return String(item); }) : String(normalized || '').split(',').map(function(item) { return item.trim(); }).filter(Boolean);
+
+                        Array.prototype.forEach.call(inputs, function(input) {
+                            const type = (input.type || '').toLowerCase();
+                            if (type === 'checkbox') {
+                                if (field.inputType === 'checkboxes') {
+                                    input.checked = selectedArray.indexOf(String(input.value)) !== -1;
+                                } else {
+                                    input.checked = String(rawValue) === '1' || String(rawValue).toLowerCase() === 'true';
+                                }
+                                return;
+                            }
+                            if (type === 'radio') {
+                                input.checked = String(input.value) === String(rawValue);
+                                return;
+                            }
+                            if (type === 'date') {
+                                input.value = String(normalized).slice(0, 10);
+                                return;
+                            }
+                            if (type === 'datetime-local') {
+                                input.value = String(normalized).slice(0, 16).replace(' ', 'T');
+                                return;
+                            }
+                            if (input.tagName === 'SELECT' && field.inputType === 'checkboxes') {
+                                Array.prototype.forEach.call(input.options, function(option) {
+                                    option.selected = selectedArray.indexOf(String(option.value)) !== -1;
+                                });
+                                return;
+                            }
+                            input.value = normalized;
+                        });
+                    });
+                }
+
+                function collectValuesFromCustomMarkup(rootEl) {
+                    const values = {};
+                    const fields = getCustomFormFields();
+                    fields.forEach(function(field) {
+                        const fieldName = field.field || field.name || '';
+                        if (!fieldName) {
+                            return;
+                        }
+                        const inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+                        if (!inputs || !inputs.length) {
+                            return;
+                        }
+
+                        const firstInput = inputs[0];
+                        const type = (firstInput.type || '').toLowerCase();
+                        if (field.inputType === 'checkboxes') {
+                            values[fieldName] = Array.prototype.slice.call(inputs)
+                                .filter(function(input) { return input.checked; })
+                                .map(function(input) { return input.value; });
+                            return;
+                        }
+                        if (field.inputType === 'radio') {
+                            const selected = Array.prototype.slice.call(inputs).find(function(input) {
+                                return input.checked;
+                            });
+                            values[fieldName] = selected ? selected.value : '';
+                            return;
+                        }
+                        if (field.inputType === 'boolean' || field.inputType === 'checkbox' || type === 'checkbox') {
+                            values[fieldName] = firstInput.checked ? 1 : 0;
+                            return;
+                        }
+                        values[fieldName] = firstInput.value;
+                    });
+                    return values;
+                }
+
                 function renderCustomEdit(rowData) {
                     formGrid.className = 'dt-row-custom-form-shell';
                     if (formNote) {
                         const formName = payload.editForm && payload.editForm.name ? payload.editForm.name : 'form terpilih';
-                        formNote.textContent = 'Custom form modal memakai schema dari ' + formName + ' dan mengikuti struktur form asli yang kamu buat.';
+                        formNote.textContent = 'Custom form modal memakai layout asli dari ' + formName + ' dan mengikuti struktur form yang kamu buat.';
                     }
-                    const fields = (payload.editForm && Array.isArray(payload.editForm.fields) && payload.editForm.fields.length)
-                        ? payload.editForm.fields
-                        : payload.fields;
+                    const customHtml = (payload.editForm && payload.editForm.customHtml) ? String(payload.editForm.customHtml) : '';
+                    if (customHtml.trim() !== '') {
+                        const customCss = (payload.editForm && payload.editForm.customCss) ? String(payload.editForm.customCss) : '';
+                        const customJs = (payload.editForm && payload.editForm.customJs) ? String(payload.editForm.customJs) : '';
+                        formGrid.innerHTML = '<div class="dt-row-custom-form-card dt-row-custom-form-live">' +
+                            (customCss.trim() !== '' ? '<style>' + customCss + '</style>' : '') +
+                            stripOuterFormTags(customHtml) +
+                        '</div>';
+                        if (customJs.trim() !== '') {
+                            const script = document.createElement('script');
+                            script.textContent = '(function(){try{' + customJs + '}catch(e){console.error(e);}})();';
+                            formGrid.appendChild(script);
+                        }
+                        applyValuesToCustomMarkup(formGrid, rowData);
+                        return;
+                    }
+                    const fields = getCustomFormFields();
                     formGrid.innerHTML = '<div class="dt-row-custom-form-card">' +
                         '<div class="dt-row-custom-form-head">' +
                             '<div class="dt-row-custom-form-kicker">Custom Form Modal</div>' +
@@ -808,41 +931,42 @@ class MasterDatatableRenderService
                         return;
                     }
 
-                    const values = {};
-                    const fields = (payload.editForm && Array.isArray(payload.editForm.fields) && payload.editForm.fields.length && payload.editMode === 'custom')
-                        ? payload.editForm.fields
-                        : payload.fields;
-                    fields.forEach(function(field) {
-                        const fieldName = field.field || field.name || '';
-                        const inputs = editFormEl.querySelectorAll('[data-row-field="' + fieldName + '"]');
-                        if (!inputs || !inputs.length) {
-                            return;
-                        }
+                    const values = payload.editMode === 'custom'
+                        ? collectValuesFromCustomMarkup(editFormEl)
+                        : {};
+                    if (payload.editMode !== 'custom') {
+                        payload.fields.forEach(function(field) {
+                            const fieldName = field.field || field.name || '';
+                            const inputs = editFormEl.querySelectorAll('[data-row-field="' + fieldName + '"]');
+                            if (!inputs || !inputs.length) {
+                                return;
+                            }
 
-                        const firstInput = inputs[0];
+                            const firstInput = inputs[0];
 
-                        if (field.inputType === 'checkboxes') {
-                            values[fieldName] = Array.prototype.slice.call(inputs)
-                                .filter(function(input) { return input.checked; })
-                                .map(function(input) { return input.value; });
-                            return;
-                        }
+                            if (field.inputType === 'checkboxes') {
+                                values[fieldName] = Array.prototype.slice.call(inputs)
+                                    .filter(function(input) { return input.checked; })
+                                    .map(function(input) { return input.value; });
+                                return;
+                            }
 
-                        if (field.inputType === 'radio') {
-                            const selectedRadio = Array.prototype.slice.call(inputs).find(function(input) {
-                                return input.checked;
-                            });
-                            values[fieldName] = selectedRadio ? selectedRadio.value : '';
-                            return;
-                        }
+                            if (field.inputType === 'radio') {
+                                const selectedRadio = Array.prototype.slice.call(inputs).find(function(input) {
+                                    return input.checked;
+                                });
+                                values[fieldName] = selectedRadio ? selectedRadio.value : '';
+                                return;
+                            }
 
-                        if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
-                            values[fieldName] = firstInput.checked ? 1 : 0;
-                            return;
-                        }
+                            if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
+                                values[fieldName] = firstInput.checked ? 1 : 0;
+                                return;
+                            }
 
-                        values[fieldName] = firstInput.value;
-                    });
+                            values[fieldName] = firstInput.value;
+                        });
+                    }
 
                     const request = new FormData();
                     request.append('_csrf', payload.csrfToken || '');

@@ -299,7 +299,7 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-badge { background:#eff6ff; color:#1d4ed8; font-weight:800; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border-color:#dbe3ef; background:#fff; color:#334155; border-radius:12px; width:auto; height:auto; padding:8px 12px; display:inline-flex; align-items:center; justify-content:center; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border-color:#cbd5e1; background:#fff; color:#0f172a; border-radius:12px; width:auto; height:auto; padding:8px 12px; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(15,23,42,.05); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; background:linear-gradient(180deg,#fbfdff 0%,#fff 18%); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body.view-mode { padding:18px 22px 22px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body,
@@ -360,12 +360,11 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid #e2e8f0; background:#fff; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer.is-hidden { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer.view-footer { justify-content:space-between; align-items:center; gap:16px; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer { background:#262422; border-top-color:#3a3732; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer { background:#fff; border-top-color:#e2e8f0; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-info { display:flex; align-items:center; gap:8px; color:#a3a3a3; font-size:12px; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { color:#a7a297; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { color:#64748b; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-actions { display:flex; gap:8px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { display:none; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-actions .dt-btn:not(.dt-btn-primary) { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary { border:0.5px solid rgba(0,0,0,0.15); background:#111; color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary:hover { opacity:.85; }

@@ -306,6 +306,27 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid-default { grid-template-columns:1fr; gap:12px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid-custom { grid-template-columns:repeat(2,minmax(0,1fr)); }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-shell { display:grid; gap:14px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-card { border:1px solid #e2e8f0; border-radius:22px; background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%); box-shadow:0 16px 34px rgba(15,23,42,.05); overflow:hidden; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-head { padding:18px 20px 16px; border-bottom:1px solid #e2e8f0; background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%); color:#fff; position:relative; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-head::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:linear-gradient(90deg,#60a5fa 0%,#22c55e 100%); }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-kicker { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; color:#bfdbfe; margin-bottom:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-title { margin:0; font-size:18px; font-weight:800; color:#fff; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-desc { margin:8px 0 0; font-size:13px; line-height:1.6; color:rgba(255,255,255,.82); max-width:720px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-body { padding:18px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-form-grid { display:grid; grid-template-columns:1fr; gap:14px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-field { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 8px 20px rgba(15,23,42,.03); }
+                #<?= Html::encode($uid) ?> .dt-row-custom-field label { display:block; color:#334155; font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-label-required { color:#dc2626; margin-left:4px; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-control { width:100%; border:1px solid #cbd5e1; border-radius:12px; padding:11px 12px; font-size:14px; color:#0f172a; background:#fff; box-sizing:border-box; transition:border-color .15s ease, box-shadow .15s ease; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-control:focus { outline:none; border-color:#64748b; box-shadow:0 0 0 3px rgba(100,116,139,.12); }
+                #<?= Html::encode($uid) ?> .dt-row-custom-textarea { min-height:120px; resize:vertical; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-hint { margin-top:8px; font-size:12px; line-height:1.5; color:#64748b; }
+                #<?= Html::encode($uid) ?> .dt-row-choice-list { display:grid; gap:10px; }
+                #<?= Html::encode($uid) ?> .dt-row-choice-item { display:flex; align-items:flex-start; gap:10px; padding:11px 12px; border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; color:#0f172a; font-size:14px; }
+                #<?= Html::encode($uid) ?> .dt-row-choice-item input { margin-top:3px; accent-color:#0f172a; }
+                #<?= Html::encode($uid) ?> .dt-row-fk-badge { display:inline-flex; align-items:center; gap:6px; margin-top:10px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+                #<?= Html::encode($uid) ?> .dt-row-custom-inline-note { margin-top:8px; font-size:12px; color:#64748b; }
                 #<?= Html::encode($uid) ?> .dt-row-field { border:1px solid #e2e8f0; border-radius:16px; background:#fff; padding:14px 16px; box-shadow:0 8px 20px rgba(15,23,42,.03); }
                 #<?= Html::encode($uid) ?> .dt-row-field-default { padding:16px 18px; }
                 #<?= Html::encode($uid) ?> .dt-row-field.wide { grid-column:1 / -1; }
@@ -537,10 +558,104 @@ class MasterDatatableRenderService
                     if (value === null || value === undefined) {
                         return '';
                     }
+                    if (Array.isArray(value)) {
+                        return value.join(', ');
+                    }
+                    if (typeof value === 'object') {
+                        try {
+                            return JSON.stringify(value);
+                        } catch (error) {
+                            return '';
+                        }
+                    }
                     if (field.inputType === 'datetime' || field.inputType === 'datetime-local') {
                         return String(value).slice(0, 16).replace(' ', 'T');
                     }
                     return String(value);
+                }
+
+                function getSelectedValue(field, value) {
+                    if (Array.isArray(value)) {
+                        return value.map(function(item) {
+                            return String(item);
+                        });
+                    }
+                    if (value === null || value === undefined) {
+                        return '';
+                    }
+                    return String(value);
+                }
+
+                function renderChoiceItems(field, fieldName, value, multiple) {
+                    const options = Array.isArray(field.options) ? field.options : [];
+                    const selectedValues = Array.isArray(value) ? value.map(function(item) { return String(item); }) : [String(value)];
+                    if (!options.length) {
+                        return '<input type="text" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(Array.isArray(value) ? value.join(', ') : value) + '">';
+                    }
+
+                    return '<div class="dt-row-choice-list">' + options.map(function(option, index) {
+                        const optionValue = String(option.value ?? option.label ?? index);
+                        const optionLabel = String(option.label ?? option.value ?? optionValue);
+                        const checked = selectedValues.indexOf(optionValue) !== -1 ? ' checked' : '';
+                        const nameAttr = multiple ? fieldName + '[]' : fieldName;
+                        return '<label class="dt-row-choice-item">' +
+                            '<input type="' + (multiple ? 'checkbox' : 'radio') + '" name="' + escapeHtml(nameAttr) + '" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(optionValue) + '"' + checked + (field.readonly ? ' disabled' : '') + '>' +
+                            '<span>' + escapeHtml(optionLabel) + '</span>' +
+                        '</label>';
+                    }).join('') + '</div>';
+                }
+
+                function renderCustomField(field, rowData) {
+                    const fieldName = field.field || field.name || '';
+                    const label = field.label || fieldName || 'Field';
+                    const value = rowData[fieldName];
+                    const normalizedValue = inputValue(field, value);
+                    const required = field.required ? ' <span class="dt-row-custom-label-required">*</span>' : '';
+                    const hint = field.placeholder ? '<div class="dt-row-custom-hint">' + escapeHtml(field.placeholder) + '</div>' : '';
+                    const isFk = field.componentType === 'foreign_key' || field.is_foreign_key;
+                    let control = '';
+
+                    if (field.inputType === 'textarea') {
+                        control = '<textarea class="dt-row-custom-control dt-row-custom-textarea" data-row-field="' + escapeHtml(fieldName) + '" rows="4"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(normalizedValue) + '</textarea>';
+                    } else if (field.inputType === 'select') {
+                        const options = Array.isArray(field.options) ? field.options : [];
+                        const optionHtml = ['<option value="">-- Pilih --</option>'].concat(options.map(function(option, index) {
+                            const optionValue = String(option.value ?? index);
+                            const optionLabel = String(option.label ?? option.value ?? optionValue);
+                            const selected = String(getSelectedValue(field, value)) === optionValue ? ' selected' : '';
+                            return '<option value="' + escapeHtml(optionValue) + '"' + selected + '>' + escapeHtml(optionLabel) + '</option>';
+                        })).join('');
+                        control = '<select class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>' + optionHtml + '</select>';
+                    } else if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
+                        const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
+                        control = '<label class="dt-row-choice-item" style="margin:0;">' +
+                            '<input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '>' +
+                            '<span>' + escapeHtml(label) + '</span>' +
+                        '</label>';
+                    } else if (field.inputType === 'radio') {
+                        control = renderChoiceItems(field, fieldName, value, false);
+                    } else if (field.inputType === 'checkboxes') {
+                        control = renderChoiceItems(field, fieldName, Array.isArray(value) ? value : (String(value).trim() !== '' ? String(value).split(',').map(function(item) { return item.trim(); }) : []), true);
+                    } else if (field.inputType === 'date') {
+                        control = '<input type="date" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(normalizedValue) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                    } else if (field.inputType === 'datetime' || field.inputType === 'datetime-local') {
+                        control = '<input type="datetime-local" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(normalizedValue) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                    } else if (field.inputType === 'number') {
+                        control = '<input type="number" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(normalizedValue) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                    } else if (field.inputType === 'password') {
+                        control = '<input type="password" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(normalizedValue) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                    } else if (field.inputType === 'file') {
+                        control = '<input type="file" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>';
+                    } else {
+                        control = '<input type="text" class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(normalizedValue) + '"' + (field.readonly ? ' readonly' : '') + '>';
+                    }
+
+                    return '<div class="dt-row-custom-field' + ((field.inputType === 'textarea' || field.inputType === 'checkboxes') ? ' wide' : '') + '">' +
+                        '<label>' + escapeHtml(label) + required + '</label>' +
+                        control +
+                        hint +
+                        (isFk ? '<div class="dt-row-fk-badge"><span class="material-symbols-outlined" style="font-size:12px;">link</span> Foreign key field</div>' : '') +
+                    '</div>';
                 }
 
                 function renderSummary(rowKey) {
@@ -571,47 +686,28 @@ class MasterDatatableRenderService
                 }
 
                 function renderCustomEdit(rowData) {
-                    formGrid.className = 'dt-row-form-grid dt-row-form-grid-custom';
+                    formGrid.className = 'dt-row-custom-form-shell';
                     if (formNote) {
                         const formName = payload.editForm && payload.editForm.name ? payload.editForm.name : 'form terpilih';
-                        formNote.textContent = 'Custom form modal memakai schema dari ' + formName + ' dan mengikuti struktur yang sudah kamu buat.';
+                        formNote.textContent = 'Custom form modal memakai schema dari ' + formName + ' dan mengikuti struktur form asli yang kamu buat.';
                     }
                     const fields = (payload.editForm && Array.isArray(payload.editForm.fields) && payload.editForm.fields.length)
                         ? payload.editForm.fields
                         : payload.fields;
-                    formGrid.innerHTML = fields.map(function(field) {
-                        const fieldName = field.field || field.name || '';
-                        const value = inputValue(field, rowData[fieldName]);
-                        const wide = field.inputType === 'textarea';
-                        let control = '';
-
-                        if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
-                            const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
-                        } else if (field.inputType === 'select') {
-                            const options = Array.isArray(field.options) && field.options.length ? field.options : [];
-                            const optionHtml = ['<option value="">-- Pilih --</option>'].concat(options.map(function(option) {
-                                const selected = String(option.value ?? '') === String(value) ? ' selected' : '';
-                                return '<option value="' + escapeHtml(option.value ?? '') + '"' + selected + '>' + escapeHtml(option.label ?? option.value ?? '') + '</option>';
-                            })).join('');
-                            control = '<select data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>' + optionHtml + '</select>';
-                        } else if (field.inputType === 'date') {
-                            control = '<input type="date" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
-                        } else if (field.inputType === 'datetime' || field.inputType === 'datetime-local') {
-                            control = '<input type="datetime-local" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
-                        } else if (field.inputType === 'number') {
-                            control = '<input type="number" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
-                        } else if (field.inputType === 'textarea') {
-                            control = '<textarea data-row-field="' + escapeHtml(fieldName) + '" rows="4"' + (field.readonly ? ' readonly' : '') + '>' + escapeHtml(value) + '</textarea>';
-                        } else {
-                            control = '<input type="text" data-row-field="' + escapeHtml(fieldName) + '" value="' + escapeHtml(value) + '"' + (field.readonly ? ' readonly' : '') + '>';
-                        }
-
-                        return '<div class="dt-row-field' + (wide ? ' wide' : '') + '">' +
-                            '<label>' + escapeHtml(field.label) + '</label>' +
-                            control +
-                        '</div>';
-                    }).join('');
+                    formGrid.innerHTML = '<div class="dt-row-custom-form-card">' +
+                        '<div class="dt-row-custom-form-head">' +
+                            '<div class="dt-row-custom-form-kicker">Custom Form Modal</div>' +
+                            '<h5 class="dt-row-custom-form-title">' + escapeHtml((payload.editForm && payload.editForm.name) ? payload.editForm.name : 'Form terpilih') + '</h5>' +
+                            '<p class="dt-row-custom-form-desc">Struktur modal ini mengikuti schema form yang kamu pilih, jadi admin melihat layout yang sama seperti form aslinya, bukan grid input generik.</p>' +
+                        '</div>' +
+                        '<div class="dt-row-custom-form-body">' +
+                            '<div class="dt-row-custom-form-grid">' +
+                                fields.map(function(field) {
+                                    return renderCustomField(field, rowData);
+                                }).join('') +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
                 }
 
                 function renderDefaultEdit(rowData) {
@@ -718,17 +814,34 @@ class MasterDatatableRenderService
                         : payload.fields;
                     fields.forEach(function(field) {
                         const fieldName = field.field || field.name || '';
-                        const input = editFormEl.querySelector('[data-row-field="' + fieldName + '"]');
-                        if (!input) {
+                        const inputs = editFormEl.querySelectorAll('[data-row-field="' + fieldName + '"]');
+                        if (!inputs || !inputs.length) {
+                            return;
+                        }
+
+                        const firstInput = inputs[0];
+
+                        if (field.inputType === 'checkboxes') {
+                            values[fieldName] = Array.prototype.slice.call(inputs)
+                                .filter(function(input) { return input.checked; })
+                                .map(function(input) { return input.value; });
+                            return;
+                        }
+
+                        if (field.inputType === 'radio') {
+                            const selectedRadio = Array.prototype.slice.call(inputs).find(function(input) {
+                                return input.checked;
+                            });
+                            values[fieldName] = selectedRadio ? selectedRadio.value : '';
                             return;
                         }
 
                         if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
-                            values[fieldName] = input.checked ? 1 : 0;
+                            values[fieldName] = firstInput.checked ? 1 : 0;
                             return;
                         }
 
-                        values[fieldName] = input.value;
+                        values[fieldName] = firstInput.value;
                     });
 
                     const request = new FormData();

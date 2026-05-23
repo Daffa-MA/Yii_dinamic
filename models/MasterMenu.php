@@ -343,8 +343,6 @@ public function __set($name, $value)
                 return $model->type === self::TYPE_BUTTON;
             }, 'message' => 'Button wajib memiliki URL/Route'],
             
-            // Form type validation (handled by validateRouteForPage and MenuService)
-            // Only add error if form_id is empty AND type is form AND form is submitted
             ['form_id', 'safe'],
             
             // Page type should NOT have route
@@ -443,6 +441,18 @@ public function __set($name, $value)
         }
     }
 
+    public function beforeValidate()
+    {
+        if (!parent::beforeValidate()) {
+            return false;
+        }
+
+        self::ensureColumnsExist();
+        $this->normalizeTypeRelations();
+
+        return true;
+    }
+
     public function attributeLabels()
     {
         return [
@@ -523,52 +533,13 @@ public function __set($name, $value)
     public function beforeSave($insert)
     {
         self::ensureColumnsExist();
-        \Yii::info('beforeSave START - type: ' . ($this->type ?? 'NULL') . ', form_id: ' . ($this->form_id ?? 'NULL') . ', page_id: ' . ($this->page_id ?? 'NULL') . ', route: ' . ($this->route ?? 'NULL'), 'menu-debug');
-        
-        // Recovery normalization: if form_id exists but type stayed page without page_id, treat as form
-        if (!empty($this->form_id) && $this->type === self::TYPE_PAGE && empty($this->page_id)) {
-            $this->type = self::TYPE_FORM;
-        }
-
-        // Auto-detect type if not set
-        if (empty($this->type)) {
-            if (!empty($this->route)) {
-                $this->type = self::TYPE_ROUTE;
-            } elseif (!empty($this->form_id)) {
-                $this->type = self::TYPE_FORM;
-            } elseif (!empty($this->page_id)) {
-                $this->type = self::TYPE_PAGE;
-            } else {
-                $this->type = self::TYPE_GROUP;
-            }
-        }
-        
-        // Clear irrelevant fields based on type
-        if ($this->type === self::TYPE_GROUP) {
-            $this->page_id = null;
-            $this->route = null;
-            $this->form_id = null;
-        } elseif ($this->type === self::TYPE_PAGE) {
-            $this->route = null;
-            $this->form_id = null;
-        } elseif ($this->type === self::TYPE_ROUTE) {
-            $this->page_id = null;
-            $this->form_id = null;
-        } elseif ($this->type === self::TYPE_FORM) {
-            $this->page_id = null;
-            $this->route = null;
-            // KEEP form_id - this is what we want!
-        } elseif ($this->type === self::TYPE_BUTTON) {
-            $this->form_id = null;
-        }
+        $this->normalizeTypeRelations();
 
         if (empty($this->menu_key)) {
             $seedValue = !empty($this->route) ? $this->route : ($this->name ?? ('menu-' . ($this->id ?? time())));
             $this->menu_key = Inflector::slug((string)$seedValue, '-');
         }
-        
-        \Yii::info('beforeSave AFTER CLEAN - type: ' . $this->type . ', form_id: ' . ($this->form_id ?? 'NULL') . ', page_id: ' . ($this->page_id ?? 'NULL'), 'menu-debug');
-        
+
         if ($insert) {
             $this->created_at = date('Y-m-d H:i:s');
             $this->is_active = $this->is_active ?? self::STATUS_ACTIVE;
@@ -992,5 +963,68 @@ public function __set($name, $value)
         }
 
         return in_array($route, ['/dashboard', 'dashboard', '/site/dashboard', 'site/dashboard'], true);
+    }
+
+    public function normalizeTypeRelations(): void
+    {
+        $this->type = strtolower(trim((string)$this->type));
+        $this->parent_id = $this->normalizeRelationId($this->parent_id);
+        $this->page_id = $this->normalizeRelationId($this->page_id);
+        $this->form_id = $this->normalizeRelationId($this->form_id);
+        $this->route = $this->normalizeTextValue($this->route);
+
+        if ($this->type === '') {
+            if ($this->route !== null) {
+                $this->type = self::TYPE_ROUTE;
+            } elseif ($this->form_id !== null) {
+                $this->type = self::TYPE_FORM;
+            } elseif ($this->page_id !== null) {
+                $this->type = self::TYPE_PAGE;
+            } else {
+                $this->type = self::TYPE_GROUP;
+            }
+        }
+
+        switch ($this->type) {
+            case self::TYPE_PAGE:
+                $this->form_id = null;
+                $this->route = null;
+                break;
+            case self::TYPE_FORM:
+                $this->page_id = null;
+                $this->route = null;
+                break;
+            case self::TYPE_ROUTE:
+                $this->page_id = null;
+                $this->form_id = null;
+                break;
+            case self::TYPE_BUTTON:
+                $this->page_id = null;
+                $this->form_id = null;
+                break;
+            case self::TYPE_DIVIDER:
+            case self::TYPE_GROUP:
+            default:
+                $this->page_id = null;
+                $this->form_id = null;
+                $this->route = null;
+                break;
+        }
+    }
+
+    private function normalizeRelationId($value): ?int
+    {
+        if ($value === null || $value === '' || $value === false) {
+            return null;
+        }
+
+        $value = (int)$value;
+        return $value > 0 ? $value : null;
+    }
+
+    private function normalizeTextValue($value): ?string
+    {
+        $value = trim((string)$value);
+        return $value !== '' ? $value : null;
     }
 }

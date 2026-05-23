@@ -878,7 +878,7 @@ class ProjectPermissionService
 
     private function isAdminRole(string $role): bool
     {
-        return $role === 'admin';
+        return in_array($role, ['admin', 'superadmin', 'super_admin'], true);
     }
 
     private function normalizeSegment(string $value): string

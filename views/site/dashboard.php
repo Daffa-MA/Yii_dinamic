@@ -32,7 +32,7 @@ $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
 $commanderAuth = new CommanderAuthContext();
 $projectAuthUser = $activeProjectId !== null ? (new ProjectAuthContext())->getAuthenticatedUser($activeProjectId) : null;
 $workspaceRole = $projectAuthUser !== null ? strtolower(trim((string)$projectAuthUser->role)) : '';
-$isAdminDashboard = $commanderAuth->isSuperAdmin() || $workspaceRole === 'admin';
+$isAdminDashboard = $commanderAuth->isSuperAdmin() || in_array($workspaceRole, ['admin', 'superadmin', 'super_admin'], true);
 
 try {
     if (Yii::$app->db->schema->getTableSchema('users', true) !== null) {

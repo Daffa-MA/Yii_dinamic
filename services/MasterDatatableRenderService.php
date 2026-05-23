@@ -265,6 +265,7 @@ class MasterDatatableRenderService
 
         ob_start();
         ?>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/tabler-icons.min.css">
         <section class="master-datatable" id="<?= Html::encode($uid) ?>">
             <style>
                 #<?= Html::encode($uid) ?> { margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; overflow: hidden; box-shadow: 0 16px 36px rgba(15,23,42,.08); }
@@ -294,6 +295,7 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; background:linear-gradient(180deg,#fbfdff 0%,#fff 18%); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-body.view-mode { padding:18px 22px 22px; }
                 #<?= Html::encode($uid) ?> .dt-row-view-shell { display:grid; grid-template-columns:minmax(260px, 0.92fr) minmax(0, 1.4fr); gap:16px; align-items:start; }
                 #<?= Html::encode($uid) ?> .dt-row-view-aside { display:grid; gap:12px; align-content:start; }
                 #<?= Html::encode($uid) ?> .dt-row-view-hero { border:1px solid #dbe3ef; border-radius:22px; background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#0f172a 100%); padding:18px; color:#fff; box-shadow:0 18px 36px rgba(15,23,42,.14); position:relative; overflow:hidden; }
@@ -304,20 +306,24 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-view-panel { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 10px 24px rgba(15,23,42,.04); }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel h5 { margin:0 0 10px; color:#0f172a; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel p { margin:0; color:#475569; font-size:13px; line-height:1.6; }
-                #<?= Html::encode($uid) ?> .dt-row-view-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-chip { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border-radius:999px; background:rgba(255,255,255,.08); color:#e2e8f0; font-size:11px; font-weight:700; }
-                #<?= Html::encode($uid) ?> .dt-row-view-panel--soft { background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
                 #<?= Html::encode($uid) ?> .dt-row-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
                 #<?= Html::encode($uid) ?> .dt-summary-card { border:1px solid #e2e8f0; border-radius:16px; background:linear-gradient(180deg,#f8fafc 0%,#fff 100%); padding:14px 16px; box-shadow:0 8px 20px rgba(15,23,42,.04); }
                 #<?= Html::encode($uid) ?> .dt-summary-card.primary { background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%); border-color:#bfdbfe; }
                 #<?= Html::encode($uid) ?> .dt-summary-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
                 #<?= Html::encode($uid) ?> .dt-summary-value { color:#0f172a; font-size:14px; font-weight:700; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-summary-main { display:flex; align-items:center; gap:10px; margin-top:10px; }
+                #<?= Html::encode($uid) ?> .dt-summary-avatar { width:36px; height:36px; border-radius:999px; background:#fef3e2; color:#ba7517; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+                #<?= Html::encode($uid) ?> .dt-summary-meta { min-width:0; }
+                #<?= Html::encode($uid) ?> .dt-summary-name { font-size:14px; font-weight:700; color:#111827; line-height:1.35; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-summary-role { font-size:12px; color:#6b7280; margin-top:2px; word-break:break-word; }
                 #<?= Html::encode($uid) ?> .dt-row-view-main { display:grid; gap:14px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 8px 20px rgba(15,23,42,.03); position:relative; overflow:hidden; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,#2563eb 0%,#22c55e 100%); }
-                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; padding-left:4px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#0f172a; font-size:14px; line-height:1.7; word-break:break-word; padding-left:4px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item { border:0.5px solid rgba(0,0,0,0.08); border-radius:10px; background:#f8f8f6; padding:14px 16px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item--lead { background:linear-gradient(180deg,#f8f8f6 0%,#ffffff 100%); }
+                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#a3a3a3; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#111; font-size:14px; line-height:1.6; word-break:break-word; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-view-badge { display:inline-flex; align-items:center; gap:6px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-badge-circle { width:22px; height:22px; border-radius:999px; background:#e8f0fe; color:#185fa5; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
                 #<?= Html::encode($uid) ?> .dt-row-form-note { margin:0 0 16px; color:#64748b; font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid-default { grid-template-columns:1fr; gap:12px; }
@@ -358,7 +364,12 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-muted { color:#64748b; font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid #e2e8f0; background:#fff; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer.is-hidden { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-footer.view-footer { justify-content:space-between; align-items:center; gap:16px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-footer-info { display:flex; align-items:center; gap:8px; color:#a3a3a3; font-size:12px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-footer-actions { display:flex; gap:8px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
+                #<?= Html::encode($uid) ?> .dt-btn-primary { border:0.5px solid rgba(0,0,0,0.15); background:#111; color:#fff; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-btn-primary:hover { opacity:.85; }
                 #<?= Html::encode($uid) ?> .dt-row-mode { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-mode.active { display:block; }
                 @media (max-width: 768px) {
@@ -370,6 +381,8 @@ class MasterDatatableRenderService
                     #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:16px; }
                     #<?= Html::encode($uid) ?> .dt-row-modal-head,
                     #<?= Html::encode($uid) ?> .dt-row-modal-footer { padding:16px; }
+                    #<?= Html::encode($uid) ?> .dt-row-modal-footer.view-footer { flex-direction:column; align-items:stretch; }
+                    #<?= Html::encode($uid) ?> .dt-row-modal-footer-actions { width:100%; justify-content:flex-end; }
                 }
             </style>
             <div class="dt-head">
@@ -460,8 +473,14 @@ class MasterDatatableRenderService
                         <div class="dt-row-mode" data-row-view-mode>
                             <div class="dt-row-view-shell">
                                 <aside class="dt-row-view-aside">
-                                    <div class="dt-row-view-panel">
-                                        <h5>Reference</h5>
+                                    <div class="dt-row-view-hero">
+                                        <p class="dt-row-view-hero-kicker">Row detail</p>
+                                        <h5 data-row-hero-title>Data Row</h5>
+                                        <p data-row-hero-subtitle>Ringkasan data yang jelas, rapi, dan mudah dipindai.</p>
+                                        <div class="dt-row-view-chips" data-row-hero-chips></div>
+                                    </div>
+                                    <div class="dt-row-view-panel dt-row-view-panel--soft">
+                                        <h5>Ringkasan</h5>
                                         <p data-row-reference class="dt-row-muted">Detail row akan tampil di sini.</p>
                                     </div>
                                     <div class="dt-row-summary" data-row-summary></div>
@@ -480,9 +499,16 @@ class MasterDatatableRenderService
                             <div class="dt-row-form-grid" data-row-form-grid></div>
                         </form>
                     </div>
-                    <div class="dt-row-modal-footer">
-                        <button type="button" class="dt-btn" data-row-modal-close>Batal</button>
-                        <button type="submit" class="dt-btn" data-row-save-btn form="<?= Html::encode($uid) ?>-row-form">Simpan Perubahan</button>
+                    <div class="dt-row-modal-footer view-footer" data-row-footer>
+                        <span class="dt-row-modal-footer-info" data-row-footer-info>
+                            <i class="ti ti-database" style="font-size:14px;" aria-hidden="true"></i>
+                            1 record
+                        </span>
+                        <div class="dt-row-modal-footer-actions">
+                            <button type="button" class="dt-btn" data-row-modal-close>Batal</button>
+                            <button type="button" class="dt-btn dt-btn-primary" data-row-modal-close>Tutup</button>
+                            <button type="submit" class="dt-btn" data-row-save-btn form="<?= Html::encode($uid) ?>-row-form">Simpan Perubahan</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -511,6 +537,10 @@ class MasterDatatableRenderService
                 const keyInput = root.querySelector('[data-row-key-input]');
                 const saveButton = root.querySelector('[data-row-save-btn]');
                 const modalFooter = root.querySelector('.dt-row-modal-footer');
+                const footerInfo = root.querySelector('[data-row-footer-info]');
+                const heroTitle = root.querySelector('[data-row-hero-title]');
+                const heroSubtitle = root.querySelector('[data-row-hero-subtitle]');
+                const heroChips = root.querySelector('[data-row-hero-chips]');
                 const modalTitle = root.querySelector('.dt-row-modal-title');
                 const modalSubtitle = root.querySelector('[data-row-modal-subtitle]');
                 const rowReference = root.querySelector('[data-row-reference]');
@@ -570,6 +600,28 @@ class MasterDatatableRenderService
                     }
 
                     return escapeHtml(value);
+                }
+
+                function getDisplayValue(field, value) {
+                    if (value === null || value === undefined || value === '') {
+                        return '-';
+                    }
+                    if (field && (field.inputType === 'boolean' || field.inputType === 'checkbox')) {
+                        return (String(value) === '1' || String(value).toLowerCase() === 'true') ? 'Aktif' : 'Nonaktif';
+                    }
+                    if (Array.isArray(value)) {
+                        return value.join(', ');
+                    }
+                    return String(value);
+                }
+
+                function getInitials(text) {
+                    const raw = String(text || '').trim();
+                    if (!raw) return 'RD';
+                    const parts = raw.split(/\s+/).filter(Boolean);
+                    const first = parts[0] ? parts[0].charAt(0) : 'R';
+                    const second = parts[1] ? parts[1].charAt(0) : (parts[0] ? parts[0].charAt(1) : 'D');
+                    return (first + second).toUpperCase().slice(0, 2);
                 }
 
                 function inputValue(field, value) {
@@ -677,44 +729,61 @@ class MasterDatatableRenderService
                 }
 
                 function renderSummary(rowKey) {
-                    const items = Object.keys(rowKey || {});
-                    if (!items.length) {
-                        summary.innerHTML = '<div class="dt-summary-card"><span class="dt-summary-label">Row</span><div class="dt-summary-value">Primary key tidak tersedia</div></div>';
-                        if (rowReference) {
-                            rowReference.textContent = 'Baris ini tidak memiliki primary key yang terbaca.';
-                        }
-                        return;
+                    const primaryField = payload.fields[0] || null;
+                    const secondaryField = payload.fields[1] || null;
+                    const primaryValue = primaryField ? getDisplayValue(primaryField, activeRow ? activeRow[primaryField.field] : '') : '';
+                    const secondaryValue = secondaryField ? getDisplayValue(secondaryField, activeRow ? activeRow[secondaryField.field] : '') : '';
+                    const displayName = primaryValue && primaryValue !== '-' ? primaryValue : (primaryField ? primaryField.label : 'Data Row');
+                    const roleText = secondaryValue && secondaryValue !== '-' ? secondaryValue : 'record detail';
+                    const idText = Object.keys(rowKey || {}).length ? 'ID #' + Object.values(rowKey).join(' · ') : 'Record detail';
+                    const initials = getInitials(displayName);
+
+                    if (heroTitle) {
+                        heroTitle.textContent = displayName;
+                    }
+                    if (heroSubtitle) {
+                        heroSubtitle.innerHTML = escapeHtml(roleText) + ' &nbsp;·&nbsp; ' + escapeHtml(idText);
+                    }
+                    if (heroChips) {
+                        const chips = [];
+                        chips.push('<span class="dt-row-view-chip"><i class="ti ti-database" style="font-size:12px;" aria-hidden="true"></i> ' + escapeHtml(idText) + '</span>');
+                        chips.push('<span class="dt-row-view-chip"><i class="ti ti-id-badge" style="font-size:12px;" aria-hidden="true"></i> ' + escapeHtml(payload.editForm && payload.editForm.name ? payload.editForm.name : 'row detail') + '</span>');
+                        heroChips.innerHTML = chips.join('');
                     }
                     if (rowReference) {
-                        rowReference.textContent = 'Primary key row ini memudahkan admin meninjau, mengedit, atau menelusuri data dengan cepat.';
+                        rowReference.textContent = 'Data ini ditampilkan dengan ringkasan singkat di kiri dan detail field di kanan, supaya mudah dipindai tanpa terasa penuh.';
                     }
-                    summary.innerHTML = items.map(function(key) {
-                        return '<div class="dt-summary-card"><span class="dt-summary-label">' + escapeHtml(key) + '</span><div class="dt-summary-value">' + escapeHtml(rowKey[key]) + '</div></div>';
-                    }).join('');
+                    summary.innerHTML = '<div class="dt-summary-card primary">' +
+                        '<span class="dt-summary-label">Ringkasan utama</span>' +
+                        '<div class="dt-summary-main">' +
+                            '<div class="dt-summary-avatar">' + escapeHtml(initials) + '</div>' +
+                            '<div class="dt-summary-meta">' +
+                                '<div class="dt-summary-name">' + escapeHtml(displayName) + '</div>' +
+                                '<div class="dt-summary-role">' + escapeHtml(roleText) + '</div>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
                 }
 
                 function renderView(rowData) {
                     const primaryField = payload.fields[0] || null;
                     const primaryValue = primaryField ? rowData[primaryField.field] : '';
                     const detailFields = primaryField ? payload.fields.slice(1) : payload.fields;
+                    const gridFields = detailFields.length ? detailFields : payload.fields;
 
-                    viewGrid.innerHTML = '<div class="dt-row-view-item dt-row-view-item--lead">' +
-                        '<span class="dt-row-view-label">Ringkasan utama</span>' +
-                        '<div class="dt-row-view-value">' + escapeHtml(primaryField ? primaryField.label : 'Data row') + '</div>' +
-                        '<div class="dt-row-custom-inline-note" style="margin-top:8px;">' + formatViewValue(primaryField || {inputType: 'text'}, primaryValue) + '</div>' +
-                    '</div>' +
-                    detailFields.map(function(field) {
+                    viewGrid.innerHTML = gridFields.map(function(field) {
                         const value = rowData[field.field];
+                        const displayValue = getDisplayValue(field, value);
+                        const isGenderLike = /^(jk|jenis kelamin|gender|sex)$/i.test(String(field.label || field.field || ''));
+                        const icon = isGenderLike && displayValue ? String(displayValue).trim().charAt(0).toUpperCase() : null;
+                        const valueHtml = isGenderLike && icon
+                            ? '<div class="dt-row-view-badge"><span class="dt-row-view-badge-circle">' + escapeHtml(icon) + '</span><span class="dt-row-view-value">' + escapeHtml(displayValue) + '</span></div>'
+                            : '<div class="dt-row-view-value">' + formatViewValue(field, value) + '</div>';
                         return '<div class="dt-row-view-item">' +
                             '<span class="dt-row-view-label">' + escapeHtml(field.label) + '</span>' +
-                            '<div class="dt-row-view-value">' + formatViewValue(field, value) + '</div>' +
+                            valueHtml +
                         '</div>';
                     }).join('');
-
-                    const leadNote = root.querySelector('.dt-row-view-panel p[data-row-reference]');
-                    if (leadNote) {
-                        leadNote.textContent = 'Data ini ditampilkan dengan ringkasan singkat di kiri dan detail field di kanan, supaya mudah dipindai tanpa terasa penuh.';
-                    }
                 }
 
                 function getCustomFormFields() {
@@ -924,6 +993,14 @@ class MasterDatatableRenderService
                     saveButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
                     if (modalFooter) {
                         modalFooter.classList.toggle('is-hidden', mode === 'edit' && payload.editMode === 'custom');
+                        modalFooter.classList.toggle('view-footer', mode === 'view');
+                        if (footerInfo) {
+                            footerInfo.innerHTML = '<i class="ti ti-database" style="font-size:14px;" aria-hidden="true"></i> 1 record';
+                        }
+                    }
+                    const modalBody = root.querySelector('.dt-row-modal-body');
+                    if (modalBody) {
+                        modalBody.classList.toggle('view-mode', mode === 'view');
                     }
                     openModal();
                 }

@@ -210,7 +210,11 @@ class MasterMenuController extends Controller
                 return $this->redirect(['index']);
             } else {
                 Yii::$app->session->setFlash('error', implode('<br>', $result['errors']));
-                $model->load($postData);
+                if (isset($result['model']) && $result['model'] instanceof MasterMenu) {
+                    $model = $result['model'];
+                } else {
+                    $model->load($postData);
+                }
             }
         }
 

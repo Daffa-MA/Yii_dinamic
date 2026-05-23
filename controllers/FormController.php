@@ -86,6 +86,10 @@ class FormController extends Controller
             return true;
         }
 
+        if (!Yii::$app->user->isGuest && method_exists(Yii::$app->user->identity, 'isSuperAdmin') && Yii::$app->user->identity->isSuperAdmin()) {
+            return true;
+        }
+
         return $this->getWorkspaceAuthenticatedUser() !== null;
     }
 
@@ -690,6 +694,193 @@ class FormController extends Controller
         }
 
         return null;
+    }
+
+    private function supportsLengthConstraint(array $column): bool
+    {
+        $type = strtoupper(trim((string)($column['type'] ?? '')));
+        return in_array($type, [
+            'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
+            'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
+        ], true);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $schema
+     * @return array{byField: array<string, array<string, mixed>>, lookup: array<string, array<string, mixed>>}
+     */
+    private function buildFormFieldConstraints(Form $form, array $schema = []): array
+    {
+        $byField = [];
+        $lookup = [];
+        $targetTable = $this->findTargetTableForForm($form);
+
+        if ($targetTable !== null) {
+            $columns = $targetTable->getColumns()->orderBy(['sort_order' => SORT_ASC])->asArray()->all();
+            foreach ($columns as $column) {
+                $maxLength = (int)($column['length'] ?? 0);
+                if ($maxLength <= 0 || !$this->supportsLengthConstraint($column)) {
+                    continue;
+                }
+
+                $label = trim((string)($column['label'] ?? $column['name'] ?? 'Input'));
+                $fieldName = trim((string)($column['name'] ?? ''));
+                if ($fieldName === '') {
+                    continue;
+                }
+
+                $constraint = [
+                    'field' => $fieldName,
+                    'label' => $label !== '' ? $label : $fieldName,
+                    'maxlength' => $maxLength,
+                    'source' => 'table_metadata',
+                ];
+
+                foreach (array_unique([
+                    $fieldName,
+                    $this->normalizeInputKey($fieldName),
+                    $this->normalizeInputKey($label),
+                    $this->stripForeignKeySuffix($fieldName),
+                ]) as $key) {
+                    if ($key === '') {
+                        continue;
+                    }
+                    $lookup[$key] = $constraint;
+                }
+            }
+        }
+
+        foreach ($schema as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $fieldName = trim((string)($field['name'] ?? $field['label'] ?? ''));
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $schemaMaxLength = (int)($field['max_length'] ?? $field['maxlength'] ?? 0);
+            $normalizedFieldName = $this->normalizeInputKey($fieldName);
+            $normalizedLabel = $this->normalizeInputKey((string)($field['label'] ?? ''));
+            $constraint = $lookup[$fieldName]
+                ?? ($normalizedFieldName !== '' ? ($lookup[$normalizedFieldName] ?? null) : null)
+                ?? ($normalizedLabel !== '' ? ($lookup[$normalizedLabel] ?? null) : null);
+
+            if ($constraint === null && $schemaMaxLength > 0) {
+                $constraint = [
+                    'field' => $fieldName,
+                    'label' => trim((string)($field['label'] ?? $fieldName)) ?: $fieldName,
+                    'maxlength' => $schemaMaxLength,
+                    'source' => 'form_schema',
+                ];
+            } elseif ($constraint !== null && $schemaMaxLength > 0) {
+                $constraint['maxlength'] = min((int)$constraint['maxlength'], $schemaMaxLength);
+            }
+
+            if ($constraint === null || (int)($constraint['maxlength'] ?? 0) <= 0) {
+                continue;
+            }
+
+            $constraint['field'] = $fieldName;
+            if (trim((string)($constraint['label'] ?? '')) === '') {
+                $constraint['label'] = trim((string)($field['label'] ?? $fieldName)) ?: $fieldName;
+            }
+
+            $byField[$fieldName] = $constraint;
+            $lookup[$fieldName] = $constraint;
+            if ($normalizedFieldName !== '') {
+                $lookup[$normalizedFieldName] = $constraint;
+            }
+            if ($normalizedLabel !== '') {
+                $lookup[$normalizedLabel] = $constraint;
+            }
+        }
+
+        return [
+            'byField' => $byField,
+            'lookup' => $lookup,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<int, array<string, mixed>> $schema
+     * @return array<int, string>
+     */
+    private function validateSubmissionLengths(Form $form, array $data, array $schema = []): array
+    {
+        $constraints = $this->buildFormFieldConstraints($form, $schema);
+        $errors = [];
+
+        foreach ($data as $key => $value) {
+            if (!is_string($key)) {
+                continue;
+            }
+
+            $constraint = $constraints['lookup'][$key]
+                ?? $constraints['lookup'][$this->normalizeInputKey($key)]
+                ?? null;
+            if ($constraint === null) {
+                continue;
+            }
+
+            $maxLength = (int)($constraint['maxlength'] ?? 0);
+            if ($maxLength <= 0) {
+                continue;
+            }
+
+            $values = is_array($value) ? $value : [$value];
+            foreach ($values as $candidate) {
+                if ($candidate === null || is_bool($candidate) || is_int($candidate) || is_float($candidate)) {
+                    continue;
+                }
+
+                $stringValue = trim((string)$candidate);
+                if ($stringValue === '') {
+                    continue;
+                }
+
+                if (mb_strlen($stringValue, 'UTF-8') > $maxLength) {
+                    $label = trim((string)($constraint['label'] ?? $key)) ?: $key;
+                    $errors[] = "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
+                    break;
+                }
+            }
+        }
+
+        return array_values(array_unique($errors));
+    }
+
+    private function buildFriendlySubmissionErrorMessage(\Throwable $exception, Form $form, array $schema = []): string
+    {
+        if ($exception instanceof IntegrityException) {
+            return $this->buildFriendlyIntegrityErrorMessage($exception, $form);
+        }
+
+        $message = (string)$exception->getMessage();
+        if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
+            $columnName = (string)$matches[1];
+            $constraints = $this->buildFormFieldConstraints($form, $schema);
+            $constraint = $constraints['lookup'][$columnName]
+                ?? $constraints['lookup'][$this->normalizeInputKey($columnName)]
+                ?? null;
+            if ($constraint !== null) {
+                $label = trim((string)($constraint['label'] ?? $columnName)) ?: $columnName;
+                $maxLength = (int)($constraint['maxlength'] ?? 0);
+                if ($maxLength > 0) {
+                    return "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
+                }
+            }
+
+            return 'Input terlalu panjang. Mohon sesuaikan dengan konfigurasi kolom.';
+        }
+
+        if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'syntax error') !== false) {
+            return 'Terjadi kesalahan saat menyimpan data. Mohon periksa kembali input Anda.';
+        }
+
+        return 'Data gagal disimpan. Mohon periksa kembali input Anda dan coba lagi.';
     }
 
     private function castValueForTableColumn($value, array $column)
@@ -1320,6 +1511,7 @@ class FormController extends Controller
         $this->ensureGuestCanAccessPublicForm($model);
         $schema = $this->getFilteredBlocks($model);
         $fkConfig = [];
+        $fieldConstraints = $this->buildFormFieldConstraints($model, $schema)['byField'];
 
         try {
             $fkConfig = $this->mapForeignKeyConfigToSchema($schema, $this->getForeignKeyConfigForForm($model));
@@ -1343,6 +1535,7 @@ class FormController extends Controller
             'model' => $model,
             'schema' => $schema,
             'fkConfig' => $fkConfig,
+            'fieldConstraints' => $fieldConstraints,
         ]);
     }
 
@@ -1405,6 +1598,7 @@ class FormController extends Controller
         $this->ensureGuestCanAccessPublicForm($model);
         $schema = $this->getFilteredBlocks($model);
         $fkConfig = [];
+        $fieldConstraints = $this->buildFormFieldConstraints($model, $schema)['byField'];
 
         try {
             $fkConfig = $this->mapForeignKeyConfigToSchema($schema, $this->getForeignKeyConfigForForm($model));
@@ -1429,6 +1623,7 @@ class FormController extends Controller
             'model' => $model,
             'schema' => $schema,
             'fkConfig' => $fkConfig,
+            'fieldConstraints' => $fieldConstraints,
         ]);
     }
 
@@ -1454,6 +1649,17 @@ class FormController extends Controller
             }
 
             $data = $this->mergeAdditionalPostedInputs($data);
+            $lengthErrors = $this->validateSubmissionLengths($model, $data, $schema);
+            if (!empty($lengthErrors)) {
+                Yii::$app->session->setFlash('error', implode(' ', $lengthErrors));
+                if ($returnUrl !== null) {
+                    return $this->redirect($returnUrl);
+                }
+                if (Yii::$app->user->isGuest) {
+                    return $this->redirect(['public-render', 'id' => $id]);
+                }
+                return $this->redirect(['render', 'id' => $id]);
+            }
 
             if (!$this->hasAtLeastOneFilledField($schema, $data)) {
                 Yii::$app->session->setFlash('error', 'Form belum diisi. Isi minimal satu field sebelum submit.');
@@ -1599,7 +1805,7 @@ class FormController extends Controller
                 return $this->redirect(['render', 'id' => $id]);
             } catch (\Throwable $e) {
                 $transaction->rollBack();
-                Yii::$app->session->setFlash('error', $e->getMessage());
+                Yii::$app->session->setFlash('error', $this->buildFriendlySubmissionErrorMessage($e, $model, $schema));
                 $submitDebug['insert_result'] = 'error';
                 $submitDebug['error'] = $e->getMessage();
                 FormFlowDebugLogger::logSubmit($submitDebug);

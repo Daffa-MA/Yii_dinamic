@@ -4,6 +4,7 @@
 /** @var app\models\Form $model */
 /** @var array $schema */
 /** @var array $fkConfig */
+/** @var array $fieldConstraints */
 
 use yii\bootstrap5\Html;
 use yii\bootstrap5\ActiveForm;
@@ -20,7 +21,9 @@ $workspaceRole = (string) Yii::$app->request->get('workspace_role', '');
 $bodyBackground = $embedded ? '#ffffff' : '#e5e9f0';
 $this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); document.body.style.background = '{$bodyBackground}';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
+$fieldConstraints = isset($fieldConstraints) && is_array($fieldConstraints) ? $fieldConstraints : [];
 $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$fieldConstraintsJson = json_encode($fieldConstraints, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
@@ -160,6 +163,9 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                 $placeholder = $field['placeholder'] ?? $fieldLabel;
                                 $options = $required ? 'required' : '';
                                 $fkMeta = (is_string($fieldName) && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) ? $fkConfig[$fieldName] : null;
+                                $fieldConstraint = (is_string($fieldName) && isset($fieldConstraints[$fieldName]) && is_array($fieldConstraints[$fieldName])) ? $fieldConstraints[$fieldName] : null;
+                                $maxLength = $fieldConstraint['maxlength'] ?? ($field['max_length'] ?? null);
+                                $maxLength = is_numeric($maxLength) && (int)$maxLength > 0 ? (int)$maxLength : null;
                                 ?>
                                 <div>
                                     <label class="block text-sm font-medium text-on-surface mb-2"><?= Html::encode($fieldLabel) ?><?= $required ? ' <span class="text-error">*</span>' : '' ?></label>
@@ -190,16 +196,16 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                         </div>
 
                                     <?php elseif ($field['type'] === 'text'): ?>
-                                        <input type="text" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" <?= $options ?>>
+                                        <input type="text" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?>>
 
                                     <?php elseif ($field['type'] === 'number'): ?>
                                         <input type="number" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" <?= $options ?>>
 
                                     <?php elseif ($field['type'] === 'email'): ?>
-                                        <input type="email" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="email@example.com" <?= $options ?>>
+                                        <input type="email" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="email@example.com" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?>>
 
                                     <?php elseif ($field['type'] === 'textarea'): ?>
-                                        <textarea name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" rows="4" <?= $options ?>></textarea>
+                                        <textarea name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" rows="4" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?>></textarea>
 
                                     <?php elseif ($field['type'] === 'date'): ?>
                                         <input type="date" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" <?= $options ?>>
@@ -272,6 +278,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
 
     <script>
         const fkConfigMap = <?= $fkConfigJson ?: '{}' ?>;
+        const fieldConstraintsMap = <?= $fieldConstraintsJson ?: '{}' ?>;
         const fkQuickAddUrl = <?= json_encode(Url::to(array_filter([
             'form/fk-quick-add',
             'id' => $model->id,
@@ -363,6 +370,18 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
         }
 
         document.addEventListener('DOMContentLoaded', function() {
+            Object.keys(fieldConstraintsMap).forEach(function(fieldName) {
+                const constraint = fieldConstraintsMap[fieldName] || {};
+                const maxLength = parseInt(constraint.maxlength || 0, 10);
+                if (!maxLength) {
+                    return;
+                }
+
+                document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]').forEach(function(element) {
+                    element.setAttribute('maxlength', String(maxLength));
+                });
+            });
+
             document.querySelectorAll('.quick-add-btn').forEach((button) => {
                 button.addEventListener('click', function() {
                     const fieldName = this.getAttribute('data-fk-field');

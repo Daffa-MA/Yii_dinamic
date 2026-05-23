@@ -243,19 +243,25 @@ class MenuService
      */
     private function normalizePostedMenuFields(MasterMenu $menu, array $data): void
     {
-        $postedType = trim((string)($data['MasterMenu']['type'] ?? ''));
-        $postedFormId = $data['MasterMenu']['form_id'] ?? null;
+        $payload = is_array($data['MasterMenu'] ?? null) ? $data['MasterMenu'] : [];
+        $postedType = strtolower(trim((string)($payload['type'] ?? '')));
 
         if ($postedType !== '') {
             $menu->type = $postedType;
         }
-
-        if ($menu->type === self::TYPE_FORM && $postedFormId !== null && $postedFormId !== '') {
-            $menu->form_id = (int)$postedFormId;
-        } elseif ($menu->type === self::TYPE_FORM && empty($postedFormId) && !empty($data['MasterMenu']['page_id'])) {
-            // Guard for mixed payloads from custom-page edit flows.
-            $menu->type = self::TYPE_PAGE;
+        foreach (['parent_id', 'page_id', 'form_id'] as $attribute) {
+            if (array_key_exists($attribute, $payload)) {
+                $value = $payload[$attribute];
+                $menu->$attribute = ($value === '' || $value === null) ? null : (int)$value;
+            }
         }
+
+        if (array_key_exists('route', $payload)) {
+            $route = trim((string)$payload['route']);
+            $menu->route = $route !== '' ? $route : null;
+        }
+
+        $menu->normalizeTypeRelations();
     }
 
     /**
@@ -263,31 +269,7 @@ class MenuService
      */
     private function cleanFieldsByType(MasterMenu $menu): void
     {
-        switch ($menu->type) {
-            case self::TYPE_GROUP:
-                $menu->page_id = null;
-                $menu->route = null;
-                $menu->form_id = null;
-                break;
-            case self::TYPE_PAGE:
-                $menu->route = null;
-                $menu->form_id = null;
-                break;
-            case self::TYPE_FORM:
-                $menu->page_id = null;
-                $menu->route = null;
-                break;
-            case self::TYPE_ROUTE:
-            case self::TYPE_BUTTON:
-                $menu->page_id = null;
-                $menu->form_id = null;
-                break;
-            case self::TYPE_DIVIDER:
-                $menu->page_id = null;
-                $menu->route = null;
-                $menu->form_id = null;
-                break;
-        }
+        $menu->normalizeTypeRelations();
     }
 
     /**

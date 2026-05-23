@@ -93,7 +93,8 @@ $activeDatabaseLabel = $isMinimalSidebar ? 'Database Aktif' : 'Database';
 
 $canOpenProjectList = $commanderAuth->isSuperAdmin();
 $projectPermissionService = new \app\components\ProjectPermissionService();
-$isWorkspaceAdmin = $canOpenProjectList || (strtolower(trim((string)($projectAuthUser->role ?? ''))) === 'admin');
+$workspaceRole = strtolower(trim((string)($projectAuthUser->role ?? '')));
+$isWorkspaceAdmin = $canOpenProjectList || in_array($workspaceRole, ['admin', 'superadmin', 'super_admin'], true);
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js', ['position' => \yii\web\View::POS_END]);
 
 $logoutUrl = $commanderAuth->isSuperAdmin()

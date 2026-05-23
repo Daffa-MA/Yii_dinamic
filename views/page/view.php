@@ -24,7 +24,7 @@ $projectAuthUser = $activeProjectId !== null ? (new ProjectAuthContext())->getAu
 $activeMenuId = (int) Yii::$app->session->get('active_menu', 0);
 $isCommanderSuperAdmin = (new CommanderAuthContext())->isSuperAdmin();
 $workspaceRole = $projectAuthUser !== null ? strtolower(trim((string)$projectAuthUser->role)) : '';
-$isWorkspaceAdmin = $isCommanderSuperAdmin || $workspaceRole === 'admin';
+$isWorkspaceAdmin = $isCommanderSuperAdmin || in_array($workspaceRole, ['admin', 'superadmin', 'super_admin'], true);
 $displayUsername = $isCommanderSuperAdmin
     ? 'Superadmin'
     : trim((string)($projectAuthUser->username ?? $projectAuthUser->name ?? 'Pengguna'));

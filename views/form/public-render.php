@@ -4,6 +4,7 @@
 /** @var app\models\Form $model */
 /** @var array $schema */
 /** @var array $fkConfig */
+/** @var array $fieldConstraints */
 
 use yii\bootstrap5\Html;
 use yii\helpers\HtmlPurifier;
@@ -13,7 +14,9 @@ $this->title = $model->name;
 $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerJs("document.body.style.minHeight = '100vh';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
+$fieldConstraints = isset($fieldConstraints) && is_array($fieldConstraints) ? $fieldConstraints : [];
 $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$fieldConstraintsJson = json_encode($fieldConstraints, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 // Parse schema to get pages and custom design
 $schemaData = json_decode($model->schema_js, true);
@@ -308,6 +311,9 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                     $width = $field['width'] ?? 'full';
                                     $animation = $field['animation'] ?? '';
                                     $fkMeta = (is_string($fieldName) && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) ? $fkConfig[$fieldName] : null;
+                                    $fieldConstraint = (is_string($fieldName) && isset($fieldConstraints[$fieldName]) && is_array($fieldConstraints[$fieldName])) ? $fieldConstraints[$fieldName] : null;
+                                    $maxLength = $fieldConstraint['maxlength'] ?? ($field['max_length'] ?? null);
+                                    $maxLength = is_numeric($maxLength) && (int)$maxLength > 0 ? (int)$maxLength : null;
 
                                     // Width classes
                                     $widthClass = 'w-full';
@@ -449,16 +455,17 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                             <?php elseif ($fieldType === 'text-input'): ?>
                                                 <input type="text" name="<?= Html::encode($fieldName) ?>"
                                                     <?= $options ?>
+                                                    <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                     placeholder="<?= Html::encode($placeholder) ?>">
 
                                             <?php elseif ($fieldType === 'textarea'): ?>
-                                                <textarea name="<?= Html::encode($fieldName) ?>" rows="4" <?= $options ?>
+                                                <textarea name="<?= Html::encode($fieldName) ?>" rows="4" <?= $options ?> <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
                                                     placeholder="<?= Html::encode($placeholder) ?>"></textarea>
 
                                             <?php elseif ($fieldType === 'email'): ?>
-                                                <input type="email" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                <input type="email" name="<?= Html::encode($fieldName) ?>" <?= $options ?> <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                     placeholder="<?= Html::encode($placeholder) ?>">
 
@@ -535,7 +542,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:hover:bg-primary-dark file:cursor-pointer">
 
                                             <?php else: ?>
-                                                <input type="text" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                <input type="text" name="<?= Html::encode($fieldName) ?>" <?= $options ?> <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
                                                     placeholder="<?= Html::encode($placeholder) ?>">
                                             <?php endif; ?>
@@ -683,6 +690,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 
 <script>
     const fkConfigMap = <?= $fkConfigJson ?: '{}' ?>;
+    const fieldConstraintsMap = <?= $fieldConstraintsJson ?: '{}' ?>;
     const fkQuickAddUrl = <?= json_encode(Url::to(['form/fk-quick-add', 'id' => $model->id])) ?>;
     const fkOptionsUrl = <?= json_encode(Url::to(['form/fk-options', 'id' => $model->id])) ?>;
 
@@ -861,6 +869,18 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 
     // Form submission handler
     document.addEventListener('DOMContentLoaded', function() {
+        Object.keys(fieldConstraintsMap).forEach(function(fieldName) {
+            const constraint = fieldConstraintsMap[fieldName] || {};
+            const maxLength = parseInt(constraint.maxlength || 0, 10);
+            if (!maxLength) {
+                return;
+            }
+
+            document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]').forEach(function(element) {
+                element.setAttribute('maxlength', String(maxLength));
+            });
+        });
+
         const submitBtn = document.getElementById('submitBtn') || document.querySelector('button[type="submit"]');
         document.querySelectorAll('.quick-add-btn').forEach((button) => {
             button.addEventListener('click', function() {

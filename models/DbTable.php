@@ -80,6 +80,8 @@ class DbTable extends ActiveRecord
             'charset' => 'Character Set',
             'collation' => 'Collation',
             'is_created' => 'Created in Database',
+            'table_status' => 'Table Status',
+            'last_error_message' => 'Last Error Message',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];

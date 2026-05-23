@@ -13,9 +13,14 @@ $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbol
 
 $tableCount = count($tables);
 $createdCount = count(array_filter($tables, static function ($item) {
-    return (bool)$item->table->is_created;
+    return (($item->statusMeta->code ?? '') === 'active');
 }));
-$pendingCount = $tableCount - $createdCount;
+$failedCount = count(array_filter($tables, static function ($item) {
+    return (($item->statusMeta->code ?? '') === 'failed');
+}));
+$pendingCount = count(array_filter($tables, static function ($item) {
+    return in_array(($item->statusMeta->code ?? ''), ['pending', 'incomplete'], true);
+}));
 $totalColumns = array_sum(array_map(static function ($item) {
     return count($item->columns);
 }, $tables));
@@ -248,7 +253,7 @@ main#main > .container > .alert {
 
 .table-index-page .hero-stats {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 14px;
 }
 
@@ -392,6 +397,11 @@ main#main > .container > .alert {
 .table-index-page .status-pending {
     background: var(--warning-soft);
     color: var(--warning);
+}
+
+.table-index-page .status-failed {
+    background: var(--danger-soft);
+    color: var(--danger);
 }
 
 .table-index-page .meta-grid {
@@ -788,7 +798,12 @@ main#main > .container > .alert {
                 <div class="stat-card">
                     <span class="stat-label">Pending</span>
                     <div class="stat-value"><?= $pendingCount ?></div>
-                    <p class="stat-note">Metadata only, not executed yet</p>
+                    <p class="stat-note">Pending atau metadata belum lengkap</p>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Failed</span>
+                    <div class="stat-value"><?= $failedCount ?></div>
+                    <p class="stat-note">Masih tampil dan bisa dihapus dari UI</p>
                 </div>
                 <div class="stat-card">
                     <span class="stat-label">Columns</span>
@@ -824,9 +839,17 @@ main#main > .container > .alert {
                             <?php
                             $table = $item->table;
                             $columns = $item->columns;
-                            $statusClass = $table->is_created ? 'status-pill status-created' : 'status-pill status-pending';
-                            $statusIcon = $table->is_created ? 'check_circle' : 'schedule';
-                            $statusLabel = $table->is_created ? 'Created in Database' : 'Pending Database Creation';
+                            $statusMeta = $item->statusMeta ?? (object)[
+                                'code' => ((bool)$table->is_created ? 'active' : 'pending'),
+                                'label' => ((bool)$table->is_created ? 'Active' : 'Pending'),
+                                'note' => '',
+                            ];
+                            $statusCode = (string)($statusMeta->code ?? 'pending');
+                            $statusClass = $statusCode === 'active'
+                                ? 'status-pill status-created'
+                                : ($statusCode === 'failed' ? 'status-pill status-failed' : 'status-pill status-pending');
+                            $statusIcon = $statusCode === 'active' ? 'check_circle' : ($statusCode === 'failed' ? 'error' : 'schedule');
+                            $statusLabel = (string)($statusMeta->label ?? ($statusCode === 'active' ? 'Active' : 'Pending'));
                             ?>
                             <article class="table-card">
                                 <div class="card-top">
@@ -844,6 +867,9 @@ main#main > .container > .alert {
                                     <p class="card-description"><?= Html::encode($table->description) ?></p>
                                 <?php else: ?>
                                     <p class="card-description">No description provided for this table definition.</p>
+                                <?php endif; ?>
+                                <?php if (!empty($statusMeta->note ?? '')): ?>
+                                    <p class="card-description" style="min-height:auto;color:<?= $statusCode === 'failed' ? '#b91c1c' : '#64748b' ?>;"><?= Html::encode((string)$statusMeta->note) ?></p>
                                 <?php endif; ?>
 
                                 <div class="meta-grid">

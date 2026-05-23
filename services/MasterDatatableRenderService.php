@@ -289,71 +289,36 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:24px; background:rgba(15,23,42,.6); backdrop-filter:blur(10px); z-index:9999; }
                 #<?= Html::encode($uid) ?> .dt-row-modal.open { display:flex; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card { width:min(980px, 100%); max-height:min(90vh, 920px); overflow:hidden; display:flex; flex-direction:column; border-radius:24px; background:#fff; box-shadow:0 28px 90px rgba(15,23,42,.3); border:1px solid #e2e8f0; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme { background:#262523; border-color:#3a3732; box-shadow:0 28px 90px rgba(0,0,0,.55); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme { background:#fff; border-color:#e2e8f0; box-shadow:0 28px 90px rgba(15,23,42,.3); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-head { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; padding:20px 22px; border-bottom:1px solid #e2e8f0; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-head { background:#262523; border-bottom-color:#3a3732; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-head { background:#fff; border-bottom-color:#e2e8f0; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-title { margin:0; color:#0f172a; font-size:18px; font-weight:800; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-title { color:#fff; font-weight:500; font-size:19px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-title { color:#0f172a; font-weight:800; font-size:18px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-subtitle { margin:4px 0 0; color:#64748b; font-size:13px; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-subtitle { color:#c4bfb6; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-subtitle { color:#64748b; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-badge { background:#34322f; color:#bfb9ae; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-badge { background:#eff6ff; color:#1d4ed8; font-weight:800; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border-color:#5a554e; background:transparent; color:#fff; border-radius:10px; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border-color:#dbe3ef; background:#fff; color:#334155; border-radius:12px; width:auto; height:auto; padding:8px 12px; display:inline-flex; align-items:center; justify-content:center; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; background:linear-gradient(180deg,#fbfdff 0%,#fff 18%); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body.view-mode { padding:18px 22px 22px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body,
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body.view-mode { background:#262523; }
-                #<?= Html::encode($uid) ?> .dt-row-view-shell { display:grid; grid-template-columns:minmax(260px, 0.92fr) minmax(0, 1.4fr); gap:16px; align-items:start; }
-                #<?= Html::encode($uid) ?> .dt-row-view-aside { display:grid; gap:12px; align-content:start; }
-                #<?= Html::encode($uid) ?> .dt-row-view-hero { border:1px solid #dbe3ef; border-radius:22px; background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#0f172a 100%); padding:18px; color:#fff; box-shadow:0 18px 36px rgba(15,23,42,.14); position:relative; overflow:hidden; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero { border-color:#4a4540; background:linear-gradient(135deg,#191915 0%,#252521 100%); box-shadow:none; }
-                #<?= Html::encode($uid) ?> .dt-row-view-hero::after { content:''; position:absolute; inset:auto -20% -28px auto; width:180px; height:180px; border-radius:999px; background:radial-gradient(circle, rgba(96,165,250,.22) 0%, rgba(96,165,250,0) 70%); pointer-events:none; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero::after { background:radial-gradient(circle, rgba(255,255,255,.09) 0%, rgba(255,255,255,0) 70%); }
-                #<?= Html::encode($uid) ?> .dt-row-view-hero-kicker { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:rgba(255,255,255,.08); color:#bfdbfe; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero-kicker { background:#31302c; color:#d0cabf; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-row-view-hero h5 { margin:0 0 8px; color:#fff; font-size:18px; font-weight:800; line-height:1.25; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero h5 { font-size:24px; font-weight:500; letter-spacing:-0.02em; }
-                #<?= Html::encode($uid) ?> .dt-row-view-hero p { margin:0; color:rgba(255,255,255,.78); font-size:13px; line-height:1.6; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-hero p { color:#d0cabf; font-size:14px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-panel { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 10px 24px rgba(15,23,42,.04); }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-panel { border-color:#403b35; background:#2b2825; box-shadow:none; }
-                #<?= Html::encode($uid) ?> .dt-row-view-panel h5 { margin:0 0 10px; color:#0f172a; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-panel h5 { color:#d0cabf; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-row-view-panel p { margin:0; color:#475569; font-size:13px; line-height:1.6; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-panel p { color:#d0cabf; }
-                #<?= Html::encode($uid) ?> .dt-row-summary { display:block; }
-                #<?= Html::encode($uid) ?> .dt-row-summary .dt-summary-card { width:100%; }
-                #<?= Html::encode($uid) ?> .dt-summary-card { border:1px solid #e2e8f0; border-radius:16px; background:linear-gradient(180deg,#f8fafc 0%,#fff 100%); padding:14px 16px; box-shadow:0 8px 20px rgba(15,23,42,.04); }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-card { border-color:#403b35; background:#2b2825; box-shadow:none; }
-                #<?= Html::encode($uid) ?> .dt-summary-card.primary { background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%); border-color:#bfdbfe; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-card.primary { background:#2b2825; border-color:#403b35; }
-                #<?= Html::encode($uid) ?> .dt-summary-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-label { color:#a7a297; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-summary-value { color:#0f172a; font-size:14px; font-weight:700; word-break:break-word; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-value { color:#fff; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-summary-main { display:flex; align-items:center; gap:10px; margin-top:10px; }
-                #<?= Html::encode($uid) ?> .dt-summary-avatar { width:36px; height:36px; border-radius:999px; background:#fef3e2; color:#ba7517; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-avatar { background:#8a6a09; color:#f9e6aa; }
-                #<?= Html::encode($uid) ?> .dt-summary-meta { min-width:0; }
-                #<?= Html::encode($uid) ?> .dt-summary-name { font-size:14px; font-weight:700; color:#111827; line-height:1.35; word-break:break-word; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-name { color:#fff; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-summary-role { font-size:12px; color:#6b7280; margin-top:2px; word-break:break-word; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-summary-role { color:#b8b2a6; }
-                #<?= Html::encode($uid) ?> .dt-row-view-main { display:grid; gap:14px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2ddd4; border-radius:12px; background:#f6f3ee; padding:16px 16px 14px; min-height:76px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item--lead { background:linear-gradient(180deg,#f6f3ee 0%,#fbfaf8 100%); }
-                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#9b9488; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.13em; margin-bottom:8px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#111; font-size:15px; line-height:1.45; word-break:break-word; font-weight:600; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body.view-mode { background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-row-view-shell { display:block; }
+                #<?= Html::encode($uid) ?> .dt-row-view-aside { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-view-main { display:block; }
+                #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2e8f0; border-radius:14px; background:#fff; padding:16px; min-height:74px; box-shadow:none; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item--lead { background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#0f172a; font-size:14px; line-height:1.5; word-break:break-word; font-weight:600; }
                 #<?= Html::encode($uid) ?> .dt-row-view-badge { display:inline-flex; align-items:center; gap:6px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-badge-circle { width:22px; height:22px; border-radius:999px; background:#e8f0fe; color:#185fa5; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
+                #<?= Html::encode($uid) ?> .dt-row-view-badge-circle { width:22px; height:22px; border-radius:999px; background:#eff6ff; color:#2563eb; font-size:12px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
                 #<?= Html::encode($uid) ?> .dt-row-view-chips { display:none; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-item { background:#2b2825; border-color:#403b35; box-shadow:none; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-item--lead { background:#2f2c28; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-label { color:#a7a297; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-value { color:#fff; font-weight:500; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-view-badge-circle { background:#304f82; color:#cfe0ff; }
+                #<?= Html::encode($uid) ?> .dt-row-summary { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-view-hero { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-view-panel { display:none; }
+                #<?= Html::encode($uid) ?> .dt-summary-card { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-form-note { margin:0 0 16px; color:#64748b; font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid-default { grid-template-columns:1fr; gap:12px; }
@@ -399,6 +364,8 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-info { display:flex; align-items:center; gap:8px; color:#a3a3a3; font-size:12px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { color:#a7a297; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-actions { display:flex; gap:8px; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-actions .dt-btn:not(.dt-btn-primary) { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary { border:0.5px solid rgba(0,0,0,0.15); background:#111; color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary:hover { opacity:.85; }
@@ -819,9 +786,7 @@ class MasterDatatableRenderService
                 }
 
                 function renderView(rowData) {
-                    const primaryField = payload.fields[0] || null;
-                    const detailFields = primaryField ? payload.fields.slice(1) : payload.fields;
-                    const gridFields = detailFields.length ? detailFields : payload.fields;
+                    const gridFields = payload.fields;
 
                     viewGrid.innerHTML = gridFields.map(function(field, index) {
                         const value = rowData[field.field];
@@ -1029,7 +994,7 @@ class MasterDatatableRenderService
                     modalTitle.textContent = mode === 'edit' ? 'Edit Row' : 'View Row';
                     modalSubtitle.textContent = mode === 'edit'
                         ? 'Ubah data langsung dari modal yang sudah terisi nilai lama. Mode: ' + editModeLabel + (formName ? ' · ' + formName : '')
-                        : 'Lihat detail row dalam format yang lebih nyaman dibaca.';
+                        : '';
                     renderSummary(rowKey, rowData);
                     renderView(rowData);
                     if (mode === 'edit') {

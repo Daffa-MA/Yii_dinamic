@@ -294,20 +294,30 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; background:linear-gradient(180deg,#fbfdff 0%,#fff 18%); }
-                #<?= Html::encode($uid) ?> .dt-row-view-shell { display:grid; grid-template-columns:minmax(220px, 0.85fr) minmax(0, 1.6fr); gap:16px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-shell { display:grid; grid-template-columns:minmax(260px, 0.92fr) minmax(0, 1.4fr); gap:16px; align-items:start; }
                 #<?= Html::encode($uid) ?> .dt-row-view-aside { display:grid; gap:12px; align-content:start; }
+                #<?= Html::encode($uid) ?> .dt-row-view-hero { border:1px solid #dbe3ef; border-radius:22px; background:linear-gradient(135deg,#0f172a 0%,#1e293b 58%,#0f172a 100%); padding:18px; color:#fff; box-shadow:0 18px 36px rgba(15,23,42,.14); position:relative; overflow:hidden; }
+                #<?= Html::encode($uid) ?> .dt-row-view-hero::after { content:''; position:absolute; inset:auto -20% -28px auto; width:180px; height:180px; border-radius:999px; background:radial-gradient(circle, rgba(96,165,250,.22) 0%, rgba(96,165,250,0) 70%); pointer-events:none; }
+                #<?= Html::encode($uid) ?> .dt-row-view-hero-kicker { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; background:rgba(255,255,255,.08); color:#bfdbfe; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:12px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-hero h5 { margin:0 0 8px; color:#fff; font-size:18px; font-weight:800; line-height:1.25; }
+                #<?= Html::encode($uid) ?> .dt-row-view-hero p { margin:0; color:rgba(255,255,255,.78); font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 10px 24px rgba(15,23,42,.04); }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel h5 { margin:0 0 10px; color:#0f172a; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
                 #<?= Html::encode($uid) ?> .dt-row-view-panel p { margin:0; color:#475569; font-size:13px; line-height:1.6; }
+                #<?= Html::encode($uid) ?> .dt-row-view-chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-chip { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border-radius:999px; background:rgba(255,255,255,.08); color:#e2e8f0; font-size:11px; font-weight:700; }
+                #<?= Html::encode($uid) ?> .dt-row-view-panel--soft { background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
                 #<?= Html::encode($uid) ?> .dt-row-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:18px; }
                 #<?= Html::encode($uid) ?> .dt-summary-card { border:1px solid #e2e8f0; border-radius:16px; background:linear-gradient(180deg,#f8fafc 0%,#fff 100%); padding:14px 16px; box-shadow:0 8px 20px rgba(15,23,42,.04); }
+                #<?= Html::encode($uid) ?> .dt-summary-card.primary { background:linear-gradient(135deg,#eff6ff 0%,#ffffff 100%); border-color:#bfdbfe; }
                 #<?= Html::encode($uid) ?> .dt-summary-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
                 #<?= Html::encode($uid) ?> .dt-summary-value { color:#0f172a; font-size:14px; font-weight:700; word-break:break-word; }
                 #<?= Html::encode($uid) ?> .dt-row-view-main { display:grid; gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-view-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2e8f0; border-radius:16px; background:#fff; padding:14px 16px; box-shadow:0 8px 20px rgba(15,23,42,.03); }
-                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
-                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#0f172a; font-size:14px; line-height:1.6; word-break:break-word; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item { border:1px solid #e2e8f0; border-radius:18px; background:#fff; padding:16px 18px; box-shadow:0 8px 20px rgba(15,23,42,.03); position:relative; overflow:hidden; }
+                #<?= Html::encode($uid) ?> .dt-row-view-item::before { content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:linear-gradient(180deg,#2563eb 0%,#22c55e 100%); }
+                #<?= Html::encode($uid) ?> .dt-row-view-label { display:block; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; padding-left:4px; }
+                #<?= Html::encode($uid) ?> .dt-row-view-value { color:#0f172a; font-size:14px; line-height:1.7; word-break:break-word; padding-left:4px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-note { margin:0 0 16px; color:#64748b; font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
                 #<?= Html::encode($uid) ?> .dt-row-form-grid-default { grid-template-columns:1fr; gap:12px; }
@@ -347,6 +357,7 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-edit-chip { display:inline-flex; align-items:center; gap:6px; padding:7px 10px; border-radius:999px; background:#f8fafc; color:#475569; border:1px solid #e2e8f0; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
                 #<?= Html::encode($uid) ?> .dt-row-muted { color:#64748b; font-size:13px; line-height:1.6; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 22px; border-top:1px solid #e2e8f0; background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-footer.is-hidden { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
                 #<?= Html::encode($uid) ?> .dt-row-mode { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-mode.active { display:block; }
@@ -499,6 +510,7 @@ class MasterDatatableRenderService
                 const formGrid = root.querySelector('[data-row-form-grid]');
                 const keyInput = root.querySelector('[data-row-key-input]');
                 const saveButton = root.querySelector('[data-row-save-btn]');
+                const modalFooter = root.querySelector('.dt-row-modal-footer');
                 const modalTitle = root.querySelector('.dt-row-modal-title');
                 const modalSubtitle = root.querySelector('[data-row-modal-subtitle]');
                 const rowReference = root.querySelector('[data-row-reference]');
@@ -682,13 +694,27 @@ class MasterDatatableRenderService
                 }
 
                 function renderView(rowData) {
-                    viewGrid.innerHTML = payload.fields.map(function(field) {
+                    const primaryField = payload.fields[0] || null;
+                    const primaryValue = primaryField ? rowData[primaryField.field] : '';
+                    const detailFields = primaryField ? payload.fields.slice(1) : payload.fields;
+
+                    viewGrid.innerHTML = '<div class="dt-row-view-item dt-row-view-item--lead">' +
+                        '<span class="dt-row-view-label">Ringkasan utama</span>' +
+                        '<div class="dt-row-view-value">' + escapeHtml(primaryField ? primaryField.label : 'Data row') + '</div>' +
+                        '<div class="dt-row-custom-inline-note" style="margin-top:8px;">' + formatViewValue(primaryField || {inputType: 'text'}, primaryValue) + '</div>' +
+                    '</div>' +
+                    detailFields.map(function(field) {
                         const value = rowData[field.field];
                         return '<div class="dt-row-view-item">' +
                             '<span class="dt-row-view-label">' + escapeHtml(field.label) + '</span>' +
                             '<div class="dt-row-view-value">' + formatViewValue(field, value) + '</div>' +
                         '</div>';
                     }).join('');
+
+                    const leadNote = root.querySelector('.dt-row-view-panel p[data-row-reference]');
+                    if (leadNote) {
+                        leadNote.textContent = 'Data ini ditampilkan dengan ringkasan singkat di kiri dan detail field di kanan, supaya mudah dipindai tanpa terasa penuh.';
+                    }
                 }
 
                 function getCustomFormFields() {
@@ -896,6 +922,9 @@ class MasterDatatableRenderService
                     viewMode.classList.toggle('active', mode === 'view');
                     editFormEl.classList.toggle('active', mode === 'edit');
                     saveButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
+                    if (modalFooter) {
+                        modalFooter.classList.toggle('is-hidden', mode === 'edit' && payload.editMode === 'custom');
+                    }
                     openModal();
                 }
 

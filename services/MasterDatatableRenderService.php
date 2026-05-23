@@ -365,6 +365,9 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { color:#64748b; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer-actions { display:flex; gap:8px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-info { display:none; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-actions { justify-content:flex-start; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-actions .dt-btn { color:#0f172a; background:#fff; border-color:#cbd5e1; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-footer-actions .dt-btn-primary { display:none; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary { border:0.5px solid rgba(0,0,0,0.15); background:#111; color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary:hover { opacity:.85; }

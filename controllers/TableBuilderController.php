@@ -70,7 +70,24 @@ class TableBuilderController extends Controller
             return (int)Yii::$app->user->id;
         }
 
+        $commanderUser = (new CommanderAuthContext())->getUser();
+        if ($commanderUser !== null && $commanderUser->id !== null) {
+            return (int)$commanderUser->id;
+        }
+
         return null;
+    }
+
+    private function assignMetadataOwner(DbTable $model): void
+    {
+        if (!$model->hasAttribute('user_id')) {
+            return;
+        }
+
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $model->user_id = $effectiveUserId;
+        }
     }
 
     private function canAccessWorkspaceBuilder(): bool
@@ -1036,10 +1053,7 @@ class TableBuilderController extends Controller
         $this->refreshDbTableColumnsSchema();
 
         $model = new DbTable();
-        $effectiveUserId = $this->getEffectiveUserId();
-        if (!$this->isCommanderSuperAdmin() && $effectiveUserId !== null) {
-            $model->user_id = $effectiveUserId;
-        }
+        $this->assignMetadataOwner($model);
         $this->assignActiveProject($model);
         $model->engine = 'InnoDB';
         $model->charset = 'utf8mb4';
@@ -1060,7 +1074,6 @@ class TableBuilderController extends Controller
                 );
                 return $this->redirect(['index']);
             } catch (\Throwable $e) {
-                $this->captureSqlEditorFailureMetadata($rawSql, $this->buildFriendlyTableBuilderErrorMessage($e));
                 $friendlySqlError = $this->buildFriendlyTableBuilderErrorMessage($e);
                 return $this->render('create', [
                     'model' => $model,
@@ -1075,9 +1088,7 @@ class TableBuilderController extends Controller
         }
 
         if ($model->load(Yii::$app->request->post())) {
-            if (!$this->isCommanderSuperAdmin() && $effectiveUserId !== null) {
-                $model->user_id = $effectiveUserId;
-            }
+            $this->assignMetadataOwner($model);
             $this->assignActiveProject($model);
             $columns = Yii::$app->request->post('columns', []);
             // Handle JSON-encoded columns data
@@ -1279,7 +1290,7 @@ class TableBuilderController extends Controller
             return $result;
         } catch (\Throwable $e) {
             Yii::error('Spreadsheet action failed: ' . $e->getMessage(), 'table-spreadsheet');
-            return ['success' => false, 'message' => $e->getMessage()];
+            return ['success' => false, 'message' => $this->buildFriendlyTableBuilderErrorMessage($e)];
         }
     }
 
@@ -1370,8 +1381,9 @@ class TableBuilderController extends Controller
                                 Yii::$app->session->setFlash('tableBuilderSuccess', "Table updated successfully and synced to database table '{$model->name}'.");
                             } catch (\Throwable $syncError) {
                                 Yii::error('Failed to sync updated table to database: ' . $syncError->getMessage(), 'app');
-                                $this->setTableLifecycleState($model, 'failed', $this->buildFriendlyTableBuilderErrorMessage($syncError));
-                                Yii::$app->session->setFlash('tableBuilderWarning', 'Table definition was updated, but failed to sync physical database table: ' . $syncError->getMessage());
+                                $friendlySyncError = $this->buildFriendlyTableBuilderErrorMessage($syncError);
+                                $this->setTableLifecycleState($model, 'failed', $friendlySyncError);
+                                Yii::$app->session->setFlash('tableBuilderWarning', 'Definisi table berhasil diperbarui, tetapi sinkronisasi ke tabel fisik gagal. ' . $friendlySyncError);
                             }
                         } else {
                             Yii::$app->session->setFlash('tableBuilderSuccess', 'Table updated successfully.');
@@ -2448,63 +2460,27 @@ class TableBuilderController extends Controller
             return 'Terjadi kesalahan saat memproses table builder.';
         }
 
+        if (stripos($message, 'foreign key') !== false) {
+            if (stripos($message, 'incompatible') !== false || stripos($message, 'Referencing column') !== false) {
+                return 'Foreign key tidak dapat dibuat karena tipe data kolom relasi tidak cocok dengan kolom referensi. Samakan tipe, panjang, dan atribut unsigned bila diperlukan.';
+            }
+            return 'Konfigurasi foreign key tidak valid atau referensi tabel belum tersedia.';
+        }
+
+        if (preg_match('/Data too long for column \'?([a-zA-Z0-9_]+)\'?/i', $message, $matches) === 1) {
+            $columnLabel = Inflector::camel2words((string)$matches[1]);
+            return "Input terlalu panjang pada field {$columnLabel}. Mohon sesuaikan dengan panjang kolom.";
+        }
+
+        if (stripos($message, 'Duplicate entry') !== false) {
+            return 'Data gagal disimpan karena ada nilai yang harus unik tetapi sudah digunakan.';
+        }
+
         if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'syntax error') !== false) {
             return 'Terjadi kesalahan SQL saat memproses table. Periksa struktur kolom, foreign key, atau statement SQL Anda.';
         }
 
-        if (stripos($message, 'foreign key') !== false) {
-            return 'Konfigurasi foreign key tidak valid atau referensi tabel belum tersedia.';
-        }
-
         return $message;
-    }
-
-    private function captureSqlEditorFailureMetadata(string $sql, string $errorMessage): void
-    {
-        $tableNames = [];
-        foreach ($this->splitSqlStatements($sql) as $statement) {
-            $tableName = $this->extractAffectedTableName($statement);
-            if ($tableName !== null) {
-                $tableNames[$tableName] = true;
-            }
-        }
-
-        foreach (array_keys($tableNames) as $tableName) {
-            $this->upsertFailedTableMetadata($tableName, $errorMessage);
-        }
-    }
-
-    private function upsertFailedTableMetadata(string $tableName, string $errorMessage): void
-    {
-        $activeProjectId = $this->getActiveProjectId();
-        $criteria = ['name' => strtolower($tableName)];
-        $effectiveUserId = $this->getEffectiveUserId();
-        if ($effectiveUserId !== null) {
-            $criteria['user_id'] = $effectiveUserId;
-        }
-        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-            $criteria['project_id'] = $activeProjectId;
-        }
-
-        $model = DbTable::findOne($criteria);
-        if ($model === null) {
-            $model = new DbTable();
-            if ($effectiveUserId !== null) {
-                $model->user_id = $effectiveUserId;
-            }
-            $this->assignActiveProject($model);
-            $model->name = strtolower($tableName);
-            $model->label = ucwords(str_replace('_', ' ', strtolower($tableName)));
-            $model->description = 'Metadata dibuat otomatis dari SQL editor yang gagal.';
-            $model->engine = 'InnoDB';
-            $model->charset = 'utf8mb4';
-            $model->collation = 'utf8mb4_unicode_ci';
-        }
-
-        $model->is_created = false;
-        if ($model->validate() && $model->save(false)) {
-            $this->setTableLifecycleState($model, 'failed', $errorMessage);
-        }
     }
 
     private function executeRawSchemaSql(string $sql): array
@@ -2521,30 +2497,43 @@ class TableBuilderController extends Controller
 
         $db = $this->getPhysicalDb();
         $tablesToSync = [];
+        $createdTables = [];
 
-        foreach ($statements as $index => $statement) {
-            $validationError = $this->validateSchemaStatement($statement);
-            if ($validationError !== null) {
-                throw new \RuntimeException('Statement #' . ($index + 1) . ': ' . $validationError);
+        try {
+            foreach ($statements as $index => $statement) {
+                $validationError = $this->validateSchemaStatement($statement);
+                if ($validationError !== null) {
+                    throw new \RuntimeException('Statement #' . ($index + 1) . ': ' . $validationError);
+                }
+
+                $db->createCommand($statement)->execute();
+
+                $createdTableName = $this->extractCreatedTableName($statement);
+                if ($createdTableName !== null) {
+                    $createdTables[$createdTableName] = true;
+                }
+
+                $tableName = $this->extractAffectedTableName($statement);
+                if ($tableName !== null) {
+                    $tablesToSync[$tableName] = true;
+                    $db->schema->refreshTableSchema($tableName);
+                }
             }
 
-            $db->createCommand($statement)->execute();
-
-            $tableName = $this->extractAffectedTableName($statement);
-            if ($tableName !== null) {
-                $tablesToSync[$tableName] = true;
-                $db->schema->refreshTableSchema($tableName);
+            if (empty($tablesToSync)) {
+                throw new \RuntimeException('SQL berhasil dijalankan, tetapi tidak ada table yang bisa disinkronkan.');
             }
-        }
 
-        if (empty($tablesToSync)) {
-            throw new \RuntimeException('SQL berhasil dijalankan, tetapi tidak ada table yang bisa disinkronkan.');
+            return [
+                'statements' => $statements,
+                'tables' => $this->syncImportedTables(array_keys($tablesToSync)),
+            ];
+        } catch (\Throwable $e) {
+            if (!empty($createdTables)) {
+                $this->cleanupSqlEditorArtifacts(array_keys($createdTables));
+            }
+            throw $e;
         }
-
-        return [
-            'statements' => $statements,
-            'tables' => $this->syncImportedTables(array_keys($tablesToSync)),
-        ];
     }
 
     private function splitSqlStatements(string $sql): array
@@ -2705,6 +2694,15 @@ class TableBuilderController extends Controller
         return null;
     }
 
+    private function extractCreatedTableName(string $statement): ?string
+    {
+        if (preg_match('/^\s*CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?([a-zA-Z0-9_]+)`?/i', $statement, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        return null;
+    }
+
     private function syncImportedTables(array $tableNames): array
     {
         $synced = [];
@@ -2738,9 +2736,7 @@ class TableBuilderController extends Controller
         $model = DbTable::findOne($criteria);
         if ($model === null) {
             $model = new DbTable();
-            if ($effectiveUserId !== null) {
-                $model->user_id = $effectiveUserId;
-            }
+            $this->assignMetadataOwner($model);
             $this->assignActiveProject($model);
             $model->name = strtolower($tableName);
             $model->label = ucwords(str_replace('_', ' ', strtolower($tableName)));
@@ -2775,6 +2771,41 @@ class TableBuilderController extends Controller
 
         $db->schema->refreshTableSchema($tableName);
         return $model->name;
+    }
+
+    private function cleanupSqlEditorArtifacts(array $tableNames): void
+    {
+        $db = $this->getPhysicalDb();
+
+        foreach (array_values(array_unique($tableNames)) as $tableName) {
+            try {
+                $db->createCommand('DROP TABLE IF EXISTS `' . str_replace('`', '``', strtolower($tableName)) . '`')->execute();
+            } catch (\Throwable $dropError) {
+                Yii::warning('Failed dropping SQL editor table artifact: ' . $dropError->getMessage(), 'table-builder');
+            }
+
+            try {
+                $criteria = ['name' => strtolower($tableName)];
+                $effectiveUserId = $this->getEffectiveUserId();
+                if ($effectiveUserId !== null) {
+                    $criteria['user_id'] = $effectiveUserId;
+                }
+                if (ProjectSchema::supportsProjectContext()) {
+                    $activeProjectId = $this->getActiveProjectId();
+                    if ($activeProjectId !== null) {
+                        $criteria['project_id'] = $activeProjectId;
+                    }
+                }
+
+                $model = DbTable::findOne($criteria);
+                if ($model !== null) {
+                    DbTableColumn::deleteAll(['table_id' => $model->id]);
+                    $model->delete();
+                }
+            } catch (\Throwable $metadataError) {
+                Yii::warning('Failed deleting SQL editor metadata artifact: ' . $metadataError->getMessage(), 'table-builder');
+            }
+        }
     }
 
     private function buildImportedColumnModel(int $tableId, $columnSchema, int $sortOrder, array $primaryKeyColumns, array $uniqueColumns, array $foreignKeyMap): DbTableColumn
@@ -3003,9 +3034,7 @@ class TableBuilderController extends Controller
         } catch (\Throwable $e) {
             return $this->asJson([
                 'success' => false,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+                'error' => $this->buildFriendlyTableBuilderErrorMessage($e),
             ]);
         }
     }
@@ -3056,7 +3085,7 @@ class TableBuilderController extends Controller
         } catch (\Throwable $e) {
             return $this->asJson([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $this->buildFriendlyTableBuilderErrorMessage($e),
             ]);
         }
     }
@@ -3128,9 +3157,7 @@ class TableBuilderController extends Controller
         } catch (\Throwable $e) {
             return $this->asJson([
                 'success' => false,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'error' => $this->buildFriendlyTableBuilderErrorMessage($e),
             ]);
         }
     }
@@ -3217,7 +3244,7 @@ class TableBuilderController extends Controller
         } catch (\Throwable $e) {
             return $this->asJson([
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $this->buildFriendlyTableBuilderErrorMessage($e),
             ]);
         }
     }

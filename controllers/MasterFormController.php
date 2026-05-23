@@ -63,6 +63,52 @@ class MasterFormController extends Controller
         return (new ActiveProjectContext())->getActiveProjectId();
     }
 
+    /**
+     * @param array<string, mixed> $insertData
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     */
+    private function validateInsertDataLengths(array $insertData, array $schemaColumns): ?string
+    {
+        foreach ($insertData as $columnName => $value) {
+            if (!isset($schemaColumns[$columnName])) {
+                continue;
+            }
+
+            $column = $schemaColumns[$columnName];
+            $type = strtoupper((string)($column->type ?? ''));
+            $maxLength = (int)($column->size ?? 0);
+            if ($maxLength <= 0 || !in_array($type, ['CHAR', 'VARCHAR', 'TEXT', 'TINYTEXT', 'MEDIUMTEXT', 'LONGTEXT'], true)) {
+                continue;
+            }
+
+            if ($value === null || is_bool($value) || is_int($value) || is_float($value)) {
+                continue;
+            }
+
+            if (mb_strlen(trim((string)$value), 'UTF-8') > $maxLength) {
+                $label = ucwords(str_replace('_', ' ', (string)$columnName));
+                return "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
+            }
+        }
+
+        return null;
+    }
+
+    private function buildFriendlySaveErrorMessage(\Throwable $e): string
+    {
+        $message = (string)$e->getMessage();
+        if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
+            $columnName = (string)$matches[1];
+            return 'Input terlalu panjang pada field ' . ucwords(str_replace('_', ' ', $columnName)) . '. Mohon sesuaikan dengan panjang kolom.';
+        }
+
+        if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'The SQL being executed was') !== false) {
+            return 'Data gagal disimpan. Mohon periksa kembali input Anda.';
+        }
+
+        return 'Data gagal disimpan. Mohon periksa kembali input Anda.';
+    }
+
     private function resolveTargetTableId(MasterForm $model): int
     {
         if ($model->hasAttribute('db_table_id')) {
@@ -682,6 +728,15 @@ class MasterFormController extends Controller
             }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
+
+            $lengthError = $this->validateInsertDataLengths($insertData, $columns->columns);
+            if ($lengthError !== null) {
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $lengthError];
+                }
+                Yii::$app->session->setFlash('error', $lengthError);
+                return $this->redirect(['preview', 'id' => $id]);
+            }
             
             if (!empty($insertData)) {
                 try {
@@ -730,7 +785,7 @@ class MasterFormController extends Controller
                         'fields' => array_keys($insertData),
                     ]);
                 } catch (\Exception $e) {
-                    $message = 'Save failed: ' . $e->getMessage();
+                    $message = $this->buildFriendlySaveErrorMessage($e);
                     FormFlowDebugLogger::logSubmit([
                         'host' => Yii::$app->request->hostInfo,
                         'project_id' => $this->getActiveProjectId(),

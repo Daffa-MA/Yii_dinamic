@@ -40,9 +40,10 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
     --line: #dbe3ee;
     --panel: rgba(255, 255, 255, 0.92);
     --panel-strong: #ffffff;
-    --accent: #2563eb;
-    --accent-soft: #dbeafe;
-    --accent-ghost: #eff6ff;
+    --accent: var(--ws-sidebar-active-bg-start, #2563eb);
+    --accent-strong: var(--ws-sidebar-active-bg-end, #1d4ed8);
+    --accent-soft: var(--ws-sidebar-hover-bg, rgba(37, 99, 235, 0.12));
+    --accent-ghost: var(--ws-light-sidebar-bg, #eff6ff);
     --success: #166534;
     --success-soft: #dcfce7;
     --warning: #92400e;
@@ -97,7 +98,7 @@ main#main > .container > .alert {
 .table-index-page .hero {
     padding: 26px;
     background:
-        radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 25%),
+        radial-gradient(circle at top left, var(--accent-soft), transparent 25%),
         linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.92));
 }
 
@@ -122,9 +123,9 @@ main#main > .container > .alert {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    background: linear-gradient(135deg, var(--accent-ghost), var(--accent-soft));
     color: var(--accent);
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--line);
 }
 
 .table-index-page h1 {
@@ -185,9 +186,9 @@ main#main > .container > .alert {
 }
 
 .table-index-page .btn-primary-clean {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
-    border-color: #1d4ed8;
-    color: #fff;
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+    border-color: var(--accent-strong);
+    color: var(--ws-sidebar-active-text, #fff);
 }
 
 .table-index-page .btn-primary-clean:hover {
@@ -208,14 +209,14 @@ main#main > .container > .alert {
 }
 
 .table-index-page .action-view {
-    background: #eff6ff;
-    color: #1d4ed8;
-    border-color: #dbeafe;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
+    border-color: var(--accent-soft);
 }
 
 .table-index-page .action-view:hover {
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
 }
 
 .table-index-page .action-edit {
@@ -430,10 +431,10 @@ main#main > .container > .alert {
     padding: 6px 10px;
     border-radius: 999px;
     background: var(--accent-ghost);
-    color: #1d4ed8;
+    color: var(--accent-strong);
     font-size: 12px;
     font-weight: 700;
-    border: 1px solid #dbeafe;
+    border: 1px solid var(--accent-soft);
 }
 
 .table-index-page .structure-section {
@@ -574,9 +575,9 @@ main#main > .container > .alert {
     font-size: 10px;
     font-weight: 800;
     letter-spacing: 0.04em;
-    background: #eef2ff;
-    color: #4f46e5;
-    border: 1px solid #e0e7ff;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
+    border: 1px solid var(--accent-soft);
 }
 
 .table-index-page .column-badge.pk {
@@ -741,7 +742,7 @@ main#main > .container > .alert {
     }
 </style>
 
-<body class="bg-gradient-to-br from-[#f9fafb] via-[#f3f4f6] to-[#ede9fe] font-body text-on-surface" style="background-attachment: fixed;">
+<body class="font-body text-on-surface" style="background: linear-gradient(135deg, var(--ws-light-sidebar-bg, #f9fafb) 0%, #f8fafc 55%, var(--ws-sidebar-hover-bg, #ede9fe) 100%); background-attachment: fixed;">
 <main class="table-index-main app-shell-main pt-6 min-h-screen">
     <div class="table-index-content">
         <div class="table-index-page">

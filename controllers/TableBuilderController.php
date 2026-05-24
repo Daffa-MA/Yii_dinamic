@@ -448,12 +448,12 @@ class TableBuilderController extends Controller
     }
 
     /**
-     * Validate FK references against the physical database before creating tables.
+     * Validate FK references against the physical database and existing metadata before creating tables.
      *
      * @param array<int, DbTableColumn> $columnModels
      * @return array<int, string>
      */
-    private function validateForeignKeyReferences(array $columnModels): array
+    private function validateForeignKeyReferences(array $columnModels, ?DbTable $currentTable = null): array
     {
         $db = $this->getPhysicalDb();
         $errors = [];
@@ -472,24 +472,57 @@ class TableBuilderController extends Controller
             }
 
             $referencedSchema = $db->schema->getTableSchema($referencedTableName, true);
-            if ($referencedSchema === null) {
-                $errors[] = "Column '{$column->name}' mereferensikan tabel '{$referencedTableName}', tetapi tabel tersebut belum ada di database fisik.";
-                continue;
+            if ($referencedSchema !== null) {
+                if (!isset($referencedSchema->columns[$referencedColumnName])) {
+                    $errors[] = "Column '{$column->name}' mereferensikan kolom '{$referencedColumnName}' pada tabel '{$referencedTableName}', tetapi kolom itu tidak ditemukan di database fisik.";
+                    continue;
+                }
+
+                if (!empty($referencedSchema->primaryKey) && in_array($referencedColumnName, $referencedSchema->primaryKey, true)) {
+                    continue;
+                }
+
+                $uniqueColumns = $this->getUniqueColumnsFromTable($referencedTableName);
+                if (isset($uniqueColumns[$referencedColumnName])) {
+                    continue;
+                }
             }
 
-            if (!isset($referencedSchema->columns[$referencedColumnName])) {
-                $errors[] = "Column '{$column->name}' mereferensikan kolom '{$referencedColumnName}' pada tabel '{$referencedTableName}', tetapi kolom itu tidak ditemukan.";
-                continue;
+            if ($currentTable !== null) {
+                $referencedTableQuery = DbTable::find()->with(['columns'])->where(['name' => $referencedTableName]);
+                if (!$this->isCommanderSuperAdmin()) {
+                    $effectiveUserId = $this->getEffectiveUserId();
+                    if ($effectiveUserId !== null) {
+                        $referencedTableQuery->andWhere(['user_id' => $effectiveUserId]);
+                    }
+                }
+                if (ProjectSchema::supportsProjectContext() && $currentTable->project_id !== null) {
+                    $referencedTableQuery->andWhere(['project_id' => $currentTable->project_id]);
+                }
+
+                $referencedTableModel = $referencedTableQuery->one();
+                if ($referencedTableModel !== null) {
+                    $referencedColumns = [];
+                    foreach ($referencedTableModel->columns as $refColumn) {
+                        $referencedColumns[strtolower((string)$refColumn->name)] = $refColumn;
+                    }
+
+                    if (!isset($referencedColumns[$referencedColumnName])) {
+                        $errors[] = "Column '{$column->name}' mereferensikan kolom '{$referencedColumnName}' pada tabel '{$referencedTableName}', tetapi kolom itu tidak ditemukan di metadata.";
+                        continue;
+                    }
+
+                    $refColumnModel = $referencedColumns[$referencedColumnName];
+                    if ((bool)$refColumnModel->is_primary || (bool)$refColumnModel->is_unique) {
+                        continue;
+                    }
+
+                    $errors[] = "Column '{$column->name}' mereferensikan '{$referencedTableName}.{$referencedColumnName}', tetapi kolom referensi harus PRIMARY KEY atau UNIQUE.";
+                    continue;
+                }
             }
 
-            if (!empty($referencedSchema->primaryKey) && in_array($referencedColumnName, $referencedSchema->primaryKey, true)) {
-                continue;
-            }
-
-            $uniqueColumns = $this->getUniqueColumnsFromTable($referencedTableName);
-            if (!isset($uniqueColumns[$referencedColumnName])) {
-                $errors[] = "Column '{$column->name}' mereferensikan '{$referencedTableName}.{$referencedColumnName}', tetapi kolom referensi harus PRIMARY KEY atau UNIQUE.";
-            }
+            $errors[] = "Column '{$column->name}' mereferensikan tabel '{$referencedTableName}', tetapi tabel tersebut belum ditemukan di metadata atau database fisik.";
         }
 
         return $errors;
@@ -1176,7 +1209,7 @@ class TableBuilderController extends Controller
                             throw new \RuntimeException(implode('<br>', $columnErrors));
                         }
 
-                        $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels);
+                        $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
                         if (!empty($foreignKeyErrors)) {
                             throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
                         }

@@ -19,6 +19,7 @@ use app\components\DatabaseSchemaInitializer;
 class DbInitController extends Controller
 {
     public $defaultAction = 'setup-all';
+    private const DB_TABLE_COLUMNS_TABLE = 'db_table_columns';
 
     /**
      * Setup struktur database untuk semua existing projects
@@ -250,6 +251,112 @@ class DbInitController extends Controller
         }
 
         return ExitCode::OK;
+    }
+
+    /**
+     * Repair foreign key metadata columns in db_table_columns.
+     *
+     * Usage:
+     *   php yii db-init/repair-fk-metadata sekolah_negeri
+     *   php yii db-init/repair-fk-metadata --all
+     */
+    public function actionRepairFkMetadata(?string $databaseName = null, bool $all = false): int
+    {
+        $this->stdout("=== Repair FK metadata columns ===\n\n");
+
+        $databaseNames = [];
+        if ($all) {
+            $projects = Project::find()->all();
+            $projectController = new \app\controllers\ProjectController();
+            foreach ($projects as $project) {
+                $databaseNames[] = $projectController->resolveProjectDatabaseName($project);
+            }
+            $databaseNames = array_values(array_unique(array_filter($databaseNames)));
+        } elseif ($databaseName !== null && trim($databaseName) !== '') {
+            $databaseNames[] = trim($databaseName);
+        } else {
+            $databaseNames[] = $this->resolveCurrentDatabaseName(Yii::$app->db);
+        }
+
+        $successCount = 0;
+        $errorCount = 0;
+
+        foreach ($databaseNames as $name) {
+            try {
+                $this->stdout("Processing database: {$name}\n");
+                $db = $this->getProjectConnection($name);
+                $this->repairFkMetadataOnConnection($db);
+                $this->stdout("  OK: FK metadata columns ready\n");
+                $successCount++;
+            } catch (\Throwable $e) {
+                $this->stderr("  ERROR: " . $e->getMessage() . "\n");
+                $errorCount++;
+            }
+        }
+
+        $this->stdout("\nDone. Success: {$successCount}, Failed: {$errorCount}\n");
+        return $errorCount > 0 ? ExitCode::UNSPECIFIED_ERROR : ExitCode::OK;
+    }
+
+    private function repairFkMetadataOnConnection(\yii\db\Connection $db): void
+    {
+        $schema = $db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
+        if ($schema === null) {
+            throw new \RuntimeException("Table '" . self::DB_TABLE_COLUMNS_TABLE . "' does not exist.");
+        }
+
+        $columns = $schema->columns;
+        if (!isset($columns['is_foreign_key'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'is_foreign_key',
+                $db->schema->createColumnSchemaBuilder('boolean')->notNull()->defaultValue(false)
+            )->execute();
+        }
+
+        if (!isset($columns['referenced_table_name'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'referenced_table_name',
+                $db->schema->createColumnSchemaBuilder('string', 100)
+            )->execute();
+        }
+
+        if (!isset($columns['referenced_column_name'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'referenced_column_name',
+                $db->schema->createColumnSchemaBuilder('string', 100)
+            )->execute();
+        }
+
+        if (!isset($columns['on_delete_action'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'on_delete_action',
+                $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT')
+            )->execute();
+        }
+
+        if (!isset($columns['on_update_action'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'on_update_action',
+                $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT')
+            )->execute();
+        }
+
+        $db->schema->refresh();
+        $db->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
+    }
+
+    private function resolveCurrentDatabaseName(\yii\db\Connection $db): string
+    {
+        if (preg_match('/dbname=([^;]+)/i', (string)$db->dsn, $matches) === 1) {
+            return trim((string)$matches[1]);
+        }
+
+        return trim((string)$db->createCommand('SELECT DATABASE()')->queryScalar());
     }
 
     /**

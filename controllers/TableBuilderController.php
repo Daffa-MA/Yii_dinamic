@@ -744,6 +744,7 @@ class TableBuilderController extends Controller
             [$referencedTableName, $referencedColumnName, $onDeleteAction, $onUpdateAction] = $this->resolveForeignKeySqlConfig($column);
             $constraintName = $this->buildForeignKeyConstraintName($model->name, $column->name, $usedConstraintNames);
             try {
+                $this->ensureForeignKeyColumnIndex($model->name, (string)$column->name);
                 $db->createCommand(
                     "ALTER TABLE `{$model->name}` ADD CONSTRAINT `{$constraintName}` " .
                     "FOREIGN KEY (`{$column->name}`) REFERENCES `{$referencedTableName}` (`{$referencedColumnName}`) " .
@@ -757,6 +758,28 @@ class TableBuilderController extends Controller
                 );
             }
         }
+    }
+
+    private function ensureForeignKeyColumnIndex(string $tableName, string $columnName): void
+    {
+        $db = $this->getPhysicalDb();
+        if (stripos((string)$db->dsn, 'mysql:') !== 0) {
+            return;
+        }
+
+        $escapedTable = str_replace('`', '``', $tableName);
+        $escapedColumn = str_replace('`', '``', $columnName);
+        $rows = $db->createCommand("SHOW INDEX FROM `{$escapedTable}` WHERE Column_name = :column_name")
+            ->bindValue(':column_name', $columnName)
+            ->queryAll();
+
+        if (!empty($rows)) {
+            return;
+        }
+
+        $indexName = substr('idx_' . preg_replace('/[^a-z0-9_]+/i', '_', $tableName . '_' . $columnName), 0, 64);
+        $escapedIndex = str_replace('`', '``', $indexName);
+        $db->createCommand("ALTER TABLE `{$escapedTable}` ADD INDEX `{$escapedIndex}` (`{$escapedColumn}`)")->execute();
     }
 
     private function resolveColumnSqlType(DbTableColumn $column): string
@@ -2716,7 +2739,7 @@ class TableBuilderController extends Controller
             if (stripos($message, 'doesn\'t exist') !== false || stripos($message, 'unknown column') !== false || stripos($message, 'not found') !== false) {
                 return 'Konfigurasi foreign key tidak valid: tabel atau kolom referensi belum tersedia di database fisik.';
             }
-            return 'Konfigurasi foreign key tidak valid atau referensi tabel belum tersedia.';
+            return $message;
         }
 
         if (preg_match('/Data too long for column \'?([a-zA-Z0-9_]+)\'?/i', $message, $matches) === 1) {

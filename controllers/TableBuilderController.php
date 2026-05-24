@@ -447,6 +447,54 @@ class TableBuilderController extends Controller
         $column->setAttribute('on_update_action', $onUpdateAction !== '' ? $onUpdateAction : 'RESTRICT');
     }
 
+    /**
+     * Validate FK references against the physical database before creating tables.
+     *
+     * @param array<int, DbTableColumn> $columnModels
+     * @return array<int, string>
+     */
+    private function validateForeignKeyReferences(array $columnModels): array
+    {
+        $db = $this->getPhysicalDb();
+        $errors = [];
+
+        foreach ($columnModels as $column) {
+            if (!$this->isForeignKeyColumn($column)) {
+                continue;
+            }
+
+            $referencedTableName = strtolower(trim((string)$column->getAttribute('referenced_table_name')));
+            $referencedColumnName = strtolower(trim((string)$column->getAttribute('referenced_column_name')));
+
+            if ($referencedTableName === '' || $referencedColumnName === '') {
+                $errors[] = "Column '{$column->name}' membutuhkan tabel dan kolom referensi untuk Foreign Key.";
+                continue;
+            }
+
+            $referencedSchema = $db->schema->getTableSchema($referencedTableName, true);
+            if ($referencedSchema === null) {
+                $errors[] = "Column '{$column->name}' mereferensikan tabel '{$referencedTableName}', tetapi tabel tersebut belum ada di database fisik.";
+                continue;
+            }
+
+            if (!isset($referencedSchema->columns[$referencedColumnName])) {
+                $errors[] = "Column '{$column->name}' mereferensikan kolom '{$referencedColumnName}' pada tabel '{$referencedTableName}', tetapi kolom itu tidak ditemukan.";
+                continue;
+            }
+
+            if (!empty($referencedSchema->primaryKey) && in_array($referencedColumnName, $referencedSchema->primaryKey, true)) {
+                continue;
+            }
+
+            $uniqueColumns = $this->getUniqueColumnsFromTable($referencedTableName);
+            if (!isset($uniqueColumns[$referencedColumnName])) {
+                $errors[] = "Column '{$column->name}' mereferensikan '{$referencedTableName}.{$referencedColumnName}', tetapi kolom referensi harus PRIMARY KEY atau UNIQUE.";
+            }
+        }
+
+        return $errors;
+    }
+
     private function buildForeignKeyConstraintName(string $tableName, string $columnName, array &$usedConstraintNames): string
     {
         $base = strtolower(preg_replace('/[^a-z0-9_]+/', '_', 'fk_' . $tableName . '_' . $columnName));
@@ -1126,6 +1174,11 @@ class TableBuilderController extends Controller
                         $columnErrors = $this->collectColumnErrors($columnModels);
                         if (!empty($columnErrors)) {
                             throw new \RuntimeException(implode('<br>', $columnErrors));
+                        }
+
+                        $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels);
+                        if (!empty($foreignKeyErrors)) {
+                            throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
                         }
 
                         foreach ($columnModels as $column) {
@@ -2468,6 +2521,12 @@ class TableBuilderController extends Controller
         if (stripos($message, 'foreign key') !== false) {
             if (stripos($message, 'incompatible') !== false || stripos($message, 'Referencing column') !== false) {
                 return 'Foreign key tidak dapat dibuat karena tipe data kolom relasi tidak cocok dengan kolom referensi. Samakan tipe, panjang, dan atribut unsigned bila diperlukan.';
+            }
+            if (stripos($message, 'must be unique') !== false || stripos($message, 'unique') !== false) {
+                return 'Foreign key harus mengarah ke kolom PRIMARY KEY atau UNIQUE di tabel referensi.';
+            }
+            if (stripos($message, 'doesn\'t exist') !== false || stripos($message, 'unknown column') !== false || stripos($message, 'not found') !== false) {
+                return 'Konfigurasi foreign key tidak valid: tabel atau kolom referensi belum tersedia di database fisik.';
             }
             return 'Konfigurasi foreign key tidak valid atau referensi tabel belum tersedia.';
         }

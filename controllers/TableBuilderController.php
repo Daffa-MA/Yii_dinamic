@@ -31,6 +31,11 @@ class TableBuilderController extends Controller
     private function refreshDbTableColumnsSchema(): void
     {
         Yii::$app->db->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
+        try {
+            $this->getPhysicalDb()->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed refreshing physical db_table_columns schema: ' . $e->getMessage(), __METHOD__);
+        }
     }
 
     private function isFkDebugEnabled(): bool
@@ -137,7 +142,7 @@ class TableBuilderController extends Controller
 
     private function supportsForeignKeyMetadataColumns(): bool
     {
-        $schema = Yii::$app->db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
+        $schema = $this->getPhysicalDb()->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
         if ($schema === null) {
             return false;
         }
@@ -164,7 +169,7 @@ class TableBuilderController extends Controller
      */
     private function getMissingForeignKeyMetadataColumns(): array
     {
-        $schema = Yii::$app->db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
+        $schema = $this->getPhysicalDb()->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
         if ($schema === null) {
             return [
                 'is_foreign_key',
@@ -201,6 +206,13 @@ class TableBuilderController extends Controller
             return;
         }
 
+        $this->repairForeignKeyMetadataColumns();
+        $this->refreshDbTableColumnsSchema();
+
+        if ($this->supportsForeignKeyMetadataColumns()) {
+            return;
+        }
+
         Yii::warning([
             'stage' => 'fk_payload_without_metadata_columns',
             'columns' => $columns,
@@ -218,6 +230,56 @@ class TableBuilderController extends Controller
             'Kolom yang belum tersedia: ' . implode(', ', $missingColumns) . '. ' .
             'Verifikasi database yang dipakai aplikasi, lalu jalankan migration repair.'
         );
+    }
+
+    private function repairForeignKeyMetadataColumns(): void
+    {
+        $db = $this->getPhysicalDb();
+        $schema = $db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columns = $schema->columns;
+        if (!isset($columns['is_foreign_key'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'is_foreign_key',
+                $db->schema->createColumnSchemaBuilder('boolean')->notNull()->defaultValue(false)
+            )->execute();
+        }
+
+        if (!isset($columns['referenced_table_name'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'referenced_table_name',
+                $db->schema->createColumnSchemaBuilder('string', 100)
+            )->execute();
+        }
+
+        if (!isset($columns['referenced_column_name'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'referenced_column_name',
+                $db->schema->createColumnSchemaBuilder('string', 100)
+            )->execute();
+        }
+
+        if (!isset($columns['on_delete_action'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'on_delete_action',
+                $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT')
+            )->execute();
+        }
+
+        if (!isset($columns['on_update_action'])) {
+            $db->createCommand()->addColumn(
+                self::DB_TABLE_COLUMNS_TABLE,
+                'on_update_action',
+                $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT')
+            )->execute();
+        }
     }
 
     private function getActiveProjectId(): ?int

@@ -258,14 +258,14 @@ class DbInitController extends Controller
      *
      * Usage:
      *   php yii db-init/repair-fk-metadata sekolah_negeri
-     *   php yii db-init/repair-fk-metadata --all
+     *   php yii db-init/repair-fk-metadata all
      */
-    public function actionRepairFkMetadata(?string $databaseName = null, bool $all = false): int
+    public function actionRepairFkMetadata(?string $databaseName = null): int
     {
         $this->stdout("=== Repair FK metadata columns ===\n\n");
 
         $databaseNames = [];
-        if ($all) {
+        if (in_array(strtolower(trim((string)$databaseName)), ['all', '*'], true)) {
             $projects = Project::find()->all();
             $projectController = new \app\controllers\ProjectController();
             foreach ($projects as $project) {
@@ -300,6 +300,8 @@ class DbInitController extends Controller
 
     private function repairFkMetadataOnConnection(\yii\db\Connection $db): void
     {
+        $this->ensureTableBuilderMetadataTables($db);
+
         $schema = $db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
         if ($schema === null) {
             throw new \RuntimeException("Table '" . self::DB_TABLE_COLUMNS_TABLE . "' does not exist.");
@@ -348,6 +350,67 @@ class DbInitController extends Controller
 
         $db->schema->refresh();
         $db->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
+    }
+
+    private function ensureTableBuilderMetadataTables(\yii\db\Connection $db): void
+    {
+        if ($db->schema->getTableSchema('db_tables', true) === null) {
+            $db->createCommand()->createTable('db_tables', [
+                'id' => $db->schema->createColumnSchemaBuilder('pk'),
+                'user_id' => $db->schema->createColumnSchemaBuilder('integer')->notNull(),
+                'project_id' => $db->schema->createColumnSchemaBuilder('integer'),
+                'name' => $db->schema->createColumnSchemaBuilder('string', 100)->notNull(),
+                'label' => $db->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+                'description' => $db->schema->createColumnSchemaBuilder('text'),
+                'engine' => $db->schema->createColumnSchemaBuilder('string', 20)->defaultValue('InnoDB'),
+                'charset' => $db->schema->createColumnSchemaBuilder('string', 20)->defaultValue('utf8mb4'),
+                'collation' => $db->schema->createColumnSchemaBuilder('string', 50)->defaultValue('utf8mb4_unicode_ci'),
+                'is_created' => $db->schema->createColumnSchemaBuilder('boolean')->notNull()->defaultValue(false),
+                'table_status' => $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('pending'),
+                'last_error_message' => $db->schema->createColumnSchemaBuilder('text'),
+                'created_at' => $db->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+                'updated_at' => $db->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
+            ])->execute();
+            $this->createIndexIfMissing($db, 'db_tables', 'idx-db_tables-user_id', ['user_id']);
+            $this->createIndexIfMissing($db, 'db_tables', 'idx-db_tables-project_id', ['project_id']);
+            $this->createIndexIfMissing($db, 'db_tables', 'uq-db_tables-user_project_name', ['user_id', 'project_id', 'name'], true);
+        }
+
+        if ($db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true) === null) {
+            $db->createCommand()->createTable(self::DB_TABLE_COLUMNS_TABLE, [
+                'id' => $db->schema->createColumnSchemaBuilder('pk'),
+                'table_id' => $db->schema->createColumnSchemaBuilder('integer')->notNull(),
+                'name' => $db->schema->createColumnSchemaBuilder('string', 100)->notNull(),
+                'label' => $db->schema->createColumnSchemaBuilder('string', 255)->notNull(),
+                'type' => $db->schema->createColumnSchemaBuilder('string', 50)->notNull(),
+                'length' => $db->schema->createColumnSchemaBuilder('integer'),
+                'is_nullable' => $db->schema->createColumnSchemaBuilder('boolean')->defaultValue(true),
+                'is_primary' => $db->schema->createColumnSchemaBuilder('boolean')->defaultValue(false),
+                'is_unique' => $db->schema->createColumnSchemaBuilder('boolean')->defaultValue(false),
+                'is_auto_increment' => $db->schema->createColumnSchemaBuilder('boolean')->notNull()->defaultValue(false),
+                'is_foreign_key' => $db->schema->createColumnSchemaBuilder('boolean')->notNull()->defaultValue(false),
+                'referenced_table_name' => $db->schema->createColumnSchemaBuilder('string', 100),
+                'referenced_column_name' => $db->schema->createColumnSchemaBuilder('string', 100),
+                'on_delete_action' => $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT'),
+                'on_update_action' => $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT'),
+                'default_value' => $db->schema->createColumnSchemaBuilder('string', 255),
+                'comment' => $db->schema->createColumnSchemaBuilder('text'),
+                'enum_values' => $db->schema->createColumnSchemaBuilder('text'),
+                'sort_order' => $db->schema->createColumnSchemaBuilder('integer')->defaultValue(0),
+                'created_at' => $db->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
+            ])->execute();
+            $this->createIndexIfMissing($db, self::DB_TABLE_COLUMNS_TABLE, 'idx-db_table_columns-table_id', ['table_id']);
+        }
+
+        $db->schema->refresh();
+    }
+
+    private function createIndexIfMissing(\yii\db\Connection $db, string $tableName, string $indexName, array $columns, bool $unique = false): void
+    {
+        try {
+            $db->createCommand()->createIndex($indexName, $tableName, $columns, $unique)->execute();
+        } catch (\Throwable $e) {
+        }
     }
 
     private function resolveCurrentDatabaseName(\yii\db\Connection $db): string

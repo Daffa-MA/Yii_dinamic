@@ -618,17 +618,16 @@ class TableBuilderController extends Controller
         return $referenceMap;
     }
 
-    private function buildCreateTableSql(DbTable $model, array $columns): string
+    private function buildCreateTableSql(DbTable $model, array $columns, bool $includeForeignKeys = true): string
     {
         $db = $this->getPhysicalDb();
         $columnDefs = [];
         $primaryKeys = [];
         $autoIncrementCandidates = [];
-        $foreignKeyDefs = [];
         $usedConstraintNames = [];
 
         foreach ($columns as $col) {
-            $type = $col->getMySQLType();
+            $type = $this->resolveColumnSqlType($col);
             $typeName = strtoupper((string)$col->type);
             if (in_array($typeName, ['ENUM', 'SET'], true)) {
                 $type = $this->buildEnumSetType($col, $db);
@@ -667,44 +666,172 @@ class TableBuilderController extends Controller
             }
         }
 
+        if ($includeForeignKeys) {
+            $columnDefs = array_merge($columnDefs, $this->buildForeignKeyConstraintSqlParts($model, $columns, $usedConstraintNames));
+        }
+
+        return "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @param array<string, bool> $usedConstraintNames
+     * @return array<int, string>
+     */
+    private function buildForeignKeyConstraintSqlParts(DbTable $model, array $columns, array &$usedConstraintNames): array
+    {
+        $foreignKeyDefs = [];
+
         foreach ($columns as $col) {
             if (!$this->isForeignKeyColumn($col)) {
                 continue;
             }
 
-            $referencedTableName = strtolower(trim((string)$col->getAttribute('referenced_table_name')));
-            $referencedColumnName = strtolower(trim((string)$col->getAttribute('referenced_column_name')));
-            $onDeleteAction = strtoupper(trim((string)$col->getAttribute('on_delete_action')));
-            $onUpdateAction = strtoupper(trim((string)$col->getAttribute('on_update_action')));
-            if ($onDeleteAction === '') {
-                $onDeleteAction = 'RESTRICT';
-            }
-            if ($onUpdateAction === '') {
-                $onUpdateAction = 'RESTRICT';
-            }
-
-            if ($referencedTableName === '' || $referencedColumnName === '') {
-                throw new \RuntimeException("Foreign key column '{$col->name}' requires referenced table and column names.");
-            }
-            if (!preg_match(self::IDENTIFIER_PATTERN, $referencedTableName) || !preg_match(self::IDENTIFIER_PATTERN, $referencedColumnName)) {
-                throw new \RuntimeException("Foreign key column '{$col->name}' has invalid referenced table or column format.");
-            }
-            if (!in_array($onDeleteAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
-                throw new \RuntimeException("Foreign key column '{$col->name}' has invalid ON DELETE action.");
-            }
-            if (!in_array($onUpdateAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
-                throw new \RuntimeException("Foreign key column '{$col->name}' has invalid ON UPDATE action.");
-            }
-
+            [$referencedTableName, $referencedColumnName, $onDeleteAction, $onUpdateAction] = $this->resolveForeignKeySqlConfig($col);
             $constraintName = $this->buildForeignKeyConstraintName($model->name, $col->name, $usedConstraintNames);
             $foreignKeyDefs[] = "CONSTRAINT `{$constraintName}` FOREIGN KEY (`{$col->name}`) REFERENCES `{$referencedTableName}` (`{$referencedColumnName}`) ON DELETE {$onDeleteAction} ON UPDATE {$onUpdateAction}";
         }
 
-        if (!empty($foreignKeyDefs)) {
-            $columnDefs = array_merge($columnDefs, $foreignKeyDefs);
+        return $foreignKeyDefs;
+    }
+
+    /**
+     * @return array{0:string,1:string,2:string,3:string}
+     */
+    private function resolveForeignKeySqlConfig(DbTableColumn $column): array
+    {
+        $referencedTableName = strtolower(trim((string)$column->getAttribute('referenced_table_name')));
+        $referencedColumnName = strtolower(trim((string)$column->getAttribute('referenced_column_name')));
+        $onDeleteAction = strtoupper(trim((string)$column->getAttribute('on_delete_action')));
+        $onUpdateAction = strtoupper(trim((string)$column->getAttribute('on_update_action')));
+
+        if ($onDeleteAction === '') {
+            $onDeleteAction = 'RESTRICT';
+        }
+        if ($onUpdateAction === '') {
+            $onUpdateAction = 'RESTRICT';
         }
 
-        return "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
+        if ($referencedTableName === '' || $referencedColumnName === '') {
+            throw new \RuntimeException("Foreign key column '{$column->name}' requires referenced table and column names.");
+        }
+        if (!preg_match(self::IDENTIFIER_PATTERN, $referencedTableName) || !preg_match(self::IDENTIFIER_PATTERN, $referencedColumnName)) {
+            throw new \RuntimeException("Foreign key column '{$column->name}' has invalid referenced table or column format.");
+        }
+        if (!in_array($onDeleteAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
+            throw new \RuntimeException("Foreign key column '{$column->name}' has invalid ON DELETE action.");
+        }
+        if (!in_array($onUpdateAction, DbTableColumn::FOREIGN_KEY_ACTIONS, true)) {
+            throw new \RuntimeException("Foreign key column '{$column->name}' has invalid ON UPDATE action.");
+        }
+
+        return [$referencedTableName, $referencedColumnName, $onDeleteAction, $onUpdateAction];
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     */
+    private function addForeignKeyConstraints(DbTable $model, array $columns): void
+    {
+        $db = $this->getPhysicalDb();
+        $usedConstraintNames = [];
+
+        foreach ($columns as $column) {
+            if (!$this->isForeignKeyColumn($column)) {
+                continue;
+            }
+
+            [$referencedTableName, $referencedColumnName, $onDeleteAction, $onUpdateAction] = $this->resolveForeignKeySqlConfig($column);
+            $constraintName = $this->buildForeignKeyConstraintName($model->name, $column->name, $usedConstraintNames);
+            try {
+                $db->createCommand(
+                    "ALTER TABLE `{$model->name}` ADD CONSTRAINT `{$constraintName}` " .
+                    "FOREIGN KEY (`{$column->name}`) REFERENCES `{$referencedTableName}` (`{$referencedColumnName}`) " .
+                    "ON DELETE {$onDeleteAction} ON UPDATE {$onUpdateAction}"
+                )->execute();
+            } catch (\Throwable $e) {
+                throw new \RuntimeException(
+                    "Column '{$column->name}' gagal dibuat sebagai Foreign Key ke '{$referencedTableName}.{$referencedColumnName}': " . $e->getMessage(),
+                    0,
+                    $e
+                );
+            }
+        }
+    }
+
+    private function resolveColumnSqlType(DbTableColumn $column): string
+    {
+        if (!$this->isForeignKeyColumn($column)) {
+            return $column->getMySQLType();
+        }
+
+        $referencedTableName = strtolower(trim((string)$column->getAttribute('referenced_table_name')));
+        $referencedColumnName = strtolower(trim((string)$column->getAttribute('referenced_column_name')));
+        if ($referencedTableName === '' || $referencedColumnName === '') {
+            return $column->getMySQLType();
+        }
+
+        $physicalType = $this->getReferencedPhysicalColumnType($referencedTableName, $referencedColumnName);
+        if ($physicalType !== null) {
+            return $physicalType;
+        }
+
+        $metadataColumn = $this->findReferencedMetadataColumn($referencedTableName, $referencedColumnName, $column->table_id !== null ? (int)$column->table_id : null);
+        return $metadataColumn !== null ? $metadataColumn->getMySQLType() : $column->getMySQLType();
+    }
+
+    private function getReferencedPhysicalColumnType(string $tableName, string $columnName): ?string
+    {
+        $schema = $this->getPhysicalDb()->schema->getTableSchema($tableName, true);
+        if ($schema === null || !isset($schema->columns[$columnName])) {
+            return null;
+        }
+
+        $dbType = trim((string)$schema->columns[$columnName]->dbType);
+        if ($dbType === '') {
+            return null;
+        }
+
+        return preg_replace('/\s+auto_increment\b/i', '', $dbType) ?: null;
+    }
+
+    private function findReferencedMetadataColumn(string $tableName, string $columnName, ?int $sourceTableId = null): ?DbTableColumn
+    {
+        $query = DbTable::find()->with(['columns'])->where(['name' => $tableName]);
+
+        if (!$this->isCommanderSuperAdmin()) {
+            $effectiveUserId = $this->getEffectiveUserId();
+            if ($effectiveUserId !== null) {
+                $query->andWhere(['user_id' => $effectiveUserId]);
+            }
+        }
+
+        if (ProjectSchema::supportsProjectContext()) {
+            $projectId = null;
+            if ($sourceTableId !== null) {
+                $sourceTable = DbTable::findOne($sourceTableId);
+                $projectId = $sourceTable !== null && $sourceTable->hasAttribute('project_id') ? $sourceTable->project_id : null;
+            }
+            if ($projectId === null) {
+                $projectId = $this->getActiveProjectId();
+            }
+            if ($projectId !== null) {
+                $query->andWhere(['project_id' => $projectId]);
+            }
+        }
+
+        $table = $query->one();
+        if ($table === null) {
+            return null;
+        }
+
+        foreach ($table->columns as $column) {
+            if (strcasecmp((string)$column->name, $columnName) === 0) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     private function getPhysicalDb(): Connection
@@ -961,7 +1088,7 @@ class TableBuilderController extends Controller
             $db->createCommand("RENAME TABLE `{$oldTableName}` TO `{$backupTableName}`")->execute();
             $renamedToBackup = true;
 
-            $sql = $this->buildCreateTableSql($model, $columnModels);
+            $sql = $this->buildCreateTableSql($model, $columnModels, false);
             $db->createCommand($sql)->execute();
             $newTableCreated = true;
 
@@ -994,6 +1121,8 @@ class TableBuilderController extends Controller
                     Yii::error("Failed to re-map foreign key {$fk['constraint_name']} from {$fk['table_name']}: " . $fkError->getMessage());
                 }
             }
+
+            $this->addForeignKeyConstraints($model, $columnModels);
 
             $db->createCommand("DROP TABLE `{$backupTableName}`")->execute();
             $model->is_created = true;
@@ -1455,6 +1584,11 @@ class TableBuilderController extends Controller
                             throw new \RuntimeException(implode('<br>', $columnErrors));
                         }
 
+                        $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
+                        if (!empty($foreignKeyErrors)) {
+                            throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
+                        }
+
                         DbTableColumn::deleteAll(['table_id' => $model->id]);
 
                         foreach ($columnModels as $column) {
@@ -1532,16 +1666,33 @@ class TableBuilderController extends Controller
                 throw new \RuntimeException(implode(', ', $model->getErrorSummary(true)));
             }
 
-            $sql = $this->buildCreateTableSql($model, $columns);
+            $foreignKeyErrors = $this->validateForeignKeyReferences($columns, $model);
+            if (!empty($foreignKeyErrors)) {
+                throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
+            }
+
+            $sql = $this->buildCreateTableSql($model, $columns, false);
             $this->logFkDebug('actionExecuteSql.generated_sql', [
                 'table_id' => (int)$model->id,
                 'table_name' => (string)$model->name,
                 'sql' => $sql,
             ]);
 
+            $createdPhysicalTable = false;
             $db->createCommand("SET FOREIGN_KEY_CHECKS = 0")->execute();
             try {
                 $db->createCommand($sql)->execute();
+                $createdPhysicalTable = true;
+                $this->addForeignKeyConstraints($model, $columns);
+            } catch (\Throwable $createError) {
+                if ($createdPhysicalTable && $this->hasPhysicalTable($model)) {
+                    try {
+                        $db->createCommand("DROP TABLE `{$model->name}`")->execute();
+                    } catch (\Throwable $dropError) {
+                        Yii::error('Failed dropping table after FK creation failure: ' . $dropError->getMessage(), 'app');
+                    }
+                }
+                throw $createError;
             } finally {
                 $db->createCommand("SET FOREIGN_KEY_CHECKS = 1")->execute();
             }

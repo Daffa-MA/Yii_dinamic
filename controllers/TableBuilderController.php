@@ -999,6 +999,11 @@ class TableBuilderController extends Controller
             return false;
         }
 
+        // Apply active workspace database first so layout/theme and builder data
+        // read from the same project context as other workspace admin pages.
+        $databaseContext = new ActiveDatabaseContext();
+        $databaseContext->resolveAndApply();
+
         if (!ProjectSchema::supportsProjectContext()) {
             return true;
         }

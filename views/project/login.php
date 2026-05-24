@@ -112,7 +112,18 @@ $this->registerCss(<<<CSS
     overflow: hidden;
     flex-shrink: 0;
 }
-.project-login-brand-box img { width: 100%; height: 100%; object-fit: cover; }
+.project-login-brand-box.has-logo-image {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    overflow: visible;
+}
+.project-login-brand-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
 .project-login-brand-box .material-symbols-outlined { font-size: 1.5rem; color: #fff; }
 .project-login-title {
     margin: 1.5rem 0 0.8rem;
@@ -327,7 +338,7 @@ CSS);
             <div class="project-login-hero-overlay"></div>
         <?php endif; ?>
         <div class="project-login-brand">
-            <div class="project-login-brand-box">
+            <div class="project-login-brand-box<?= $logoImage !== '' ? ' has-logo-image' : '' ?>">
                 <?php if ($logoImage !== ''): ?>
                     <img src="<?= $logoImage ?>" alt="Logo">
                 <?php else: ?>

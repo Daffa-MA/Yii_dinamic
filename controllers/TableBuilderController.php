@@ -30,9 +30,12 @@ class TableBuilderController extends Controller
      */
     private function refreshDbTableColumnsSchema(): void
     {
+        Yii::$app->db->schema->refresh();
         Yii::$app->db->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
         try {
-            $this->getPhysicalDb()->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
+            $physicalDb = $this->getPhysicalDb();
+            $physicalDb->schema->refresh();
+            $physicalDb->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
         } catch (\Throwable $e) {
             Yii::warning('Failed refreshing physical db_table_columns schema: ' . $e->getMessage(), __METHOD__);
         }
@@ -234,7 +237,12 @@ class TableBuilderController extends Controller
 
     private function repairForeignKeyMetadataColumns(): void
     {
-        $db = $this->getPhysicalDb();
+        $this->repairForeignKeyMetadataColumnsOnConnection(Yii::$app->db);
+        $this->repairForeignKeyMetadataColumnsOnConnection($this->getPhysicalDb());
+    }
+
+    private function repairForeignKeyMetadataColumnsOnConnection(Connection $db): void
+    {
         $schema = $db->schema->getTableSchema(self::DB_TABLE_COLUMNS_TABLE, true);
         if ($schema === null) {
             return;
@@ -280,6 +288,9 @@ class TableBuilderController extends Controller
                 $db->schema->createColumnSchemaBuilder('string', 20)->notNull()->defaultValue('RESTRICT')
             )->execute();
         }
+
+        $db->schema->refresh();
+        $db->schema->refreshTableSchema(self::DB_TABLE_COLUMNS_TABLE);
     }
 
     private function getActiveProjectId(): ?int
@@ -1298,6 +1309,8 @@ class TableBuilderController extends Controller
         // read from the same project context as other workspace admin pages.
         $databaseContext = new ActiveDatabaseContext();
         $databaseContext->resolveAndApply();
+        $this->repairForeignKeyMetadataColumns();
+        $this->refreshDbTableColumnsSchema();
 
         if (!ProjectSchema::supportsProjectContext()) {
             return true;

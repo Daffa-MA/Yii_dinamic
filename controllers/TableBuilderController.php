@@ -2551,6 +2551,10 @@ class TableBuilderController extends Controller
             return 'Terjadi kesalahan saat memproses table builder.';
         }
 
+        if (preg_match('/^(Column|Kolom)\s+\'/i', $message) === 1) {
+            return $message;
+        }
+
         if (stripos($message, 'foreign key') !== false) {
             if (stripos($message, 'incompatible') !== false || stripos($message, 'Referencing column') !== false) {
                 return 'Foreign key tidak dapat dibuat karena tipe data kolom relasi tidak cocok dengan kolom referensi. Samakan tipe, panjang, dan atribut unsigned bila diperlukan.';

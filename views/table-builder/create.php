@@ -65,7 +65,10 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
     --muted: #60708a;
     --line: #d9e2ef;
     --panel: #ffffff;
-    --accent: #1d4ed8;
+    --accent: var(--ws-sidebar-active-bg-start, #2563eb);
+    --accent-strong: var(--ws-sidebar-active-bg-end, #1d4ed8);
+    --accent-soft: var(--ws-sidebar-hover-bg, rgba(37, 99, 235, 0.12));
+    --accent-ghost: var(--ws-light-sidebar-bg, #eff6ff);
     --shadow: 0 20px 55px rgba(20, 32, 51, 0.08);
     color: var(--ink);
 }
@@ -86,7 +89,7 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 .table-create-page .hero {
     padding: 28px;
     background:
-        radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 28%),
+        radial-gradient(circle at top left, var(--accent-soft), transparent 28%),
         linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
@@ -111,9 +114,9 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    background: linear-gradient(135deg, var(--accent-ghost), var(--accent-soft));
     color: var(--accent);
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--line);
 }
 
 .table-create-page h1 {
@@ -166,9 +169,9 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 }
 
 .table-create-page .btn-primary-clean {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
-    border-color: #1d4ed8;
-    color: #fff;
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+    border-color: var(--accent-strong);
+    color: var(--ws-sidebar-active-text, #fff);
 }
 
 .table-create-page .btn-primary-clean:hover {
@@ -210,8 +213,8 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 }
 
 .table-create-page .mode-tab.is-active {
-    background: #ffffff;
-    color: #122033;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
     box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
 }
 
@@ -585,13 +588,13 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 }
 
 .table-create-page .type-badge {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
 }
 
 .table-create-page .flag-badge {
-    background: #eef2ff;
-    color: #4338ca;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
 }
 
 .table-create-page .summary-chip {

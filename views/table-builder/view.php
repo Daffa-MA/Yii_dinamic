@@ -75,8 +75,10 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
     --line: #d9e2ef;
     --panel: #ffffff;
     --panel-soft: #f6f8fc;
-    --accent: #1d4ed8;
-    --accent-soft: #dbeafe;
+    --accent: var(--ws-sidebar-active-bg-start, #2563eb);
+    --accent-strong: var(--ws-sidebar-active-bg-end, #1d4ed8);
+    --accent-soft: var(--ws-sidebar-hover-bg, rgba(37, 99, 235, 0.12));
+    --accent-ghost: var(--ws-light-sidebar-bg, #eff6ff);
     --success: #15803d;
     --success-soft: #dcfce7;
     --warning: #b45309;
@@ -88,7 +90,7 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
 
 .table-detail-page .hero {
     background:
-        radial-gradient(circle at top left, rgba(29, 78, 216, 0.08), transparent 28%),
+        radial-gradient(circle at top left, var(--accent-soft), transparent 28%),
         linear-gradient(180deg, #ffffff, #f7f9fc);
     border: 1px solid #e5ebf3;
     border-radius: 24px;
@@ -118,9 +120,9 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    background: linear-gradient(135deg, var(--accent-ghost), var(--accent-soft));
     color: var(--accent);
-    border: 1px solid #bfdbfe;
+    border: 1px solid var(--line);
     flex-shrink: 0;
 }
 
@@ -172,13 +174,13 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
 }
 
 .table-detail-page .btn-primary-clean {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
+    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
     color: #fff;
-    border-color: #1d4ed8;
+    border-color: var(--accent-strong);
 }
 
 .table-detail-page .btn-primary-clean:hover {
-    border-color: #1d4ed8;
+    border-color: var(--accent-strong);
     color: #fff;
 }
 
@@ -336,13 +338,13 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
 }
 
 .table-detail-page .type-badge {
-    background: #eff6ff;
-    color: #1d4ed8;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
 }
 
 .table-detail-page .flag-badge {
-    background: #eef2ff;
-    color: #4338ca;
+    background: var(--accent-ghost);
+    color: var(--accent-strong);
     margin-right: 6px;
     margin-bottom: 6px;
 }

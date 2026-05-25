@@ -101,7 +101,7 @@ class MasterFormController extends Controller
     {
         $message = $this->sanitizeDatabaseErrorMessage((string)$e->getMessage());
         if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
-            $columnName = (string)$matches[1];
+            $columnName = $this->normalizeDatabaseColumnName((string)$matches[1]);
             $label = ucwords(str_replace('_', ' ', $columnName));
             $maxLength = (int)($schemaColumns[$columnName]->size ?? 0);
             if ($maxLength > 0) {
@@ -142,6 +142,16 @@ class MasterFormController extends Controller
         $message = preg_replace('/\s+SQLSTATE\[[^\]]+\].*$/i', '', $message) ?? $message;
 
         return trim($message);
+    }
+
+    private function normalizeDatabaseColumnName(string $columnName): string
+    {
+        $columnName = trim($columnName);
+        $columnName = preg_replace('/\s+At Row\s+\d+.*$/i', '', $columnName) ?? $columnName;
+        $columnName = preg_replace('/\s+The SQL being executed was:.*$/is', '', $columnName) ?? $columnName;
+        $columnName = trim($columnName, " \t\n\r\0\x0B`'\"");
+
+        return trim($columnName);
     }
 
     private function resolveTargetTableId(MasterForm $model): int

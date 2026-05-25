@@ -94,12 +94,20 @@ class MasterFormController extends Controller
         return null;
     }
 
-    private function buildFriendlySaveErrorMessage(\Throwable $e): string
+    /**
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     */
+    private function buildFriendlySaveErrorMessage(\Throwable $e, array $schemaColumns = []): string
     {
-        $message = (string)$e->getMessage();
+        $message = $this->sanitizeDatabaseErrorMessage((string)$e->getMessage());
         if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
             $columnName = (string)$matches[1];
             $label = ucwords(str_replace('_', ' ', $columnName));
+            $maxLength = (int)($schemaColumns[$columnName]->size ?? 0);
+            if ($maxLength > 0) {
+                return "Nilai pada field {$label} terlalu panjang. Maksimal {$maxLength} karakter.";
+            }
+
             return "Nilai pada field {$label} terlalu panjang. Mohon ringkas isinya dan coba lagi.";
         }
 
@@ -120,6 +128,20 @@ class MasterFormController extends Controller
         }
 
         return 'Data gagal disimpan. Mohon periksa kembali input Anda.';
+    }
+
+    private function sanitizeDatabaseErrorMessage(string $message): string
+    {
+        $message = trim($message);
+        if ($message === '') {
+            return $message;
+        }
+
+        $message = preg_replace('/\s+At Row\s+\d+.*$/i', '', $message) ?? $message;
+        $message = preg_replace('/\s+The SQL being executed was:.*$/is', '', $message) ?? $message;
+        $message = preg_replace('/\s+SQLSTATE\[[^\]]+\].*$/i', '', $message) ?? $message;
+
+        return trim($message);
     }
 
     private function resolveTargetTableId(MasterForm $model): int
@@ -798,7 +820,7 @@ class MasterFormController extends Controller
                         'fields' => array_keys($insertData),
                     ]);
                 } catch (\Exception $e) {
-                    $message = $this->buildFriendlySaveErrorMessage($e);
+                    $message = $this->buildFriendlySaveErrorMessage($e, $columns->columns);
                     FormFlowDebugLogger::logSubmit([
                         'host' => Yii::$app->request->hostInfo,
                         'project_id' => $this->getActiveProjectId(),

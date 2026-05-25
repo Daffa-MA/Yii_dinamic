@@ -860,20 +860,7 @@ class FormController extends Controller
 
         $message = $this->sanitizeDatabaseErrorMessage((string)$exception->getMessage());
         if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
-            $columnName = (string)$matches[1];
-            $constraints = $this->buildFormFieldConstraints($form, $schema);
-            $constraint = $constraints['lookup'][$columnName]
-                ?? $constraints['lookup'][$this->normalizeInputKey($columnName)]
-                ?? null;
-            if ($constraint !== null) {
-                $label = trim((string)($constraint['label'] ?? $columnName)) ?: $columnName;
-                $maxLength = (int)($constraint['maxlength'] ?? 0);
-                if ($maxLength > 0) {
-                    return "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
-                }
-            }
-
-            return 'Input terlalu panjang. Mohon sesuaikan dengan konfigurasi kolom.';
+            return $this->buildFieldLengthErrorMessage((string)$matches[1], $form, $schema);
         }
 
         if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'syntax error') !== false) {
@@ -881,6 +868,45 @@ class FormController extends Controller
         }
 
         return 'Data gagal disimpan. Mohon periksa kembali input Anda dan coba lagi.';
+    }
+
+    private function buildFieldLengthErrorMessage(string $columnName, Form $form, array $schema = []): string
+    {
+        $constraints = $this->buildFormFieldConstraints($form, $schema);
+        $columnName = $this->normalizeDatabaseColumnName($columnName);
+        $lookupKeys = [
+            $columnName,
+            $this->normalizeInputKey($columnName),
+            ucwords(str_replace('_', ' ', $columnName)),
+            str_replace('_', ' ', $columnName),
+        ];
+
+        $constraint = null;
+        foreach ($lookupKeys as $lookupKey) {
+            if ($lookupKey !== '' && isset($constraints['lookup'][$lookupKey])) {
+                $constraint = $constraints['lookup'][$lookupKey];
+                break;
+            }
+        }
+
+        $label = trim((string)($constraint['label'] ?? '')) ?: ucwords(str_replace('_', ' ', $columnName));
+        $maxLength = (int)($constraint['maxlength'] ?? 0);
+
+        if ($maxLength > 0) {
+            return "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
+        }
+
+        return "Field {$label} terlalu panjang. Mohon ringkas isinya dan coba lagi.";
+    }
+
+    private function normalizeDatabaseColumnName(string $columnName): string
+    {
+        $columnName = trim($columnName);
+        $columnName = preg_replace('/\s+At Row\s+\d+.*$/i', '', $columnName) ?? $columnName;
+        $columnName = preg_replace('/\s+The SQL being executed was:.*$/is', '', $columnName) ?? $columnName;
+        $columnName = trim($columnName, " \t\n\r\0\x0B`'\"");
+
+        return trim($columnName);
     }
 
     private function sanitizeDatabaseErrorMessage(string $message): string

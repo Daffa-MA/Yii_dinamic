@@ -87,7 +87,7 @@ class MasterFormController extends Controller
 
             if (mb_strlen(trim((string)$value), 'UTF-8') > $maxLength) {
                 $label = ucwords(str_replace('_', ' ', (string)$columnName));
-                return "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
+                return "Nilai pada field {$label} terlalu panjang. Maksimal {$maxLength} karakter.";
             }
         }
 
@@ -99,10 +99,23 @@ class MasterFormController extends Controller
         $message = (string)$e->getMessage();
         if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
             $columnName = (string)$matches[1];
-            return 'Input terlalu panjang pada field ' . ucwords(str_replace('_', ' ', $columnName)) . '. Mohon sesuaikan dengan panjang kolom.';
+            $label = ucwords(str_replace('_', ' ', $columnName));
+            return "Nilai pada field {$label} terlalu panjang. Mohon ringkas isinya dan coba lagi.";
         }
 
-        if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'The SQL being executed was') !== false) {
+        if (
+            stripos($message, 'string or binary data would be truncated') !== false
+            || stripos($message, 'value too long') !== false
+            || stripos($message, 'out of range') !== false
+        ) {
+            return 'Data yang dimasukkan terlalu panjang atau tidak sesuai dengan format kolom. Mohon periksa kembali input Anda.';
+        }
+
+        if (
+            stripos($message, 'SQLSTATE') !== false
+            || stripos($message, 'The SQL being executed was') !== false
+            || stripos($message, 'Integrity constraint violation') !== false
+        ) {
             return 'Data gagal disimpan. Mohon periksa kembali input Anda.';
         }
 

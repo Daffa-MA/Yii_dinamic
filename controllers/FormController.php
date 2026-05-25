@@ -858,7 +858,7 @@ class FormController extends Controller
             return $this->buildFriendlyIntegrityErrorMessage($exception, $form);
         }
 
-        $message = (string)$exception->getMessage();
+        $message = $this->sanitizeDatabaseErrorMessage((string)$exception->getMessage());
         if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
             $columnName = (string)$matches[1];
             $constraints = $this->buildFormFieldConstraints($form, $schema);
@@ -881,6 +881,20 @@ class FormController extends Controller
         }
 
         return 'Data gagal disimpan. Mohon periksa kembali input Anda dan coba lagi.';
+    }
+
+    private function sanitizeDatabaseErrorMessage(string $message): string
+    {
+        $message = trim($message);
+        if ($message === '') {
+            return $message;
+        }
+
+        $message = preg_replace('/\s+At Row\s+\d+.*$/i', '', $message) ?? $message;
+        $message = preg_replace('/\s+The SQL being executed was:.*$/is', '', $message) ?? $message;
+        $message = preg_replace('/\s+SQLSTATE\[[^\]]+\].*$/i', '', $message) ?? $message;
+
+        return trim($message);
     }
 
     private function castValueForTableColumn($value, array $column)

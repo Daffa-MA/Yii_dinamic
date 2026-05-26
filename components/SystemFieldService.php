@@ -258,6 +258,14 @@ class SystemFieldService
                 continue;
             }
 
+            if (strtolower($columnName) === 'project_id') {
+                $projectId = self::activeProjectId();
+                if ($projectId !== null) {
+                    $data[$columnName] = $projectId;
+                }
+                continue;
+            }
+
             if (!self::isAuditField($columnName)) {
                 continue;
             }
@@ -295,6 +303,16 @@ class SystemFieldService
         }
 
         return $data;
+    }
+
+    private static function activeProjectId(): ?int
+    {
+        if (!class_exists(ProjectSchema::class) || !ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+
+        $projectId = (new ActiveProjectContext())->getActiveProjectId();
+        return $projectId !== null ? (int)$projectId : null;
     }
 
     public static function systemValueFor(string $columnName, $column = null, bool $isCreate = true)

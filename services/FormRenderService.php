@@ -74,6 +74,14 @@ class FormRenderService
                 || !empty($form->custom_code_mode)
             : ($form->hasAttribute('use_custom_code') && !empty($form->use_custom_code)) || !empty($form->custom_code_mode);
 
+        $normalizedFields = [];
+        foreach (FormSystemFieldHelper::filterFields($fields) as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $normalizedFields[] = $field;
+        }
+
         $fields = array_map(static function (array $field): array {
             $resolvedName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
             if ($resolvedName !== '') {
@@ -90,7 +98,7 @@ class FormRenderService
             }
             $field = self::resolveDynamicChoiceOptions($field);
             return $field;
-        }, FormSystemFieldHelper::filterFields($fields));
+        }, $normalizedFields);
         $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
         $customHtml = self::normalizeCustomFieldNames($customHtml, $fields);
         $customHtml = self::hydrateCustomDropdownOptions($customHtml, $fields);

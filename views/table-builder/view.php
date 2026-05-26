@@ -1334,6 +1334,13 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function setRowValues(row, values) {
+        if (!row) {
+            return;
+        }
+        row.setAttribute('data-row-values', JSON.stringify(values || {}));
+    }
+
     function collectRowData(row) {
         const data = {};
         row.querySelectorAll('[data-sheet-field]').forEach(function (field) {
@@ -1348,6 +1355,23 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
         return data;
+    }
+
+    function getChangedFields(row, currentData) {
+        const previousData = getRowValues(row);
+        const changes = {};
+        const keys = new Set(Object.keys(previousData).concat(Object.keys(currentData || {})));
+        keys.forEach(function (key) {
+            const beforeValue = previousData[key];
+            const afterValue = currentData[key];
+            if (String(beforeValue ?? '') !== String(afterValue ?? '')) {
+                changes[key] = {
+                    before: beforeValue,
+                    after: afterValue
+                };
+            }
+        });
+        return changes;
     }
 
     function buildFieldHtml(column, value, rowIndex, isDraft) {
@@ -1461,12 +1485,34 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        const rowId = row.getAttribute('data-row-index') || '';
+        const rawRowData = collectRowData(row);
+        const changedFields = getChangedFields(row, rawRowData);
+        const rowKey = getRowKey(row);
+        console.debug('[Spreadsheet] saveRow', {
+            row_id: rowId,
+            row_key: rowKey,
+            raw_row_data: rawRowData,
+            changed_fields: changedFields
+        });
+
         const formData = new FormData();
         formData.append('_csrf', csrfToken);
         formData.append('table_id', '<?= (int)$model->id ?>');
         formData.append('operation', 'upsert_row');
-        formData.append('row_data', JSON.stringify(collectRowData(row)));
-        formData.append('row_key', JSON.stringify(getRowKey(row)));
+        formData.append('row_data', JSON.stringify(rawRowData));
+        formData.append('row_key', JSON.stringify(rowKey));
+
+        console.debug('[Spreadsheet] payload', {
+            row_id: rowId,
+            row_key: rowKey,
+            payload_update: {
+                table_id: '<?= (int)$model->id ?>',
+                operation: 'upsert_row',
+                row_key: rowKey,
+                row_data: rawRowData
+            }
+        });
 
         setRowStatus(row, '', 'Menyimpan...');
 
@@ -1483,11 +1529,11 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error((data && data.message) ? data.message : 'Gagal menyimpan baris');
             }
             row.setAttribute('data-row-key', JSON.stringify(data.row_key || {}));
-            row.setAttribute('data-row-values', JSON.stringify(data.row_data || collectRowData(row)));
+            setRowValues(row, data.row_data || rawRowData);
             row.setAttribute('data-row-state', 'saved');
             row.classList.remove('sheet-draft');
             setRowStatus(row, 'saved', 'Tersimpan');
-            syncFormViewRow(data.row_key || getRowKey(row), data.row_data || collectRowData(row));
+            syncFormViewRow(data.row_key || rowKey, data.row_data || rawRowData);
             setMode('form');
             if (tableName === 'users') {
                 const passwordField = row.querySelector('[data-column="password"] [data-sheet-field]');
@@ -1508,6 +1554,18 @@ document.addEventListener('DOMContentLoaded', function () {
     function bindSheetRow(row) {
         row.querySelectorAll('[data-sheet-field]').forEach(function (field) {
             field.addEventListener('change', function () {
+                const column = field.getAttribute('data-column') || '';
+                const currentValue = field.type === 'checkbox' ? (field.checked ? 1 : 0) : field.value;
+                const selectedOptionLabel = field.tagName && field.tagName.toLowerCase() === 'select'
+                    ? (field.options && field.selectedIndex >= 0 && field.options[field.selectedIndex] ? String(field.options[field.selectedIndex].text || '') : '')
+                    : '';
+                console.debug('[Spreadsheet] field change', {
+                    row_id: row.getAttribute('data-row-index') || '',
+                    column: column,
+                    value: currentValue,
+                    option_label: selectedOptionLabel,
+                    field_type: field.type || field.tagName.toLowerCase()
+                });
                 markRowDirty(row);
             });
             field.addEventListener('blur', function () {

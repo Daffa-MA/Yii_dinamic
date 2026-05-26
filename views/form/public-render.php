@@ -9,6 +9,7 @@
 use yii\bootstrap5\Html;
 use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
+use app\services\FormRenderService;
 
 $this->title = $model->name;
 $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
@@ -19,6 +20,7 @@ $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_S
 $fieldConstraintsJson = json_encode($fieldConstraints, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 $resolveFieldName = static function (array $field): string {
+    $field = FormRenderService::normalizeFieldForRender($field);
     $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
     if ($name !== '') {
         return $name;

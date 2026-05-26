@@ -254,7 +254,14 @@ class FormRenderService
     public static function normalizeFieldForRender(array $field, int $index = 0): array
     {
         $relationConfig = self::extractRelationConfig($field);
-        $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? $relationConfig['local_column'] ?? $relationConfig['source_column'] ?? $relationConfig['column_name'] ?? ''));
+        $relationName = trim((string)($relationConfig['local_column'] ?? $relationConfig['source_column'] ?? $relationConfig['column_name'] ?? $relationConfig['field_name'] ?? $relationConfig['field_key'] ?? ''));
+        $metadataName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['column_name'] ?? $field['local_column'] ?? $field['source_column'] ?? $field['source_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? ''));
+        $name = self::isRelationField($field) && $relationName !== ''
+            ? $relationName
+            : $metadataName;
+        if (self::looksLikeFallbackFieldName($name) && $relationName !== '') {
+            $name = $relationName;
+        }
         if ($name === '') {
             $name = 'field_' . ($index + 1);
         }
@@ -295,6 +302,13 @@ class FormRenderService
             || !empty($field['referenced_table_name'])
             || in_array($type, ['foreign_key', 'relation', 'relasi'], true)
             || !empty(self::extractRelationConfig($field));
+    }
+
+    private static function looksLikeFallbackFieldName(string $name): bool
+    {
+        $normalized = strtolower(trim($name));
+        return preg_match('/^field[\s_-]*\d+$/', $normalized) === 1
+            || preg_match('/^kolom[\s_-]*\d+$/', $normalized) === 1;
     }
 
     private static function extractRelationConfig(array $field): array

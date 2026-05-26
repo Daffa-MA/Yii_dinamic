@@ -1139,12 +1139,26 @@ class MasterFormController extends Controller
             $insertData = [];
             $fieldMappingDebug = [];
             
-            foreach ($fields as $field) {
-                $fieldName = $field['name'] ?? null;
+            foreach ($fields as $fieldIndex => $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+                $rawFieldName = (string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? '');
+                $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, $columns);
                 $fieldType = $field['type'] ?? 'text';
                 $isExcluded = !empty($field['excluded']);
                 
-                if (!$fieldName || $isExcluded || FormSystemFieldHelper::isSystemFieldData($field)) {
+                if (!$fieldName || !isset($columns->columns[$fieldName]) || $isExcluded || FormSystemFieldHelper::isSystemFieldData($field)) {
+                    $fieldMappingDebug[] = [
+                        'raw_field' => $rawFieldName,
+                        'label' => (string)($field['label'] ?? $field['field_label'] ?? ''),
+                        'resolved_column' => (string)$fieldName,
+                        'column_exists' => $fieldName !== '' && isset($columns->columns[$fieldName]),
+                        'field_type' => $fieldType,
+                        'skipped' => true,
+                        'skip_reason' => !$fieldName ? 'empty_resolved_column' : (!isset($columns->columns[$fieldName]) ? 'resolved_column_not_in_schema' : ($isExcluded ? 'excluded' : 'system_field')),
+                        'relation_config' => $field['relation_config'] ?? null,
+                    ];
                     continue;
                 }
                 
@@ -1160,11 +1174,14 @@ class MasterFormController extends Controller
                 }
 
                 $fieldMappingDebug[] = [
-                    'raw_field' => (string)($field['original_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? ''),
+                    'raw_field' => (string)($field['original_name'] ?? $rawFieldName),
                     'label' => (string)($field['label'] ?? $field['field_label'] ?? ''),
                     'resolved_column' => (string)$fieldName,
+                    'column_name' => (string)$fieldName,
+                    'column_exists' => true,
                     'field_type' => $fieldType,
                     'posted_value' => $postedValue,
+                    'relation_config' => $field['relation_config'] ?? null,
                 ];
             }
 
@@ -1204,6 +1221,7 @@ class MasterFormController extends Controller
                 'target_table' => $tableName,
                 'schema_columns' => $colNames,
                 'raw_post_keys' => array_keys($postData),
+                'raw_post_payload' => $postData,
                 'normalized_payload' => $insertData,
                 'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
                 'field_mapping' => $fieldMappingDebug,
@@ -1229,6 +1247,7 @@ class MasterFormController extends Controller
                     'target_table' => $tableName,
                     'schema_columns' => $colNames,
                     'raw_post_keys' => array_keys($postData),
+                    'raw_post_payload' => $postData,
                     'normalized_payload' => $insertData,
                     'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
                     'field_mapping' => $fieldMappingDebug,

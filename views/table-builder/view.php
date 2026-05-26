@@ -1483,6 +1483,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 throw new Error((data && data.message) ? data.message : 'Gagal menyimpan baris');
             }
             row.setAttribute('data-row-key', JSON.stringify(data.row_key || {}));
+            row.setAttribute('data-row-values', JSON.stringify(data.row_data || collectRowData(row)));
             row.setAttribute('data-row-state', 'saved');
             row.classList.remove('sheet-draft');
             setRowStatus(row, 'saved', 'Tersimpan');

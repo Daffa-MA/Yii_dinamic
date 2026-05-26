@@ -381,17 +381,18 @@ $this->title = 'Preview: ' . $formName;
                 
                 <?php foreach ($fields as $field): ?>
                     <?php
-                    $type = FormSystemFieldHelper::resolveFieldInputType($field);
+                    $type = trim((string)($field['inputType'] ?? FormSystemFieldHelper::resolveFieldInputType($field)));
                     $label = $field['label'] ?? $field['name'] ?? 'Field';
-                    $name = $field['name'] ?? 'field_' . uniqid();
+                    $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+                    if ($name === '') {
+                        $name = 'field_' . uniqid();
+                    }
                     $required = !empty($field['required']);
                     $placeholder = $field['placeholder'] ?? '';
                     $defaultValue = $field['default_value'] ?? '';
-                    $isFk = !empty($field['is_foreign_key']);
+                    $isFk = !empty($field['is_foreign_key']) || strtolower((string)($field['componentType'] ?? '')) === 'foreign_key';
                     $isExcluded = !empty($field['excluded']);
-                    $fkOptions = $field['fk_options'] ?? [];
-                    $options = $field['options'] ?? [];
-                    $allOptions = !empty($fkOptions) ? $fkOptions : $options;
+                    $options = is_array($field['options'] ?? null) ? $field['options'] : [];
                     $fieldCustomHtml = trim((string)($field['customHtml'] ?? ''));
                     $fieldCustomCss = trim((string)($field['customCss'] ?? ''));
                     $fieldCustomJs = trim((string)($field['customJs'] ?? ''));
@@ -439,8 +440,15 @@ $this->title = 'Preview: ' . $formName;
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <?php
                             $optionsList = ['' => 'Pilih...'];
-                            foreach ($allOptions as $opt) {
-                                $optionsList[$opt['value']] = $opt['label'];
+                            foreach ($options as $opt) {
+                                if (!is_array($opt)) {
+                                    continue;
+                                }
+                                $optionValue = (string)($opt['value'] ?? '');
+                                if ($optionValue === '') {
+                                    continue;
+                                }
+                                $optionsList[$optionValue] = (string)($opt['label'] ?? $optionValue);
                             }
                             ?>
                             <?= Html::dropDownList($name, $defaultValue, $optionsList, ['class' => 'preview-input preview-select', 'required' => $required]) ?>
@@ -461,6 +469,7 @@ $this->title = 'Preview: ' . $formName;
                             <?= Html::label($label, '', ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <div class="preview-checkbox-group">
                                 <?php foreach ($options as $opt): ?>
+                                    <?php if (!is_array($opt) || trim((string)($opt['value'] ?? '')) === '') continue; ?>
                                     <label class="preview-checkbox-item">
                                         <?= Html::checkbox($name . '[]', false, ['class' => 'preview-input', 'value' => $opt['value'] ?? '']) ?>
                                         <span><?= Html::encode($opt['label'] ?? '') ?></span>
@@ -472,6 +481,7 @@ $this->title = 'Preview: ' . $formName;
                             <?= Html::label($label, '', ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <div class="preview-radio-group">
                                 <?php foreach ($options as $opt): ?>
+                                    <?php if (!is_array($opt) || trim((string)($opt['value'] ?? '')) === '') continue; ?>
                                     <label class="preview-radio-item">
                                         <?= Html::radio($name, false, ['class' => 'preview-input', 'value' => $opt['value'] ?? '']) ?>
                                         <span><?= Html::encode($opt['label'] ?? '') ?></span>

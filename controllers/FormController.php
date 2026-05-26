@@ -330,7 +330,6 @@ class FormController extends Controller
 
         $normalizedFieldName = $this->normalizeInputKey($fieldName);
         $normalizedFieldWithoutId = $this->stripForeignKeySuffix($fieldName);
-        $normalizedFieldLabel = $this->normalizeInputKey($fieldLabel);
 
         foreach ($fkConfig as $key => $config) {
             if (!is_array($config)) {
@@ -364,15 +363,6 @@ class FormController extends Controller
                     return (string)$key;
                 }
             }
-
-            $normalizedConfigLabel = $this->normalizeInputKey((string)($config['fieldLabel'] ?? ''));
-            if (
-                $normalizedFieldLabel !== ''
-                && $normalizedConfigLabel !== ''
-                && $normalizedFieldLabel === $normalizedConfigLabel
-            ) {
-                return (string)$key;
-            }
         }
 
         return null;
@@ -397,7 +387,7 @@ class FormController extends Controller
                 continue;
             }
 
-            $fieldName = trim((string)($field['name'] ?? $field['label'] ?? ''));
+            $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
             if ($fieldName === '') {
                 continue;
             }
@@ -609,12 +599,12 @@ class FormController extends Controller
             }
         }
 
-        foreach ($schema as $field) {
+        foreach ($schema as $index => $field) {
             if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field) || !$this->isInteractiveSubmissionField($field)) {
                 continue;
             }
 
-            $fieldName = trim((string)($field['name'] ?? $field['label'] ?? ''));
+            $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
             if ($fieldName === '') {
                 continue;
             }
@@ -623,14 +613,6 @@ class FormController extends Controller
             $normalizedFieldName = $this->normalizeInputKey($fieldName);
             if ($normalizedFieldName !== '') {
                 $candidateKeys[] = $normalizedFieldName;
-            }
-
-            $fieldLabel = trim((string)($field['label'] ?? ''));
-            if ($fieldLabel !== '') {
-                $normalizedLabel = $this->normalizeInputKey($fieldLabel);
-                if ($normalizedLabel !== '') {
-                    $candidateKeys[] = $normalizedLabel;
-                }
             }
 
             foreach ($candidateKeys as $candidateKey) {
@@ -675,6 +657,34 @@ class FormController extends Controller
     private function normalizeInputKey(string $key): string
     {
         return strtolower(trim(preg_replace('/[^a-z0-9_]+/i', '_', $key), '_'));
+    }
+
+    private function resolveSchemaFieldName(array $field, int $index = 0): string
+    {
+        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+        if ($name !== '') {
+            return $name;
+        }
+
+        $sourceColumnId = (int)($field['source_column_id'] ?? 0);
+        if ($sourceColumnId > 0) {
+            $sourceColumn = \app\models\DbTableColumn::findOne($sourceColumnId);
+            if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
+                return (string)$sourceColumn->name;
+            }
+        }
+
+        return 'field_' . ($index + 1);
+    }
+
+    private function resolveSchemaFieldLabel(array $field, string $fieldName): string
+    {
+        $label = trim((string)($field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
+        if ($label !== '') {
+            return $label;
+        }
+
+        return $fieldName !== '' ? ucwords(str_replace('_', ' ', $fieldName)) : 'Field';
     }
 
     private function resolveSafeReturnUrl(): ?string
@@ -750,19 +760,19 @@ class FormController extends Controller
             }
         }
 
-        foreach ($schema as $field) {
+        foreach ($schema as $index => $field) {
             if (!is_array($field)) {
                 continue;
             }
 
-            $fieldName = trim((string)($field['name'] ?? $field['label'] ?? ''));
+            $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
             if ($fieldName === '') {
                 continue;
             }
 
             $schemaMaxLength = (int)($field['max_length'] ?? $field['maxlength'] ?? 0);
             $normalizedFieldName = $this->normalizeInputKey($fieldName);
-            $normalizedLabel = $this->normalizeInputKey((string)($field['label'] ?? ''));
+            $normalizedLabel = $this->normalizeInputKey((string)($field['label'] ?? $field['field_label'] ?? ''));
             $constraint = $lookup[$fieldName]
                 ?? ($normalizedFieldName !== '' ? ($lookup[$normalizedFieldName] ?? null) : null)
                 ?? ($normalizedLabel !== '' ? ($lookup[$normalizedLabel] ?? null) : null);
@@ -770,7 +780,7 @@ class FormController extends Controller
             if ($constraint === null && $schemaMaxLength > 0) {
                 $constraint = [
                     'field' => $fieldName,
-                    'label' => trim((string)($field['label'] ?? $fieldName)) ?: $fieldName,
+                    'label' => $this->resolveSchemaFieldLabel($field, $fieldName),
                     'maxlength' => $schemaMaxLength,
                     'source' => 'form_schema',
                 ];
@@ -784,7 +794,7 @@ class FormController extends Controller
 
             $constraint['field'] = $fieldName;
             if (trim((string)($constraint['label'] ?? '')) === '') {
-                $constraint['label'] = trim((string)($field['label'] ?? $fieldName)) ?: $fieldName;
+                $constraint['label'] = $this->resolveSchemaFieldLabel($field, $fieldName);
             }
 
             $byField[$fieldName] = $constraint;
@@ -1049,11 +1059,6 @@ class FormController extends Controller
             $normalizedColumnName = $this->normalizeInputKey($columnName);
             if ($normalizedColumnName !== '') {
                 $candidateKeys[] = $normalizedColumnName;
-            }
-
-            $normalizedLabel = $this->normalizeInputKey((string)($column['label'] ?? ''));
-            if ($normalizedLabel !== '') {
-                $candidateKeys[] = $normalizedLabel;
             }
 
             if ($normalizedColumnName !== '' && substr($normalizedColumnName, -3) === '_id') {
@@ -1679,10 +1684,10 @@ class FormController extends Controller
 
         if (Yii::$app->request->isPost) {
             $data = [];
-            foreach ($schema as $field) {
+            foreach ($schema as $index => $field) {
                 if (!is_array($field)) continue;
                 if (FormSystemFieldHelper::isSystemFieldData($field)) continue;
-                $name = $field['name'] ?? $field['label'] ?? '';
+                $name = $this->resolveSchemaFieldName($field, (int)$index);
                 if ($name) {
                     $data[$name] = Yii::$app->request->post($name, '');
                 }

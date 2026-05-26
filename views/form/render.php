@@ -25,6 +25,107 @@ $fieldConstraints = isset($fieldConstraints) && is_array($fieldConstraints) ? $f
 $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 $fieldConstraintsJson = json_encode($fieldConstraints, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
+$resolveFieldName = static function (array $field): string {
+    $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+    if ($name !== '') {
+        return $name;
+    }
+
+    $sourceColumnId = (int)($field['source_column_id'] ?? 0);
+    if ($sourceColumnId > 0) {
+        $sourceColumn = \app\models\DbTableColumn::findOne($sourceColumnId);
+        if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
+            return (string)$sourceColumn->name;
+        }
+    }
+
+    return '';
+};
+
+$resolveOptionsFromField = static function (array $field) use ($fkConfig): array {
+    $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+    if ($fieldName !== '' && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) {
+        $configOptions = $fkConfig[$fieldName]['options'] ?? [];
+        if (is_array($configOptions) && !empty($configOptions)) {
+            return $configOptions;
+        }
+    }
+
+    $dropdownSource = strtolower(trim((string)($field['dropdown_source'] ?? $field['options_source'] ?? '')));
+    if ($dropdownSource === 'table') {
+        $tableId = (int)($field['source_table_id'] ?? $field['dropdown_table_id'] ?? 0);
+        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? ''));
+        $labelColumn = trim((string)($field['label_column'] ?? $field['dropdown_label_column'] ?? ''));
+        if ($tableId > 0 && $valueColumn !== '' && $labelColumn !== '') {
+            $table = \app\models\DbTable::findOne($tableId);
+            if ($table !== null) {
+                $schema = Yii::$app->db->schema->getTableSchema((string)$table->name, true);
+                if ($schema !== null && isset($schema->columns[$valueColumn]) && isset($schema->columns[$labelColumn])) {
+                    $rows = (new \yii\db\Query())
+                        ->select([
+                            'value' => $valueColumn,
+                            'label' => $labelColumn,
+                        ])
+                        ->from((string)$table->name)
+                        ->orderBy([$labelColumn => SORT_ASC])
+                        ->limit(500)
+                        ->all(Yii::$app->db);
+
+                    $options = [];
+                    foreach ($rows as $row) {
+                        $value = isset($row['value']) ? (string)$row['value'] : '';
+                        if ($value === '') {
+                            continue;
+                        }
+                        $label = trim((string)($row['label'] ?? ''));
+                        $options[] = [
+                            'value' => $value,
+                            'label' => $label !== '' ? $label : $value,
+                        ];
+                    }
+
+                    if (!empty($options)) {
+                        return $options;
+                    }
+                }
+            }
+        }
+    }
+
+    $options = $field['fk_options'] ?? $field['options'] ?? [];
+    if (is_string($options)) {
+        $options = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $options) ?: []));
+        return array_map(static fn(string $opt): array => ['value' => $opt, 'label' => $opt], $options);
+    }
+    if (!is_array($options)) {
+        return [];
+    }
+
+    $normalized = [];
+    foreach ($options as $opt) {
+        if (is_array($opt)) {
+            $value = trim((string)($opt['value'] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $label = trim((string)($opt['label'] ?? $value));
+            $normalized[] = [
+                'value' => $value,
+                'label' => $label !== '' ? $label : $value,
+            ];
+            continue;
+        }
+
+        $opt = trim((string)$opt);
+        if ($opt === '') {
+            continue;
+        }
+        $normalized[] = ['value' => $opt, 'label' => $opt];
+    }
+
+    return $normalized;
+};
+
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
@@ -157,8 +258,8 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                         <div class="space-y-6">
                             <?php foreach ($schema as $field): ?>
                                 <?php
-                                $fieldName = $field['name'] ?? $field['label'] ?? '';
-                                $fieldLabel = $field['label'] ?? $fieldName;
+                                $fieldName = $resolveFieldName($field);
+                                $fieldLabel = $field['label'] ?? $field['field_label'] ?? ($fieldName !== '' ? ucwords(str_replace('_', ' ', $fieldName)) : 'Field');
                                 $required = !empty($field['required']);
                                 $placeholder = $field['placeholder'] ?? $fieldLabel;
                                 $options = $required ? 'required' : '';
@@ -214,17 +315,34 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                         <select name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" <?= $options ?>>
                                             <option value=""><?= Html::encode($placeholder ?: '-- Select --') ?></option>
                                             <?php
-                                            $optionsList = [];
-                                            if (isset($field['options'])) {
+                                            $optionsList = $resolveOptionsFromField($field);
+                                            if (empty($optionsList) && isset($field['options'])) {
                                                 if (is_string($field['options'])) {
-                                                    $optionsList = array_filter(array_map('trim', explode("\n", $field['options'])));
+                                                    $lines = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)$field['options']) ?: []));
+                                                    foreach ($lines as $line) {
+                                                        $optionsList[] = ['value' => $line, 'label' => $line];
+                                                    }
                                                 } elseif (is_array($field['options'])) {
-                                                    $optionsList = $field['options'];
+                                                    foreach ($field['options'] as $opt) {
+                                                        if (is_array($opt)) {
+                                                            $value = trim((string)($opt['value'] ?? ''));
+                                                            if ($value === '') {
+                                                                continue;
+                                                            }
+                                                            $label = trim((string)($opt['label'] ?? $value));
+                                                            $optionsList[] = ['value' => $value, 'label' => $label !== '' ? $label : $value];
+                                                        } else {
+                                                            $opt = trim((string)$opt);
+                                                            if ($opt !== '') {
+                                                                $optionsList[] = ['value' => $opt, 'label' => $opt];
+                                                            }
+                                                        }
+                                                    }
                                                 }
                                             }
                                             foreach ($optionsList as $opt):
                                             ?>
-                                                <option value="<?= Html::encode(trim($opt)) ?>"><?= Html::encode(trim($opt)) ?></option>
+                                                <option value="<?= Html::encode((string)($opt['value'] ?? '')) ?>"><?= Html::encode((string)($opt['label'] ?? '')) ?></option>
                                             <?php endforeach; ?>
                                         </select>
 

@@ -2005,18 +2005,35 @@ class TableBuilderController extends Controller
     private function buildGenericSpreadsheetColumnConfigs(DbTable $model, array $columns): array
     {
         $configs = [];
+        $tableSchema = Yii::$app->db->schema->getTableSchema((string)$model->name, true);
+        $schemaLookup = $tableSchema !== null ? $this->buildSpreadsheetSchemaColumnLookup($tableSchema) : [];
         foreach ($columns as $column) {
             if (SystemFieldService::shouldHideFromForm($column)) {
                 continue;
             }
-            $configs[] = $this->buildSpreadsheetColumnConfig($column);
+            $physicalName = (string)$column->name;
+            if ($tableSchema !== null) {
+                $resolvedName = $this->resolveSpreadsheetSchemaColumnName((string)$column->name, $tableSchema, $schemaLookup);
+                if ($resolvedName === null || !isset($tableSchema->columns[$resolvedName])) {
+                    Yii::warning([
+                        'table_name' => (string)$model->name,
+                        'metadata_column' => (string)$column->name,
+                        'reason' => 'spreadsheet_column_not_in_physical_schema',
+                        'schema_columns' => array_keys($tableSchema->columns),
+                    ], 'table-spreadsheet-debug');
+                    continue;
+                }
+                $physicalName = $resolvedName;
+            }
+            $configs[] = $this->buildSpreadsheetColumnConfig($column, $physicalName);
         }
 
         return $configs;
     }
 
-    private function buildSpreadsheetColumnConfig(DbTableColumn $column): array
+    private function buildSpreadsheetColumnConfig(DbTableColumn $column, ?string $physicalName = null): array
     {
+        $physicalName = $physicalName !== null && $physicalName !== '' ? $physicalName : (string)$column->name;
         $type = strtoupper((string)$column->type);
         $isPrimary = (bool)$column->is_primary;
         $isUnique = (bool)$column->is_unique;
@@ -2044,12 +2061,13 @@ class TableBuilderController extends Controller
         }
 
         return [
-            'name' => $column->name,
-            'field_key' => $column->name,
-            'field_name' => $column->name,
-            'column_name' => $column->name,
-            'resolved_name' => $column->name,
-            'resolved_column_name' => $column->name,
+            'name' => $physicalName,
+            'field_key' => $physicalName,
+            'field_name' => $physicalName,
+            'column_name' => $physicalName,
+            'resolved_name' => $physicalName,
+            'resolved_column_name' => $physicalName,
+            'metadata_column_name' => $column->name,
             'label' => $column->label ?: $column->name,
             'resolved_label' => $column->label ?: $column->name,
             'type' => $type,
@@ -2064,15 +2082,15 @@ class TableBuilderController extends Controller
             'options' => $options,
             'relation_config' => $isForeignKey ? [
                 'target_table' => (string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : ''),
-                'source_column' => (string)$column->name,
-                'local_column' => (string)$column->name,
+                'source_column' => $physicalName,
+                'local_column' => $physicalName,
                 'referenced_table' => (string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : ''),
                 'referenced_column' => (string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : ''),
                 'value_column' => (string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : ''),
                 'display_column' => $this->guessLabelColumnForForeignKey($column),
             ] : [],
-            'source_column' => $column->name,
-            'source_column_name' => $column->name,
+            'source_column' => $physicalName,
+            'source_column_name' => $physicalName,
             'source_column_label' => $column->label ?: $column->name,
             'source_column_type' => $type,
             'option_value' => $isForeignKey ? (string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : '') : $column->name,
@@ -2123,11 +2141,21 @@ class TableBuilderController extends Controller
         if (strtolower((string)$model->name) === 'users') {
             $values = $this->buildUsersSpreadsheetRowValues($row);
         } else {
+            $tableSchema = Yii::$app->db->schema->getTableSchema((string)$model->name, true);
+            $schemaLookup = $tableSchema !== null ? $this->buildSpreadsheetSchemaColumnLookup($tableSchema) : [];
             foreach ($columns as $column) {
                 if (SystemFieldService::shouldHideFromForm($column)) {
                     continue;
                 }
-                $values[$column->name] = $row[$column->name] ?? null;
+                $physicalName = (string)$column->name;
+                if ($tableSchema !== null) {
+                    $resolvedName = $this->resolveSpreadsheetSchemaColumnName((string)$column->name, $tableSchema, $schemaLookup);
+                    if ($resolvedName === null) {
+                        continue;
+                    }
+                    $physicalName = $resolvedName;
+                }
+                $values[$physicalName] = $row[$physicalName] ?? ($row[$column->name] ?? null);
             }
         }
 

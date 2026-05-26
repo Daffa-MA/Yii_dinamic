@@ -69,6 +69,7 @@ class MasterFormController extends Controller
      */
     private function validateInsertDataLengths(array $insertData, array $schemaColumns): ?string
     {
+        $invalidFields = [];
         foreach ($insertData as $columnName => $value) {
             if (!isset($schemaColumns[$columnName])) {
                 continue;
@@ -86,9 +87,34 @@ class MasterFormController extends Controller
             }
 
             if (mb_strlen(trim((string)$value), 'UTF-8') > $maxLength) {
-                $label = ucwords(str_replace('_', ' ', (string)$columnName));
-                return "Nilai pada field {$label} terlalu panjang. Maksimal {$maxLength} karakter.";
+                $invalidFields[] = $this->formatColumnLabel((string)$columnName) . " maksimal {$maxLength} karakter";
             }
+        }
+
+        if (!empty($invalidFields)) {
+            return 'Nilai pada field berikut terlalu panjang: ' . implode(', ', $invalidFields) . '.';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $insertData
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     */
+    private function validateInsertDataColumns(array $insertData, array $schemaColumns): ?string
+    {
+        $unknownFields = [];
+        foreach (array_keys($insertData) as $columnName) {
+            if (isset($schemaColumns[$columnName])) {
+                continue;
+            }
+
+            $unknownFields[] = $this->formatColumnLabel((string)$columnName);
+        }
+
+        if (!empty($unknownFields)) {
+            return 'Field berikut tidak ditemukan di tabel target: ' . implode(', ', $unknownFields) . '. Mohon sinkronkan ulang field form dengan tabel.';
         }
 
         return null;
@@ -100,6 +126,7 @@ class MasterFormController extends Controller
      */
     private function validateRequiredInsertData(array $insertData, array $schemaColumns): ?string
     {
+        $missingFields = [];
         foreach ($schemaColumns as $columnName => $column) {
             if ($this->isSubmitSystemColumn((string)$columnName, $column)) {
                 continue;
@@ -113,11 +140,19 @@ class MasterFormController extends Controller
                 continue;
             }
 
-            $label = ucwords(str_replace('_', ' ', (string)$columnName));
-            return "Field {$label} wajib diisi karena kolom target tidak mengizinkan nilai kosong.";
+            $missingFields[] = $this->formatColumnLabel((string)$columnName);
+        }
+
+        if (!empty($missingFields)) {
+            return 'Field berikut wajib diisi karena kolom target tidak mengizinkan nilai kosong: ' . implode(', ', $missingFields) . '.';
         }
 
         return null;
+    }
+
+    private function formatColumnLabel(string $columnName): string
+    {
+        return ucwords(str_replace('_', ' ', $this->normalizeDatabaseColumnName($columnName)));
     }
 
     /**
@@ -839,6 +874,29 @@ class MasterFormController extends Controller
             }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
+
+            $columnError = $this->validateInsertDataColumns($insertData, $columns->columns);
+            if ($columnError !== null) {
+                FormFlowDebugLogger::logSubmit([
+                    'host' => Yii::$app->request->hostInfo,
+                    'project_id' => $this->getActiveProjectId(),
+                    'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                    'form_id' => (int)$model->id,
+                    'target_table_id' => $tableId,
+                    'resolved_table_name' => $tableName,
+                    'metadata_found' => true,
+                    'metadata_source' => 'master_form.table_id',
+                    'submitted_fields' => array_keys($postData),
+                    'system_fields_applied' => $systemFieldsApplied,
+                    'insert_result' => 'schema_mismatch',
+                    'error' => $columnError,
+                ]);
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $columnError];
+                }
+                Yii::$app->session->setFlash('error', $columnError);
+                return $this->redirect(['preview', 'id' => $id]);
+            }
 
             $requiredError = $this->validateRequiredInsertData($insertData, $columns->columns);
             if ($requiredError !== null) {

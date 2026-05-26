@@ -99,8 +99,8 @@ class FormRenderService
             $field = self::resolveDynamicChoiceOptions($field);
             return $field;
         }, $normalizedFields);
-        $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
         $customHtml = self::normalizeCustomFieldNames($customHtml, $fields);
+        $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
         $customHtml = self::hydrateCustomDropdownOptions($customHtml, $fields);
 
         return [

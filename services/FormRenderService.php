@@ -5,6 +5,7 @@ namespace app\services;
 use app\components\CustomCodeSandbox;
 use app\helpers\FormSystemFieldHelper;
 use app\models\DbTable;
+use app\models\DbTableColumn;
 use app\models\MasterForm;
 use app\models\MasterFormLayout;
 use Yii;
@@ -153,7 +154,7 @@ class FormRenderService
 
     public static function resolveDynamicChoiceOptions(array $field): array
     {
-        $relationConfig = self::extractRelationConfig($field);
+        $relationConfig = self::resolveRelationConfig($field);
         $isForeignKey = self::isRelationField($field);
         if ($isForeignKey) {
             $field['is_foreign_key'] = true;
@@ -261,7 +262,7 @@ class FormRenderService
 
     public static function normalizeFieldForRender(array $field, int $index = 0): array
     {
-        $relationConfig = self::extractRelationConfig($field);
+        $relationConfig = self::resolveRelationConfig($field);
         $relationName = trim((string)($relationConfig['local_column'] ?? $relationConfig['source_column'] ?? $relationConfig['column_name'] ?? $relationConfig['field_name'] ?? $relationConfig['field_key'] ?? ''));
         $metadataName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['column_name'] ?? $field['local_column'] ?? $field['source_column'] ?? $field['source_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? ''));
         $name = self::isRelationField($field) && $relationName !== ''
@@ -327,13 +328,16 @@ class FormRenderService
 
     public static function isRelationField(array $field): bool
     {
-        $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? $field['component_type'] ?? $field['componentType'] ?? '')));
-        return !empty($field['is_foreign_key'])
-            || !empty($field['fk_referenced_table'])
-            || !empty($field['foreign_key_table'])
-            || !empty($field['referenced_table_name'])
-            || in_array($type, ['foreign_key', 'relation', 'relasi'], true)
-            || !empty(self::extractRelationConfig($field));
+        $relationConfig = self::resolveRelationConfig($field);
+        if (self::isCompleteRelationConfig($relationConfig)) {
+            return true;
+        }
+
+        $localColumn = trim((string)($field['resolved_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? $field['local_column'] ?? $field['source_column'] ?? ''));
+        $referencedTable = trim((string)($field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($field['fk_referenced_column'] ?? $field['referenced_value_column'] ?? $field['referenced_column_name'] ?? $field['value_column'] ?? ''));
+
+        return $localColumn !== '' && $referencedTable !== '' && $referencedValueColumn !== '';
     }
 
     public static function looksLikeFallbackFieldName(string $name): bool
@@ -485,6 +489,104 @@ class FormRenderService
         }
 
         return [];
+    }
+
+    private static function resolveRelationConfig(array $field): array
+    {
+        $relationConfig = self::extractRelationConfig($field);
+        if (self::isCompleteRelationConfig($relationConfig)) {
+            return self::normalizeRelationConfigKeys($relationConfig, $field);
+        }
+
+        $metadataConfig = self::buildRelationConfigFromMetadata($field);
+        if (self::isCompleteRelationConfig($metadataConfig)) {
+            return self::normalizeRelationConfigKeys(array_merge($relationConfig, $metadataConfig), $field);
+        }
+
+        return [];
+    }
+
+    private static function buildRelationConfigFromMetadata(array $field): array
+    {
+        $localColumn = trim((string)($field['resolved_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? $field['local_column'] ?? $field['source_column'] ?? ''));
+        $sourceColumnId = (int)($field['source_column_id'] ?? 0);
+        $sourceColumn = $sourceColumnId > 0 ? DbTableColumn::findOne($sourceColumnId) : null;
+
+        $referencedTable = trim((string)($field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($field['fk_referenced_column'] ?? $field['referenced_value_column'] ?? $field['referenced_column_name'] ?? $field['value_column'] ?? ''));
+        $displayColumn = trim((string)($field['fk_display_column'] ?? $field['display_column'] ?? $field['label_column'] ?? ''));
+
+        if ($sourceColumn instanceof DbTableColumn) {
+            if ($localColumn === '') {
+                $localColumn = trim((string)$sourceColumn->name);
+            }
+            if ($referencedTable === '' && $sourceColumn->hasAttribute('referenced_table_name')) {
+                $referencedTable = trim((string)$sourceColumn->getAttribute('referenced_table_name'));
+            }
+            if ($referencedValueColumn === '' && $sourceColumn->hasAttribute('referenced_column_name')) {
+                $referencedValueColumn = trim((string)$sourceColumn->getAttribute('referenced_column_name'));
+            }
+        }
+
+        if ($referencedTable === '' || $referencedValueColumn === '' || $localColumn === '') {
+            return [];
+        }
+
+        if ($displayColumn === '') {
+            try {
+                $schema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
+                if ($schema !== null) {
+                    $displayColumn = self::resolveDisplayColumnForSchema($schema, $referencedTable, $referencedValueColumn, '');
+                }
+            } catch (\Throwable $e) {
+                $displayColumn = '';
+            }
+        }
+
+        return array_filter([
+            'local_column' => $localColumn,
+            'source_column' => $localColumn,
+            'column_name' => $localColumn,
+            'referenced_table' => $referencedTable,
+            'referenced_table_name' => $referencedTable,
+            'referenced_value_column' => $referencedValueColumn,
+            'referenced_column' => $referencedValueColumn,
+            'referenced_column_name' => $referencedValueColumn,
+            'value_column' => $referencedValueColumn,
+            'display_column' => $displayColumn,
+            'display_column_name' => $displayColumn,
+        ], static fn($value): bool => $value !== null && $value !== '');
+    }
+
+    private static function isCompleteRelationConfig(array $config): bool
+    {
+        $localColumn = trim((string)($config['local_column'] ?? $config['source_column'] ?? $config['column_name'] ?? ''));
+        $referencedTable = trim((string)($config['referenced_table'] ?? $config['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($config['referenced_value_column'] ?? $config['referenced_column'] ?? $config['referenced_column_name'] ?? $config['value_column'] ?? ''));
+
+        return $localColumn !== '' && $referencedTable !== '' && $referencedValueColumn !== '';
+    }
+
+    private static function normalizeRelationConfigKeys(array $config, array $field = []): array
+    {
+        $localColumn = trim((string)($config['local_column'] ?? $config['source_column'] ?? $config['column_name'] ?? $field['resolved_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+        $referencedTable = trim((string)($config['referenced_table'] ?? $config['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($config['referenced_value_column'] ?? $config['referenced_column'] ?? $config['referenced_column_name'] ?? $config['value_column'] ?? ''));
+        $displayColumn = trim((string)($config['display_column'] ?? $config['display_column_name'] ?? ''));
+
+        return array_filter(array_merge($config, [
+            'local_column' => $localColumn,
+            'source_column' => $localColumn,
+            'column_name' => $localColumn,
+            'referenced_table' => $referencedTable,
+            'referenced_table_name' => $referencedTable,
+            'referenced_value_column' => $referencedValueColumn,
+            'referenced_column' => $referencedValueColumn,
+            'referenced_column_name' => $referencedValueColumn,
+            'value_column' => $referencedValueColumn,
+            'display_column' => $displayColumn,
+            'display_column_name' => $displayColumn,
+        ]), static fn($value): bool => $value !== null && $value !== '');
     }
 
     public static function prepareCustomFormSubmission(string $html, int $formId, array $hiddenInputs = []): string

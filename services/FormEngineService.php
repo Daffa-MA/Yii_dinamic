@@ -242,13 +242,13 @@ class FormEngineService
         $resolvedField['source_column_name'] = $sourceColumn !== null ? (string)$sourceColumn->name : (string)($fieldData['source_column_name'] ?? '');
         $resolvedField['source_column_label'] = $sourceColumn !== null ? (string)($sourceColumn->label ?? $sourceColumn->name) : (string)($fieldData['source_column_label'] ?? '');
         $resolvedField['source_column_type'] = $sourceColumn !== null ? (string)($sourceColumn->type ?? '') : (string)($fieldData['source_column_type'] ?? '');
-        $relationConfig = $this->extractRelationConfig($fieldData);
+        $relationConfig = $this->resolveRelationConfig($fieldData, $sourceColumn, $resolvedName);
         $isMetadataFk = $sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key');
-        $resolvedField['is_foreign_key'] = !empty($fieldData['is_foreign_key']) || !empty($fieldData['fk_referenced_table']) || !empty($fieldData['foreign_key_table']) || $isMetadataFk || !empty($relationConfig);
+        $resolvedField['is_foreign_key'] = $this->isCompleteRelationConfig($relationConfig) || $isMetadataFk;
 
         if ($resolvedField['is_foreign_key']) {
             $referencedTable = (string)($fieldData['fk_referenced_table'] ?? $fieldData['foreign_key_table'] ?? $fieldData['referenced_table_name'] ?? $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? '');
-            $referencedColumn = (string)($fieldData['fk_referenced_column'] ?? $fieldData['referenced_column_name'] ?? $relationConfig['referenced_column'] ?? $relationConfig['referenced_column_name'] ?? $relationConfig['value_column'] ?? '');
+            $referencedColumn = (string)($fieldData['fk_referenced_column'] ?? $fieldData['referenced_value_column'] ?? $fieldData['referenced_column_name'] ?? $relationConfig['referenced_value_column'] ?? $relationConfig['referenced_column'] ?? $relationConfig['referenced_column_name'] ?? $relationConfig['value_column'] ?? '');
             $displayColumn = (string)($fieldData['fk_display_column'] ?? $fieldData['label_column'] ?? $relationConfig['display_column'] ?? $relationConfig['display_column_name'] ?? '');
 
             if ($sourceColumn !== null) {
@@ -381,6 +381,82 @@ class FormEngineService
         }
 
         return [];
+    }
+
+    private function resolveRelationConfig(array $fieldData, ?DbTableColumn $sourceColumn = null, string $resolvedName = ''): array
+    {
+        $relationConfig = $this->extractRelationConfig($fieldData);
+        if ($this->isCompleteRelationConfig($relationConfig)) {
+            return $this->normalizeRelationConfig($relationConfig, $resolvedName);
+        }
+
+        $localColumn = trim((string)($resolvedName ?: ($fieldData['name'] ?? $fieldData['field_name'] ?? $fieldData['field_key'] ?? $fieldData['column_name'] ?? '')));
+        $referencedTable = trim((string)($fieldData['fk_referenced_table'] ?? $fieldData['foreign_key_table'] ?? $fieldData['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($fieldData['fk_referenced_column'] ?? $fieldData['referenced_value_column'] ?? $fieldData['referenced_column_name'] ?? $fieldData['value_column'] ?? ''));
+        $displayColumn = trim((string)($fieldData['fk_display_column'] ?? $fieldData['display_column'] ?? $fieldData['label_column'] ?? ''));
+
+        if ($sourceColumn !== null) {
+            if ($localColumn === '') {
+                $localColumn = trim((string)$sourceColumn->name);
+            }
+            if ($referencedTable === '' && $sourceColumn->hasAttribute('referenced_table_name')) {
+                $referencedTable = trim((string)$sourceColumn->getAttribute('referenced_table_name'));
+            }
+            if ($referencedValueColumn === '' && $sourceColumn->hasAttribute('referenced_column_name')) {
+                $referencedValueColumn = trim((string)$sourceColumn->getAttribute('referenced_column_name'));
+            }
+        }
+
+        $metadataConfig = array_filter([
+            'local_column' => $localColumn,
+            'source_column' => $localColumn,
+            'column_name' => $localColumn,
+            'referenced_table' => $referencedTable,
+            'referenced_table_name' => $referencedTable,
+            'referenced_value_column' => $referencedValueColumn,
+            'referenced_column' => $referencedValueColumn,
+            'referenced_column_name' => $referencedValueColumn,
+            'value_column' => $referencedValueColumn,
+            'display_column' => $displayColumn,
+            'display_column_name' => $displayColumn,
+        ], static fn($value): bool => $value !== null && $value !== '');
+
+        if ($this->isCompleteRelationConfig($metadataConfig)) {
+            return $this->normalizeRelationConfig(array_merge($relationConfig, $metadataConfig), $localColumn);
+        }
+
+        return [];
+    }
+
+    private function isCompleteRelationConfig(array $config): bool
+    {
+        $localColumn = trim((string)($config['local_column'] ?? $config['source_column'] ?? $config['column_name'] ?? ''));
+        $referencedTable = trim((string)($config['referenced_table'] ?? $config['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($config['referenced_value_column'] ?? $config['referenced_column'] ?? $config['referenced_column_name'] ?? $config['value_column'] ?? ''));
+
+        return $localColumn !== '' && $referencedTable !== '' && $referencedValueColumn !== '';
+    }
+
+    private function normalizeRelationConfig(array $config, string $resolvedName = ''): array
+    {
+        $localColumn = trim((string)($config['local_column'] ?? $config['source_column'] ?? $config['column_name'] ?? $resolvedName));
+        $referencedTable = trim((string)($config['referenced_table'] ?? $config['referenced_table_name'] ?? ''));
+        $referencedValueColumn = trim((string)($config['referenced_value_column'] ?? $config['referenced_column'] ?? $config['referenced_column_name'] ?? $config['value_column'] ?? ''));
+        $displayColumn = trim((string)($config['display_column'] ?? $config['display_column_name'] ?? ''));
+
+        return array_filter(array_merge($config, [
+            'local_column' => $localColumn,
+            'source_column' => $localColumn,
+            'column_name' => $localColumn,
+            'referenced_table' => $referencedTable,
+            'referenced_table_name' => $referencedTable,
+            'referenced_value_column' => $referencedValueColumn,
+            'referenced_column' => $referencedValueColumn,
+            'referenced_column_name' => $referencedValueColumn,
+            'value_column' => $referencedValueColumn,
+            'display_column' => $displayColumn,
+            'display_column_name' => $displayColumn,
+        ]), static fn($value): bool => $value !== null && $value !== '');
     }
 
     private function resolveCanonicalFieldLabel(array $fieldData, string $fieldName, ?DbTableColumn $sourceColumn = null): string

@@ -1571,30 +1571,50 @@ class MasterFormController extends Controller
 
         $candidates = array_filter(array_unique([
             $fieldName,
+            $fieldName !== '' ? '__fk_display_' . $fieldName : '',
             (string)($field['resolved_name'] ?? ''),
+            !empty($field['resolved_name']) ? '__fk_display_' . (string)$field['resolved_name'] : '',
             (string)($field['resolved_column_name'] ?? ''),
+            !empty($field['resolved_column_name']) ? '__fk_display_' . (string)$field['resolved_column_name'] : '',
             (string)($field['name'] ?? ''),
+            !empty($field['name']) ? '__fk_display_' . (string)$field['name'] : '',
             (string)($field['field_name'] ?? ''),
+            !empty($field['field_name']) ? '__fk_display_' . (string)$field['field_name'] : '',
             (string)($field['column_name'] ?? ''),
+            !empty($field['column_name']) ? '__fk_display_' . (string)$field['column_name'] : '',
             (string)($field['field_key'] ?? ''),
+            !empty($field['field_key']) ? '__fk_display_' . (string)$field['field_key'] : '',
             (string)($field['original_column'] ?? ''),
+            !empty($field['original_column']) ? '__fk_display_' . (string)$field['original_column'] : '',
             (string)($field['local_column'] ?? ''),
+            !empty($field['local_column']) ? '__fk_display_' . (string)$field['local_column'] : '',
             (string)($field['source_column'] ?? ''),
+            !empty($field['source_column']) ? '__fk_display_' . (string)$field['source_column'] : '',
             (string)($field['source_column_name'] ?? ''),
+            !empty($field['source_column_name']) ? '__fk_display_' . (string)$field['source_column_name'] : '',
             (string)($field['label'] ?? ''),
             (string)($field['field_label'] ?? ''),
             (string)($field['labelText'] ?? ''),
             (string)($relationConfig['local_column'] ?? ''),
+            !empty($relationConfig['local_column']) ? '__fk_display_' . (string)$relationConfig['local_column'] : '',
             (string)($relationConfig['source_column'] ?? ''),
+            !empty($relationConfig['source_column']) ? '__fk_display_' . (string)$relationConfig['source_column'] : '',
             (string)($relationConfig['column_name'] ?? ''),
+            !empty($relationConfig['column_name']) ? '__fk_display_' . (string)$relationConfig['column_name'] : '',
             (string)($relationConfig['original_column'] ?? ''),
+            !empty($relationConfig['original_column']) ? '__fk_display_' . (string)$relationConfig['original_column'] : '',
             (string)($relationConfig['field_name'] ?? ''),
+            !empty($relationConfig['field_name']) ? '__fk_display_' . (string)$relationConfig['field_name'] : '',
             (string)($relationConfig['field_key'] ?? ''),
+            !empty($relationConfig['field_key']) ? '__fk_display_' . (string)$relationConfig['field_key'] : '',
         ]));
 
         foreach ($candidates as $candidate) {
             if (array_key_exists($candidate, $postData)) {
-                return $postData[$candidate];
+                $value = $postData[$candidate];
+                if ($value !== null && $value !== '') {
+                    return $value;
+                }
             }
 
             $normalizedCandidate = $this->normalizeSubmitKey((string)$candidate);
@@ -1604,7 +1624,9 @@ class MasterFormController extends Controller
                 }
 
                 if ($this->normalizeSubmitKey($postedKey) === $normalizedCandidate) {
-                    return $postedValue;
+                    if ($postedValue !== null && $postedValue !== '') {
+                        return $postedValue;
+                    }
                 }
             }
         }
@@ -1634,17 +1656,31 @@ class MasterFormController extends Controller
     private function resolvePostedColumnValue(array $postData, string $columnName)
     {
         if (array_key_exists($columnName, $postData)) {
-            return $postData[$columnName];
+            $exactValue = $postData[$columnName];
+            if ($exactValue !== null && $exactValue !== '') {
+                return $exactValue;
+            }
+        }
+
+        $displayKey = '__fk_display_' . $columnName;
+        if (array_key_exists($displayKey, $postData)) {
+            $displayValue = $postData[$displayKey];
+            if ($displayValue !== null && $displayValue !== '') {
+                return $displayValue;
+            }
         }
 
         $normalizedColumn = $this->normalizeSubmitKey($columnName);
         foreach ($postData as $key => $value) {
             $normalizedKey = $this->normalizeSubmitKey((string)$key);
             if ($normalizedKey === $normalizedColumn
+                || $normalizedKey === $this->normalizeSubmitKey($displayKey)
                 || str_starts_with($normalizedKey, $normalizedColumn . '_')
                 || str_ends_with($normalizedKey, '_' . $normalizedColumn)
             ) {
-                return $value;
+                if ($value !== null && $value !== '') {
+                    return $value;
+                }
             }
         }
 

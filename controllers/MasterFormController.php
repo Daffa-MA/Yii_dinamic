@@ -1333,11 +1333,16 @@ class MasterFormController extends Controller
                 ];
             }
 
-            $preSystemInsertData = $insertData;
-            if (empty($preSystemInsertData)) {
-                $insertData = $this->extractRawPostedTableData($postData, $columns->columns);
-                $preSystemInsertData = $insertData;
+            $rawPostedTableData = $this->extractRawPostedTableData($postData, $columns->columns);
+            if (!empty($rawPostedTableData)) {
+                foreach ($rawPostedTableData as $columnName => $postedValue) {
+                    if (!array_key_exists($columnName, $insertData)) {
+                        $insertData[$columnName] = $postedValue;
+                    }
+                }
             }
+
+            $preSystemInsertData = $insertData;
             if (empty($preSystemInsertData)) {
                 $postedFieldNames = array_keys($postData);
                 $formFieldNames = array_column($fields, 'name');
@@ -1393,6 +1398,7 @@ class MasterFormController extends Controller
                 'schema_columns' => $colNames,
                 'raw_post_keys' => array_keys($postData),
                 'raw_post_payload' => $postData,
+                'raw_posted_table_data' => $rawPostedTableData,
                 'normalized_payload' => $insertData,
                 'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
                 'field_mapping' => $fieldMappingDebug,

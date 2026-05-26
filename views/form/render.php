@@ -278,10 +278,13 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                         <?php
                                         $fkOptions = isset($fkMeta['options']) && is_array($fkMeta['options']) ? $fkMeta['options'] : [];
                                         $quickAddFields = isset($fkMeta['quickAddFields']) && is_array($fkMeta['quickAddFields']) ? $fkMeta['quickAddFields'] : [];
+                                        $fkSelectName = '__fk_display_' . $fieldName;
                                         ?>
                                         <div class="flex items-center gap-2">
-                                            <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                            <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
+                                            <select name="<?= Html::encode($fkSelectName) ?>" <?= $options ?>
                                                 data-fk-field="<?= Html::encode($fieldName) ?>"
+                                                data-fk-hidden-target="<?= Html::encode($fieldName) ?>"
                                                 class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container transition-all">
                                                 <option value=""><?= Html::encode($placeholder ?: '-- Pilih --') ?></option>
                                                 <?php foreach ($fkOptions as $fkOption): ?>
@@ -488,6 +491,17 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                 optionEl.textContent = String(opt.label ?? '');
                 targetSelect.appendChild(optionEl);
             });
+
+            syncForeignKeyMirror(targetSelect);
+        }
+
+        function syncForeignKeyMirror(select) {
+            if (!select || !select.form) return;
+            const targetName = select.getAttribute('data-fk-hidden-target');
+            if (!targetName) return;
+            const hiddenInput = select.form.querySelector('input[data-fk-hidden-input="' + targetName + '"]');
+            if (!hiddenInput) return;
+            hiddenInput.value = select.value || '';
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -500,6 +514,13 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
 
                 document.querySelectorAll('input[name="' + fieldName + '"], textarea[name="' + fieldName + '"]').forEach(function(element) {
                     element.setAttribute('maxlength', String(maxLength));
+                });
+            });
+
+            document.querySelectorAll('select[data-fk-hidden-target]').forEach(function(select) {
+                syncForeignKeyMirror(select);
+                select.addEventListener('change', function() {
+                    syncForeignKeyMirror(select);
                 });
             });
 

@@ -20,6 +20,7 @@ if (empty($fields)) {
     }
     $fields = is_array($formData) ? $formData : [];
 }
+$fields = array_values(array_filter($fields, static fn($field) => is_array($field)));
 $fields = array_map([FormRenderService::class, 'resolveDynamicChoiceOptions'], FormSystemFieldHelper::filterFields($fields));
 $formName = $model->form_name ?? 'Form';
 $formRenderService = new FormRenderService();
@@ -381,9 +382,12 @@ $this->title = 'Preview: ' . $formName;
                 
                 <?php foreach ($fields as $field): ?>
                     <?php
+                    if (!is_array($field)) {
+                        continue;
+                    }
                     $type = trim((string)($field['inputType'] ?? FormSystemFieldHelper::resolveFieldInputType($field)));
-                    $label = $field['label'] ?? $field['name'] ?? 'Field';
-                    $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+                    $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['name'] ?? $field['field_name'] ?? 'Field'));
+                    $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
                     if ($name === '') {
                         $name = 'field_' . uniqid();
                     }

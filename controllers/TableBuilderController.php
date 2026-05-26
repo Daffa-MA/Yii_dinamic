@@ -1582,6 +1582,18 @@ class TableBuilderController extends Controller
         $rowKeys = $this->normalizeSpreadsheetPayload(Yii::$app->request->post('row_keys', []));
         $statusValue = Yii::$app->request->post('status_value', null);
 
+        Yii::info([
+            'table_id' => $tableId,
+            'table_name' => (string)$model->name,
+            'operation' => $operation,
+            'schema_columns' => array_keys($tableSchema->columns),
+            'key_columns' => $keyColumns,
+            'raw_row_key' => $rowKey,
+            'raw_row_keys' => $rowKeys,
+            'raw_payload' => $payload,
+            'raw_payload_keys' => array_keys($payload),
+        ], 'table-spreadsheet-debug');
+
         try {
             if ($operation === 'delete_rows') {
                 $deleted = $this->deleteSpreadsheetRows($db, $model, $keyColumns, $rowKeys);
@@ -2033,16 +2045,38 @@ class TableBuilderController extends Controller
 
         return [
             'name' => $column->name,
+            'field_key' => $column->name,
+            'field_name' => $column->name,
+            'column_name' => $column->name,
+            'resolved_name' => $column->name,
+            'resolved_column_name' => $column->name,
             'label' => $column->label ?: $column->name,
+            'resolved_label' => $column->label ?: $column->name,
             'type' => $type,
             'length' => $column->length,
             'isPrimary' => $isPrimary,
             'isUnique' => $isUnique,
             'isAutoIncrement' => $isAutoIncrement,
             'isForeignKey' => $isForeignKey,
+            'is_foreign_key' => $isForeignKey,
             'isNullable' => (bool)$column->is_nullable,
             'inputType' => $inputType,
             'options' => $options,
+            'relation_config' => $isForeignKey ? [
+                'target_table' => (string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : ''),
+                'source_column' => (string)$column->name,
+                'local_column' => (string)$column->name,
+                'referenced_table' => (string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : ''),
+                'referenced_column' => (string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : ''),
+                'value_column' => (string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : ''),
+                'display_column' => $this->guessLabelColumnForForeignKey($column),
+            ] : [],
+            'source_column' => $column->name,
+            'source_column_name' => $column->name,
+            'source_column_label' => $column->label ?: $column->name,
+            'source_column_type' => $type,
+            'option_value' => $isForeignKey ? (string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : '') : $column->name,
+            'option_label' => $isForeignKey ? $this->guessLabelColumnForForeignKey($column) : ($column->label ?: $column->name),
             'readOnly' => SystemFieldService::shouldBeReadonlyInGrid($column),
             'isSystem' => SystemFieldService::isSystemManagedField($column),
             'sourceColumn' => $column->name,
@@ -2221,6 +2255,36 @@ class TableBuilderController extends Controller
         return $options;
     }
 
+    private function resolveForeignKeySchema(DbTableColumn $column): ?\yii\db\TableSchema
+    {
+        $referencedTable = strtolower(trim((string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : '')));
+        if ($referencedTable === '') {
+            return null;
+        }
+
+        try {
+            return $this->getPhysicalDb()->schema->getTableSchema($referencedTable, true);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function guessLabelColumnForForeignKey(DbTableColumn $column): string
+    {
+        $schema = $this->resolveForeignKeySchema($column);
+        $referencedColumn = strtolower(trim((string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : '')));
+        if ($schema === null) {
+            return $referencedColumn !== '' ? $referencedColumn : (string)$column->name;
+        }
+
+        if ($referencedColumn !== '' && isset($schema->columns[$referencedColumn])) {
+            return $this->guessLabelColumn($schema, $referencedColumn);
+        }
+
+        $primaryKey = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
+        return $this->guessLabelColumn($schema, $primaryKey);
+    }
+
     private function guessLabelColumn(\yii\db\TableSchema $schema, string $valueColumn): string
     {
         foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
@@ -2295,7 +2359,9 @@ class TableBuilderController extends Controller
      */
     private function resolveSpreadsheetPayloadValue(array $payload, DbTableColumn $column)
     {
-        $lookupKeys = [$column->name, $column->label];
+        $lookupKeys = $this->spreadsheetColumnAliases($column);
+        $lookupKeys[] = $column->name;
+        $lookupKeys[] = $column->label;
 
         foreach ($lookupKeys as $candidate) {
             $normalized = $this->normalizeSpreadsheetColumnKey($candidate);
@@ -2327,8 +2393,86 @@ class TableBuilderController extends Controller
      * @param array<int, DbTableColumn> $columns
      * @return array<string, mixed>
      */
+    private function normalizeSpreadsheetPayloadForColumns(array $payload, array $columns): array
+    {
+        $normalized = [];
+        $lookup = $this->buildSpreadsheetColumnLookup($columns);
+
+        foreach ($columns as $column) {
+            if (SystemFieldService::shouldHideFromForm($column)) {
+                continue;
+            }
+
+            $canonicalName = (string)$column->name;
+            $candidates = array_values(array_unique(array_filter([
+                $canonicalName,
+                (string)$column->label,
+                $this->resolveSpreadsheetPayloadAlias($column, 'field_key'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'field_name'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'column_name'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'resolved_name'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'resolved_column_name'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'source_column'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'source_column_name'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'original_column'),
+                $this->resolveSpreadsheetPayloadAlias($column, 'local_column'),
+            ])));
+
+            foreach ($candidates as $candidate) {
+                $normalizedCandidate = $this->normalizeSpreadsheetColumnKey($candidate);
+                if ($normalizedCandidate === '') {
+                    continue;
+                }
+
+                if (array_key_exists($candidate, $payload)) {
+                    $normalized[$canonicalName] = $payload[$candidate];
+                    continue 2;
+                }
+
+                if (array_key_exists($normalizedCandidate, $payload)) {
+                    $normalized[$canonicalName] = $payload[$normalizedCandidate];
+                    continue 2;
+                }
+            }
+
+            foreach ($payload as $payloadKey => $value) {
+                if (!is_string($payloadKey)) {
+                    continue;
+                }
+                $normalizedKey = $this->normalizeSpreadsheetColumnKey($payloadKey);
+                if ($normalizedKey !== '' && isset($lookup[$normalizedKey]) && $lookup[$normalizedKey]->name === $canonicalName) {
+                    $normalized[$canonicalName] = $value;
+                    break;
+                }
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param DbTableColumn $column
+     * @param string $key
+     * @return string
+     */
+    private function resolveSpreadsheetPayloadAlias(DbTableColumn $column, string $key): string
+    {
+        if (!$column->hasAttribute($key)) {
+            return '';
+        }
+
+        $value = $column->getAttribute($key);
+        return is_string($value) ? trim($value) : '';
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, DbTableColumn> $columns
+     * @return array<string, mixed>
+     */
     private function buildSpreadsheetRowDataFromPayload(array $payload, array $columns): array
     {
+        $payload = $this->normalizeSpreadsheetPayloadForColumns($payload, $columns);
         $rowData = [];
         foreach ($columns as $column) {
             if (SystemFieldService::shouldHideFromForm($column)) {
@@ -2438,6 +2582,8 @@ class TableBuilderController extends Controller
     private function upsertSpreadsheetRow(\yii\db\Connection $db, DbTable $model, array $columns, \yii\db\TableSchema $tableSchema, array $columnMap, array $keyColumns, array $payload, array $rowKey): array
     {
         $isUsersTable = strtolower((string)$model->name) === 'users';
+        $rawPayload = $payload;
+        $rawRowKey = $rowKey;
         $where = [];
         foreach ($keyColumns as $keyColumn) {
             $keyValue = $rowKey[$keyColumn] ?? ($payload[$keyColumn] ?? null);
@@ -2453,6 +2599,18 @@ class TableBuilderController extends Controller
         if (!empty($rowData)) {
             $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
         }
+
+        $beforeRow = !empty($where) ? (new \yii\db\Query())->from($model->name)->where($where)->one($db) : null;
+        Yii::info([
+            'table_name' => (string)$model->name,
+            'operation' => empty($where) ? 'insert' : 'update',
+            'row_key' => $rawRowKey,
+            'resolved_where' => $where,
+            'raw_payload' => $rawPayload,
+            'normalized_row_data' => $rowData,
+            'before_row' => $beforeRow,
+            'schema_columns' => array_keys($tableSchema->columns),
+        ], 'table-spreadsheet-debug');
 
         if (empty($where)) {
             $validation = $isUsersTable
@@ -2506,8 +2664,18 @@ class TableBuilderController extends Controller
                 ];
             }
 
-            $db->createCommand()->insert($model->name, $rowData)->execute();
+            $insertResult = $db->createCommand()->insert($model->name, $rowData)->execute();
             $insertId = $db->getLastInsertID();
+            $afterRow = !empty($tableSchema->primaryKey) && $insertId !== false && $insertId !== null
+                ? (new \yii\db\Query())->from($model->name)->where([$tableSchema->primaryKey[0] => $insertId])->one($db)
+                : null;
+            Yii::info([
+                'table_name' => (string)$model->name,
+                'sql_result' => $insertResult,
+                'insert_id' => $insertId,
+                'final_row_data' => $rowData,
+                'after_row' => $afterRow,
+            ], 'table-spreadsheet-debug');
             return [
                 'success' => true,
                 'message' => 'Baris berhasil disimpan.',
@@ -2540,7 +2708,15 @@ class TableBuilderController extends Controller
 
         $rowData = SystemFieldService::applyUpdateValues($rowData, $tableSchema->columns);
         $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
-        $db->createCommand()->update($model->name, $rowData, $where)->execute();
+        $updateResult = $db->createCommand()->update($model->name, $rowData, $where)->execute();
+        $afterRow = (new \yii\db\Query())->from($model->name)->where($where)->one($db);
+        Yii::info([
+            'table_name' => (string)$model->name,
+            'sql_result' => $updateResult,
+            'final_row_data' => $rowData,
+            'before_row' => $beforeRow,
+            'after_row' => $afterRow,
+        ], 'table-spreadsheet-debug');
         return [
             'success' => true,
             'message' => 'Baris berhasil disimpan.',

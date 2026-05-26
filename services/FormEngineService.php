@@ -231,6 +231,7 @@ class FormEngineService
      */
     private function resolveCanonicalFieldName(array $fieldData, int $index, $schema = null, ?DbTableColumn $sourceColumn = null): string
     {
+        $relationConfig = $this->extractRelationConfig($fieldData);
         $candidates = [];
         foreach ([
             $fieldData['name'] ?? null,
@@ -243,12 +244,12 @@ class FormEngineService
             $fieldData['source_column_name'] ?? null,
             $fieldData['relation_target_column'] ?? null,
             $fieldData['relation_value_column'] ?? null,
-            $fieldData['relation_config']['local_column'] ?? null,
-            $fieldData['relation_config']['source_column'] ?? null,
-            $fieldData['relation_config']['column_name'] ?? null,
-            $fieldData['relation_config']['original_column'] ?? null,
-            $fieldData['relation_config']['field_name'] ?? null,
-            $fieldData['relation_config']['field_key'] ?? null,
+            $relationConfig['local_column'] ?? null,
+            $relationConfig['source_column'] ?? null,
+            $relationConfig['column_name'] ?? null,
+            $relationConfig['original_column'] ?? null,
+            $relationConfig['field_name'] ?? null,
+            $relationConfig['field_key'] ?? null,
             $fieldData['label'] ?? null,
             $fieldData['field_label'] ?? null,
             $fieldData['labelText'] ?? null,
@@ -264,6 +265,11 @@ class FormEngineService
 
         $fallback = 'field_' . ($index + 1);
         if ($schema === null || empty($schema->columns)) {
+            $schemaLikeCandidate = $this->chooseSchemaLikeFieldNameCandidate($candidates);
+            if ($schemaLikeCandidate !== null && $schemaLikeCandidate !== '') {
+                return $schemaLikeCandidate;
+            }
+
             return $this->chooseBestFieldNameCandidate($candidates, [$fallback => $fallback]) ?: $fallback;
         }
 
@@ -274,6 +280,31 @@ class FormEngineService
         }
 
         return $fallback;
+    }
+
+    /**
+     * @param array<string, mixed> $fieldData
+     * @return array<string, mixed>
+     */
+    private function extractRelationConfig(array $fieldData): array
+    {
+        foreach (['relation_config', 'relationConfig', 'relation'] as $key) {
+            if (!array_key_exists($key, $fieldData)) {
+                continue;
+            }
+            $relationConfig = $fieldData[$key];
+            if (is_array($relationConfig)) {
+                return $relationConfig;
+            }
+            if (is_string($relationConfig) && trim($relationConfig) !== '') {
+                $decoded = Json::decode($relationConfig);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        }
+
+        return [];
     }
 
     private function resolveCanonicalFieldLabel(array $fieldData, string $fieldName, ?DbTableColumn $sourceColumn = null): string
@@ -381,6 +412,28 @@ class FormEngineService
         }
 
         return $bestScore >= 45.0 ? $bestMatch : null;
+    }
+
+    /**
+     * @param array<int, string> $candidates
+     */
+    private function chooseSchemaLikeFieldNameCandidate(array $candidates): ?string
+    {
+        foreach ($candidates as $candidate) {
+            $candidate = trim((string)$candidate);
+            if ($candidate === '') {
+                continue;
+            }
+
+            $normalized = strtolower($candidate);
+            if (preg_match('/^[a-z][a-z0-9_]*$/', $normalized) !== 1) {
+                continue;
+            }
+
+            return $normalized;
+        }
+
+        return null;
     }
 
     private function normalizeKey(string $value): string

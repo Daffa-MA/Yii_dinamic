@@ -13,6 +13,7 @@ use Yii;
 use yii\db\ActiveRecord;
 use yii\db\ActiveQuery;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Json;
 
 /**
  * This is the model class for table "master_form".
@@ -127,6 +128,10 @@ class MasterForm extends ActiveRecord
 
     public function beforeSave($insert)
     {
+        if (is_array($this->form_data)) {
+            $this->form_data = Json::encode($this->form_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
         if ($insert) {
             $this->created_at = date('Y-m-d H:i:s');
             $this->is_active = $this->is_active ?? 1;

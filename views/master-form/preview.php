@@ -21,9 +21,25 @@ if (empty($fields)) {
     $fields = is_array($formData) ? $formData : [];
 }
 $rawPreviewFields = array_values(array_filter($fields, static fn($field) => is_array($field)));
+$previewFieldDebug = [];
 $fields = [];
 foreach (FormSystemFieldHelper::filterFields($rawPreviewFields) as $index => $field) {
     $normalized = FormRenderService::normalizeFieldForRender($field, (int)$index);
+    $relationConfig = $normalized['relation_config'] ?? null;
+    if (is_string($relationConfig)) {
+        $relationConfig = json_decode($relationConfig, true);
+    }
+    $previewFieldDebug[] = [
+        'field_name' => $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? null,
+        'source_column_id' => $field['source_column_id'] ?? null,
+        'is_system_field' => FormSystemFieldHelper::isSystemFieldData($field),
+        'is_excluded' => !empty($field['excluded']),
+        'is_fk' => FormRenderService::isRelationField($normalized),
+        'relation_config' => $relationConfig,
+        'referenced_table' => $normalized['fk_referenced_table'] ?? null,
+        'referenced_value_column' => $normalized['fk_referenced_column'] ?? $normalized['value_column'] ?? null,
+        'display_column' => $normalized['fk_display_column'] ?? $normalized['display_column'] ?? null,
+    ];
     if (FormRenderService::isRelationField($normalized) && FormRenderService::looksLikeFallbackFieldName($normalized['name'] ?? '')) {
         $resolvedName = FormRenderService::resolveFkNameFromField($normalized);
         if ($resolvedName !== null && $resolvedName !== '' && !FormRenderService::looksLikeFallbackFieldName($resolvedName)) {
@@ -41,6 +57,7 @@ Yii::info([
     'form_id' => (int)$model->id,
     'target_table' => $model->table_id ?? null,
     'raw_fields_count' => count($rawPreviewFields),
+    'preview_field_debug' => $previewFieldDebug,
     'normalized_fields' => array_map(static function (array $field): array {
         return [
             'name' => $field['name'] ?? null,

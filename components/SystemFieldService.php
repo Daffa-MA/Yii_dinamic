@@ -3,6 +3,7 @@
 namespace app\components;
 
 use Yii;
+use app\services\FormRenderService;
 
 class SystemFieldService
 {
@@ -169,6 +170,20 @@ class SystemFieldService
         $normalizedName = strtolower(trim($fieldName));
         if (self::isAuditField($normalizedName)) {
             return true;
+        }
+
+        if (
+            (!empty($field['is_foreign_key']) || !empty($field['fk_referenced_table']) || !empty($field['fk_referenced_column']))
+            && !self::isAuditField($normalizedName)
+            && empty($field['is_primary'])
+            && empty($field['is_auto_increment'])
+            && empty($field['autoIncrement'])
+        ) {
+            return false;
+        }
+
+        if (class_exists(FormRenderService::class) && FormRenderService::isRelationField($field)) {
+            return false;
         }
 
         return !empty($field['is_primary'])

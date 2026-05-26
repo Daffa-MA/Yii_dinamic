@@ -1609,7 +1609,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
                                             
                                             <?= Html::a(
                                                 '<span class="material-symbols-outlined">tune</span><span>Settings</span>',
-                                                ['project/update', 'id' => $project->id],
+                                                ['project-list/update', 'id' => $project->id],
                                                 [
                                                     'class' => 'projects-button projects-button-secondary',
                                                     'encode' => false,
@@ -1618,7 +1618,7 @@ $activeProjectDatabase = ($activeProject !== null && isset($projectDatabases[(in
 
                                             <?= Html::a(
                                                 '<span class="material-symbols-outlined">delete</span><span>Hapus</span>',
-                                                ['project/delete', 'id' => $project->id],
+                                                ['project-list/delete', 'id' => $project->id],
                                                 [
                                                     'class' => 'projects-button projects-button-secondary',
                                                     'encode' => false,

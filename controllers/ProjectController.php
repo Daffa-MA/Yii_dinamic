@@ -421,8 +421,11 @@ private function insertDefaultCmsData($newDb): void
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['index', 'select', 'activate', 'open-workspace'],
+                        'actions' => ['index', 'select', 'activate', 'open-workspace', 'update', 'delete'],
                         'allow' => true,
+                        'matchCallback' => static function (): bool {
+                            return (new CommanderAuthContext())->isSuperAdmin();
+                        },
                     ],
                     [
                         'actions' => ['login', 'access-denied', 'change-password', 'logout'],

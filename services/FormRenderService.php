@@ -265,6 +265,12 @@ class FormRenderService
         if ($name === '') {
             $name = 'field_' . ($index + 1);
         }
+        if (self::looksLikeFallbackFieldName($name) && self::isRelationField($field)) {
+            $resolvedFkName = self::resolveFkNameFromField($field);
+            if ($resolvedFkName !== null && !self::looksLikeFallbackFieldName($resolvedFkName)) {
+                $name = $resolvedFkName;
+            }
+        }
         $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
         if ($label === '' || self::looksLikeFallbackFieldName($label)) {
             if (self::isRelationField($field)) {
@@ -278,7 +284,13 @@ class FormRenderService
                 }
             }
         }
-        if ($label === '') {
+        if ($label === '' || self::looksLikeFallbackFieldName($label)) {
+            $resolvedFkName = self::resolveFkNameFromField($field);
+            if ($resolvedFkName !== null && !self::looksLikeFallbackFieldName($resolvedFkName)) {
+                $label = $resolvedFkName;
+            }
+        }
+        if ($label === '' || self::looksLikeFallbackFieldName($label)) {
             $label = ucwords(str_replace('_', ' ', $name));
         }
 
@@ -305,7 +317,7 @@ class FormRenderService
         return $field;
     }
 
-    private static function isRelationField(array $field): bool
+    public static function isRelationField(array $field): bool
     {
         $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? $field['component_type'] ?? $field['componentType'] ?? '')));
         return !empty($field['is_foreign_key'])
@@ -316,11 +328,44 @@ class FormRenderService
             || !empty(self::extractRelationConfig($field));
     }
 
-    private static function looksLikeFallbackFieldName(string $name): bool
+    public static function looksLikeFallbackFieldName(string $name): bool
     {
         $normalized = strtolower(trim($name));
         return preg_match('/^field[\s_-]*\d+$/', $normalized) === 1
             || preg_match('/^kolom[\s_-]*\d+$/', $normalized) === 1;
+    }
+
+    public static function resolveFkNameFromField(array $field): ?string
+    {
+        $relationConfig = self::extractRelationConfig($field);
+        $candidates = array_filter(array_unique([
+            $relationConfig['local_column'] ?? null,
+            $relationConfig['source_column'] ?? null,
+            $relationConfig['column_name'] ?? null,
+            $relationConfig['original_column'] ?? null,
+            $relationConfig['field_name'] ?? null,
+            $relationConfig['field_key'] ?? null,
+            $field['source_column_name'] ?? null,
+            $field['local_column'] ?? null,
+            $field['source_column'] ?? null,
+            $field['relation_target_column'] ?? null,
+            $field['name'] ?? null,
+            $field['field_name'] ?? null,
+            $field['column_name'] ?? null,
+            $field['field_key'] ?? null,
+        ]));
+        $nonFallback = array_values(array_filter($candidates, static fn(string $v): bool => $v !== '' && !self::looksLikeFallbackFieldName($v)));
+        if (!empty($nonFallback)) {
+            return $nonFallback[0];
+        }
+        $referencedTable = $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? $field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? '';
+        if ($referencedTable !== '') {
+            $candidate = strtolower(trim($referencedTable)) . '_id';
+            if (!self::looksLikeFallbackFieldName($candidate)) {
+                return $candidate;
+            }
+        }
+        return null;
     }
 
     private static function extractRelationConfig(array $field): array

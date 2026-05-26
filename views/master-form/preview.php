@@ -23,7 +23,19 @@ if (empty($fields)) {
 $rawPreviewFields = array_values(array_filter($fields, static fn($field) => is_array($field)));
 $fields = [];
 foreach (FormSystemFieldHelper::filterFields($rawPreviewFields) as $index => $field) {
-    $fields[] = FormRenderService::resolveDynamicChoiceOptions(FormRenderService::normalizeFieldForRender($field, (int)$index));
+    $normalized = FormRenderService::normalizeFieldForRender($field, (int)$index);
+    if (FormRenderService::isRelationField($normalized) && FormRenderService::looksLikeFallbackFieldName($normalized['name'] ?? '')) {
+        $resolvedName = FormRenderService::resolveFkNameFromField($normalized);
+        if ($resolvedName !== null && $resolvedName !== '' && !FormRenderService::looksLikeFallbackFieldName($resolvedName)) {
+            $normalized['name'] = $resolvedName;
+            $normalized['field_name'] = $resolvedName;
+            $normalized['field_key'] = $resolvedName;
+            $normalized['column_name'] = $resolvedName;
+            $normalized['resolved_name'] = $resolvedName;
+            $normalized['resolved_column_name'] = $resolvedName;
+        }
+    }
+    $fields[] = FormRenderService::resolveDynamicChoiceOptions($normalized);
 }
 Yii::info([
     'form_id' => (int)$model->id,

@@ -517,16 +517,29 @@ $this->title = 'Preview: ' . $formName;
                     if (!is_array($field)) {
                         continue;
                     }
+                    $fieldRelationConfig = $field['relation_config'] ?? null;
+                    if (is_string($fieldRelationConfig)) {
+                        $fieldRelationConfig = json_decode($fieldRelationConfig, true);
+                    }
+                    if (!is_array($fieldRelationConfig)) {
+                        $fieldRelationConfig = [];
+                    }
                     $type = trim((string)($field['inputType'] ?? FormSystemFieldHelper::resolveFieldInputType($field)));
                     $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['name'] ?? $field['field_name'] ?? 'Field'));
                     $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
-                    if ($name === '') {
-                        $name = 'field_' . uniqid();
-                    }
                     $required = !empty($field['required']);
                     $placeholder = $field['placeholder'] ?? '';
                     $defaultValue = $field['default_value'] ?? '';
                     $isFk = !empty($field['is_foreign_key']) || strtolower((string)($field['componentType'] ?? '')) === 'foreign_key';
+                    if ($isFk) {
+                        $canonicalFkName = trim((string)($fieldRelationConfig['local_column'] ?? $fieldRelationConfig['source_column'] ?? $fieldRelationConfig['column_name'] ?? $field['source_column_name'] ?? $field['local_column'] ?? $field['source_column'] ?? $field['column_name'] ?? $field['name'] ?? $field['field_name'] ?? ''));
+                        if ($canonicalFkName !== '') {
+                            $name = $canonicalFkName;
+                        }
+                    }
+                    if ($name === '') {
+                        $name = 'field_' . uniqid();
+                    }
                     $isExcluded = !empty($field['excluded']);
                     $options = is_array($field['options'] ?? null) ? $field['options'] : [];
                     $fieldCustomHtml = trim((string)($field['customHtml'] ?? ''));

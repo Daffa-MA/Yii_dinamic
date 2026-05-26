@@ -170,8 +170,8 @@ class FormRenderService
 
         $tableId = (int)($field['source_table_id'] ?? $field['dropdown_table_id'] ?? 0);
         $fkTableName = trim((string)($field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? $relationConfig['target_table'] ?? ''));
-        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? $field['fk_referenced_column'] ?? $field['foreign_key_column'] ?? $field['referenced_column_name'] ?? $relationConfig['value_column'] ?? $relationConfig['referenced_column'] ?? $relationConfig['referenced_column_name'] ?? ''));
-        $labelColumn = trim((string)($field['display_column'] ?? $field['label_column'] ?? $field['dropdown_label_column'] ?? $relationConfig['display_column'] ?? $relationConfig['display_column_name'] ?? ''));
+        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? $field['fk_referenced_column'] ?? $field['referenced_column_name'] ?? $relationConfig['referenced_value_column'] ?? $relationConfig['value_column'] ?? $relationConfig['referenced_column'] ?? $relationConfig['referenced_column_name'] ?? ''));
+        $labelColumn = trim((string)($field['display_column'] ?? $field['label_column'] ?? $field['dropdown_label_column'] ?? $field['fk_display_column'] ?? $relationConfig['display_column'] ?? $relationConfig['display_column_name'] ?? ''));
 
         try {
             $tableName = '';
@@ -195,24 +195,12 @@ class FormRenderService
                 return $field;
             }
 
-            if ($valueColumn === '' || !isset($schema->columns[$valueColumn])) {
-                $valueColumn = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
-            }
+            $valueColumn = self::resolveValueColumnForSchema($schema, $valueColumn);
             if ($valueColumn === '' || !isset($schema->columns[$valueColumn])) {
                 return $field;
             }
 
-            if ($labelColumn === '' || !isset($schema->columns[$labelColumn])) {
-                foreach (['name', 'title', 'label', 'slug', 'username', 'email'] as $candidate) {
-                    if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
-                        $labelColumn = $candidate;
-                        break;
-                    }
-                }
-            }
-            if ($labelColumn === '' || !isset($schema->columns[$labelColumn])) {
-                $labelColumn = $valueColumn;
-            }
+            $labelColumn = self::resolveDisplayColumnForSchema($schema, $tableName, $valueColumn, $labelColumn);
 
             $rows = (new \yii\db\Query())
                 ->select([
@@ -239,11 +227,31 @@ class FormRenderService
             }
 
             $field['options'] = $options;
+            $field['fk_options'] = $options;
             $field['inputType'] = $isForeignKey ? 'select' : ($field['inputType'] ?? $type);
             $field['type'] = $isForeignKey ? 'select' : ($field['type'] ?? $type);
             $field['dynamic_options_loaded'] = true;
             $field['value_column'] = $valueColumn;
+            $field['dropdown_value_column'] = $valueColumn;
+            $field['fk_referenced_column'] = $valueColumn;
             $field['display_column'] = $labelColumn;
+            $field['label_column'] = $labelColumn;
+            $field['dropdown_label_column'] = $labelColumn;
+            $field['fk_display_column'] = $labelColumn;
+            $field['fk_referenced_table'] = $tableName;
+            $field['relation_config'] = array_filter(array_merge($relationConfig, [
+                'local_column' => (string)($field['resolved_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''),
+                'source_column' => (string)($field['resolved_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''),
+                'column_name' => (string)($field['resolved_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''),
+                'referenced_table' => $tableName,
+                'referenced_table_name' => $tableName,
+                'referenced_value_column' => $valueColumn,
+                'referenced_column' => $valueColumn,
+                'referenced_column_name' => $valueColumn,
+                'value_column' => $valueColumn,
+                'display_column' => $labelColumn,
+                'display_column_name' => $labelColumn,
+            ]), static fn($value): bool => $value !== null && $value !== '');
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve dynamic dropdown options: ' . $e->getMessage(), 'form-render');
         }
@@ -366,6 +374,99 @@ class FormRenderService
             }
         }
         return null;
+    }
+
+    public static function resolveValueColumnForSchema(\yii\db\TableSchema $schema, string $requestedColumn = ''): string
+    {
+        $requestedColumn = trim($requestedColumn);
+        if ($requestedColumn !== '' && isset($schema->columns[$requestedColumn])) {
+            return $requestedColumn;
+        }
+
+        foreach (['id'] as $candidate) {
+            if (isset($schema->columns[$candidate])) {
+                return $candidate;
+            }
+        }
+
+        if (!empty($schema->primaryKey)) {
+            $primaryKey = (string)$schema->primaryKey[0];
+            if ($primaryKey !== '' && isset($schema->columns[$primaryKey])) {
+                return $primaryKey;
+            }
+        }
+
+        foreach ($schema->columns as $columnName => $columnSchema) {
+            if ($columnSchema->isPrimaryKey) {
+                return (string)$columnName;
+            }
+        }
+
+        foreach ($schema->columns as $columnName => $columnSchema) {
+            return (string)$columnName;
+        }
+
+        return 'id';
+    }
+
+    public static function resolveDisplayColumnForSchema(\yii\db\TableSchema $schema, string $tableName, string $valueColumn, string $requestedColumn = ''): string
+    {
+        $requestedColumn = trim($requestedColumn);
+        if ($requestedColumn !== '' && isset($schema->columns[$requestedColumn])) {
+            return $requestedColumn;
+        }
+
+        $normalizedTable = strtolower(trim($tableName));
+        $priorityCandidates = array_filter(array_unique([
+            'name',
+            'nama',
+            'title',
+            'label',
+            $normalizedTable !== '' ? 'nama_' . $normalizedTable : '',
+            'kode',
+        ]));
+
+        foreach ($priorityCandidates as $candidate) {
+            if ($candidate === $valueColumn) {
+                continue;
+            }
+            if (isset($schema->columns[$candidate])) {
+                return (string)$candidate;
+            }
+        }
+
+        foreach ($schema->columns as $columnName => $columnSchema) {
+            if (self::isReadableDisplayColumn($columnName, $columnSchema, $valueColumn)) {
+                return (string)$columnName;
+            }
+        }
+
+        foreach ($schema->columns as $columnName => $columnSchema) {
+            if ((string)$columnName !== $valueColumn) {
+                return (string)$columnName;
+            }
+        }
+
+        return $valueColumn;
+    }
+
+    private static function isReadableDisplayColumn(string $columnName, \yii\db\ColumnSchema $columnSchema, string $valueColumn): bool
+    {
+        if ($columnName === $valueColumn || $columnSchema->isPrimaryKey) {
+            return false;
+        }
+
+        $normalized = strtolower(trim($columnName));
+        if (in_array($normalized, ['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'], true)) {
+            return false;
+        }
+
+        if (substr($normalized, -3) === '_id') {
+            return false;
+        }
+
+        $phpType = strtolower((string)$columnSchema->phpType);
+        return in_array($phpType, ['string', 'integer', 'double'], true);
     }
 
     private static function extractRelationConfig(array $field): array

@@ -852,13 +852,17 @@ class MasterFormController extends Controller
             }
             if ($isFkField) {
                 $referencedTable = $sourceColumn->hasAttribute('referenced_table_name') ? (string)$sourceColumn->getAttribute('referenced_table_name') : '';
-                $referencedColumn = $sourceColumn->hasAttribute('referenced_column_name') ? (string)$sourceColumn->getAttribute('referenced_column_name') : '';
+                $referencedColumn = (string)($fieldData['fk_referenced_column'] ?? $fieldData['referenced_value_column'] ?? $fieldData['value_column'] ?? '');
+                if ($referencedColumn === '') {
+                    $referencedColumn = $sourceColumn->hasAttribute('referenced_column_name') ? (string)$sourceColumn->getAttribute('referenced_column_name') : '';
+                }
                 $relationConfig = array_filter(array_merge($relationConfig, [
                     'local_column' => $fieldName,
                     'source_column' => $fieldName,
                     'column_name' => $fieldName,
                     'referenced_table' => $referencedTable,
                     'referenced_table_name' => $referencedTable,
+                    'referenced_value_column' => $referencedColumn,
                     'referenced_column' => $referencedColumn,
                     'referenced_column_name' => $referencedColumn,
                     'value_column' => $referencedColumn,

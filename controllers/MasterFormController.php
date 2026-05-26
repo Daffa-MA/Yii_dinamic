@@ -1690,6 +1690,7 @@ class MasterFormController extends Controller
 
         $displayKey = '__fk_display_' . $columnName;
         $submitKey = '__fk_submit_' . $columnName;
+        $baseAlias = $this->baseForeignKeyAlias($columnName);
         if (array_key_exists($displayKey, $postData)) {
             $displayValue = $postData[$displayKey];
             if ($displayValue !== null && $displayValue !== '') {
@@ -1702,13 +1703,35 @@ class MasterFormController extends Controller
                 return $submitValue;
             }
         }
+        if ($baseAlias !== '' && $baseAlias !== $columnName && array_key_exists($baseAlias, $postData)) {
+            $baseValue = $postData[$baseAlias];
+            if ($baseValue !== null && $baseValue !== '') {
+                return $baseValue;
+            }
+        }
+        if ($baseAlias !== '' && $baseAlias !== $columnName && array_key_exists('__fk_display_' . $baseAlias, $postData)) {
+            $baseDisplayValue = $postData['__fk_display_' . $baseAlias];
+            if ($baseDisplayValue !== null && $baseDisplayValue !== '') {
+                return $baseDisplayValue;
+            }
+        }
+        if ($baseAlias !== '' && $baseAlias !== $columnName && array_key_exists('__fk_submit_' . $baseAlias, $postData)) {
+            $baseSubmitValue = $postData['__fk_submit_' . $baseAlias];
+            if ($baseSubmitValue !== null && $baseSubmitValue !== '') {
+                return $baseSubmitValue;
+            }
+        }
 
         $normalizedColumn = $this->normalizeSubmitKey($columnName);
+        $normalizedBaseAlias = $baseAlias !== '' ? $this->normalizeSubmitKey($baseAlias) : '';
         foreach ($postData as $key => $value) {
             $normalizedKey = $this->normalizeSubmitKey((string)$key);
             if ($normalizedKey === $normalizedColumn
                 || $normalizedKey === $this->normalizeSubmitKey($displayKey)
                 || $normalizedKey === $this->normalizeSubmitKey($submitKey)
+                || ($normalizedBaseAlias !== '' && $normalizedKey === $normalizedBaseAlias)
+                || ($normalizedBaseAlias !== '' && $normalizedKey === $this->normalizeSubmitKey('__fk_display_' . $baseAlias))
+                || ($normalizedBaseAlias !== '' && $normalizedKey === $this->normalizeSubmitKey('__fk_submit_' . $baseAlias))
                 || str_starts_with($normalizedKey, $normalizedColumn . '_')
                 || str_ends_with($normalizedKey, '_' . $normalizedColumn)
             ) {

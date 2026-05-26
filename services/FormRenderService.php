@@ -27,7 +27,11 @@ class FormRenderService
         $customHtml = (string)($renderPayload['customHtml'] ?? '');
         $customCss = trim((string)($renderPayload['customCss'] ?? ''));
         $customJs = trim((string)($renderPayload['customJs'] ?? ''));
+        $fields = is_array($renderPayload['fields'] ?? null) ? $renderPayload['fields'] : [];
         $formId = (int)($renderPayload['formId'] ?? 0);
+        if (!empty($fields)) {
+            $customHtml = self::hydrateCustomDropdownOptions($customHtml, $fields);
+        }
         if ($formId > 0) {
             $customHtml = self::prepareCustomFormSubmission($customHtml, $formId);
         }
@@ -80,6 +84,7 @@ class FormRenderService
         }, FormSystemFieldHelper::filterFields($fields));
         $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
         $customHtml = self::normalizeCustomFieldNames($customHtml, $fields);
+        $customHtml = self::hydrateCustomDropdownOptions($customHtml, $fields);
 
         return [
             'fields' => $fields,
@@ -96,27 +101,55 @@ class FormRenderService
     {
         $type = (string)($field['type'] ?? $field['field_type'] ?? '');
         $source = (string)($field['dropdown_source'] ?? $field['options_source'] ?? '');
-        if (!in_array($type, ['select', 'radio', 'checkboxes'], true) || $source !== 'table') {
+        $isForeignKey = !empty($field['is_foreign_key']);
+        if (!in_array($type, ['select', 'radio', 'checkboxes'], true) || ($source !== 'table' && !$isForeignKey)) {
             return $field;
         }
 
         $tableId = (int)($field['source_table_id'] ?? $field['dropdown_table_id'] ?? 0);
-        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? ''));
+        $fkTableName = trim((string)($field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? ''));
+        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? $field['fk_referenced_column'] ?? $field['foreign_key_column'] ?? $field['referenced_column_name'] ?? ''));
         $labelColumn = trim((string)($field['label_column'] ?? $field['dropdown_label_column'] ?? ''));
-        if ($tableId <= 0 || $valueColumn === '' || $labelColumn === '') {
-            return $field;
-        }
 
         try {
-            $table = DbTable::findOne($tableId);
-            if ($table === null) {
-                return $field;
+            $tableName = '';
+            if ($tableId > 0) {
+                $table = DbTable::findOne($tableId);
+                if ($table === null) {
+                    return $field;
+                }
+                $tableName = (string)$table->name;
+            } elseif ($fkTableName !== '') {
+                $tableName = $fkTableName;
             }
 
             $db = Yii::$app->db;
-            $schema = $db->schema->getTableSchema((string)$table->name, true);
-            if ($schema === null || !isset($schema->columns[$valueColumn]) || !isset($schema->columns[$labelColumn])) {
+            if ($tableName === '') {
                 return $field;
+            }
+
+            $schema = $db->schema->getTableSchema($tableName, true);
+            if ($schema === null) {
+                return $field;
+            }
+
+            if ($valueColumn === '' || !isset($schema->columns[$valueColumn])) {
+                $valueColumn = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
+            }
+            if ($valueColumn === '' || !isset($schema->columns[$valueColumn])) {
+                return $field;
+            }
+
+            if ($labelColumn === '' || !isset($schema->columns[$labelColumn])) {
+                foreach (['name', 'title', 'label', 'slug', 'username', 'email'] as $candidate) {
+                    if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
+                        $labelColumn = $candidate;
+                        break;
+                    }
+                }
+            }
+            if ($labelColumn === '' || !isset($schema->columns[$labelColumn])) {
+                $labelColumn = $valueColumn;
             }
 
             $rows = (new \yii\db\Query())
@@ -124,7 +157,7 @@ class FormRenderService
                     'value' => $valueColumn,
                     'label' => $labelColumn,
                 ])
-                ->from((string)$table->name)
+                ->from($tableName)
                 ->orderBy([$labelColumn => SORT_ASC])
                 ->limit(500)
                 ->all($db);
@@ -144,6 +177,10 @@ class FormRenderService
             }
 
             $field['options'] = $options;
+            if ($isForeignKey && !in_array($type, ['select', 'radio', 'checkboxes'], true)) {
+                $field['inputType'] = 'select';
+                $field['type'] = 'select';
+            }
             $field['dynamic_options_loaded'] = true;
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve dynamic dropdown options: ' . $e->getMessage(), 'form-render');
@@ -527,6 +564,91 @@ HTML;
     private static function escapeTokenValue(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $fields
+     */
+    private static function hydrateCustomDropdownOptions(string $html, array $fields): string
+    {
+        if (trim($html) === '' || empty($fields) || stripos($html, '<select') === false) {
+            return $html;
+        }
+
+        foreach ($fields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+            $fieldType = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? '')));
+            if ($fieldName === '' || $fieldType !== 'select') {
+                continue;
+            }
+
+            $options = self::resolveCustomDropdownOptions($field);
+            if (empty($options)) {
+                continue;
+            }
+
+            $optionHtml = '<option value="">' . htmlspecialchars('Pilih...', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</option>';
+            foreach ($options as $option) {
+                if (!is_array($option)) {
+                    continue;
+                }
+
+                $value = trim((string)($option['value'] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+
+                $label = trim((string)($option['label'] ?? $value));
+                $optionHtml .= '<option value="' . htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">' . htmlspecialchars($label !== '' ? $label : $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</option>';
+            }
+
+            $pattern = '/(<select\b(?=[^>]*\bname=["\']' . preg_quote($fieldName, '/') . '["\'])[^>]*>)([\s\S]*?)(<\/select>)/i';
+            $html = preg_replace_callback($pattern, static function (array $matches) use ($optionHtml): string {
+                return ($matches[1] ?? '') . $optionHtml . ($matches[3] ?? '</select>');
+            }, $html) ?? $html;
+        }
+
+        return $html;
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @return array<int, array{value:string,label:string}>
+     */
+    private static function resolveCustomDropdownOptions(array $field): array
+    {
+        $options = [];
+        foreach (['fk_options', 'options'] as $sourceKey) {
+            $source = $field[$sourceKey] ?? null;
+            if (is_string($source)) {
+                $lines = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $source) ?: []));
+                foreach ($lines as $line) {
+                    $options[] = ['value' => $line, 'label' => $line];
+                }
+            } elseif (is_array($source)) {
+                foreach ($source as $option) {
+                    if (!is_array($option)) {
+                        continue;
+                    }
+                    $value = trim((string)($option['value'] ?? ''));
+                    if ($value === '') {
+                        continue;
+                    }
+                    $label = trim((string)($option['label'] ?? $value));
+                    $options[] = ['value' => $value, 'label' => $label !== '' ? $label : $value];
+                }
+            }
+
+            if (!empty($options)) {
+                return $options;
+            }
+        }
+
+        return [];
     }
 }
 

@@ -1291,7 +1291,104 @@ document.addEventListener('DOMContentLoaded', function() {
         return escapeHtml(value);
     }
 
+    function getDropdownSourceMode(field) {
+        return field.dropdown_source === 'table' ? 'table' : 'manual';
+    }
+
+    function normalizeRelationMetadata(field) {
+        if (!field || typeof field !== 'object') {
+            return field;
+        }
+
+        const fieldName = String(field.name || field.field_name || field.field_key || field.column_name || '').trim();
+        if (fieldName) {
+            field.name = fieldName;
+            field.field_name = fieldName;
+            field.field_key = fieldName;
+            field.column_name = fieldName;
+        }
+
+        field.source_table_id = field.source_table_id || field.dropdown_table_id || '';
+        field.source_table_name = field.source_table_name || field.fk_referenced_table || field.referenced_table_name || '';
+        field.value_column = field.value_column || field.dropdown_value_column || field.fk_referenced_column || field.referenced_column_name || '';
+        field.label_column = field.label_column || field.dropdown_label_column || field.fk_display_column || '';
+        field.fk_referenced_table = field.fk_referenced_table || field.source_table_name || field.referenced_table_name || '';
+        field.fk_referenced_column = field.fk_referenced_column || field.value_column || field.referenced_column_name || '';
+        field.fk_display_column = field.fk_display_column || field.label_column || '';
+        field.relation_table_name = field.relation_table_name || field.source_table_name || field.fk_referenced_table || '';
+        field.relation_target_column = field.relation_target_column || field.name || '';
+        field.relation_value_column = field.relation_value_column || field.value_column || field.fk_referenced_column || '';
+        field.relation_display_column = field.relation_display_column || field.label_column || field.fk_display_column || '';
+
+        if (field.is_foreign_key || String(field.dropdown_source || '').toLowerCase() === 'table' || Array.isArray(field.fk_options)) {
+            field.is_foreign_key = true;
+        }
+
+        return field;
+    }
+
+    function isRelationField(field) {
+        return !!field && (
+            !!field.is_foreign_key ||
+            String(field.dropdown_source || '').toLowerCase() === 'table' ||
+            String(field.relation_table_name || '').trim() !== '' ||
+            String(field.fk_referenced_table || '').trim() !== '' ||
+            (Array.isArray(field.fk_options) && field.fk_options.length > 0)
+        );
+    }
+
+    function normalizeFieldState(field) {
+        field = normalizeRelationMetadata(field);
+        if (!field || typeof field !== 'object') {
+            return field;
+        }
+
+        if (!field.type && field.inputType) {
+            field.type = field.inputType;
+        }
+        if (!field.inputType && field.type) {
+            field.inputType = field.type;
+        }
+
+        if (field.type === 'select' && isRelationField(field)) {
+            field.options = Array.isArray(field.fk_options) && field.fk_options.length > 0
+                ? field.fk_options
+                : (Array.isArray(field.options) ? field.options : []);
+        }
+
+        return field;
+    }
+
+    function getFieldConfiguredOptions(field) {
+        field = normalizeFieldState(field);
+        if (!field) return [];
+
+        if (isRelationField(field)) {
+            if (Array.isArray(field.fk_options) && field.fk_options.length > 0) {
+                return field.fk_options;
+            }
+            if (Array.isArray(field.options) && field.options.length > 0) {
+                return field.options;
+            }
+            return [];
+        }
+
+        if (field.dropdown_source === 'table' && Array.isArray(field.options) && field.options.length > 0) {
+            return field.options;
+        }
+
+        if (Array.isArray(field.options) && field.options.length > 0) {
+            return field.options;
+        }
+
+        return [];
+    }
+
     function normalizeChoiceOptions(field) {
+        field = normalizeFieldState(field);
+        if (isRelationField(field)) {
+            return getFieldConfiguredOptions(field);
+        }
         if (!Array.isArray(field.options) || field.options.length === 0) {
             field.options = [
                 { value: 'opt1', label: 'Opsi 1' },
@@ -1303,10 +1400,6 @@ document.addEventListener('DOMContentLoaded', function() {
             label: opt.label ?? ('Opsi ' + (index + 1))
         }));
         return field.options;
-    }
-
-    function getDropdownSourceMode(field) {
-        return field.dropdown_source === 'table' ? 'table' : 'manual';
     }
 
     function buildDropdownTableOptions(selectedTableId) {
@@ -1356,6 +1449,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function refreshDropdownOptionsFromTable(field) {
+        field = normalizeFieldState(field);
         const tableId = field.source_table_id || field.dropdown_table_id || '';
         const valueColumn = field.value_column || field.dropdown_value_column || '';
         const labelColumn = field.label_column || field.dropdown_label_column || '';
@@ -1370,6 +1464,10 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success && Array.isArray(data.options)) {
                     field.options = data.options;
+                    field.fk_options = data.options;
+                    field.fk_referenced_table = field.fk_referenced_table || field.source_table_name || '';
+                    field.fk_display_column = field.fk_display_column || labelColumn;
+                    field.fk_referenced_column = field.fk_referenced_column || valueColumn;
                     field.dynamic_options_loaded = true;
                     return data.options;
                 }
@@ -1390,6 +1488,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Render Preview Input
     function renderPreview(field) {
         if (!field) return '';
+        field = normalizeFieldState(field);
         
         // Check for custom code
         if (field.customHtml || field.customCss || field.customJs) {
@@ -1433,14 +1532,13 @@ document.addEventListener('DOMContentLoaded', function() {
             boolAttr('disabled', true);
 
         if (type === 'select') {
+            const options = getFieldConfiguredOptions(field);
             let optionsHtml = '<option value="">-- Pilih --</option>';
-            if (field.is_foreign_key && field.fk_options && field.fk_options.length > 0) {
-                field.fk_options.forEach(opt => {
-                    optionsHtml += '<option value="' + escapeAttr(opt.value) + '"' + boolAttr('selected', String(field.default_value || '') === String(opt.value)) + '>' + escapeHtml(opt.label) + '</option>';
-                });
-            } else if (field.options && field.options.length > 0) {
-                field.options.forEach(opt => {
-                    optionsHtml += '<option value="' + escapeAttr(opt.value) + '"' + boolAttr('selected', String(field.default_value || '') === String(opt.value)) + '>' + escapeHtml(opt.label) + '</option>';
+            if (options.length > 0) {
+                options.forEach(opt => {
+                    const value = String(opt.value ?? '');
+                    if (!value) return;
+                    optionsHtml += '<option value="' + escapeAttr(value) + '"' + boolAttr('selected', String(field.default_value || '') === value) + '>' + escapeHtml(opt.label ?? value) + '</option>';
                 });
             }
             return '<div class="field-preview"><select' + attr('name', field.name || '') + boolAttr('required', field.required) + boolAttr('disabled', true) + '>' + optionsHtml + '</select></div>';
@@ -1512,6 +1610,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Render Properties Panel (Design Tab)
     function renderPropsPanel(field) {
+        field = normalizeFieldState(field);
         const panel = document.getElementById('properties-panel');
         if (!panel) return;
         
@@ -1678,6 +1777,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.updateFieldProp = function(propName, value) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         formFields[selectedIndex][propName] = value;
+        normalizeFieldState(formFields[selectedIndex]);
         if (propName === 'type') {
             formFields[selectedIndex].inputType = getInputType(value);
             if (['select', 'radio', 'checkboxes'].includes(value)) {
@@ -1701,7 +1801,17 @@ document.addEventListener('DOMContentLoaded', function() {
             delete field.source_table_name;
             delete field.value_column;
             delete field.label_column;
+            delete field.fk_options;
+            delete field.fk_referenced_table;
+            delete field.fk_referenced_column;
+            delete field.fk_display_column;
+            delete field.relation_table_name;
+            delete field.relation_target_column;
+            delete field.relation_value_column;
+            delete field.relation_display_column;
+            field.is_foreign_key = false;
             normalizeChoiceOptions(field);
+            normalizeFieldState(field);
             renderFields();
             renderPropsPanel(field);
             updateData();
@@ -1724,13 +1834,27 @@ document.addEventListener('DOMContentLoaded', function() {
         field.value_column = '';
         field.label_column = '';
         field.options = [];
+        field.fk_options = [];
+        field.fk_referenced_table = table ? table.name : '';
+        field.fk_referenced_column = '';
+        field.fk_display_column = '';
+        field.relation_table_name = table ? table.name : '';
+        field.relation_target_column = field.name || '';
+        field.relation_value_column = '';
+        field.relation_display_column = '';
+        field.is_foreign_key = true;
         ensureDropdownSourceColumnsLoaded(tableId).then(function(columns) {
             const primary = columns.find(column => column.is_primary) || columns[0] || null;
             const labelColumn = columns.find(column => ['nama', 'name', 'label', 'judul', 'title'].includes(String(column.name || '').toLowerCase())) || columns.find(column => !column.is_primary) || primary;
             if (primary) field.value_column = primary.name;
             if (labelColumn) field.label_column = labelColumn.name;
+            field.fk_referenced_column = field.value_column || '';
+            field.fk_display_column = field.label_column || '';
+            field.relation_value_column = field.value_column || '';
+            field.relation_display_column = field.label_column || '';
             return refreshDropdownOptionsFromTable(field);
         }).then(function() {
+            normalizeFieldState(field);
             renderFields();
             renderPropsPanel(field);
             updateData();
@@ -1743,6 +1867,7 @@ document.addEventListener('DOMContentLoaded', function() {
         field.dropdown_source = 'table';
         field[propName] = value;
         refreshDropdownOptionsFromTable(field).then(function() {
+            normalizeFieldState(field);
             renderFields();
             renderPropsPanel(field);
             updateData();
@@ -1753,6 +1878,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
         refreshDropdownOptionsFromTable(field).then(function() {
+            normalizeFieldState(field);
             renderFields();
             renderPropsPanel(field);
             updateData();
@@ -1765,6 +1891,7 @@ document.addEventListener('DOMContentLoaded', function() {
         normalizeChoiceOptions(field);
         if (!field.options[index]) return;
         field.options[index][key] = value;
+        normalizeFieldState(field);
         renderFields();
         renderPropsPanel(field);
         updateData();
@@ -1776,6 +1903,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const options = normalizeChoiceOptions(field);
         const nextIndex = options.length + 1;
         options.push({ value: 'opt' + nextIndex, label: 'Opsi ' + nextIndex });
+        normalizeFieldState(field);
         renderFields();
         renderPropsPanel(field);
         updateData();
@@ -1787,6 +1915,7 @@ document.addEventListener('DOMContentLoaded', function() {
         normalizeChoiceOptions(field);
         if (field.options.length <= 1) return;
         field.options.splice(index, 1);
+        normalizeFieldState(field);
         renderFields();
         renderPropsPanel(field);
         updateData();
@@ -2371,6 +2500,7 @@ document.addEventListener('DOMContentLoaded', function() {
             newField.id = 'field_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             newField.name = original.name + '_copy';
             newField.label = original.label + ' (Copy)';
+            normalizeFieldState(newField);
             formFields.splice(index + 1, 0, newField);
             renderFields();
             updateData();
@@ -2404,6 +2534,7 @@ document.addEventListener('DOMContentLoaded', function() {
             ...(cfg.options ? { options: [...cfg.options] } : {}),
             rows: cfg.rows || props.rows
         };
+        normalizeFieldState(field);
         
         formFields.push(field);
         renderFields();
@@ -2416,6 +2547,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const removedSystemFields = removeSystemFieldsFromState();
         const input = document.getElementById('form-data-input');
         if (input) {
+            formFields = formFields.map(normalizeFieldState);
             input.value = JSON.stringify(formFields);
         }
         if (removedSystemFields) {
@@ -2428,6 +2560,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function removeSystemFieldsFromState() {
         const beforeCount = formFields.length;
+        formFields = formFields.map(normalizeFieldState);
         formFields = formFields.filter(field => !isSystemField(field.name || field.field_name || field.field_key));
         if (formFields.length !== beforeCount || (selectedIndex !== null && !formFields[selectedIndex])) {
             selectedIndex = null;
@@ -2577,6 +2710,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         inputType: getInputType(fieldType),
                         label: col.label || col.name,
                         name: col.name,
+                        field_name: col.name,
+                        field_key: col.name,
+                        column_name: col.name,
                         required: !col.is_nullable,
                         placeholder: '',
                         default_value: col.default_value || '',
@@ -2588,10 +2724,16 @@ document.addEventListener('DOMContentLoaded', function() {
                         is_auto_increment: isAutoIncrement,
                         fk_referenced_table: isForeignKey ? col.referenced_table_name : null,
                         fk_referenced_column: isForeignKey ? col.referenced_column_name : null,
+                        fk_display_column: isForeignKey ? col.referenced_column_name : null,
+                        relation_table_name: isForeignKey ? col.referenced_table_name : null,
+                        relation_target_column: col.name,
+                        relation_value_column: isForeignKey ? col.referenced_column_name : null,
+                        relation_display_column: isForeignKey ? col.referenced_column_name : null,
                         fk_options: isForeignKey ? [] : null,
                         fk_options_loaded: false,
                     };
                     
+                    normalizeFieldState(fieldData);
                     formFields.push(fieldData);
                     
                     if (isForeignKey && col.id) {
@@ -2610,6 +2752,10 @@ document.addEventListener('DOMContentLoaded', function() {
                                         fkField.fk_options_loaded = true;
                                         fkField.fk_display_column = fkData.display_column;
                                         fkField.fk_referenced_table = fkData.referenced_table;
+                                        fkField.fk_referenced_column = col.referenced_column_name || fkField.fk_referenced_column;
+                                        fkField.relation_table_name = fkData.referenced_table;
+                                        fkField.relation_display_column = fkData.display_column;
+                                        fkField.relation_value_column = col.referenced_column_name || fkField.relation_value_column;
                                     }
                                 }
                             })

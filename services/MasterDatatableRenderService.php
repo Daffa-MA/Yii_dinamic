@@ -212,7 +212,8 @@ class MasterDatatableRenderService
         $renderer = new FormRenderService();
         $renderPayload = $renderer->buildRenderPayload($form, (array)($schema['fields'] ?? []), $schema['layout'] ?? null);
         $fields = [];
-        foreach ((array)($schema['fields'] ?? []) as $field) {
+        $resolvedFields = is_array($renderPayload['fields'] ?? null) ? $renderPayload['fields'] : [];
+        foreach ($resolvedFields as $field) {
             if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
                 continue;
             }
@@ -225,13 +226,17 @@ class MasterDatatableRenderService
             $fields[] = [
                 'field' => $fieldName,
                 'name' => $fieldName,
+                'field_name' => $fieldName,
+                'field_key' => $fieldName,
+                'column_name' => $fieldName,
                 'label' => trim((string)($field['label'] ?? $fieldName)) ?: $fieldName,
-                'inputType' => FormSystemFieldHelper::resolveFieldInputType($field),
+                'inputType' => (string)($field['inputType'] ?? FormSystemFieldHelper::resolveFieldInputType($field)),
                 'placeholder' => (string)($field['placeholder'] ?? ''),
                 'required' => !empty($field['required']),
                 'defaultValue' => $field['default_value'] ?? null,
                 'options' => $this->normalizeFormFieldOptions($field),
                 'componentType' => (string)($field['component_type'] ?? ($field['type'] ?? 'text')),
+                'is_foreign_key' => !empty($field['is_foreign_key']),
             ];
         }
 
@@ -614,6 +619,17 @@ class MasterDatatableRenderService
                     if (field && (field.inputType === 'boolean' || field.inputType === 'checkbox')) {
                         return (String(value) === '1' || String(value).toLowerCase() === 'true') ? 'Aktif' : 'Nonaktif';
                     }
+                    if (field && field.inputType === 'select' && Array.isArray(field.options) && field.options.length) {
+                        const option = field.options.find(function(item) {
+                            return String(item && item.value !== undefined ? item.value : '') === String(value);
+                        });
+                        if (option) {
+                            const optionLabel = String(option.label ?? option.value ?? value);
+                            if (optionLabel.trim() !== '') {
+                                return optionLabel;
+                            }
+                        }
+                    }
                     if (Array.isArray(value)) {
                         return value.join(', ');
                     }
@@ -797,7 +813,7 @@ class MasterDatatableRenderService
                         const icon = isGenderLike && displayValue ? String(displayValue).trim().charAt(0).toUpperCase() : null;
                         const valueHtml = isGenderLike && icon
                             ? '<div class="dt-row-view-badge"><span class="dt-row-view-badge-circle">' + escapeHtml(icon) + '</span><span class="dt-row-view-value">' + escapeHtml(displayValue) + '</span></div>'
-                            : '<div class="dt-row-view-value">' + formatViewValue(field, value) + '</div>';
+                            : '<div class="dt-row-view-value">' + (field.inputType === 'select' ? escapeHtml(displayValue) : formatViewValue(field, value)) + '</div>';
                         return '<div class="dt-row-view-item' + (index === 0 ? ' dt-row-view-item--lead' : '') + '">' +
                             '<span class="dt-row-view-label">' + escapeHtml(field.label) + '</span>' +
                             valueHtml +
@@ -1190,8 +1206,15 @@ class MasterDatatableRenderService
 
             $fields[] = [
                 'field' => $fieldName,
+                'field_name' => $fieldName,
+                'field_key' => $fieldName,
+                'column_name' => $fieldName,
                 'label' => (string)($column['label'] ?? $metadataColumn->label ?? $fieldName),
                 'inputType' => $this->inferInputType($metadataColumn, $schemaColumn),
+                'options' => $this->inferFieldOptions($metadataColumn, $schemaColumn),
+                'componentType' => SystemFieldService::isForeignKey($metadataColumn, $schemaColumn) ? 'foreign_key' : 'field',
+                'is_foreign_key' => SystemFieldService::isForeignKey($metadataColumn, $schemaColumn),
+                'sourceColumn' => $fieldName,
                 'readonly' => SystemFieldService::shouldBeReadonlyInGrid($metadataColumn, $schemaColumn),
             ];
         }
@@ -1205,7 +1228,7 @@ class MasterDatatableRenderService
         $length = (int)($schemaColumn->size ?? $metadataColumn->length ?? 0);
 
         if (SystemFieldService::isForeignKey($metadataColumn, $schemaColumn)) {
-            return 'text';
+            return 'select';
         }
 
         if (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ($length <= 1 || $type === 'BOOLEAN')) {
@@ -1233,6 +1256,69 @@ class MasterDatatableRenderService
         }
 
         return 'text';
+    }
+
+    /**
+     * @return array<int, array{value:string,label:string}>
+     */
+    private function inferFieldOptions(DbTableColumn $metadataColumn, $schemaColumn = null): array
+    {
+        if (!SystemFieldService::isForeignKey($metadataColumn, $schemaColumn)) {
+            return [];
+        }
+
+        $referencedTable = strtolower(trim((string)($metadataColumn->hasAttribute('referenced_table_name') ? $metadataColumn->getAttribute('referenced_table_name') : '')));
+        $referencedColumn = strtolower(trim((string)($metadataColumn->hasAttribute('referenced_column_name') ? $metadataColumn->getAttribute('referenced_column_name') : '')));
+        if ($referencedTable === '') {
+            return [];
+        }
+
+        $db = Yii::$app->db;
+        $schema = $db->schema->getTableSchema($referencedTable, true);
+        if ($schema === null) {
+            return [];
+        }
+
+        $valueColumn = $referencedColumn !== '' && isset($schema->columns[$referencedColumn])
+            ? $referencedColumn
+            : (!empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns));
+        if ($valueColumn === '' || !isset($schema->columns[$valueColumn])) {
+            return [];
+        }
+
+        $labelColumn = $this->guessForeignKeyLabelColumn($schema, $valueColumn);
+        $rows = (new Query())
+            ->from($referencedTable)
+            ->select(array_values(array_unique(array_filter([$valueColumn, $labelColumn]))))
+            ->limit(500)
+            ->all($db);
+
+        $options = [];
+        foreach ($rows as $row) {
+            $value = $row[$valueColumn] ?? null;
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $label = $labelColumn !== '' ? ($row[$labelColumn] ?? $value) : $value;
+            $options[] = [
+                'value' => (string)$value,
+                'label' => trim((string)$label) !== '' ? (string)$label : (string)$value,
+            ];
+        }
+
+        return $options;
+    }
+
+    private function guessForeignKeyLabelColumn(\yii\db\TableSchema $schema, string $valueColumn): string
+    {
+        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
+            if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
+                return $candidate;
+            }
+        }
+
+        return $valueColumn;
     }
 
     private function normalizeFormFieldOptions(array $field): array

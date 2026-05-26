@@ -377,12 +377,35 @@ class MasterFormController extends Controller
 
     private function normalizeFieldName(array $field, int $index): string
     {
-        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? ''));
+        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+        if ($name === '') {
+            $sourceColumnId = (int)($field['source_column_id'] ?? 0);
+            if ($sourceColumnId > 0) {
+                $sourceColumn = DbTableColumn::findOne($sourceColumnId);
+                if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
+                    $name = (string)$sourceColumn->name;
+                }
+            }
+        }
         if ($name === '') {
             $name = 'field_' . ($index + 1);
         }
 
         return $name;
+    }
+
+    private function resolveFieldLabel(array $field, string $fieldName): string
+    {
+        $label = trim((string)($field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
+        if ($label !== '') {
+            return $label;
+        }
+
+        if ($fieldName !== '') {
+            return ucwords(str_replace('_', ' ', $fieldName));
+        }
+
+        return 'Field';
     }
 
     private function extractCustomCodePost(): array
@@ -452,15 +475,15 @@ class MasterFormController extends Controller
             $field->form_id = (int)$model->id;
             $field->field_key = $fieldName;
             $field->field_name = $fieldName;
-            $field->field_label = (string)($fieldData['label'] ?? $fieldData['field_label'] ?? ucfirst(str_replace('_', ' ', $fieldName)));
+            $field->field_label = $this->resolveFieldLabel($fieldData, $fieldName);
             $field->field_type = $fieldType;
             $field->component_type = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $fieldType);
             $field->is_required = !empty($fieldData['required'] ?? $fieldData['is_required']) ? 1 : 0;
             $field->placeholder = (string)($fieldData['placeholder'] ?? '');
             $field->default_value = isset($fieldData['default_value']) ? (string)$fieldData['default_value'] : null;
             $field->dropdown_source = (string)($fieldData['dropdown_source'] ?? (!empty($fieldData['fk_options']) ? 'foreign_key' : (!empty($fieldData['options']) ? 'static_options' : '')));
-            $field->foreign_key_table = isset($fieldData['fk_referenced_table']) ? (string)$fieldData['fk_referenced_table'] : null;
-            $field->foreign_key_column = isset($fieldData['fk_display_column']) ? (string)$fieldData['fk_display_column'] : null;
+            $field->foreign_key_table = isset($fieldData['fk_referenced_table']) ? (string)$fieldData['fk_referenced_table'] : (isset($fieldData['source_table_name']) ? (string)$fieldData['source_table_name'] : null);
+            $field->foreign_key_column = isset($fieldData['fk_display_column']) ? (string)$fieldData['fk_display_column'] : (isset($fieldData['label_column']) ? (string)$fieldData['label_column'] : null);
             $field->validation_rules = Json::encode([
                 'required' => !empty($fieldData['required'] ?? $fieldData['is_required']),
                 'rules' => $fieldData['validation_rules'] ?? null,
@@ -1026,10 +1049,9 @@ class MasterFormController extends Controller
             $fieldName,
             (string)($field['field_name'] ?? ''),
             (string)($field['column_name'] ?? ''),
+            (string)($field['field_key'] ?? ''),
             (string)($field['id'] ?? ''),
-            $this->normalizeSubmitKey((string)($field['label'] ?? '')),
-            $this->normalizeSubmitKey((string)($field['field_label'] ?? '')),
-            $this->normalizeSubmitKey((string)($field['labelText'] ?? '')),
+            (string)($field['source_column_name'] ?? ''),
         ]));
 
         foreach ($candidates as $candidate) {

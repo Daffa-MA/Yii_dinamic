@@ -2247,6 +2247,147 @@ class TableBuilderController extends Controller
     }
 
     /**
+     * @return string
+     */
+    private function normalizeSpreadsheetColumnKey($value): string
+    {
+        return strtolower(trim((string)$value));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function spreadsheetColumnAliases(DbTableColumn $column): array
+    {
+        $aliases = [];
+        foreach ([
+            $column->name,
+            $column->label,
+        ] as $candidate) {
+            $normalized = $this->normalizeSpreadsheetColumnKey($candidate);
+            if ($normalized !== '' && !in_array($normalized, $aliases, true)) {
+                $aliases[] = $normalized;
+            }
+        }
+
+        return $aliases;
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @return array<string, DbTableColumn>
+     */
+    private function buildSpreadsheetColumnLookup(array $columns): array
+    {
+        $lookup = [];
+        foreach ($columns as $column) {
+            foreach ($this->spreadsheetColumnAliases($column) as $alias) {
+                $lookup[$alias] = $column;
+            }
+        }
+
+        return $lookup;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @return mixed
+     */
+    private function resolveSpreadsheetPayloadValue(array $payload, DbTableColumn $column)
+    {
+        $lookupKeys = [$column->name, $column->label];
+
+        foreach ($lookupKeys as $candidate) {
+            $normalized = $this->normalizeSpreadsheetColumnKey($candidate);
+            if ($normalized !== '' && array_key_exists($normalized, $payload)) {
+                return $payload[$normalized];
+            }
+            if ($candidate !== '' && array_key_exists($candidate, $payload)) {
+                return $payload[$candidate];
+            }
+        }
+
+        foreach ($payload as $payloadKey => $value) {
+            if (!is_string($payloadKey)) {
+                continue;
+            }
+            if ($this->normalizeSpreadsheetColumnKey($payloadKey) === $this->normalizeSpreadsheetColumnKey($column->name)) {
+                return $value;
+            }
+            if ($this->normalizeSpreadsheetColumnKey($payloadKey) === $this->normalizeSpreadsheetColumnKey($column->label)) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param array<int, DbTableColumn> $columns
+     * @return array<string, mixed>
+     */
+    private function buildSpreadsheetRowDataFromPayload(array $payload, array $columns): array
+    {
+        $rowData = [];
+        foreach ($columns as $column) {
+            if (SystemFieldService::shouldHideFromForm($column)) {
+                continue;
+            }
+
+            $columnName = (string)$column->name;
+            $hasValue = false;
+            foreach ($this->spreadsheetColumnAliases($column) as $alias) {
+                if (array_key_exists($alias, $payload)) {
+                    $hasValue = true;
+                    break;
+                }
+            }
+
+            if (!$hasValue) {
+                foreach ($payload as $payloadKey => $_value) {
+                    if (!is_string($payloadKey)) {
+                        continue;
+                    }
+                    if ($this->normalizeSpreadsheetColumnKey($payloadKey) === $this->normalizeSpreadsheetColumnKey($columnName)) {
+                        $hasValue = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$hasValue) {
+                continue;
+            }
+
+            $rowData[$columnName] = $this->normalizeSpreadsheetCellValue($column, $this->resolveSpreadsheetPayloadValue($payload, $column));
+        }
+
+        return $rowData;
+    }
+
+    /**
+     * @param array<string, mixed> $rowData
+     * @return array<string, mixed>
+     */
+    private function filterSpreadsheetRowDataBySchema(array $rowData, \yii\db\TableSchema $tableSchema): array
+    {
+        $filtered = [];
+        foreach ($rowData as $columnName => $value) {
+            if (!is_string($columnName)) {
+                continue;
+            }
+            $normalizedColumnName = $this->normalizeSpreadsheetColumnKey($columnName);
+            if ($normalizedColumnName === '' || !isset($tableSchema->columns[$normalizedColumnName])) {
+                continue;
+            }
+            $filtered[$normalizedColumnName] = $value;
+        }
+
+        return $filtered;
+    }
+
+    /**
      * @param DbTableColumn|null $column
      * @param mixed $value
      * @return mixed
@@ -2309,10 +2450,14 @@ class TableBuilderController extends Controller
             ? $this->buildUsersSpreadsheetRowData($payload, $columns, empty($where))
             : $this->buildGenericSpreadsheetRowData($payload, $columns);
 
+        if (!empty($rowData)) {
+            $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
+        }
+
         if (empty($where)) {
             $validation = $isUsersTable
                 ? $this->validateUsersSpreadsheetInsertData($rowData)
-                : $this->validateSpreadsheetInsertData($columns, $rowData);
+                : $this->validateSpreadsheetInsertData($tableSchema, $rowData);
 
             if (!$validation['valid']) {
                 return [
@@ -2323,7 +2468,7 @@ class TableBuilderController extends Controller
                 ];
             }
 
-            $lengthErrors = $this->validateSpreadsheetRowLengths($columns, $rowData);
+            $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData);
             if (!empty($lengthErrors)) {
                 return [
                     'success' => false,
@@ -2333,7 +2478,18 @@ class TableBuilderController extends Controller
             }
 
             if (!$isUsersTable) {
+                $manualPrimaryValues = [];
+                foreach ($tableSchema->primaryKey ?? [] as $primaryKeyColumn) {
+                    $primaryKeyColumn = (string)$primaryKeyColumn;
+                    if (isset($tableSchema->columns[$primaryKeyColumn]) && empty($tableSchema->columns[$primaryKeyColumn]->autoIncrement) && array_key_exists($primaryKeyColumn, $rowData)) {
+                        $manualPrimaryValues[$primaryKeyColumn] = $rowData[$primaryKeyColumn];
+                    }
+                }
                 $rowData = SystemFieldService::applyCreateValues($rowData, $tableSchema->columns);
+                foreach ($manualPrimaryValues as $primaryKeyColumn => $primaryValue) {
+                    $rowData[$primaryKeyColumn] = $primaryValue;
+                }
+                $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
                 foreach ($rowData as $columnName => $value) {
                     if ($value === null) {
                         unset($rowData[$columnName]);
@@ -2373,7 +2529,7 @@ class TableBuilderController extends Controller
             }
         }
 
-        $lengthErrors = $this->validateSpreadsheetRowLengths($columns, $rowData);
+        $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData);
         if (!empty($lengthErrors)) {
             return [
                 'success' => false,
@@ -2383,6 +2539,7 @@ class TableBuilderController extends Controller
         }
 
         $rowData = SystemFieldService::applyUpdateValues($rowData, $tableSchema->columns);
+        $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
         $db->createCommand()->update($model->name, $rowData, $where)->execute();
         return [
             'success' => true,
@@ -2400,16 +2557,7 @@ class TableBuilderController extends Controller
      */
     private function buildGenericSpreadsheetRowData(array $payload, array $columns): array
     {
-        $rowData = [];
-        foreach ($columns as $column) {
-            $columnName = (string)$column->name;
-            if (SystemFieldService::shouldHideFromForm($column)) {
-                continue;
-            }
-            $rowData[$columnName] = $this->normalizeSpreadsheetCellValue($column, $payload[$columnName] ?? null);
-        }
-
-        return $rowData;
+        return $this->buildSpreadsheetRowDataFromPayload($payload, $columns);
     }
 
     /**
@@ -2494,23 +2642,31 @@ class TableBuilderController extends Controller
      * @param array<string, mixed> $rowData
      * @return array{valid:bool,missing_fields:array<int,string>}
      */
-    private function validateSpreadsheetInsertData(array $columns, array $rowData): array
+    private function validateSpreadsheetInsertData(\yii\db\TableSchema $tableSchema, array $rowData): array
     {
         $missing = [];
-        foreach ($columns as $column) {
-            $columnName = (string)$column->name;
-            if (SystemFieldService::shouldHideFromForm($column)) {
+        $primaryKeys = array_map(static function ($key) {
+            return strtolower(trim((string)$key));
+        }, (array)($tableSchema->primaryKey ?? []));
+        foreach ($tableSchema->columns as $columnName => $schemaColumn) {
+            $normalizedColumnName = $this->normalizeSpreadsheetColumnKey($columnName);
+            if (!empty($schemaColumn->autoIncrement)) {
                 continue;
             }
-            if ((bool)$column->is_nullable) {
+            if (SystemFieldService::isAuditField($normalizedColumnName)) {
                 continue;
             }
-            if ($column->default_value !== null && $column->default_value !== '') {
+            if (in_array($normalizedColumnName, $primaryKeys, true) && (!isset($rowData[$normalizedColumnName]) || $rowData[$normalizedColumnName] === '')) {
+                $missing[] = $normalizedColumnName;
                 continue;
             }
-            $value = $rowData[$columnName] ?? null;
+            $defaultValue = property_exists($schemaColumn, 'defaultValue') ? $schemaColumn->defaultValue : null;
+            if ($schemaColumn->allowNull || $defaultValue !== null && $defaultValue !== '') {
+                continue;
+            }
+            $value = $rowData[$normalizedColumnName] ?? null;
             if ($value === null || $value === '') {
-                $missing[] = $columnName;
+                $missing[] = $normalizedColumnName;
             }
         }
 
@@ -2525,24 +2681,24 @@ class TableBuilderController extends Controller
      * @param array<string, mixed> $rowData
      * @return array<int, string>
      */
-    private function validateSpreadsheetRowLengths(array $columns, array $rowData): array
+    private function validateSpreadsheetRowLengths(\yii\db\TableSchema $tableSchema, array $rowData): array
     {
         $errors = [];
-        foreach ($columns as $column) {
-            $columnName = (string)$column->name;
-            $maxLength = (int)($column->length ?? 0);
-            if ($maxLength <= 0 || !in_array(strtoupper((string)$column->type), ['CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT'], true)) {
+        foreach ($tableSchema->columns as $columnName => $schemaColumn) {
+            $normalizedColumnName = $this->normalizeSpreadsheetColumnKey($columnName);
+            $maxLength = (int)($schemaColumn->size ?? 0);
+            $type = strtoupper((string)($schemaColumn->type ?? ''));
+            if ($maxLength <= 0 || !in_array($type, ['CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT'], true)) {
                 continue;
             }
 
-            $value = $rowData[$columnName] ?? null;
+            $value = $rowData[$normalizedColumnName] ?? null;
             if ($value === null || is_bool($value) || is_int($value) || is_float($value)) {
                 continue;
             }
 
             if (mb_strlen(trim((string)$value), 'UTF-8') > $maxLength) {
-                $label = trim((string)($column->label ?: $columnName)) ?: $columnName;
-                $errors[] = "Field {$label} maksimal hanya boleh {$maxLength} karakter.";
+                $errors[] = "Field {$normalizedColumnName} maksimal hanya boleh {$maxLength} karakter.";
             }
         }
 
@@ -2646,6 +2802,7 @@ class TableBuilderController extends Controller
             $tableSchema = $db->schema->getTableSchema($model->name, true);
             if ($tableSchema !== null) {
                 $existingRow = SystemFieldService::applyCreateValues($existingRow, $tableSchema->columns);
+                $existingRow = $this->filterSpreadsheetRowDataBySchema($existingRow, $tableSchema);
             }
 
             if (!empty($existingRow)) {
@@ -2676,9 +2833,40 @@ class TableBuilderController extends Controller
             return 0;
         }
 
+        $tableSchema = $db->schema->getTableSchema($model->name, true);
+        if ($tableSchema === null) {
+            return 0;
+        }
+
+        $columnLookup = $this->buildSpreadsheetColumnLookup($editableColumns);
+        $headerMap = [];
+        $normalizedRows = $rows;
+        if (!empty($normalizedRows) && is_array($normalizedRows[0])) {
+            $firstRow = $normalizedRows[0];
+            $nonEmptyCells = 0;
+            $matchedCells = 0;
+            foreach ($firstRow as $index => $cell) {
+                if (trim((string)$cell) === '') {
+                    continue;
+                }
+                $nonEmptyCells++;
+                $normalizedCell = $this->normalizeSpreadsheetColumnKey($cell);
+                if ($normalizedCell !== '' && isset($columnLookup[$normalizedCell])) {
+                    $matchedCells++;
+                    $headerMap[(int)$index] = (string)$columnLookup[$normalizedCell]->name;
+                }
+            }
+
+            if ($nonEmptyCells > 0 && $matchedCells === $nonEmptyCells) {
+                array_shift($normalizedRows);
+            } else {
+                $headerMap = [];
+            }
+        }
+
         $inserted = 0;
         $isUsersTable = strtolower((string)$model->name) === 'users';
-        foreach ($rows as $row) {
+        foreach ($normalizedRows as $row) {
             if (!is_array($row)) {
                 continue;
             }
@@ -2686,8 +2874,12 @@ class TableBuilderController extends Controller
             if ($isUsersTable) {
                 $payload = [];
                 foreach ($editableColumns as $index => $column) {
-                    $value = $row[$index] ?? $row[$column->name] ?? null;
+                    $sourceColumn = $headerMap[$index] ?? $column->name;
+                    $value = $row[$index] ?? $row[$sourceColumn] ?? $row[$column->name] ?? null;
                     $payload[$column->name] = $value;
+                    if ($sourceColumn !== $column->name) {
+                        $payload[$sourceColumn] = $value;
+                    }
                 }
                 $rowData = $this->buildUsersSpreadsheetRowData($payload, $columns, true);
                 $validation = $this->validateUsersSpreadsheetInsertData($rowData);
@@ -2698,11 +2890,13 @@ class TableBuilderController extends Controller
             } else {
                 $rowData = [];
                 foreach ($editableColumns as $index => $column) {
-                    $value = $row[$index] ?? $row[$column->name] ?? null;
+                    $sourceColumn = $headerMap[$index] ?? $column->name;
+                    $value = $row[$index] ?? $row[$sourceColumn] ?? $row[$column->name] ?? null;
                     $rowData[$column->name] = $this->normalizeSpreadsheetCellValue($column, $value);
                 }
 
-                $validation = $this->validateSpreadsheetInsertData($columns, $rowData);
+                $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
+                $validation = $this->validateSpreadsheetInsertData($tableSchema, $rowData);
                 if (!$validation['valid']) {
                     continue;
                 }
@@ -2716,10 +2910,18 @@ class TableBuilderController extends Controller
             }
 
             if (!empty($rowData)) {
-                $tableSchema = $db->schema->getTableSchema($model->name, true);
-                if ($tableSchema !== null) {
-                    $rowData = SystemFieldService::applyCreateValues($rowData, $tableSchema->columns);
+                $manualPrimaryValues = [];
+                foreach ($tableSchema->primaryKey ?? [] as $primaryKeyColumn) {
+                    $primaryKeyColumn = (string)$primaryKeyColumn;
+                    if (isset($tableSchema->columns[$primaryKeyColumn]) && empty($tableSchema->columns[$primaryKeyColumn]->autoIncrement) && array_key_exists($primaryKeyColumn, $rowData)) {
+                        $manualPrimaryValues[$primaryKeyColumn] = $rowData[$primaryKeyColumn];
+                    }
                 }
+                $rowData = SystemFieldService::applyCreateValues($rowData, $tableSchema->columns);
+                foreach ($manualPrimaryValues as $primaryKeyColumn => $primaryValue) {
+                    $rowData[$primaryKeyColumn] = $primaryValue;
+                }
+                $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
                 $db->createCommand()->insert($model->name, $rowData)->execute();
                 $inserted++;
             }

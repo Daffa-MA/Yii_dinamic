@@ -95,11 +95,61 @@ class MasterFormController extends Controller
     }
 
     /**
+     * @param array<string, mixed> $insertData
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     */
+    private function validateRequiredInsertData(array $insertData, array $schemaColumns): ?string
+    {
+        foreach ($schemaColumns as $columnName => $column) {
+            if ($this->isSubmitSystemColumn((string)$columnName, $column)) {
+                continue;
+            }
+
+            if (!empty($column->allowNull) || $column->defaultValue !== null) {
+                continue;
+            }
+
+            if (array_key_exists((string)$columnName, $insertData)) {
+                continue;
+            }
+
+            $label = ucwords(str_replace('_', ' ', (string)$columnName));
+            return "Field {$label} wajib diisi karena kolom target tidak mengizinkan nilai kosong.";
+        }
+
+        return null;
+    }
+
+    /**
      * @param array<string, \yii\db\ColumnSchema> $schemaColumns
      */
     private function buildFriendlySaveErrorMessage(\Throwable $e, array $schemaColumns = []): string
     {
         $message = $this->sanitizeDatabaseErrorMessage((string)$e->getMessage());
+        if (preg_match("/Field '([^']+)' doesn't have a default value/i", $message, $matches) === 1) {
+            $columnName = $this->normalizeDatabaseColumnName((string)$matches[1]);
+            $label = ucwords(str_replace('_', ' ', $columnName));
+            return "Field {$label} wajib diisi karena kolom target tidak memiliki default value.";
+        }
+
+        if (preg_match("/Column '([^']+)' cannot be null/i", $message, $matches) === 1) {
+            $columnName = $this->normalizeDatabaseColumnName((string)$matches[1]);
+            $label = ucwords(str_replace('_', ' ', $columnName));
+            return "Field {$label} wajib diisi karena kolom target tidak mengizinkan nilai kosong.";
+        }
+
+        if (preg_match("/Incorrect (date|datetime|time) value: .* for column '([^']+)'/i", $message, $matches) === 1) {
+            $columnName = $this->normalizeDatabaseColumnName((string)$matches[2]);
+            $label = ucwords(str_replace('_', ' ', $columnName));
+            return "Format nilai pada field {$label} tidak sesuai dengan tipe kolom target.";
+        }
+
+        if (preg_match("/Data truncated for column '([^']+)'/i", $message, $matches) === 1) {
+            $columnName = $this->normalizeDatabaseColumnName((string)$matches[1]);
+            $label = ucwords(str_replace('_', ' ', $columnName));
+            return "Nilai pada field {$label} tidak sesuai dengan pilihan atau format kolom target.";
+        }
+
         if (preg_match('/Data too long for column [`"]?([^`"]+)[`"]?/i', $message, $matches) === 1) {
             $columnName = $this->normalizeDatabaseColumnName((string)$matches[1]);
             $label = ucwords(str_replace('_', ' ', $columnName));
@@ -109,6 +159,22 @@ class MasterFormController extends Controller
             }
 
             return "Nilai pada field {$label} terlalu panjang. Mohon ringkas isinya dan coba lagi.";
+        }
+
+        if (preg_match("/Duplicate entry '.*' for key '([^']+)'/i", $message, $matches) === 1) {
+            $keyName = $this->normalizeDatabaseColumnName((string)$matches[1]);
+            $label = ucwords(str_replace(['_', '.'], ' ', $keyName));
+            return "Data tidak bisa disimpan karena nilai pada {$label} harus unik dan sudah digunakan.";
+        }
+
+        if (stripos($message, 'foreign key constraint fails') !== false) {
+            return 'Data tidak bisa disimpan karena nilai relasi tidak ditemukan di tabel referensi.';
+        }
+
+        if (preg_match("/Unknown column '([^']+)'/i", $message, $matches) === 1) {
+            $columnName = $this->normalizeDatabaseColumnName((string)$matches[1]);
+            $label = ucwords(str_replace('_', ' ', $columnName));
+            return "Field {$label} tidak ditemukan di tabel target. Mohon sinkronkan ulang field form dengan tabel.";
         }
 
         if (
@@ -773,6 +839,15 @@ class MasterFormController extends Controller
             }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
+
+            $requiredError = $this->validateRequiredInsertData($insertData, $columns->columns);
+            if ($requiredError !== null) {
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $requiredError];
+                }
+                Yii::$app->session->setFlash('error', $requiredError);
+                return $this->redirect(['preview', 'id' => $id]);
+            }
 
             $lengthError = $this->validateInsertDataLengths($insertData, $columns->columns);
             if ($lengthError !== null) {

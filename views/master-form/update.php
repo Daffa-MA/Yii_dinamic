@@ -1313,10 +1313,59 @@ document.addEventListener('DOMContentLoaded', function() {
         return field.dropdown_source === 'table' ? 'table' : 'manual';
     }
 
+    function syncRelationConfig(field) {
+        if (!field || typeof field !== 'object') {
+            return field;
+        }
+
+        const localColumn = String(field.name || field.field_name || field.field_key || field.column_name || field.local_column || '').trim();
+        const referencedTable = String(field.fk_referenced_table || field.source_table_name || field.referenced_table_name || '').trim();
+        const referencedValueColumn = String(field.fk_referenced_column || field.value_column || field.dropdown_value_column || field.referenced_column_name || '').trim();
+        const displayColumn = String(field.fk_display_column || field.label_column || field.dropdown_label_column || '').trim();
+
+        field.local_column = localColumn;
+        field.source_column = localColumn;
+        field.source_column_name = field.source_column_name || localColumn;
+        field.referenced_table_name = referencedTable;
+        field.referenced_value_column = referencedValueColumn;
+        field.referenced_column_name = referencedValueColumn;
+        field.display_column = displayColumn;
+        field.value_column = referencedValueColumn;
+        field.dropdown_value_column = referencedValueColumn;
+        field.label_column = displayColumn;
+        field.dropdown_label_column = displayColumn;
+        field.fk_referenced_table = referencedTable;
+        field.fk_referenced_column = referencedValueColumn;
+        field.fk_display_column = displayColumn;
+        field.relation_table_name = referencedTable;
+        field.relation_target_column = localColumn;
+        field.relation_value_column = referencedValueColumn;
+        field.relation_display_column = displayColumn;
+        field.relation_config = Object.assign({}, field.relation_config || {}, {
+            local_column: localColumn,
+            source_column: localColumn,
+            column_name: localColumn,
+            referenced_table: referencedTable,
+            referenced_table_name: referencedTable,
+            referenced_value_column: referencedValueColumn,
+            referenced_column: referencedValueColumn,
+            referenced_column_name: referencedValueColumn,
+            value_column: referencedValueColumn,
+            display_column: displayColumn,
+            display_column_name: displayColumn
+        });
+
+        return field;
+    }
+
     function normalizeRelationMetadata(field) {
         if (!field || typeof field !== 'object') {
             return field;
         }
+
+        const relationConfig = field.relation_config && typeof field.relation_config === 'object'
+            ? field.relation_config
+            : (field.relationConfig && typeof field.relationConfig === 'object' ? field.relationConfig : {});
 
         const fieldName = String(field.name || field.field_name || field.field_key || field.column_name || '').trim();
         if (fieldName) {
@@ -1327,22 +1376,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         field.source_table_id = field.source_table_id || field.dropdown_table_id || '';
-        field.source_table_name = field.source_table_name || field.fk_referenced_table || field.referenced_table_name || '';
-        field.value_column = field.value_column || field.dropdown_value_column || field.fk_referenced_column || field.referenced_column_name || '';
-        field.label_column = field.label_column || field.dropdown_label_column || field.fk_display_column || '';
-        field.fk_referenced_table = field.fk_referenced_table || field.source_table_name || field.referenced_table_name || '';
-        field.fk_referenced_column = field.fk_referenced_column || field.value_column || field.referenced_column_name || '';
-        field.fk_display_column = field.fk_display_column || field.label_column || '';
+        field.source_table_name = field.source_table_name || field.fk_referenced_table || field.referenced_table_name || relationConfig.referenced_table || relationConfig.referenced_table_name || '';
+        field.value_column = field.value_column || field.dropdown_value_column || field.fk_referenced_column || field.referenced_value_column || field.referenced_column_name || relationConfig.referenced_value_column || relationConfig.value_column || relationConfig.referenced_column || relationConfig.referenced_column_name || '';
+        field.label_column = field.label_column || field.dropdown_label_column || field.fk_display_column || relationConfig.display_column || relationConfig.display_column_name || '';
+        field.fk_referenced_table = field.fk_referenced_table || field.source_table_name || field.referenced_table_name || relationConfig.referenced_table || relationConfig.referenced_table_name || '';
+        field.fk_referenced_column = field.fk_referenced_column || field.value_column || field.referenced_value_column || field.referenced_column_name || relationConfig.referenced_value_column || relationConfig.value_column || relationConfig.referenced_column || relationConfig.referenced_column_name || '';
+        field.fk_display_column = field.fk_display_column || field.label_column || relationConfig.display_column || relationConfig.display_column_name || '';
         field.relation_table_name = field.relation_table_name || field.source_table_name || field.fk_referenced_table || '';
-        field.relation_target_column = field.relation_target_column || field.name || '';
-        field.relation_value_column = field.relation_value_column || field.value_column || field.fk_referenced_column || '';
-        field.relation_display_column = field.relation_display_column || field.label_column || field.fk_display_column || '';
+        field.relation_target_column = field.relation_target_column || relationConfig.local_column || relationConfig.source_column || field.name || '';
+        field.relation_value_column = field.relation_value_column || field.value_column || field.fk_referenced_column || relationConfig.referenced_value_column || relationConfig.value_column || '';
+        field.relation_display_column = field.relation_display_column || field.label_column || field.fk_display_column || relationConfig.display_column || relationConfig.display_column_name || '';
 
         if (field.is_foreign_key || String(field.dropdown_source || '').toLowerCase() === 'table' || Array.isArray(field.fk_options)) {
             field.is_foreign_key = true;
         }
 
-        return field;
+        return syncRelationConfig(field);
     }
 
     function isRelationField(field) {
@@ -1438,6 +1487,94 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
+    function findDropdownTableByName(tableName) {
+        const normalized = String(tableName || '').trim().toLowerCase();
+        if (!normalized) {
+            return null;
+        }
+        return dropdownSourceTables.find(table => String(table.name || '').trim().toLowerCase() === normalized) || null;
+    }
+
+    function getPreferredDisplayColumn(columns, tableName, valueColumn, preferredColumn) {
+        const normalizedValue = String(valueColumn || '').trim().toLowerCase();
+        const normalizedPreferred = String(preferredColumn || '').trim().toLowerCase();
+        const normalizedTable = String(tableName || '').trim().toLowerCase();
+        const priorities = ['name', 'nama', 'title', 'label'];
+        if (normalizedTable) {
+            priorities.push('nama_' + normalizedTable);
+        }
+        priorities.push('kode');
+
+        if (normalizedPreferred && columns.some(column => String(column.name || '').toLowerCase() === normalizedPreferred)) {
+            return preferredColumn;
+        }
+
+        const preferredMatch = priorities.find(candidate => candidate !== normalizedValue && columns.some(column => String(column.name || '').toLowerCase() === candidate));
+        if (preferredMatch) {
+            return preferredMatch;
+        }
+
+        const readableColumn = columns.find(column => {
+            const columnName = String(column.name || '').trim().toLowerCase();
+            if (!columnName || columnName === normalizedValue || column.is_primary) {
+                return false;
+            }
+            if (['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'].includes(columnName)) {
+                return false;
+            }
+            if (columnName.endsWith('_id')) {
+                return false;
+            }
+            return ['string', 'integer', 'double'].includes(String(column.php_type || '').toLowerCase());
+        });
+        if (readableColumn) {
+            return readableColumn.name;
+        }
+
+        const fallback = columns.find(column => String(column.name || '').trim() !== '' && String(column.name || '').trim().toLowerCase() !== normalizedValue);
+        return fallback ? fallback.name : (valueColumn || '');
+    }
+
+    function ensureRelationTableContext(field) {
+        field = normalizeFieldState(field);
+        return ensureDropdownSourceTablesLoaded().then(function() {
+            if (!field.source_table_id && field.fk_referenced_table) {
+                const table = findDropdownTableByName(field.fk_referenced_table);
+                if (table) {
+                    field.source_table_id = parseInt(table.id, 10);
+                    field.dropdown_table_id = field.source_table_id;
+                    field.source_table_name = table.name;
+                }
+            }
+
+            const tableId = field.source_table_id || field.dropdown_table_id || '';
+            if (!tableId) {
+                return [];
+            }
+
+            return ensureDropdownSourceColumnsLoaded(tableId).then(function(columns) {
+                const hasValueColumn = columns.some(column => String(column.name || '') === String(field.value_column || field.fk_referenced_column || ''));
+                const hasDisplayColumn = columns.some(column => String(column.name || '') === String(field.label_column || field.fk_display_column || ''));
+                const primaryColumn = columns.find(column => column.is_primary) || columns.find(column => String(column.name || '').toLowerCase() === 'id') || columns[0] || null;
+                if ((!field.value_column || !hasValueColumn) && primaryColumn) {
+                    field.value_column = primaryColumn.name;
+                }
+                if (!field.fk_referenced_column && field.value_column) {
+                    field.fk_referenced_column = field.value_column;
+                }
+                const displayColumn = getPreferredDisplayColumn(columns, field.fk_referenced_table || field.source_table_name, field.value_column || field.fk_referenced_column, field.fk_display_column || field.label_column);
+                if ((!field.label_column || !hasDisplayColumn) && displayColumn) {
+                    field.label_column = displayColumn;
+                }
+                if ((!field.fk_display_column || !hasDisplayColumn) && displayColumn) {
+                    field.fk_display_column = displayColumn;
+                }
+                syncRelationConfig(field);
+                return columns;
+            });
+        });
+    }
+
     function ensureDropdownSourceTablesLoaded() {
         if (dropdownSourceTables.length > 0) return Promise.resolve(dropdownSourceTables);
         return fetch('/tables/get-tables?t=' + Date.now(), {
@@ -1468,30 +1605,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function refreshDropdownOptionsFromTable(field) {
         field = normalizeFieldState(field);
-        const tableId = field.source_table_id || field.dropdown_table_id || '';
-        const valueColumn = field.value_column || field.dropdown_value_column || '';
-        const labelColumn = field.label_column || field.dropdown_label_column || '';
-        if (!tableId || !valueColumn || !labelColumn) return Promise.resolve([]);
+        return ensureRelationTableContext(field).then(function() {
+            const tableId = field.source_table_id || field.dropdown_table_id || '';
+            const valueColumn = field.value_column || field.dropdown_value_column || field.fk_referenced_column || '';
+            const labelColumn = field.label_column || field.dropdown_label_column || field.fk_display_column || '';
+            if (!tableId || !valueColumn || !labelColumn) return [];
 
-        const url = '/tables/dropdown-options/' + encodeURIComponent(tableId)
-            + '?value_column=' + encodeURIComponent(valueColumn)
-            + '&label_column=' + encodeURIComponent(labelColumn)
-            + '&t=' + Date.now();
-        return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success && Array.isArray(data.options)) {
-                    field.options = data.options;
-                    field.fk_options = data.options;
-                    field.fk_referenced_table = field.fk_referenced_table || field.source_table_name || '';
-                    field.fk_display_column = field.fk_display_column || labelColumn;
-                    field.fk_referenced_column = field.fk_referenced_column || valueColumn;
-                    field.dynamic_options_loaded = true;
-                    return data.options;
-                }
-                return [];
-            })
-            .catch(() => []);
+            const url = '/tables/dropdown-options/' + encodeURIComponent(tableId)
+                + '?value_column=' + encodeURIComponent(valueColumn)
+                + '&label_column=' + encodeURIComponent(labelColumn)
+                + '&t=' + Date.now();
+            return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && Array.isArray(data.options)) {
+                        field.options = data.options;
+                        field.fk_options = data.options;
+                        field.fk_referenced_table = field.fk_referenced_table || field.source_table_name || data.table_name || '';
+                        field.source_table_name = field.source_table_name || data.table_name || '';
+                        field.value_column = data.value_column || valueColumn;
+                        field.dropdown_value_column = field.value_column;
+                        field.fk_referenced_column = field.value_column;
+                        field.label_column = data.label_column || labelColumn;
+                        field.dropdown_label_column = field.label_column;
+                        field.fk_display_column = field.label_column;
+                        field.dynamic_options_loaded = true;
+                        syncRelationConfig(field);
+                        return data.options;
+                    }
+                    field.options = [];
+                    field.fk_options = [];
+                    syncRelationConfig(field);
+                    return [];
+                })
+                .catch(() => []);
+        });
     }
 
     function attr(name, value) {
@@ -1774,8 +1922,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (field.is_foreign_key) {
             html += '<div class="prop-section"><div class="prop-section-title">Foreign Key</div>';
-            html += '<div class="prop-group"><label class="prop-label">Referenced Table</label><input type="text" class="prop-input" value="' + (field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
-            html += '<div class="prop-group"><label class="prop-label">Display Column</label><input type="text" class="prop-input" value="' + (field.fk_display_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Local Column / Kolom Form</label><input type="text" class="prop-input" value="' + escapeAttr(field.local_column || field.name || '-') + '" readonly style="background:#f1f5f9;"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Referenced Table</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Referenced Value Column</label><select class="prop-select" onchange="setForeignKeyColumn(\'value\', this.value)">' + buildDropdownColumnOptions(field, field.fk_referenced_column || field.value_column || field.dropdown_value_column) + '</select></div>';
+            html += '<div class="prop-group"><label class="prop-label">Display Column</label><select class="prop-select" onchange="setForeignKeyColumn(\'display\', this.value)">' + buildDropdownColumnOptions(field, field.fk_display_column || field.label_column || field.dropdown_label_column) + '</select></div>';
+            html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="reloadForeignKeyOptions()">Refresh dropdown relasi</button></div>';
             if (field.fk_options && field.fk_options.length > 0) {
                 html += '<div class="prop-group"><label class="prop-label">Options (' + field.fk_options.length + ' items)</label><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#64748b;">';
                 field.fk_options.forEach(opt => {
@@ -1800,14 +1951,20 @@ document.addEventListener('DOMContentLoaded', function() {
         
         propsPanel.innerHTML = html;
 
-        if (field.type === 'select' && !field.is_foreign_key) {
+        if (field.type === 'select') {
             const tableId = field.source_table_id || field.dropdown_table_id || '';
             ensureDropdownSourceTablesLoaded().then(function() {
                 if (selectedIndex === null || formFields[selectedIndex] !== field) return;
-                if (getDropdownSourceMode(field) === 'table' && tableId) {
+                if ((getDropdownSourceMode(field) === 'table' || field.is_foreign_key) && tableId) {
                     const hadColumns = !!dropdownSourceColumnsCache[String(tableId)];
                     ensureDropdownSourceColumnsLoaded(tableId).then(function() {
                         if (!hadColumns && selectedIndex !== null && formFields[selectedIndex] === field) {
+                            renderPropsPanel(field);
+                        }
+                    });
+                } else if (field.is_foreign_key) {
+                    ensureRelationTableContext(field).then(function(columns) {
+                        if (columns.length > 0 && selectedIndex !== null && formFields[selectedIndex] === field) {
                             renderPropsPanel(field);
                         }
                     });
@@ -1837,6 +1994,38 @@ document.addEventListener('DOMContentLoaded', function() {
         updateData();
     };
 
+    window.setForeignKeyColumn = function(kind, value) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        if (kind === 'value') {
+            field.value_column = value;
+            field.dropdown_value_column = value;
+            field.fk_referenced_column = value;
+        } else if (kind === 'display') {
+            field.label_column = value;
+            field.dropdown_label_column = value;
+            field.fk_display_column = value;
+        }
+        syncRelationConfig(field);
+        refreshDropdownOptionsFromTable(field).then(function() {
+            normalizeFieldState(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+        });
+    };
+
+    window.reloadForeignKeyOptions = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        refreshDropdownOptionsFromTable(field).then(function() {
+            normalizeFieldState(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+        });
+    };
+
     window.setDropdownSourceMode = function(mode) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
@@ -1854,6 +2043,8 @@ document.addEventListener('DOMContentLoaded', function() {
             delete field.relation_target_column;
             delete field.relation_value_column;
             delete field.relation_display_column;
+            delete field.relation_config;
+            delete field.relationConfig;
             field.is_foreign_key = false;
             normalizeChoiceOptions(field);
             normalizeFieldState(field);
@@ -1889,10 +2080,10 @@ document.addEventListener('DOMContentLoaded', function() {
         field.relation_display_column = '';
         field.is_foreign_key = true;
         ensureDropdownSourceColumnsLoaded(tableId).then(function(columns) {
-            const primary = columns.find(column => column.is_primary) || columns[0] || null;
-            const labelColumn = columns.find(column => ['nama', 'name', 'label', 'judul', 'title'].includes(String(column.name || '').toLowerCase())) || columns.find(column => !column.is_primary) || primary;
+            const primary = columns.find(column => column.is_primary) || columns.find(column => String(column.name || '').toLowerCase() === 'id') || columns[0] || null;
+            const labelColumn = getPreferredDisplayColumn(columns, field.fk_referenced_table || field.source_table_name, primary ? primary.name : '', '');
             if (primary) field.value_column = primary.name;
-            if (labelColumn) field.label_column = labelColumn.name;
+            if (labelColumn) field.label_column = labelColumn;
             field.fk_referenced_column = field.value_column || '';
             field.fk_display_column = field.label_column || '';
             field.relation_value_column = field.value_column || '';
@@ -2780,6 +2971,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         is_foreign_key: isForeignKey,
                         is_primary: isPrimaryKey,
                         is_auto_increment: isAutoIncrement,
+                        local_column: col.name,
                         fk_referenced_table: isForeignKey ? col.referenced_table_name : null,
                         fk_referenced_column: isForeignKey ? col.referenced_column_name : null,
                         fk_display_column: isForeignKey ? col.referenced_column_name : null,
@@ -2787,6 +2979,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         relation_target_column: col.name,
                         relation_value_column: isForeignKey ? col.referenced_column_name : null,
                         relation_display_column: isForeignKey ? col.referenced_column_name : null,
+                        relation_config: isForeignKey ? {
+                            local_column: col.name,
+                            source_column: col.name,
+                            column_name: col.name,
+                            referenced_table: col.referenced_table_name || '',
+                            referenced_table_name: col.referenced_table_name || '',
+                            referenced_value_column: col.referenced_column_name || '',
+                            referenced_column: col.referenced_column_name || '',
+                            referenced_column_name: col.referenced_column_name || '',
+                            value_column: col.referenced_column_name || '',
+                            display_column: col.referenced_column_name || '',
+                            display_column_name: col.referenced_column_name || ''
+                        } : null,
                         fk_options: isForeignKey ? [] : null,
                         fk_options_loaded: false,
                     };
@@ -2806,14 +3011,35 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (fkData.success && fkData.options) {
                                     const fkField = formFields.find(f => f.source_column_id === col.id);
                                     if (fkField) {
+                                        fkField.local_column = fkData.local_column || fkField.name;
+                                        fkField.source_table_id = fkData.referenced_table_id || fkField.source_table_id || '';
+                                        fkField.dropdown_table_id = fkField.source_table_id || fkField.dropdown_table_id || '';
+                                        fkField.source_table_name = fkData.referenced_table || fkField.source_table_name || '';
                                         fkField.fk_options = fkData.options;
                                         fkField.fk_options_loaded = true;
                                         fkField.fk_display_column = fkData.display_column;
                                         fkField.fk_referenced_table = fkData.referenced_table;
-                                        fkField.fk_referenced_column = col.referenced_column_name || fkField.fk_referenced_column;
+                                        fkField.fk_referenced_column = fkData.referenced_value_column || col.referenced_column_name || fkField.fk_referenced_column;
+                                        fkField.value_column = fkField.fk_referenced_column;
+                                        fkField.dropdown_value_column = fkField.fk_referenced_column;
+                                        fkField.label_column = fkData.display_column || fkField.label_column;
+                                        fkField.dropdown_label_column = fkField.label_column;
                                         fkField.relation_table_name = fkData.referenced_table;
                                         fkField.relation_display_column = fkData.display_column;
-                                        fkField.relation_value_column = col.referenced_column_name || fkField.relation_value_column;
+                                        fkField.relation_value_column = fkField.fk_referenced_column;
+                                        fkField.relation_config = Object.assign({}, fkField.relation_config || {}, {
+                                            local_column: fkField.local_column || fkField.name,
+                                            source_column: fkField.local_column || fkField.name,
+                                            column_name: fkField.local_column || fkField.name,
+                                            referenced_table: fkField.fk_referenced_table || '',
+                                            referenced_table_name: fkField.fk_referenced_table || '',
+                                            referenced_value_column: fkField.fk_referenced_column || '',
+                                            referenced_column: fkField.fk_referenced_column || '',
+                                            referenced_column_name: fkField.fk_referenced_column || '',
+                                            value_column: fkField.fk_referenced_column || '',
+                                            display_column: fkField.fk_display_column || '',
+                                            display_column_name: fkField.fk_display_column || ''
+                                        });
                                     }
                                 }
                             })

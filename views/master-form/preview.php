@@ -475,7 +475,7 @@ $this->title = 'Preview: ' . $formName;
                         <?php elseif ($type === 'select'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <?php
-                            $optionsList = ['' => 'Pilih...'];
+                            $optionsList = ['' => '-- Pilih --'];
                             foreach ($options as $opt) {
                                 if (!is_array($opt)) {
                                     continue;

@@ -278,6 +278,7 @@ class FormEngineService
                 'column_name' => $resolvedName,
                 'referenced_table' => $referencedTable,
                 'referenced_table_name' => $referencedTable,
+                'referenced_value_column' => $referencedColumn,
                 'referenced_column' => $referencedColumn,
                 'referenced_column_name' => $referencedColumn,
                 'value_column' => $referencedColumn,

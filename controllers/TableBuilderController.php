@@ -4159,8 +4159,17 @@ class TableBuilderController extends Controller
         }
     }
 
-    private function resolvePrimaryOrFirstColumn(\yii\db\TableSchema $schema): string
+    private function resolvePrimaryOrFirstColumn(\yii\db\TableSchema $schema, string $preferredColumn = ''): string
     {
+        $preferredColumn = trim($preferredColumn);
+        if ($preferredColumn !== '' && isset($schema->columns[$preferredColumn])) {
+            return $preferredColumn;
+        }
+
+        if (isset($schema->columns['id'])) {
+            return 'id';
+        }
+
         foreach ($schema->columns as $name => $column) {
             if ($column->isPrimaryKey) {
                 return (string)$name;
@@ -4217,15 +4226,26 @@ class TableBuilderController extends Controller
                 ]);
             }
             
-            $displayColumn = $this->resolveFkDisplayColumn($db, $refTable, $refColumn);
+            $referencedTableModel = DbTable::find()->where(['name' => $refTable])->one();
+            $valueColumn = $this->resolvePrimaryOrFirstColumn($schema, (string)$refColumn);
+            $displayColumn = $this->resolveFkDisplayColumn($db, $refTable, $valueColumn);
+            $columnOptions = [];
+            foreach ($schema->columns as $columnName => $columnSchema) {
+                $columnOptions[] = [
+                    'name' => (string)$columnName,
+                    'label' => (string)$columnName,
+                    'is_primary' => (bool)$columnSchema->isPrimaryKey,
+                    'php_type' => strtolower((string)$columnSchema->phpType),
+                ];
+            }
             
             $rows = (new \yii\db\Query())
                 ->select([
-                    'value' => $refColumn,
-                    'label' => $displayColumn ?: $refColumn,
+                    'value' => $valueColumn,
+                    'label' => $displayColumn ?: $valueColumn,
                 ])
                 ->from($refTable)
-                ->orderBy([$displayColumn ?: $refColumn => SORT_ASC])
+                ->orderBy([$displayColumn ?: $valueColumn => SORT_ASC])
                 ->limit(500)
                 ->all($db);
             
@@ -4248,8 +4268,12 @@ class TableBuilderController extends Controller
             return $this->asJson([
                 'success' => true,
                 'column_name' => $column->name,
+                'local_column' => $column->name,
+                'referenced_table_id' => $referencedTableModel !== null ? (int)$referencedTableModel->id : null,
                 'referenced_table' => $refTable,
+                'referenced_value_column' => $valueColumn,
                 'display_column' => $displayColumn,
+                'columns' => $columnOptions,
                 'options' => $options,
             ]);
             
@@ -4268,7 +4292,18 @@ class TableBuilderController extends Controller
             return null;
         }
         
-        $priorities = ['name', 'nama', 'title', 'judul', 'label', 'deskripsi', 'description'];
+        $normalizedTableName = strtolower(trim($tableName));
+        $priorities = array_filter(array_unique([
+            'name',
+            'nama',
+            'title',
+            'label',
+            $normalizedTableName !== '' ? 'nama_' . $normalizedTableName : '',
+            'kode',
+            'judul',
+            'deskripsi',
+            'description',
+        ]));
         foreach ($priorities as $candidate) {
             if ($candidate === $valueColumn) continue;
             if (isset($schema->columns[$candidate])) {
@@ -4280,7 +4315,11 @@ class TableBuilderController extends Controller
             $phpType = strtolower((string)$colSchema->phpType);
             if ($colName === $valueColumn || $colSchema->isPrimaryKey) continue;
             $normalizedCol = strtolower((string)$colName);
-            if ($phpType === 'string' && stripos($normalizedCol, 'id') === false) {
+            if (
+                $phpType === 'string'
+                && stripos($normalizedCol, 'id') === false
+                && !in_array($normalizedCol, ['created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by'], true)
+            ) {
                 return $colName;
             }
         }

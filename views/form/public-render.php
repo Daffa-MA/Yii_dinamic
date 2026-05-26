@@ -38,6 +38,7 @@ $resolveFieldName = static function (array $field): string {
 };
 
 $resolveOptionsFromField = static function (array $field) use ($fkConfig): array {
+    $field = FormRenderService::resolveDynamicChoiceOptions(FormRenderService::normalizeFieldForRender($field));
     $fieldName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
     if ($fieldName !== '' && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) {
         $configOptions = $fkConfig[$fieldName]['options'] ?? [];
@@ -540,7 +541,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                     <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
                                                         data-fk-field="<?= Html::encode($fieldName) ?>"
                                                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                                        <option value=""><?= Html::encode($placeholder ?: 'Pilih salah satu...') ?></option>
+                                                        <option value=""><?= Html::encode($placeholder ?: '-- Pilih --') ?></option>
                                                         <?php foreach ($fkOptions as $fkOption): ?>
                                                             <option value="<?= Html::encode((string)($fkOption['value'] ?? '')) ?>">
                                                                 <?= Html::encode((string)($fkOption['label'] ?? '')) ?>
@@ -589,7 +590,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                             <?php elseif ($fieldType === 'select'): ?>
                                                 <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                                    <option value=""><?= Html::encode($placeholder ?: 'Pilih salah satu...') ?></option>
+                                                    <option value=""><?= Html::encode($placeholder ?: '-- Pilih --') ?></option>
                                                     <?php
                                                     $optionsList = $resolveOptionsFromField($field);
                                                     if (empty($optionsList) && isset($field['options'])) {

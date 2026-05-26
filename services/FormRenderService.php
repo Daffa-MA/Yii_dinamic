@@ -266,6 +266,18 @@ class FormRenderService
             $name = 'field_' . ($index + 1);
         }
         $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
+        if ($label === '' || self::looksLikeFallbackFieldName($label)) {
+            if (self::isRelationField($field)) {
+                $relationConfig = self::extractRelationConfig($field);
+                $localColumn = $relationConfig['local_column'] ?? $relationConfig['source_column'] ?? $relationConfig['column_name'] ?? '';
+                $referencedTable = $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? $field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? '';
+                if ($localColumn !== '' && !self::looksLikeFallbackFieldName($localColumn)) {
+                    $label = $localColumn;
+                } elseif ($referencedTable !== '') {
+                    $label = $referencedTable;
+                }
+            }
+        }
         if ($label === '') {
             $label = ucwords(str_replace('_', ' ', $name));
         }

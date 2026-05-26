@@ -172,12 +172,32 @@ class SystemFieldService
             return true;
         }
 
+        $isPrimaryLike = !empty($field['is_primary'])
+            || !empty($field['isPrimary'])
+            || !empty($field['primaryKey'])
+            || !empty($field['isPrimaryKey']);
+        $isAutoIncrementLike = !empty($field['is_auto_increment'])
+            || !empty($field['isAutoIncrement'])
+            || !empty($field['autoIncrement']);
+
+        // Foreign key columns like jurusan_id must stay visible in form/preview.
+        // Do not hide generic *_id columns unless they are true audit/system columns
+        // or primary/auto-increment columns.
+        if (
+            $normalizedName !== ''
+            && str_ends_with($normalizedName, '_id')
+            && !self::isAuditField($normalizedName)
+            && !$isPrimaryLike
+            && !$isAutoIncrementLike
+        ) {
+            return false;
+        }
+
         if (
             (!empty($field['is_foreign_key']) || !empty($field['fk_referenced_table']) || !empty($field['fk_referenced_column']))
             && !self::isAuditField($normalizedName)
-            && empty($field['is_primary'])
-            && empty($field['is_auto_increment'])
-            && empty($field['autoIncrement'])
+            && !$isPrimaryLike
+            && !$isAutoIncrementLike
         ) {
             return false;
         }
@@ -186,13 +206,8 @@ class SystemFieldService
             return false;
         }
 
-        return !empty($field['is_primary'])
-            || !empty($field['isPrimary'])
-            || !empty($field['primaryKey'])
-            || !empty($field['isPrimaryKey'])
-            || !empty($field['is_auto_increment'])
-            || !empty($field['isAutoIncrement'])
-            || !empty($field['autoIncrement'])
+        return $isPrimaryLike
+            || $isAutoIncrementLike
             || !empty($field['is_system_field'])
             || !empty($field['isSystem']);
     }

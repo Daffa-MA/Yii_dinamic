@@ -26,7 +26,7 @@ $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_S
 $fieldConstraintsJson = json_encode($fieldConstraints, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
 $resolveFieldName = static function (array $field): string {
-    $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+    $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
     if ($name !== '') {
         return $name;
     }
@@ -43,7 +43,7 @@ $resolveFieldName = static function (array $field): string {
 };
 
 $resolveOptionsFromField = static function (array $field) use ($fkConfig): array {
-    $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+    $fieldName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
     if ($fieldName !== '' && isset($fkConfig[$fieldName]) && is_array($fkConfig[$fieldName])) {
         $configOptions = $fkConfig[$fieldName]['options'] ?? [];
         if (is_array($configOptions) && !empty($configOptions)) {

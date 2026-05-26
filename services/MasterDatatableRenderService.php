@@ -1193,7 +1193,7 @@ class MasterDatatableRenderService
 
         $fields = [];
         foreach ($columns as $column) {
-            $fieldName = (string)($column['field'] ?? '');
+            $fieldName = trim((string)($column['resolved_name'] ?? $column['resolved_column_name'] ?? $column['field'] ?? $column['name'] ?? $column['field_name'] ?? $column['field_key'] ?? $column['column_name'] ?? ''));
             if ($fieldName === '' || !isset($metadataMap[$fieldName])) {
                 continue;
             }
@@ -1209,7 +1209,7 @@ class MasterDatatableRenderService
                 'field_name' => $fieldName,
                 'field_key' => $fieldName,
                 'column_name' => $fieldName,
-                'label' => (string)($column['label'] ?? $metadataColumn->label ?? $fieldName),
+                'label' => (string)($column['resolved_label'] ?? $column['label'] ?? $metadataColumn->label ?? $fieldName),
                 'inputType' => $this->inferInputType($metadataColumn, $schemaColumn),
                 'options' => $this->inferFieldOptions($metadataColumn, $schemaColumn),
                 'componentType' => SystemFieldService::isForeignKey($metadataColumn, $schemaColumn) ? 'foreign_key' : 'field',

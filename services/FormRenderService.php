@@ -75,6 +75,15 @@ class FormRenderService
             : ($form->hasAttribute('use_custom_code') && !empty($form->use_custom_code)) || !empty($form->custom_code_mode);
 
         $fields = array_map(static function (array $field): array {
+            $resolvedName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+            if ($resolvedName !== '') {
+                $field['resolved_name'] = $resolvedName;
+                $field['resolved_column_name'] = $resolvedName;
+            }
+            $resolvedLabel = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
+            if ($resolvedLabel !== '') {
+                $field['resolved_label'] = $resolvedLabel;
+            }
             $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);
             if (in_array($field['inputType'], ['date', 'time', 'datetime-local'], true)) {
                 $field['type'] = $field['inputType'];
@@ -528,14 +537,14 @@ HTML;
 
     private static function fieldTokenName(array $field, int $index): string
     {
-        $name = (string)($field['name'] ?? $field['field_name'] ?? $field['column_name'] ?? $field['id'] ?? 'field_' . ($index + 1));
+        $name = (string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['column_name'] ?? $field['id'] ?? 'field_' . ($index + 1));
         $name = trim((string)preg_replace('/[^a-zA-Z0-9_]+/', '_', $name), '_');
         return $name !== '' ? $name : 'field_' . ($index + 1);
     }
 
     private static function fieldLabel(array $field, int $index): string
     {
-        $label = (string)($field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? '');
+        $label = (string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? '');
         return $label !== '' ? $label : self::humanizeFieldName(self::fieldTokenName($field, $index));
     }
 

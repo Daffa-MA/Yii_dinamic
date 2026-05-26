@@ -255,6 +255,144 @@ class MasterFormController extends Controller
         return trim($columnName);
     }
 
+    private function normalizeSubmitKey(string $key): string
+    {
+        return strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $key), '_'));
+    }
+
+    private function normalizeSchemaKey(string $key): string
+    {
+        return strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $key), '_'));
+    }
+
+    private function resolveTargetTableSchema(MasterForm $model)
+    {
+        $tableId = $this->resolveTargetTableId($model);
+        if ($tableId <= 0) {
+            return null;
+        }
+
+        $table = DbTable::findOne(['id' => $tableId]);
+        if ($table === null || !(bool)$table->is_created) {
+            return null;
+        }
+
+        try {
+            return Yii::$app->db->schema->getTableSchema((string)$table->name, true);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to resolve target schema for master form ' . (int)$model->id . ': ' . $e->getMessage(), 'submit_debug');
+            return null;
+        }
+    }
+
+    /**
+     * @param mixed $schema
+     * @return array<string, string>
+     */
+    private function buildSchemaColumnLookup($schema): array
+    {
+        $lookup = [];
+        if ($schema === null || empty($schema->columns)) {
+            return $lookup;
+        }
+
+        foreach ($schema->columns as $columnName => $column) {
+            $columnName = (string)$columnName;
+            $aliases = [
+                $columnName,
+                $this->normalizeSchemaKey($columnName),
+                $this->normalizeSchemaKey(ucwords(str_replace('_', ' ', $columnName))),
+            ];
+
+            if (str_ends_with($this->normalizeSchemaKey($columnName), '_id')) {
+                $aliases[] = substr($this->normalizeSchemaKey($columnName), 0, -3);
+            }
+
+            foreach ([
+                $column->label ?? null,
+                $column->comment ?? null,
+            ] as $aliasValue) {
+                if (is_string($aliasValue) && trim($aliasValue) !== '') {
+                    $aliases[] = trim($aliasValue);
+                    $aliases[] = $this->normalizeSchemaKey(trim($aliasValue));
+                }
+            }
+
+            foreach (array_values(array_filter($aliases)) as $alias) {
+                $normalizedAlias = $this->normalizeSchemaKey((string)$alias);
+                if ($normalizedAlias === '' || isset($lookup[$normalizedAlias])) {
+                    continue;
+                }
+                $lookup[$normalizedAlias] = $columnName;
+            }
+        }
+
+        return $lookup;
+    }
+
+    /**
+     * @param array<int, string> $candidates
+     * @param array<string, string> $lookup
+     */
+    private function matchSchemaColumnCandidate(array $candidates, array $lookup): ?string
+    {
+        $bestMatch = null;
+        $bestScore = 0.0;
+        foreach (array_values(array_unique(array_filter(array_map('trim', $candidates)))) as $candidate) {
+            $normalizedCandidate = $this->normalizeSchemaKey($candidate);
+            if ($normalizedCandidate === '') {
+                continue;
+            }
+
+            if (isset($lookup[$candidate])) {
+                return $lookup[$candidate];
+            }
+            if (isset($lookup[$normalizedCandidate])) {
+                return $lookup[$normalizedCandidate];
+            }
+
+            $candidateTokens = array_values(array_filter(explode('_', $normalizedCandidate)));
+            foreach ($lookup as $alias => $columnName) {
+                $normalizedAlias = $this->normalizeSchemaKey($alias);
+                if ($normalizedAlias === '') {
+                    continue;
+                }
+
+                $score = 0.0;
+                if ($normalizedAlias === $normalizedCandidate) {
+                    $score = 100.0;
+                } elseif (str_contains($normalizedAlias, $normalizedCandidate) || str_contains($normalizedCandidate, $normalizedAlias)) {
+                    $score = 80.0;
+                } else {
+                    $aliasTokens = array_values(array_filter(explode('_', $normalizedAlias)));
+                    $intersection = array_intersect($candidateTokens, $aliasTokens);
+                    $union = array_unique(array_merge($candidateTokens, $aliasTokens));
+                    if (!empty($union)) {
+                        $score = (count($intersection) / count($union)) * 70.0;
+                    }
+                }
+
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $bestMatch = $columnName;
+                }
+            }
+        }
+
+        return $bestScore >= 45.0 ? $bestMatch : null;
+    }
+
+    private function labelMatchesField(string $label, string $fieldName): bool
+    {
+        $labelTokens = array_values(array_filter(explode('_', $this->normalizeSchemaKey($label))));
+        $fieldTokens = array_values(array_filter(explode('_', $this->normalizeSchemaKey($fieldName))));
+        if (empty($labelTokens) || empty($fieldTokens)) {
+            return false;
+        }
+
+        return count(array_intersect($labelTokens, $fieldTokens)) > 0;
+    }
+
     private function resolveTargetTableId(MasterForm $model): int
     {
         if ($model->hasAttribute('db_table_id')) {
@@ -375,17 +513,59 @@ class MasterFormController extends Controller
         return [];
     }
 
-    private function normalizeFieldName(array $field, int $index): string
+    private function normalizeFieldName(array $field, int $index, $schema = null): string
     {
-        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
-        if ($name === '') {
-            $sourceColumnId = (int)($field['source_column_id'] ?? 0);
-            if ($sourceColumnId > 0) {
-                $sourceColumn = DbTableColumn::findOne($sourceColumnId);
-                if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
-                    $name = (string)$sourceColumn->name;
-                }
+        $candidates = array_filter(array_unique([
+            (string)($field['resolved_name'] ?? ''),
+            (string)($field['resolved_column_name'] ?? ''),
+            (string)($field['name'] ?? ''),
+            (string)($field['field_name'] ?? ''),
+            (string)($field['field_key'] ?? ''),
+            (string)($field['column_name'] ?? ''),
+            (string)($field['original_column'] ?? ''),
+            (string)($field['local_column'] ?? ''),
+            (string)($field['source_column'] ?? ''),
+            (string)($field['source_column_name'] ?? ''),
+            (string)($field['label'] ?? ''),
+            (string)($field['field_label'] ?? ''),
+        ]));
+
+        $sourceColumnId = (int)($field['source_column_id'] ?? 0);
+        if ($sourceColumnId > 0) {
+            $sourceColumn = DbTableColumn::findOne($sourceColumnId);
+            if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
+                $candidates[] = (string)$sourceColumn->name;
             }
+        }
+
+        $relationConfig = [];
+        foreach (['relation_config', 'relationConfig', 'relation'] as $relationKey) {
+            if (isset($field[$relationKey]) && is_array($field[$relationKey])) {
+                $relationConfig = $field[$relationKey];
+                break;
+            }
+        }
+        foreach ([
+            (string)($relationConfig['local_column'] ?? ''),
+            (string)($relationConfig['source_column'] ?? ''),
+            (string)($relationConfig['column_name'] ?? ''),
+            (string)($relationConfig['original_column'] ?? ''),
+            (string)($relationConfig['field_name'] ?? ''),
+            (string)($relationConfig['field_key'] ?? ''),
+        ] as $candidate) {
+            if ($candidate !== '') {
+                $candidates[] = $candidate;
+            }
+        }
+
+        $name = null;
+        if ($schema !== null) {
+            $lookup = $this->buildSchemaColumnLookup($schema);
+            $name = $this->matchSchemaColumnCandidate(array_values($candidates), $lookup);
+        }
+
+        if ($name === null || $name === '') {
+            $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
         }
         if ($name === '') {
             $name = 'field_' . ($index + 1);
@@ -396,8 +576,19 @@ class MasterFormController extends Controller
 
     private function resolveFieldLabel(array $field, string $fieldName): string
     {
-        $label = trim((string)($field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
-        if ($label !== '') {
+        $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
+        $sourceColumnId = (int)($field['source_column_id'] ?? 0);
+        if ($sourceColumnId > 0) {
+            $sourceColumn = DbTableColumn::findOne($sourceColumnId);
+            if ($sourceColumn !== null) {
+                $sourceLabel = trim((string)($sourceColumn->label ?? ''));
+                if ($sourceLabel !== '') {
+                    $label = $sourceLabel;
+                }
+            }
+        }
+
+        if ($label !== '' && $this->labelMatchesField($label, $fieldName)) {
             return $label;
         }
 
@@ -448,6 +639,7 @@ class MasterFormController extends Controller
         $builderData = $this->normalizeBuilderData($model);
         $fields = $this->extractFieldsFromBuilderData($builderData);
         $previousLayout = $model->getActiveLayout()->one();
+        $targetSchema = $this->resolveTargetTableSchema($model);
         if ($customCode === null) {
             $customCode = [
                 'use_custom_code' => $model->hasAttribute('use_custom_code') ? (!empty($model->use_custom_code) ? 1 : 0) : (!empty($model->custom_code_mode) ? 1 : 0),
@@ -466,7 +658,7 @@ class MasterFormController extends Controller
             }
 
             $field = new MasterFormField();
-            $fieldName = $this->normalizeFieldName($fieldData, (int)$index);
+            $fieldName = $this->normalizeFieldName($fieldData, (int)$index, $targetSchema);
             if ($this->isSystemFieldDataForModel($fieldData, $model)) {
                 continue;
             }
@@ -777,6 +969,7 @@ class MasterFormController extends Controller
             
             $schema = $this->formEngineService->getResolvedFormSchema($model);
             $fields = $schema['fields'];
+            $postData = Yii::$app->request->post();
             
             $tableId = $this->resolveTargetTableId($model);
             if (!$tableId) {
@@ -839,10 +1032,10 @@ class MasterFormController extends Controller
             $colNames = array_keys($columns->columns);
             \Yii::info("Table columns found: " . implode(', ', $colNames), 'submit_debug');
             
-            $postData = Yii::$app->request->post();
             \Yii::info("POST data received: " . json_encode(array_keys($postData)), 'submit_debug');
             
             $insertData = [];
+            $fieldMappingDebug = [];
             
             foreach ($fields as $field) {
                 $fieldName = $field['name'] ?? null;
@@ -863,6 +1056,14 @@ class MasterFormController extends Controller
                 } elseif ($postedValue !== null && $postedValue !== '') {
                     $insertData[$fieldName] = $postedValue;
                 }
+
+                $fieldMappingDebug[] = [
+                    'raw_field' => (string)($field['original_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? ''),
+                    'label' => (string)($field['label'] ?? $field['field_label'] ?? ''),
+                    'resolved_column' => (string)$fieldName,
+                    'field_type' => $fieldType,
+                    'posted_value' => $postedValue,
+                ];
             }
 
             $preSystemInsertData = $insertData;
@@ -897,6 +1098,14 @@ class MasterFormController extends Controller
             }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
+            Yii::info([
+                'target_table' => $tableName,
+                'schema_columns' => $colNames,
+                'raw_post_keys' => array_keys($postData),
+                'normalized_payload' => $insertData,
+                'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
+                'field_mapping' => $fieldMappingDebug,
+            ], 'submit_debug');
 
             $columnError = $this->validateInsertDataColumns($insertData, $columns->columns);
             if ($columnError !== null) {
@@ -914,6 +1123,14 @@ class MasterFormController extends Controller
                     'insert_result' => 'schema_mismatch',
                     'error' => $columnError,
                 ]);
+                Yii::warning([
+                    'target_table' => $tableName,
+                    'schema_columns' => $colNames,
+                    'raw_post_keys' => array_keys($postData),
+                    'normalized_payload' => $insertData,
+                    'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
+                    'field_mapping' => $fieldMappingDebug,
+                ], 'submit_debug');
                 if ($isAjax) {
                     return ['success' => false, 'message' => $columnError];
                 }
@@ -1045,18 +1262,51 @@ class MasterFormController extends Controller
 
     private function resolvePostedFieldValue(array $postData, array $field, string $fieldName)
     {
+        $relationConfig = [];
+        foreach (['relation_config', 'relationConfig', 'relation'] as $relationKey) {
+            if (isset($field[$relationKey]) && is_array($field[$relationKey])) {
+                $relationConfig = $field[$relationKey];
+                break;
+            }
+        }
+
         $candidates = array_filter(array_unique([
             $fieldName,
+            (string)($field['resolved_name'] ?? ''),
+            (string)($field['resolved_column_name'] ?? ''),
+            (string)($field['name'] ?? ''),
             (string)($field['field_name'] ?? ''),
             (string)($field['column_name'] ?? ''),
             (string)($field['field_key'] ?? ''),
-            (string)($field['id'] ?? ''),
+            (string)($field['original_column'] ?? ''),
+            (string)($field['local_column'] ?? ''),
+            (string)($field['source_column'] ?? ''),
             (string)($field['source_column_name'] ?? ''),
+            (string)($field['label'] ?? ''),
+            (string)($field['field_label'] ?? ''),
+            (string)($field['labelText'] ?? ''),
+            (string)($relationConfig['local_column'] ?? ''),
+            (string)($relationConfig['source_column'] ?? ''),
+            (string)($relationConfig['column_name'] ?? ''),
+            (string)($relationConfig['original_column'] ?? ''),
+            (string)($relationConfig['field_name'] ?? ''),
+            (string)($relationConfig['field_key'] ?? ''),
         ]));
 
         foreach ($candidates as $candidate) {
             if (array_key_exists($candidate, $postData)) {
                 return $postData[$candidate];
+            }
+
+            $normalizedCandidate = $this->normalizeSubmitKey((string)$candidate);
+            foreach ($postData as $postedKey => $postedValue) {
+                if (!is_string($postedKey)) {
+                    continue;
+                }
+
+                if ($this->normalizeSubmitKey($postedKey) === $normalizedCandidate) {
+                    return $postedValue;
+                }
             }
         }
 
@@ -1117,12 +1367,6 @@ class MasterFormController extends Controller
         ];
 
         return in_array($columnName, $systemColumns, true) || !empty($column->isPrimaryKey) || !empty($column->autoIncrement);
-    }
-
-    private function normalizeSubmitKey(string $value): string
-    {
-        $normalized = strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $value), '_'));
-        return $normalized;
     }
 
     private function canSubmitEmbeddedPageForm(int $formId): bool

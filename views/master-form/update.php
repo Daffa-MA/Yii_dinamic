@@ -1924,7 +1924,7 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div class="prop-section"><div class="prop-section-title">Foreign Key</div>';
             html += '<div class="prop-group"><label class="prop-label">Local Column / Kolom Form</label><input type="text" class="prop-input" value="' + escapeAttr(field.local_column || field.name || '-') + '" readonly style="background:#f1f5f9;"></div>';
             html += '<div class="prop-group"><label class="prop-label">Referenced Table</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
-            html += '<div class="prop-group"><label class="prop-label">Referenced Value Column</label><select class="prop-select" onchange="setForeignKeyColumn(\'value\', this.value)">' + buildDropdownColumnOptions(field, field.fk_referenced_column || field.value_column || field.dropdown_value_column) + '</select></div>';
+            html += '<div class="prop-group"><label class="prop-label">Referenced Value Column</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_column || field.value_column || field.dropdown_value_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
             html += '<div class="prop-group"><label class="prop-label">Display Column</label><select class="prop-select" onchange="setForeignKeyColumn(\'display\', this.value)">' + buildDropdownColumnOptions(field, field.fk_display_column || field.label_column || field.dropdown_label_column) + '</select></div>';
             html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="reloadForeignKeyOptions()">Refresh dropdown relasi</button></div>';
             if (field.fk_options && field.fk_options.length > 0) {
@@ -1997,11 +1997,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setForeignKeyColumn = function(kind, value) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
-        if (kind === 'value') {
-            field.value_column = value;
-            field.dropdown_value_column = value;
-            field.fk_referenced_column = value;
-        } else if (kind === 'display') {
+        if (kind === 'display') {
             field.label_column = value;
             field.dropdown_label_column = value;
             field.fk_display_column = value;

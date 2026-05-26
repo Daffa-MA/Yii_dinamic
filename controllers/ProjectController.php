@@ -108,6 +108,17 @@ class ProjectController extends Controller
         return (new CommanderAuthContext())->isSuperAdmin();
     }
 
+    private function resolveAuthenticatedProjectOwnerId(): int
+    {
+        $yiiUserId = (int)(Yii::$app->user->id ?? 0);
+        if ($yiiUserId > 0) {
+            return $yiiUserId;
+        }
+
+        $commanderUser = (new CommanderAuthContext())->getUser();
+        return $commanderUser !== null ? (int)$commanderUser->id : 0;
+    }
+
     private function resolveProjectDomainPrefix(Project $project): string
     {
         $defaultPrefix = Project::normalizeSlug((string)$project->slug);
@@ -427,6 +438,10 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionIndex()
     {
+        if (Yii::$app->user->isGuest && !(new CommanderAuthContext())->isAuthenticated()) {
+            return $this->redirect(['/site/login']);
+        }
+
         if (!$this->isCommanderSuperAdmin()) {
             $this->logProjectListAccess('not_commander_superadmin');
             throw new ForbiddenHttpException('Akses project list hanya untuk Commander superadmin.');
@@ -442,13 +457,36 @@ private function insertDefaultCmsData($newDb): void
         Project::ensureProjectStructure();
         $context = new ActiveProjectContext();
         $model = new Project();
-        $model->user_id = Yii::$app->user->id;
+        $ownerUserId = $this->resolveAuthenticatedProjectOwnerId();
+        if ($ownerUserId <= 0) {
+            Yii::$app->session->setFlash('error', 'Sesi pengguna tidak valid. Silakan login ulang.');
+            return $this->redirect(['/site/login']);
+        }
+        $model->user_id = $ownerUserId;
+        if ($model->hasAttribute('created_by')) {
+            $model->created_by = $ownerUserId;
+        }
+        if ($model->hasAttribute('owner_id')) {
+            $model->owner_id = $ownerUserId;
+        }
+        if ($model->hasAttribute('project_owner_id')) {
+            $model->project_owner_id = $ownerUserId;
+        }
         $isCommanderSuperAdmin = $this->isCommanderSuperAdmin();
         $model->custom_domain_prefix = Project::normalizeSlug((string)($model->custom_domain_prefix ?: $model->name));
 
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
-                $model->user_id = Yii::$app->user->id;
+                $model->user_id = $ownerUserId;
+                if ($model->hasAttribute('created_by') && empty($model->created_by)) {
+                    $model->created_by = $ownerUserId;
+                }
+                if ($model->hasAttribute('owner_id') && empty($model->owner_id)) {
+                    $model->owner_id = $ownerUserId;
+                }
+                if ($model->hasAttribute('project_owner_id') && empty($model->project_owner_id)) {
+                    $model->project_owner_id = $ownerUserId;
+                }
                 $model->slug = Project::buildProjectSlug((string)$model->name);
                 $domainPrefix = $this->resolveProjectDomainPrefix($model);
                 $model->custom_domain_prefix = $domainPrefix;

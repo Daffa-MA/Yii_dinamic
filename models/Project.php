@@ -2,6 +2,7 @@
 
 namespace app\models;
 
+use app\components\CommanderAuthContext;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\helpers\Url;
@@ -444,5 +445,41 @@ class Project extends ActiveRecord
                 'value' => new \yii\db\Expression($timestampExpression),
             ],
         ];
+    }
+
+    public function beforeValidate()
+    {
+        if (!parent::beforeValidate()) {
+            return false;
+        }
+
+        $authenticatedUserId = $this->resolveAuthenticatedUserId();
+        if ($this->getIsNewRecord() && $authenticatedUserId > 0) {
+            if ($this->hasAttribute('user_id') && empty($this->user_id)) {
+                $this->user_id = $authenticatedUserId;
+            }
+            if ($this->hasAttribute('created_by') && empty($this->created_by)) {
+                $this->created_by = $authenticatedUserId;
+            }
+            if ($this->hasAttribute('owner_id') && empty($this->owner_id)) {
+                $this->owner_id = $authenticatedUserId;
+            }
+            if ($this->hasAttribute('project_owner_id') && empty($this->project_owner_id)) {
+                $this->project_owner_id = $authenticatedUserId;
+            }
+        }
+
+        return true;
+    }
+
+    private function resolveAuthenticatedUserId(): int
+    {
+        $yiiUserId = (int)(Yii::$app->user->id ?? 0);
+        if ($yiiUserId > 0) {
+            return $yiiUserId;
+        }
+
+        $commanderUser = (new CommanderAuthContext())->getUser();
+        return $commanderUser !== null ? (int)$commanderUser->id : 0;
     }
 }

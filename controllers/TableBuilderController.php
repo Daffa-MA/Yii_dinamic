@@ -3511,6 +3511,101 @@ class TableBuilderController extends Controller
             ]);
         }
     }
+
+    /**
+     * Build dropdown options from any dynamic table in the active workspace.
+     */
+    public function actionDropdownOptions(int $table_id)
+    {
+        try {
+            $this->refreshDbTableColumnsSchema();
+
+            $table = DbTable::findOne((int)$table_id);
+            if ($table === null) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Table not found.',
+                ]);
+            }
+
+            $db = $this->getPhysicalDb();
+            $schema = $db->schema->getTableSchema((string)$table->name, true);
+            if ($schema === null) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Physical table is not available yet.',
+                ]);
+            }
+
+            $valueColumn = trim((string)Yii::$app->request->get('value_column', ''));
+            $labelColumn = trim((string)Yii::$app->request->get('label_column', ''));
+            if ($valueColumn === '') {
+                $valueColumn = $this->resolvePrimaryOrFirstColumn($schema);
+            }
+            if ($labelColumn === '') {
+                $labelColumn = $this->resolveFkDisplayColumn($db, (string)$table->name, $valueColumn) ?: $valueColumn;
+            }
+
+            if (!isset($schema->columns[$valueColumn]) || !isset($schema->columns[$labelColumn])) {
+                return $this->asJson([
+                    'success' => false,
+                    'error' => 'Selected value/label column is not valid for this table.',
+                ]);
+            }
+
+            $rows = (new \yii\db\Query())
+                ->select([
+                    'value' => $valueColumn,
+                    'label' => $labelColumn,
+                ])
+                ->from((string)$table->name)
+                ->orderBy([$labelColumn => SORT_ASC])
+                ->limit(500)
+                ->all($db);
+
+            $options = [];
+            foreach ($rows as $row) {
+                $value = isset($row['value']) ? (string)$row['value'] : '';
+                if ($value === '') {
+                    continue;
+                }
+                $label = trim((string)($row['label'] ?? ''));
+                $options[] = [
+                    'value' => $value,
+                    'label' => $label !== '' ? $label : $value,
+                ];
+            }
+
+            return $this->asJson([
+                'success' => true,
+                'table_id' => (int)$table->id,
+                'table_name' => (string)$table->name,
+                'value_column' => $valueColumn,
+                'label_column' => $labelColumn,
+                'options' => $options,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->asJson([
+                'success' => false,
+                'error' => $this->buildFriendlyTableBuilderErrorMessage($e),
+            ]);
+        }
+    }
+
+    private function resolvePrimaryOrFirstColumn(\yii\db\TableSchema $schema): string
+    {
+        foreach ($schema->columns as $name => $column) {
+            if ($column->isPrimaryKey) {
+                return (string)$name;
+            }
+        }
+
+        foreach ($schema->columns as $name => $column) {
+            return (string)$name;
+        }
+
+        return 'id';
+    }
     
     /**
      * Get foreign key dropdown options for a specific column

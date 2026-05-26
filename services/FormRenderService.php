@@ -4,6 +4,7 @@ namespace app\services;
 
 use app\components\CustomCodeSandbox;
 use app\helpers\FormSystemFieldHelper;
+use app\models\DbTable;
 use app\models\MasterForm;
 use app\models\MasterFormLayout;
 use Yii;
@@ -74,6 +75,7 @@ class FormRenderService
             if (in_array($field['inputType'], ['date', 'time', 'datetime-local'], true)) {
                 $field['type'] = $field['inputType'];
             }
+            $field = self::resolveDynamicChoiceOptions($field);
             return $field;
         }, FormSystemFieldHelper::filterFields($fields));
         $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
@@ -88,6 +90,66 @@ class FormRenderService
             'customCss' => $customCss,
             'customJs' => $customJs,
         ];
+    }
+
+    public static function resolveDynamicChoiceOptions(array $field): array
+    {
+        $type = (string)($field['type'] ?? $field['field_type'] ?? '');
+        $source = (string)($field['dropdown_source'] ?? $field['options_source'] ?? '');
+        if (!in_array($type, ['select', 'radio', 'checkboxes'], true) || $source !== 'table') {
+            return $field;
+        }
+
+        $tableId = (int)($field['source_table_id'] ?? $field['dropdown_table_id'] ?? 0);
+        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? ''));
+        $labelColumn = trim((string)($field['label_column'] ?? $field['dropdown_label_column'] ?? ''));
+        if ($tableId <= 0 || $valueColumn === '' || $labelColumn === '') {
+            return $field;
+        }
+
+        try {
+            $table = DbTable::findOne($tableId);
+            if ($table === null) {
+                return $field;
+            }
+
+            $db = Yii::$app->db;
+            $schema = $db->schema->getTableSchema((string)$table->name, true);
+            if ($schema === null || !isset($schema->columns[$valueColumn]) || !isset($schema->columns[$labelColumn])) {
+                return $field;
+            }
+
+            $rows = (new \yii\db\Query())
+                ->select([
+                    'value' => $valueColumn,
+                    'label' => $labelColumn,
+                ])
+                ->from((string)$table->name)
+                ->orderBy([$labelColumn => SORT_ASC])
+                ->limit(500)
+                ->all($db);
+
+            $options = [];
+            foreach ($rows as $row) {
+                $value = isset($row['value']) ? (string)$row['value'] : '';
+                if ($value === '') {
+                    continue;
+                }
+
+                $label = trim((string)($row['label'] ?? ''));
+                $options[] = [
+                    'value' => $value,
+                    'label' => $label !== '' ? $label : $value,
+                ];
+            }
+
+            $field['options'] = $options;
+            $field['dynamic_options_loaded'] = true;
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to resolve dynamic dropdown options: ' . $e->getMessage(), 'form-render');
+        }
+
+        return $field;
     }
 
     public static function prepareCustomFormSubmission(string $html, int $formId, array $hiddenInputs = []): string

@@ -226,6 +226,7 @@ $config = [
                 'tables/get-tables' => 'table-builder/get-tables',
                 'tables/get-columns/<id:\d+>' => 'table-builder/get-table-columns',
                 'tables/columns/<id:\d+>' => 'table-builder/get-columns',
+                'tables/dropdown-options/<table_id:\d+>' => 'table-builder/dropdown-options',
                 'tables/foreign-key-options/<columnId:\d+>' => 'table-builder/get-foreign-key-options',
                 'tables/view/<id:\d+>' => 'table-builder/view',
                 'tables/update/<id:\d+>' => 'table-builder/update',

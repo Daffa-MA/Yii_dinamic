@@ -1242,6 +1242,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let formFields = [];
     let selectedIndex = null;
     let currentDevice = 'desktop';
+    let dropdownSourceTables = [];
+    const dropdownSourceColumnsCache = {};
     
     // **CRITICAL HYDRATION**: Load existing form data from hidden input
     const existingDataRaw = formDataInput ? formDataInput.value : '[]';
@@ -1318,6 +1320,79 @@ document.addEventListener('DOMContentLoaded', function() {
             label: opt.label ?? ('Opsi ' + (index + 1))
         }));
         return field.options;
+    }
+
+    function getDropdownSourceMode(field) {
+        return field.dropdown_source === 'table' ? 'table' : 'manual';
+    }
+
+    function buildDropdownTableOptions(selectedTableId) {
+        let html = '<option value="">Pilih table...</option>';
+        dropdownSourceTables.forEach(table => {
+            html += '<option value="' + escapeAttr(table.id) + '"' + boolAttr('selected', String(selectedTableId || '') === String(table.id)) + '>' + escapeHtml(table.label || table.name) + '</option>';
+        });
+        return html;
+    }
+
+    function buildDropdownColumnOptions(field, selectedColumn) {
+        const tableId = field.source_table_id || field.dropdown_table_id || '';
+        const columns = dropdownSourceColumnsCache[String(tableId)] || [];
+        let html = '<option value="">Pilih kolom...</option>';
+        columns.forEach(column => {
+            html += '<option value="' + escapeAttr(column.name) + '"' + boolAttr('selected', String(selectedColumn || '') === String(column.name)) + '>' + escapeHtml((column.label || column.name) + ' (' + column.name + ')') + '</option>';
+        });
+        return html;
+    }
+
+    function ensureDropdownSourceTablesLoaded() {
+        if (dropdownSourceTables.length > 0) return Promise.resolve(dropdownSourceTables);
+        return fetch('/tables/get-tables?t=' + Date.now(), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.json())
+            .then(data => {
+                dropdownSourceTables = Array.isArray(data.tables) ? data.tables : [];
+                return dropdownSourceTables;
+            })
+            .catch(() => []);
+    }
+
+    function ensureDropdownSourceColumnsLoaded(tableId) {
+        tableId = String(tableId || '');
+        if (!tableId) return Promise.resolve([]);
+        if (dropdownSourceColumnsCache[tableId]) return Promise.resolve(dropdownSourceColumnsCache[tableId]);
+        return fetch('/tables/columns/' + encodeURIComponent(tableId) + '?t=' + Date.now(), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.json())
+            .then(data => {
+                dropdownSourceColumnsCache[tableId] = Array.isArray(data.columns) ? data.columns : [];
+                return dropdownSourceColumnsCache[tableId];
+            })
+            .catch(() => []);
+    }
+
+    function refreshDropdownOptionsFromTable(field) {
+        const tableId = field.source_table_id || field.dropdown_table_id || '';
+        const valueColumn = field.value_column || field.dropdown_value_column || '';
+        const labelColumn = field.label_column || field.dropdown_label_column || '';
+        if (!tableId || !valueColumn || !labelColumn) return Promise.resolve([]);
+
+        const url = '/tables/dropdown-options/' + encodeURIComponent(tableId)
+            + '?value_column=' + encodeURIComponent(valueColumn)
+            + '&label_column=' + encodeURIComponent(labelColumn)
+            + '&t=' + Date.now();
+        return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && Array.isArray(data.options)) {
+                    field.options = data.options;
+                    field.dynamic_options_loaded = true;
+                    return data.options;
+                }
+                return [];
+            })
+            .catch(() => []);
     }
 
     function attr(name, value) {
@@ -1531,7 +1606,24 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
-        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key) {
+        if (field.type === 'select' && !field.is_foreign_key) {
+            const sourceMode = getDropdownSourceMode(field);
+            html += '<div class="prop-section"><div class="prop-section-title">Dropdown Source</div>';
+            html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setDropdownSourceMode(this.value)">';
+            html += '<option value="manual"' + boolAttr('selected', sourceMode === 'manual') + '>Manual Options</option>';
+            html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Ambil dari Table</option>';
+            html += '</select></div>';
+            if (sourceMode === 'table') {
+                html += '<div class="prop-group"><label class="prop-label">Source Table</label><select class="prop-select" onchange="setDropdownSourceTable(this.value)">' + buildDropdownTableOptions(field.source_table_id || field.dropdown_table_id) + '</select></div>';
+                html += '<div class="prop-group"><label class="prop-label">Value Column</label><select class="prop-select" onchange="setDropdownSourceColumn(\'value_column\', this.value)">' + buildDropdownColumnOptions(field, field.value_column || field.dropdown_value_column) + '</select></div>';
+                html += '<div class="prop-group"><label class="prop-label">Label Column</label><select class="prop-select" onchange="setDropdownSourceColumn(\'label_column\', this.value)">' + buildDropdownColumnOptions(field, field.label_column || field.dropdown_label_column) + '</select></div>';
+                html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="reloadDropdownSourceOptions()">Refresh options dari table</button></div>';
+                html += '<small style="display:block;color:#64748b;line-height:1.5;">Contoh: pilih table jurusan, value=id, label=nama_jurusan.</small>';
+            }
+            html += '</div>';
+        }
+
+        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key && getDropdownSourceMode(field) !== 'table') {
             const options = normalizeChoiceOptions(field);
             html += '<div class="prop-section"><div class="prop-section-title">Options</div>';
             html += '<div class="prop-group">';
@@ -1580,6 +1672,23 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '</div>';
         
         propsPanel.innerHTML = html;
+
+        if (field.type === 'select' && !field.is_foreign_key) {
+            const tableId = field.source_table_id || field.dropdown_table_id || '';
+            ensureDropdownSourceTablesLoaded().then(function() {
+                if (selectedIndex === null || formFields[selectedIndex] !== field) return;
+                if (getDropdownSourceMode(field) === 'table' && tableId) {
+                    const hadColumns = !!dropdownSourceColumnsCache[String(tableId)];
+                    ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+                        if (!hadColumns && selectedIndex !== null && formFields[selectedIndex] === field) {
+                            renderPropsPanel(field);
+                        }
+                    });
+                } else if (dropdownSourceTables.length > 0 && propsPanel.querySelector('select[onchange^="setDropdownSourceTable"]') && propsPanel.querySelector('select[onchange^="setDropdownSourceTable"]').options.length <= 1) {
+                    renderPropsPanel(field);
+                }
+            });
+        }
     }
     
     // Update Field Property
@@ -1591,10 +1700,80 @@ document.addEventListener('DOMContentLoaded', function() {
             if (['select', 'radio', 'checkboxes'].includes(value)) {
                 normalizeChoiceOptions(formFields[selectedIndex]);
             }
+            if (value !== 'select') {
+                formFields[selectedIndex].dropdown_source = 'static_options';
+            }
         }
         renderFields();
         renderPropsPanel(formFields[selectedIndex]);
         updateData();
+    };
+
+    window.setDropdownSourceMode = function(mode) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.dropdown_source = mode === 'table' ? 'table' : 'static_options';
+        if (mode !== 'table') {
+            delete field.source_table_id;
+            delete field.source_table_name;
+            delete field.value_column;
+            delete field.label_column;
+            normalizeChoiceOptions(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+            return;
+        }
+
+        ensureDropdownSourceTablesLoaded().then(function() {
+            renderPropsPanel(field);
+            updateData();
+        });
+    };
+
+    window.setDropdownSourceTable = function(tableId) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const table = dropdownSourceTables.find(item => String(item.id) === String(tableId));
+        field.dropdown_source = 'table';
+        field.source_table_id = tableId ? parseInt(tableId, 10) : '';
+        field.source_table_name = table ? table.name : '';
+        field.value_column = '';
+        field.label_column = '';
+        field.options = [];
+        ensureDropdownSourceColumnsLoaded(tableId).then(function(columns) {
+            const primary = columns.find(column => column.is_primary) || columns[0] || null;
+            const labelColumn = columns.find(column => ['nama', 'name', 'label', 'judul', 'title'].includes(String(column.name || '').toLowerCase())) || columns.find(column => !column.is_primary) || primary;
+            if (primary) field.value_column = primary.name;
+            if (labelColumn) field.label_column = labelColumn.name;
+            return refreshDropdownOptionsFromTable(field);
+        }).then(function() {
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+        });
+    };
+
+    window.setDropdownSourceColumn = function(propName, value) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.dropdown_source = 'table';
+        field[propName] = value;
+        refreshDropdownOptionsFromTable(field).then(function() {
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+        });
+    };
+
+    window.reloadDropdownSourceOptions = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        refreshDropdownOptionsFromTable(field).then(function() {
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+        });
     };
 
     window.updateFieldOption = function(index, key, value) {

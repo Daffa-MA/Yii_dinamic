@@ -2315,7 +2315,90 @@ class TableBuilderController extends Controller
      */
     private function normalizeSpreadsheetColumnKey($value): string
     {
-        return strtolower(trim((string)$value));
+        return strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', (string)$value), '_'));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function buildSpreadsheetSchemaColumnLookup(\yii\db\TableSchema $tableSchema): array
+    {
+        $lookup = [];
+        foreach ($tableSchema->columns as $columnName => $column) {
+            $columnName = (string)$columnName;
+            foreach (array_filter([
+                $columnName,
+                $this->normalizeSpreadsheetColumnKey($columnName),
+                ucwords(str_replace('_', ' ', $columnName)),
+                $column->comment ?? null,
+            ]) as $alias) {
+                $normalized = $this->normalizeSpreadsheetColumnKey($alias);
+                if ($normalized !== '' && !isset($lookup[$normalized])) {
+                    $lookup[$normalized] = $columnName;
+                }
+            }
+        }
+
+        return $lookup;
+    }
+
+    private function resolveSpreadsheetSchemaColumnName(string $columnName, \yii\db\TableSchema $tableSchema, array $schemaLookup): ?string
+    {
+        if (isset($tableSchema->columns[$columnName])) {
+            return $columnName;
+        }
+
+        $normalizedColumnName = $this->normalizeSpreadsheetColumnKey($columnName);
+        if ($normalizedColumnName === '') {
+            return null;
+        }
+
+        if (isset($schemaLookup[$normalizedColumnName])) {
+            return $schemaLookup[$normalizedColumnName];
+        }
+
+        $candidateTokens = array_values(array_filter(explode('_', $normalizedColumnName)));
+        $bestColumn = null;
+        $bestScore = 0.0;
+        foreach ($schemaLookup as $schemaAlias => $schemaColumnName) {
+            $normalizedAlias = $this->normalizeSpreadsheetColumnKey($schemaAlias);
+            if ($normalizedAlias === '') {
+                continue;
+            }
+
+            $score = 0.0;
+            if ($normalizedAlias === $normalizedColumnName) {
+                $score = 100.0;
+            } elseif (
+                $normalizedAlias !== 'id'
+                && $normalizedColumnName !== 'id'
+                && (str_contains($normalizedAlias, $normalizedColumnName) || str_contains($normalizedColumnName, $normalizedAlias))
+            ) {
+                $score = 80.0;
+            } else {
+                $aliasTokens = array_values(array_filter(explode('_', $normalizedAlias)));
+                if (!empty($candidateTokens) && !empty($aliasTokens)) {
+                    sort($candidateTokens);
+                    sort($aliasTokens);
+                    if ($candidateTokens === $aliasTokens) {
+                        $score = 95.0;
+                    } else {
+                        $intersection = array_intersect($candidateTokens, $aliasTokens);
+                        $union = array_unique(array_merge($candidateTokens, $aliasTokens));
+                        if (!empty($union)) {
+                            $score = (count($intersection) / count($union)) * 70.0;
+                        }
+                    }
+                }
+            }
+
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestColumn = $schemaColumnName;
+            }
+        }
+
+        return $bestScore >= 70.0 ? $bestColumn : null;
     }
 
     /**
@@ -2517,15 +2600,16 @@ class TableBuilderController extends Controller
     private function filterSpreadsheetRowDataBySchema(array $rowData, \yii\db\TableSchema $tableSchema): array
     {
         $filtered = [];
+        $schemaLookup = $this->buildSpreadsheetSchemaColumnLookup($tableSchema);
         foreach ($rowData as $columnName => $value) {
             if (!is_string($columnName)) {
                 continue;
             }
-            $normalizedColumnName = $this->normalizeSpreadsheetColumnKey($columnName);
-            if ($normalizedColumnName === '' || !isset($tableSchema->columns[$normalizedColumnName])) {
+            $resolvedColumnName = $this->resolveSpreadsheetSchemaColumnName($columnName, $tableSchema, $schemaLookup);
+            if ($resolvedColumnName === null || !isset($tableSchema->columns[$resolvedColumnName])) {
                 continue;
             }
-            $filtered[$normalizedColumnName] = $value;
+            $filtered[$resolvedColumnName] = $value;
         }
 
         return $filtered;
@@ -2608,6 +2692,7 @@ class TableBuilderController extends Controller
             'resolved_where' => $where,
             'raw_payload' => $rawPayload,
             'normalized_row_data' => $rowData,
+            'rejected_fields' => array_values(array_diff(array_keys($rawPayload), array_keys($rowData))),
             'before_row' => $beforeRow,
             'schema_columns' => array_keys($tableSchema->columns),
         ], 'table-spreadsheet-debug');
@@ -2708,6 +2793,21 @@ class TableBuilderController extends Controller
 
         $rowData = SystemFieldService::applyUpdateValues($rowData, $tableSchema->columns);
         $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
+        if (empty($rowData)) {
+            Yii::warning([
+                'table_name' => (string)$model->name,
+                'operation' => 'update',
+                'row_key' => $rawRowKey,
+                'raw_payload' => $rawPayload,
+                'rejected_fields' => array_keys($rawPayload),
+                'schema_columns' => array_keys($tableSchema->columns),
+            ], 'table-spreadsheet-debug');
+            return [
+                'success' => false,
+                'code' => 'empty_update_payload',
+                'message' => 'Tidak ada field valid untuk disimpan.',
+            ];
+        }
         $updateResult = $db->createCommand()->update($model->name, $rowData, $where)->execute();
         $afterRow = (new \yii\db\Query())->from($model->name)->where($where)->one($db);
         Yii::info([

@@ -515,7 +515,7 @@ class MasterFormController extends Controller
 
     private function normalizeFieldName(array $field, int $index, $schema = null): string
     {
-        $candidates = array_filter(array_unique([
+        $identityCandidates = array_filter(array_unique([
             (string)($field['resolved_name'] ?? ''),
             (string)($field['resolved_column_name'] ?? ''),
             (string)($field['name'] ?? ''),
@@ -526,15 +526,18 @@ class MasterFormController extends Controller
             (string)($field['local_column'] ?? ''),
             (string)($field['source_column'] ?? ''),
             (string)($field['source_column_name'] ?? ''),
+        ]));
+        $labelCandidates = array_filter(array_unique([
             (string)($field['label'] ?? ''),
             (string)($field['field_label'] ?? ''),
+            (string)($field['labelText'] ?? ''),
         ]));
 
         $sourceColumnId = (int)($field['source_column_id'] ?? 0);
         if ($sourceColumnId > 0) {
             $sourceColumn = DbTableColumn::findOne($sourceColumnId);
             if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
-                $candidates[] = (string)$sourceColumn->name;
+                array_unshift($identityCandidates, (string)$sourceColumn->name);
             }
         }
 
@@ -554,14 +557,17 @@ class MasterFormController extends Controller
             (string)($relationConfig['field_key'] ?? ''),
         ] as $candidate) {
             if ($candidate !== '') {
-                $candidates[] = $candidate;
+                $identityCandidates[] = $candidate;
             }
         }
 
         $name = null;
         if ($schema !== null) {
             $lookup = $this->buildSchemaColumnLookup($schema);
-            $name = $this->matchSchemaColumnCandidate(array_values($candidates), $lookup);
+            $name = $this->matchSchemaColumnCandidate(array_values($identityCandidates), $lookup);
+            if (($name === null || $name === '') && !empty($labelCandidates)) {
+                $name = $this->matchSchemaColumnCandidate(array_values($labelCandidates), $lookup);
+            }
         }
 
         if ($name === null || $name === '') {
@@ -661,6 +667,41 @@ class MasterFormController extends Controller
             $fieldName = $this->normalizeFieldName($fieldData, (int)$index, $targetSchema);
             if ($this->isSystemFieldDataForModel($fieldData, $model)) {
                 continue;
+            }
+
+            $sourceColumn = null;
+            $sourceTableId = $this->resolveTargetTableId($model);
+            if ($sourceTableId > 0 && $fieldName !== '') {
+                $sourceColumn = DbTableColumn::find()
+                    ->where(['table_id' => $sourceTableId, 'name' => $fieldName])
+                    ->one();
+            }
+            $relationConfig = [];
+            foreach (['relation_config', 'relationConfig', 'relation'] as $relationKey) {
+                if (isset($fieldData[$relationKey]) && is_array($fieldData[$relationKey])) {
+                    $relationConfig = $fieldData[$relationKey];
+                    break;
+                }
+            }
+            if ($sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key')) {
+                $referencedTable = $sourceColumn->hasAttribute('referenced_table_name') ? (string)$sourceColumn->getAttribute('referenced_table_name') : '';
+                $referencedColumn = $sourceColumn->hasAttribute('referenced_column_name') ? (string)$sourceColumn->getAttribute('referenced_column_name') : '';
+                $relationConfig = array_filter(array_merge($relationConfig, [
+                    'local_column' => $fieldName,
+                    'source_column' => $fieldName,
+                    'column_name' => $fieldName,
+                    'referenced_table' => $referencedTable,
+                    'referenced_table_name' => $referencedTable,
+                    'referenced_column' => $referencedColumn,
+                    'referenced_column_name' => $referencedColumn,
+                    'value_column' => $referencedColumn,
+                    'display_column' => (string)($fieldData['fk_display_column'] ?? $fieldData['label_column'] ?? ''),
+                ]), static fn($value): bool => $value !== null && $value !== '');
+                $fieldData['is_foreign_key'] = true;
+                $fieldData['relation_config'] = $relationConfig;
+                $fieldData['fk_referenced_table'] = $referencedTable;
+                $fieldData['fk_referenced_column'] = $referencedColumn;
+                $fieldData['value_column'] = $referencedColumn;
             }
 
             $fieldType = (string)($fieldData['type'] ?? $fieldData['field_type'] ?? 'text');

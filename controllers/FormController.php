@@ -387,7 +387,8 @@ class FormController extends Controller
     private function resolveSchemaColumnNameFromField(array $field, int $index, $tableSchema, $sourceColumn = null, &$debugRow = []): string
     {
         $schemaLookup = $this->buildSchemaColumnLookup($tableSchema);
-        $candidates = [];
+        $identityCandidates = [];
+        $labelCandidates = [];
         foreach ([
             $field['name'] ?? null,
             $field['field_name'] ?? null,
@@ -399,12 +400,9 @@ class FormController extends Controller
             $field['source_column_name'] ?? null,
             $field['relation_target_column'] ?? null,
             $field['relation_value_column'] ?? null,
-            $field['label'] ?? null,
-            $field['field_label'] ?? null,
-            $field['labelText'] ?? null,
         ] as $candidate) {
             if (is_string($candidate) && trim($candidate) !== '') {
-                $candidates[] = trim($candidate);
+                $identityCandidates[] = trim($candidate);
             }
         }
 
@@ -416,19 +414,30 @@ class FormController extends Controller
             $relationConfig['original_column'] ?? null,
             $relationConfig['field_name'] ?? null,
             $relationConfig['field_key'] ?? null,
-            $relationConfig['display_column'] ?? null,
-            $relationConfig['referenced_column'] ?? null,
         ] as $candidate) {
             if (is_string($candidate) && trim($candidate) !== '') {
-                $candidates[] = trim($candidate);
+                $identityCandidates[] = trim($candidate);
             }
         }
 
         if ($sourceColumn !== null && !empty($sourceColumn->name)) {
-            $candidates[] = (string)$sourceColumn->name;
+            array_unshift($identityCandidates, (string)$sourceColumn->name);
         }
 
-        $resolved = $this->matchSchemaColumnCandidate($candidates, $schemaLookup, $debugRow);
+        foreach ([
+            $field['label'] ?? null,
+            $field['field_label'] ?? null,
+            $field['labelText'] ?? null,
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                $labelCandidates[] = trim($candidate);
+            }
+        }
+
+        $resolved = $this->matchSchemaColumnCandidate($identityCandidates, $schemaLookup, $debugRow);
+        if (($resolved === null || $resolved === '') && !empty($labelCandidates)) {
+            $resolved = $this->matchSchemaColumnCandidate($labelCandidates, $schemaLookup, $debugRow);
+        }
         if ($resolved !== null && $resolved !== '') {
             return $resolved;
         }

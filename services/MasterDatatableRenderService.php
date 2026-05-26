@@ -924,6 +924,37 @@ class MasterDatatableRenderService
                     return values;
                 }
 
+                function logModalFieldChange(input, fieldName, field) {
+                    const selected = input && input.tagName === 'SELECT' ? input.options[input.selectedIndex] : null;
+                    console.debug('[MasterDatatable] FIELD CHANGE', {
+                        row_id: activeRow ? (activeRow.getAttribute('data-row-key') || '') : '',
+                        column: fieldName,
+                        value: input && (input.type || '').toLowerCase() === 'checkbox' ? (input.checked ? 1 : 0) : (input ? input.value : ''),
+                        option_label: selected ? selected.textContent : '',
+                        field_type: field ? (field.inputType || field.componentType || '') : (input ? (input.type || input.tagName.toLowerCase()) : '')
+                    });
+                }
+
+                function bindModalChangeDebug(rootEl) {
+                    const fields = getCustomFormFields();
+                    fields.forEach(function(field) {
+                        const fieldName = field.field || field.name || '';
+                        if (!fieldName) {
+                            return;
+                        }
+                        const inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+                        Array.prototype.forEach.call(inputs, function(input) {
+                            if (input.__dtDebugBound) {
+                                return;
+                            }
+                            input.__dtDebugBound = true;
+                            input.addEventListener('change', function() {
+                                logModalFieldChange(input, fieldName, field);
+                            });
+                        });
+                    });
+                }
+
                 function renderCustomEdit(rowData) {
                     formGrid.className = 'dt-row-custom-form-shell';
                     if (formNote) {
@@ -944,6 +975,7 @@ class MasterDatatableRenderService
                             formGrid.appendChild(script);
                         }
                         applyValuesToCustomMarkup(formGrid, rowData);
+                        bindModalChangeDebug(formGrid);
                         return;
                     }
                     const fields = getCustomFormFields();
@@ -961,6 +993,7 @@ class MasterDatatableRenderService
                             '</div>' +
                         '</div>' +
                     '</div>';
+                    bindModalChangeDebug(formGrid);
                 }
 
                 function renderDefaultEdit(rowData) {
@@ -1001,6 +1034,7 @@ class MasterDatatableRenderService
                             control +
                         '</div>';
                     }).join('');
+                    bindModalChangeDebug(formGrid);
                 }
 
                 function openRow(row, mode) {
@@ -1118,6 +1152,19 @@ class MasterDatatableRenderService
                     request.append('operation', 'upsert_row');
                     request.append('row_key', keyInput.value || '{}');
                     request.append('row_data', JSON.stringify(values));
+
+                    console.debug('[MasterDatatable] SAVE', {
+                        row_id: activeRow ? (activeRow.getAttribute('data-row-key') || '') : '',
+                        row_key: keyInput.value || '{}',
+                        raw_row_data: values,
+                        changed_fields: values,
+                        payload_update: {
+                            table_id: String(payload.tableId),
+                            operation: 'upsert_row',
+                            row_key: keyInput.value || '{}',
+                            row_data: values
+                        }
+                    });
 
                     saveButton.disabled = true;
                     const previousLabel = saveButton.textContent;

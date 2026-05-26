@@ -3,17 +3,28 @@
 namespace app\services;
 
 use app\models\MasterForm;
+use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\models\MasterFormField;
 use app\models\MasterFormLayout;
 use app\helpers\FormSystemFieldHelper;
+use app\components\ActiveDatabaseContext;
+use app\components\DatabaseSchemaInitializer;
 use app\components\SystemFieldService;
+use Yii;
 use yii\helpers\Json;
 
 class FormEngineService
 {
     public function getResolvedFormSchema(MasterForm $form): array
     {
+        if (Yii::$app instanceof \yii\web\Application || Yii::$app->has('session', true)) {
+            (new ActiveDatabaseContext())->resolveAndApply();
+            if (DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db)) {
+                Yii::$app->db->schema->refresh();
+            }
+        }
+
         $fields = $form->getFields()->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
         $layout = $form->getActiveLayout()->one();
         $autoSynced = false;
@@ -192,6 +203,9 @@ class FormEngineService
         }
 
         $resolvedName = $this->resolveCanonicalFieldName($fieldData, $index, $schema, $sourceColumn);
+        if ($sourceColumn === null) {
+            $sourceColumn = $this->findTargetColumn($form, $resolvedName);
+        }
         $resolvedLabel = $this->resolveCanonicalFieldLabel($fieldData, $resolvedName, $sourceColumn);
         $resolvedType = (string)($fieldData['field_type'] ?? $fieldData['type'] ?? 'text');
         $componentType = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $resolvedType);
@@ -213,12 +227,47 @@ class FormEngineService
         $resolvedField['source_column_name'] = $sourceColumn !== null ? (string)$sourceColumn->name : (string)($fieldData['source_column_name'] ?? '');
         $resolvedField['source_column_label'] = $sourceColumn !== null ? (string)($sourceColumn->label ?? $sourceColumn->name) : (string)($fieldData['source_column_label'] ?? '');
         $resolvedField['source_column_type'] = $sourceColumn !== null ? (string)($sourceColumn->type ?? '') : (string)($fieldData['source_column_type'] ?? '');
-        $resolvedField['is_foreign_key'] = !empty($fieldData['is_foreign_key']) || !empty($fieldData['fk_referenced_table']) || !empty($fieldData['foreign_key_table']);
+        $relationConfig = $this->extractRelationConfig($fieldData);
+        $isMetadataFk = $sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key');
+        $resolvedField['is_foreign_key'] = !empty($fieldData['is_foreign_key']) || !empty($fieldData['fk_referenced_table']) || !empty($fieldData['foreign_key_table']) || $isMetadataFk || !empty($relationConfig);
 
         if ($resolvedField['is_foreign_key']) {
-            $resolvedField['fk_referenced_table'] = (string)($fieldData['fk_referenced_table'] ?? $fieldData['foreign_key_table'] ?? $fieldData['referenced_table_name'] ?? '');
-            $resolvedField['fk_referenced_column'] = (string)($fieldData['fk_referenced_column'] ?? $fieldData['foreign_key_column'] ?? $fieldData['referenced_column_name'] ?? '');
-            $resolvedField['fk_display_column'] = (string)($fieldData['fk_display_column'] ?? $fieldData['label_column'] ?? $resolvedField['fk_display_column'] ?? '');
+            $referencedTable = (string)($fieldData['fk_referenced_table'] ?? $fieldData['foreign_key_table'] ?? $fieldData['referenced_table_name'] ?? $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? '');
+            $referencedColumn = (string)($fieldData['fk_referenced_column'] ?? $fieldData['referenced_column_name'] ?? $relationConfig['referenced_column'] ?? $relationConfig['referenced_column_name'] ?? $relationConfig['value_column'] ?? '');
+            $displayColumn = (string)($fieldData['fk_display_column'] ?? $fieldData['label_column'] ?? $relationConfig['display_column'] ?? $relationConfig['display_column_name'] ?? '');
+
+            if ($sourceColumn !== null) {
+                if ($referencedTable === '' && $sourceColumn->hasAttribute('referenced_table_name')) {
+                    $referencedTable = (string)$sourceColumn->getAttribute('referenced_table_name');
+                }
+                if ($referencedColumn === '' && $sourceColumn->hasAttribute('referenced_column_name')) {
+                    $referencedColumn = (string)$sourceColumn->getAttribute('referenced_column_name');
+                }
+            }
+
+            if ($referencedColumn === '' && $referencedTable !== '') {
+                $referencedColumn = $this->resolveReferencedValueColumn($referencedTable);
+            }
+            if ($displayColumn === '' && $referencedTable !== '') {
+                $displayColumn = $this->resolveReferencedDisplayColumn($referencedTable, $referencedColumn);
+            }
+
+            $resolvedField['fk_referenced_table'] = $referencedTable;
+            $resolvedField['fk_referenced_column'] = $referencedColumn;
+            $resolvedField['fk_display_column'] = $displayColumn;
+            $resolvedField['value_column'] = $referencedColumn;
+            $resolvedField['display_column'] = $displayColumn;
+            $resolvedField['relation_config'] = array_filter(array_merge($relationConfig, [
+                'local_column' => $resolvedName,
+                'source_column' => $resolvedName,
+                'column_name' => $resolvedName,
+                'referenced_table' => $referencedTable,
+                'referenced_table_name' => $referencedTable,
+                'referenced_column' => $referencedColumn,
+                'referenced_column_name' => $referencedColumn,
+                'value_column' => $referencedColumn,
+                'display_column' => $displayColumn,
+            ]), static fn($value): bool => $value !== null && $value !== '');
         }
 
         return $resolvedField;
@@ -232,7 +281,8 @@ class FormEngineService
     private function resolveCanonicalFieldName(array $fieldData, int $index, $schema = null, ?DbTableColumn $sourceColumn = null): string
     {
         $relationConfig = $this->extractRelationConfig($fieldData);
-        $candidates = [];
+        $identityCandidates = [];
+        $labelCandidates = [];
         foreach ([
             $fieldData['name'] ?? null,
             $fieldData['field_name'] ?? null,
@@ -250,31 +300,41 @@ class FormEngineService
             $relationConfig['original_column'] ?? null,
             $relationConfig['field_name'] ?? null,
             $relationConfig['field_key'] ?? null,
+        ] as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                $identityCandidates[] = trim($candidate);
+            }
+        }
+
+        if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
+            array_unshift($identityCandidates, (string)$sourceColumn->name);
+        }
+
+        foreach ([
             $fieldData['label'] ?? null,
             $fieldData['field_label'] ?? null,
             $fieldData['labelText'] ?? null,
         ] as $candidate) {
             if (is_string($candidate) && trim($candidate) !== '') {
-                $candidates[] = trim($candidate);
+                $labelCandidates[] = trim($candidate);
             }
-        }
-
-        if ($sourceColumn !== null && trim((string)$sourceColumn->name) !== '') {
-            $candidates[] = (string)$sourceColumn->name;
         }
 
         $fallback = 'field_' . ($index + 1);
         if ($schema === null || empty($schema->columns)) {
-            $schemaLikeCandidate = $this->chooseSchemaLikeFieldNameCandidate($candidates);
+            $schemaLikeCandidate = $this->chooseSchemaLikeFieldNameCandidate($identityCandidates);
             if ($schemaLikeCandidate !== null && $schemaLikeCandidate !== '') {
                 return $schemaLikeCandidate;
             }
 
-            return $this->chooseBestFieldNameCandidate($candidates, [$fallback => $fallback]) ?: $fallback;
+            return $this->chooseBestFieldNameCandidate($identityCandidates, [$fallback => $fallback]) ?: $fallback;
         }
 
         $schemaLookup = $this->buildSchemaNameLookup($schema);
-        $resolved = $this->chooseBestFieldNameCandidate($candidates, $schemaLookup);
+        $resolved = $this->chooseBestFieldNameCandidate($identityCandidates, $schemaLookup);
+        if (($resolved === null || $resolved === '') && !empty($labelCandidates)) {
+            $resolved = $this->chooseBestFieldNameCandidate($labelCandidates, $schemaLookup);
+        }
         if ($resolved !== null && $resolved !== '') {
             return $resolved;
         }
@@ -450,6 +510,55 @@ class FormEngineService
         }
 
         return count(array_intersect($labelTokens, $fieldTokens)) > 0;
+    }
+
+    private function findTargetColumn(MasterForm $form, string $columnName): ?DbTableColumn
+    {
+        $tableId = $form->hasAttribute('db_table_id') ? (int)$form->getAttribute('db_table_id') : 0;
+        if ($tableId <= 0) {
+            $tableId = (int)$form->table_id;
+        }
+        if ($tableId <= 0 || trim($columnName) === '') {
+            return null;
+        }
+
+        return DbTableColumn::find()
+            ->where(['table_id' => $tableId, 'name' => $columnName])
+            ->one();
+    }
+
+    private function resolveReferencedValueColumn(string $tableName): string
+    {
+        try {
+            $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        } catch (\Throwable $e) {
+            return '';
+        }
+        if ($schema === null || empty($schema->columns)) {
+            return '';
+        }
+
+        return !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
+    }
+
+    private function resolveReferencedDisplayColumn(string $tableName, string $valueColumn): string
+    {
+        try {
+            $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        } catch (\Throwable $e) {
+            return $valueColumn;
+        }
+        if ($schema === null || empty($schema->columns)) {
+            return $valueColumn;
+        }
+
+        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
+            if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
+                return $candidate;
+            }
+        }
+
+        return $valueColumn !== '' ? $valueColumn : (string)array_key_first($schema->columns);
     }
 
     private function isSystemFieldForForm(array $fieldData, MasterForm $form): bool

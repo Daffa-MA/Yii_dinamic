@@ -519,7 +519,7 @@ class MasterFormController extends Controller
         return [];
     }
 
-    private function normalizeFieldName(array $field, int $index, $schema = null): string
+    private function normalizeFieldName(array $field, int $index, $schema = null, int $targetTableId = 0): string
     {
         $identityCandidates = array_filter(array_unique([
             (string)($field['resolved_name'] ?? ''),
@@ -576,6 +576,13 @@ class MasterFormController extends Controller
             }
         }
 
+        if (($name === null || $name === '') && $schema !== null) {
+            $fkColumn = $this->resolveFkColumnFromRelationConfig($field, $schema, $targetTableId);
+            if ($fkColumn !== null) {
+                $name = $fkColumn;
+            }
+        }
+
         if ($name === null || $name === '') {
             $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
         }
@@ -586,6 +593,83 @@ class MasterFormController extends Controller
         return $name;
     }
 
+    private function resolveFkColumnFromRelationConfig(array $field, $targetSchema, int $targetTableId): ?string
+    {
+        $relationConfig = [];
+        foreach (['relation_config', 'relationConfig', 'relation'] as $relationKey) {
+            if (isset($field[$relationKey]) && is_array($field[$relationKey])) {
+                $relationConfig = $field[$relationKey];
+                break;
+            }
+        }
+        if (empty($relationConfig) && empty($field['is_foreign_key']) && empty($field['fk_referenced_table'])) {
+            return null;
+        }
+        $referencedTable = $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? $field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? null;
+        if (empty($referencedTable) || $targetSchema === null) {
+            return null;
+        }
+        $candidates = array_filter(array_unique([
+            $relationConfig['local_column'] ?? null,
+            $relationConfig['source_column'] ?? null,
+            $relationConfig['column_name'] ?? null,
+            $relationConfig['original_column'] ?? null,
+            $relationConfig['field_name'] ?? null,
+            $relationConfig['field_key'] ?? null,
+            $field['source_column_name'] ?? null,
+            $field['local_column'] ?? null,
+            $field['source_column'] ?? null,
+            $field['name'] ?? null,
+            $field['field_name'] ?? null,
+            $field['column_name'] ?? null,
+            $field['relation_target_column'] ?? null,
+        ]));
+        foreach ($candidates as $candidate) {
+            $normalized = $this->normalizeSchemaKey((string)$candidate);
+            if (isset($targetSchema->columns[$candidate])) {
+                return $candidate;
+            }
+            if (isset($targetSchema->columns[$normalized])) {
+                return $normalized;
+            }
+            foreach ($targetSchema->columns as $colName => $col) {
+                if ($this->normalizeSchemaKey($colName) === $normalized) {
+                    return $colName;
+                }
+            }
+        }
+        if ($targetTableId > 0) {
+            $fkColumn = DbTableColumn::find()
+                ->where(['table_id' => $targetTableId, 'is_foreign_key' => true])
+                ->andWhere(['referenced_table_name' => $referencedTable])
+                ->one();
+            if ($fkColumn !== null && !empty($fkColumn->name)) {
+                return $fkColumn->name;
+            }
+        }
+        $refTableNormalized = str_replace(['_', '-'], '', strtolower($referencedTable));
+        foreach ($targetSchema->columns as $colName => $col) {
+            $colNormalized = str_replace(['_', '-'], '', strtolower($colName));
+            if ($colNormalized === $refTableNormalized . 'id' || $colNormalized === $refTableNormalized) {
+                return $colName;
+            }
+            if (substr($colName, -3) === '_id') {
+                $baseName = substr($colName, 0, -3);
+                if (str_replace(['_', '-'], '', strtolower($baseName)) === $refTableNormalized) {
+                    return $colName;
+                }
+            }
+        }
+        return null;
+    }
+
+    private function looksLikeFallbackFieldName(string $name): bool
+    {
+        $normalized = strtolower(trim($name));
+        return preg_match('/^field[\s_-]*\d+$/', $normalized) === 1
+            || preg_match('/^kolom[\s_-]*\d+$/', $normalized) === 1;
+    }
+
     private function resolveFieldLabel(array $field, string $fieldName): string
     {
         $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
@@ -594,17 +678,44 @@ class MasterFormController extends Controller
             $sourceColumn = DbTableColumn::findOne($sourceColumnId);
             if ($sourceColumn !== null) {
                 $sourceLabel = trim((string)($sourceColumn->label ?? ''));
+                if ($sourceLabel === '' || $this->looksLikeFallbackFieldName($sourceLabel)) {
+                    $sourceLabel = trim((string)($sourceColumn->name ?? ''));
+                }
                 if ($sourceLabel !== '') {
                     $label = $sourceLabel;
                 }
             }
         }
 
-        if ($label !== '' && $this->labelMatchesField($label, $fieldName)) {
-            return $label;
+        if (($label === '' || $this->looksLikeFallbackFieldName($label)) && $fieldName !== '') {
+            $label = $fieldName;
         }
 
-        if ($fieldName !== '') {
+        if ($label === '' || $this->looksLikeFallbackFieldName($label)) {
+            $relationConfig = [];
+            foreach (['relation_config', 'relationConfig', 'relation'] as $relationKey) {
+                if (isset($field[$relationKey]) && is_array($field[$relationKey])) {
+                    $relationConfig = $field[$relationKey];
+                    break;
+                }
+            }
+            if (!empty($relationConfig)) {
+                $fkReferencedTable = $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? '';
+                $displayColumn = $relationConfig['display_column'] ?? $relationConfig['display_column_name'] ?? '';
+                $localColumn = $relationConfig['local_column'] ?? $relationConfig['source_column'] ?? $relationConfig['column_name'] ?? '';
+                if ($localColumn !== '' && !$this->looksLikeFallbackFieldName($localColumn)) {
+                    $label = $localColumn;
+                } elseif ($fkReferencedTable !== '') {
+                    $label = $fkReferencedTable;
+                }
+            }
+        }
+
+        if ($label !== '' && !$this->looksLikeFallbackFieldName($label)) {
+            return ucwords(str_replace('_', ' ', $label));
+        }
+
+        if ($fieldName !== '' && !$this->looksLikeFallbackFieldName($fieldName)) {
             return ucwords(str_replace('_', ' ', $fieldName));
         }
 
@@ -695,7 +806,7 @@ class MasterFormController extends Controller
             ];
 
             $field = new MasterFormField();
-            $fieldName = $this->normalizeFieldName($fieldData, (int)$index, $targetSchema);
+            $fieldName = $this->normalizeFieldName($fieldData, (int)$index, $targetSchema, $sourceTableId);
             if ($this->isSystemFieldDataForModel($fieldData, $model)) {
                 $syncDebug['skipped_fields'][] = [
                     'index' => (int)$index,
@@ -720,7 +831,26 @@ class MasterFormController extends Controller
                     break;
                 }
             }
-            if ($sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key')) {
+            $isFkField = $sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key');
+            if (!$isFkField && $targetSchema !== null) {
+                $hasFkIndicators = !empty($fieldData['is_foreign_key'])
+                    || !empty($fieldData['fk_referenced_table'])
+                    || !empty($fieldData['foreign_key_table'])
+                    || !empty($fieldData['referenced_table_name'])
+                    || !empty($relationConfig)
+                    || !empty($fieldData['options']);
+                if ($hasFkIndicators && $sourceTableId > 0) {
+                    $resolvedFkCol = $this->resolveFkColumnFromRelationConfig($fieldData, $targetSchema, $sourceTableId);
+                    if ($resolvedFkCol !== null && $resolvedFkCol !== $fieldName) {
+                        $fieldName = $resolvedFkCol;
+                        $sourceColumn = DbTableColumn::find()
+                            ->where(['table_id' => $sourceTableId, 'name' => $fieldName])
+                            ->one();
+                        $isFkField = $sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key');
+                    }
+                }
+            }
+            if ($isFkField) {
                 $referencedTable = $sourceColumn->hasAttribute('referenced_table_name') ? (string)$sourceColumn->getAttribute('referenced_table_name') : '';
                 $referencedColumn = $sourceColumn->hasAttribute('referenced_column_name') ? (string)$sourceColumn->getAttribute('referenced_column_name') : '';
                 $relationConfig = array_filter(array_merge($relationConfig, [
@@ -1144,10 +1274,13 @@ class MasterFormController extends Controller
                     continue;
                 }
                 $rawFieldName = (string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? '');
-                $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, $columns);
+                $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, $columns, (int)$tableId);
                 $fieldType = $field['type'] ?? 'text';
                 $isExcluded = !empty($field['excluded']);
                 
+                $isFk = !empty($field['is_foreign_key']) || !empty($field['fk_referenced_table']) || !empty($field['foreign_key_table']) || !empty($field['referenced_table_name']) || !empty($field['relation_config']) || !empty($field['relationConfig']) || !empty($field['relation']);
+                $postedValue = $this->resolvePostedFieldValue($postData, $field, $fieldName);
+
                 if (!$fieldName || !isset($columns->columns[$fieldName]) || $isExcluded || FormSystemFieldHelper::isSystemFieldData($field)) {
                     $fieldMappingDebug[] = [
                         'raw_field' => $rawFieldName,
@@ -1158,11 +1291,21 @@ class MasterFormController extends Controller
                         'skipped' => true,
                         'skip_reason' => !$fieldName ? 'empty_resolved_column' : (!isset($columns->columns[$fieldName]) ? 'resolved_column_not_in_schema' : ($isExcluded ? 'excluded' : 'system_field')),
                         'relation_config' => $field['relation_config'] ?? null,
+                        'is_foreign_key' => $isFk,
+                        'posted_value' => $postedValue,
                     ];
+                    if ($isFk && $postedValue !== null) {
+                        \Yii::warning([
+                            'FK_FIELD_SKIPPED' => true,
+                            'raw_field' => $rawFieldName,
+                            'resolved_column' => (string)$fieldName,
+                            'posted_value' => $postedValue,
+                            'schema_columns' => $colNames,
+                            'relation_config' => $field['relation_config'] ?? null,
+                        ], 'submit_debug');
+                    }
                     continue;
                 }
-                
-                $postedValue = $this->resolvePostedFieldValue($postData, $field, $fieldName);
                 
                 if ($fieldType === 'checkboxes') {
                     $values = is_array($postedValue) ? $postedValue : ($postedValue ? [$postedValue] : []);
@@ -1182,6 +1325,7 @@ class MasterFormController extends Controller
                     'field_type' => $fieldType,
                     'posted_value' => $postedValue,
                     'relation_config' => $field['relation_config'] ?? null,
+                    'is_foreign_key' => $isFk,
                 ];
             }
 
@@ -1217,6 +1361,29 @@ class MasterFormController extends Controller
             }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
+            $fkDebugInfo = [];
+            foreach ($fields as $fi) {
+                if (is_array($fi) && (!empty($fi['is_foreign_key']) || !empty($fi['fk_referenced_table']) || !empty($fi['relation_config']))) {
+                    $fkDebugInfo[] = [
+                        'name' => $fi['name'] ?? $fi['field_name'] ?? null,
+                        'resolved_column' => isset($fi['resolved_name']) ? $fi['resolved_name'] : (isset($fi['resolved_column_name']) ? $fi['resolved_column_name'] : null),
+                        'fk_table' => $fi['fk_referenced_table'] ?? $fi['foreign_key_table'] ?? null,
+                        'relation_config' => $fi['relation_config'] ?? null,
+                        'in_final_payload' => false,
+                    ];
+                }
+            }
+            foreach ($fkDebugInfo as &$fd) {
+                if (isset($fd['resolved_column']) && array_key_exists($fd['resolved_column'], $insertData)) {
+                    $fd['in_final_payload'] = true;
+                    $fd['final_value'] = $insertData[$fd['resolved_column']];
+                }
+                if (isset($fd['name']) && array_key_exists($fd['name'], $insertData)) {
+                    $fd['in_final_payload'] = true;
+                    $fd['final_value'] = $insertData[$fd['name']];
+                }
+            }
+            unset($fd);
             Yii::info([
                 'target_table' => $tableName,
                 'schema_columns' => $colNames,
@@ -1225,6 +1392,7 @@ class MasterFormController extends Controller
                 'normalized_payload' => $insertData,
                 'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
                 'field_mapping' => $fieldMappingDebug,
+                'fk_debug' => $fkDebugInfo,
             ], 'submit_debug');
 
             $columnError = $this->validateInsertDataColumns($insertData, $columns->columns);

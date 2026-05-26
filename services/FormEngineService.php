@@ -207,6 +207,20 @@ class FormEngineService
         if ($sourceColumn === null) {
             $sourceColumn = $this->findTargetColumn($form, $resolvedName);
         }
+        if (($sourceColumn === null || $resolvedName === '' || $this->looksLikeFallbackFieldName($resolvedName))
+            && $schema !== null
+            && (!empty($fieldData['is_foreign_key']) || !empty($fieldData['fk_referenced_table'])
+                || !empty($fieldData['foreign_key_table']) || !empty($fieldData['referenced_table_name'])
+                || !empty($this->extractRelationConfig($fieldData)))
+        ) {
+            $fkColumn = $this->resolveFkColumnFromRelationConfig($fieldData, $schema, $form);
+            if ($fkColumn !== null) {
+                $resolvedName = $fkColumn;
+                if ($sourceColumn === null) {
+                    $sourceColumn = $this->findTargetColumn($form, $resolvedName);
+                }
+            }
+        }
         $resolvedLabel = $this->resolveCanonicalFieldLabel($fieldData, $resolvedName, $sourceColumn);
         $resolvedType = (string)($fieldData['field_type'] ?? $fieldData['type'] ?? 'text');
         $componentType = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $resolvedType);
@@ -595,6 +609,81 @@ class FormEngineService
         }
 
         return false;
+    }
+
+    private function looksLikeFallbackFieldName(string $name): bool
+    {
+        $normalized = strtolower(trim($name));
+        return preg_match('/^field[\s_-]*\d+$/', $normalized) === 1
+            || preg_match('/^kolom[\s_-]*\d+$/', $normalized) === 1;
+    }
+
+    private function resolveFkColumnFromRelationConfig(array $field, $targetSchema, MasterForm $form): ?string
+    {
+        $relationConfig = $this->extractRelationConfig($field);
+        $referencedTable = $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? $field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? null;
+        if (empty($referencedTable) || $targetSchema === null) {
+            return null;
+        }
+        $candidates = array_filter(array_unique([
+            $relationConfig['local_column'] ?? null,
+            $relationConfig['source_column'] ?? null,
+            $relationConfig['column_name'] ?? null,
+            $relationConfig['original_column'] ?? null,
+            $relationConfig['field_name'] ?? null,
+            $relationConfig['field_key'] ?? null,
+            $field['source_column_name'] ?? null,
+            $field['local_column'] ?? null,
+            $field['source_column'] ?? null,
+            $field['name'] ?? null,
+            $field['field_name'] ?? null,
+            $field['column_name'] ?? null,
+            $field['relation_target_column'] ?? null,
+        ]));
+        foreach ($candidates as $candidate) {
+            $normalized = $this->normalizeKey((string)$candidate);
+            if (isset($targetSchema->columns[$candidate])) {
+                return $candidate;
+            }
+            if (isset($targetSchema->columns[$normalized])) {
+                return $normalized;
+            }
+            foreach ($targetSchema->columns as $colName => $col) {
+                if ($this->normalizeKey($colName) === $normalized) {
+                    return $colName;
+                }
+            }
+        }
+        $tableId = 0;
+        if ($form->hasAttribute('db_table_id')) {
+            $tableId = (int)$form->getAttribute('db_table_id');
+        }
+        if ($tableId <= 0) {
+            $tableId = (int)$form->table_id;
+        }
+        if ($tableId > 0) {
+            $fkColumn = DbTableColumn::find()
+                ->where(['table_id' => $tableId, 'is_foreign_key' => true])
+                ->andWhere(['referenced_table_name' => $referencedTable])
+                ->one();
+            if ($fkColumn !== null && !empty($fkColumn->name)) {
+                return $fkColumn->name;
+            }
+        }
+        $refTableNormalized = str_replace(['_', '-'], '', strtolower($referencedTable));
+        foreach ($targetSchema->columns as $colName => $col) {
+            $colNormalized = str_replace(['_', '-'], '', strtolower($colName));
+            if ($colNormalized === $refTableNormalized . 'id' || $colNormalized === $refTableNormalized) {
+                return $colName;
+            }
+            if (substr($colName, -3) === '_id') {
+                $baseName = substr($colName, 0, -3);
+                if (str_replace(['_', '-'], '', strtolower($baseName)) === $refTableNormalized) {
+                    return $colName;
+                }
+            }
+        }
+        return null;
     }
 }
 

@@ -2713,6 +2713,16 @@ class TableBuilderController extends Controller
         }
 
         $beforeRow = !empty($where) ? (new \yii\db\Query())->from($model->name)->where($where)->one($db) : null;
+        $rejectedFields = array_values(array_diff(array_keys($rawPayload), array_keys($rowData)));
+        $fkColumnsInPayload = [];
+        $fkColumnsInRowData = [];
+        foreach ($columns as $col) {
+            if ($col->hasAttribute('is_foreign_key') && (bool)$col->getAttribute('is_foreign_key')) {
+                $colName = (string)$col->name;
+                $fkColumnsInPayload[$colName] = array_key_exists($colName, $rawPayload) ? $rawPayload[$colName] : '__missing__';
+                $fkColumnsInRowData[$colName] = array_key_exists($colName, $rowData) ? $rowData[$colName] : '__missing__';
+            }
+        }
         Yii::info([
             'table_name' => (string)$model->name,
             'operation' => empty($where) ? 'insert' : 'update',
@@ -2720,7 +2730,9 @@ class TableBuilderController extends Controller
             'resolved_where' => $where,
             'raw_payload' => $rawPayload,
             'normalized_row_data' => $rowData,
-            'rejected_fields' => array_values(array_diff(array_keys($rawPayload), array_keys($rowData))),
+            'rejected_fields' => $rejectedFields,
+            'fk_payload_keys' => $fkColumnsInPayload,
+            'fk_rowdata_keys' => $fkColumnsInRowData,
             'before_row' => $beforeRow,
             'schema_columns' => array_keys($tableSchema->columns),
         ], 'table-spreadsheet-debug');

@@ -2808,22 +2808,71 @@ class TableBuilderController extends Controller
                 'message' => 'Tidak ada field valid untuk disimpan.',
             ];
         }
-        $updateResult = $db->createCommand()->update($model->name, $rowData, $where)->execute();
+        $updateCommand = $db->createCommand()->update($model->name, $rowData, $where);
+        $updateSql = $updateCommand->getRawSql();
+        $updateResult = $updateCommand->execute();
         $afterRow = (new \yii\db\Query())->from($model->name)->where($where)->one($db);
+        $mismatchedFields = [];
+        if (!is_array($afterRow) || empty($afterRow)) {
+            $mismatchedFields[] = '__row_not_found__';
+        } else {
+            foreach ($rowData as $columnName => $expectedValue) {
+                if (!array_key_exists($columnName, $afterRow)) {
+                    $mismatchedFields[$columnName] = [
+                        'expected' => $expectedValue,
+                        'actual' => null,
+                        'reason' => 'missing_after_column',
+                    ];
+                    continue;
+                }
+                if (!$this->spreadsheetValuesEqual($expectedValue, $afterRow[$columnName])) {
+                    $mismatchedFields[$columnName] = [
+                        'expected' => $expectedValue,
+                        'actual' => $afterRow[$columnName],
+                    ];
+                }
+            }
+        }
         Yii::info([
             'table_name' => (string)$model->name,
             'sql_result' => $updateResult,
+            'sql_update' => $updateSql,
+            'affected_rows' => $updateResult,
             'final_row_data' => $rowData,
             'before_row' => $beforeRow,
             'after_row' => $afterRow,
+            'mismatched_fields' => $mismatchedFields,
         ], 'table-spreadsheet-debug');
+        if (!empty($mismatchedFields)) {
+            return [
+                'success' => false,
+                'code' => 'db_update_not_applied',
+                'message' => 'Update database tidak terkonfirmasi. Nilai setelah update tidak sesuai payload.',
+                'row_key' => $where,
+                'row_data' => is_array($afterRow) ? $afterRow : [],
+                'mismatched_fields' => $mismatchedFields,
+                'affected_rows' => $updateResult,
+            ];
+        }
         return [
             'success' => true,
             'message' => 'Baris berhasil disimpan.',
             'operation' => 'update',
             'row_key' => $where,
-            'row_data' => $rowData,
+            'row_data' => is_array($afterRow) ? $afterRow : $rowData,
+            'affected_rows' => $updateResult,
         ];
+    }
+
+    private function spreadsheetValuesEqual($expected, $actual): bool
+    {
+        if ($expected === null || $expected === '') {
+            return $actual === null || $actual === '';
+        }
+        if (is_numeric($expected) && is_numeric($actual)) {
+            return (string)(0 + $expected) === (string)(0 + $actual);
+        }
+        return trim((string)$expected) === trim((string)$actual);
     }
 
     /**

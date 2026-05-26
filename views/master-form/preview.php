@@ -586,8 +586,16 @@ $this->title = 'Preview: ' . $formName;
                                 }
                                 $optionsList[$optionValue] = (string)($opt['label'] ?? $optionValue);
                             }
+                            $selectName = $isFk ? '__fk_display_' . $name : $name;
                             ?>
-                            <?= Html::dropDownList($name, $defaultValue, $optionsList, ['class' => 'preview-input preview-select', 'required' => $required]) ?>
+                            <?php if ($isFk): ?>
+                                <?= Html::hiddenInput($name, $defaultValue, ['data-fk-hidden-input' => $name]) ?>
+                            <?php endif; ?>
+                            <?= Html::dropDownList($selectName, $defaultValue, $optionsList, [
+                                'class' => 'preview-input preview-select',
+                                'required' => $required,
+                                'data-fk-hidden-target' => $isFk ? $name : null,
+                            ]) ?>
                             <?php if ($isFk): ?>
                                 <div class="preview-fk-badge">
                                     <span class="material-symbols-outlined" style="font-size:12px;">link</span>
@@ -667,3 +675,26 @@ $this->title = 'Preview: ' . $formName;
         ]) ?>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('select[data-fk-hidden-target]').forEach(function(select) {
+        var targetName = select.getAttribute('data-fk-hidden-target');
+        if (!targetName || !select.form) {
+            return;
+        }
+
+        var hiddenInput = select.form.querySelector('input[data-fk-hidden-input="' + targetName + '"]');
+        if (!hiddenInput) {
+            return;
+        }
+
+        var syncValue = function() {
+            hiddenInput.value = select.value || '';
+        };
+
+        syncValue();
+        select.addEventListener('change', syncValue);
+    });
+});
+</script>

@@ -786,6 +786,7 @@ class MasterFormController extends Controller
 
         MasterFormField::deleteAll(['form_id' => $model->id]);
         MasterFormLayout::deleteAll(['form_id' => $model->id]);
+        $sourceTableId = $this->resolveTargetTableId($model);
 
         foreach ($fields as $index => $fieldData) {
             if (!is_array($fieldData)) {
@@ -818,7 +819,6 @@ class MasterFormController extends Controller
             }
 
             $sourceColumn = null;
-            $sourceTableId = $this->resolveTargetTableId($model);
             if ($sourceTableId > 0 && $fieldName !== '') {
                 $sourceColumn = DbTableColumn::find()
                     ->where(['table_id' => $sourceTableId, 'name' => $fieldName])

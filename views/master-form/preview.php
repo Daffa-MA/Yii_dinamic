@@ -20,7 +20,7 @@ if (empty($fields)) {
     }
     $fields = is_array($formData) ? $formData : [];
 }
-$fields = FormSystemFieldHelper::filterFields($fields);
+$fields = array_map([FormRenderService::class, 'resolveDynamicChoiceOptions'], FormSystemFieldHelper::filterFields($fields));
 $formName = $model->form_name ?? 'Form';
 $formRenderService = new FormRenderService();
 $hasCustomCode = $formRenderService->hasCustomCodePayload($renderPayload, $model);

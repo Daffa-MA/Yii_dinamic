@@ -546,6 +546,16 @@ $this->title = 'Preview: ' . $formName;
                     $fieldCustomCss = trim((string)($field['customCss'] ?? ''));
                     $fieldCustomJs = trim((string)($field['customJs'] ?? ''));
 
+                    if ($isFk) {
+                        Yii::info([
+                            'preview_fk_render' => true,
+                            'label' => $label,
+                            'submit_name' => $name,
+                            'relation_config' => $fieldRelationConfig,
+                            'options_count' => count($options),
+                        ], 'form-render-fields');
+                    }
+
                     if (FormSystemFieldHelper::isSystemFieldData($field)) {
                         continue;
                     }
@@ -599,15 +609,10 @@ $this->title = 'Preview: ' . $formName;
                                 }
                                 $optionsList[$optionValue] = (string)($opt['label'] ?? $optionValue);
                             }
-                            $selectName = $isFk ? '__fk_display_' . $name : $name;
                             ?>
-                            <?php if ($isFk): ?>
-                                <?= Html::hiddenInput($name, $defaultValue, ['data-fk-hidden-input' => $name]) ?>
-                            <?php endif; ?>
-                            <?= Html::dropDownList($selectName, $defaultValue, $optionsList, [
+                            <?= Html::dropDownList($name, $defaultValue, $optionsList, [
                                 'class' => 'preview-input preview-select',
                                 'required' => $required,
-                                'data-fk-hidden-target' => $isFk ? $name : null,
                             ]) ?>
                             <?php if ($isFk): ?>
                                 <div class="preview-fk-badge">
@@ -688,26 +693,3 @@ $this->title = 'Preview: ' . $formName;
         ]) ?>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    document.querySelectorAll('select[data-fk-hidden-target]').forEach(function(select) {
-        var targetName = select.getAttribute('data-fk-hidden-target');
-        if (!targetName || !select.form) {
-            return;
-        }
-
-        var hiddenInput = select.form.querySelector('input[data-fk-hidden-input="' + targetName + '"]');
-        if (!hiddenInput) {
-            return;
-        }
-
-        var syncValue = function() {
-            hiddenInput.value = select.value || '';
-        };
-
-        syncValue();
-        select.addEventListener('change', syncValue);
-    });
-});
-</script>

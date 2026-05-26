@@ -1334,9 +1334,17 @@ class MasterFormController extends Controller
             }
 
             $rawPostedTableData = $this->extractRawPostedTableData($postData, $columns->columns);
+            $postedForeignKeyData = $this->extractPostedForeignKeyData($postData, $tableId, $columns->columns);
             if (!empty($rawPostedTableData)) {
                 foreach ($rawPostedTableData as $columnName => $postedValue) {
                     if (!array_key_exists($columnName, $insertData)) {
+                        $insertData[$columnName] = $postedValue;
+                    }
+                }
+            }
+            if (!empty($postedForeignKeyData)) {
+                foreach ($postedForeignKeyData as $columnName => $postedValue) {
+                    if (!array_key_exists($columnName, $insertData) || $insertData[$columnName] === null || $insertData[$columnName] === '') {
                         $insertData[$columnName] = $postedValue;
                     }
                 }
@@ -1399,6 +1407,7 @@ class MasterFormController extends Controller
                 'raw_post_keys' => array_keys($postData),
                 'raw_post_payload' => $postData,
                 'raw_posted_table_data' => $rawPostedTableData,
+                'posted_foreign_key_data' => $postedForeignKeyData,
                 'normalized_payload' => $insertData,
                 'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
                 'field_mapping' => $fieldMappingDebug,
@@ -1710,6 +1719,111 @@ class MasterFormController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * @param array<string, mixed> $postData
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     * @return array<string, mixed>
+     */
+    private function extractPostedForeignKeyData(array $postData, int $tableId, array $schemaColumns): array
+    {
+        if ($tableId <= 0) {
+            return [];
+        }
+
+        $fkColumns = DbTableColumn::find()
+            ->where(['table_id' => $tableId, 'is_foreign_key' => true])
+            ->all();
+
+        if (empty($fkColumns)) {
+            return [];
+        }
+
+        $data = [];
+        foreach ($fkColumns as $fkColumn) {
+            $columnName = trim((string)$fkColumn->name);
+            if ($columnName === '' || !isset($schemaColumns[$columnName]) || $this->isSubmitSystemColumn($columnName, $schemaColumns[$columnName])) {
+                continue;
+            }
+
+            $candidateKeys = array_filter(array_unique([
+                $columnName,
+                '__fk_display_' . $columnName,
+                '__fk_submit_' . $columnName,
+                $this->baseForeignKeyAlias($columnName),
+                ($base = $this->baseForeignKeyAlias($columnName)) !== '' ? '__fk_display_' . $base : '',
+                ($base = $this->baseForeignKeyAlias($columnName)) !== '' ? '__fk_submit_' . $base : '',
+                trim((string)($fkColumn->label ?? '')),
+                trim((string)$fkColumn->getAttribute('referenced_table_name')),
+                ($refTable = trim((string)$fkColumn->getAttribute('referenced_table_name'))) !== '' ? '__fk_display_' . $refTable : '',
+                ($refTable = trim((string)$fkColumn->getAttribute('referenced_table_name'))) !== '' ? '__fk_submit_' . $refTable : '',
+            ]));
+
+            $value = $this->resolvePostedValueFromCandidates($postData, $candidateKeys);
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $data[$columnName] = is_array($value) ? implode(',', $value) : $value;
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $postData
+     * @param array<int, string> $candidates
+     * @return mixed|null
+     */
+    private function resolvePostedValueFromCandidates(array $postData, array $candidates)
+    {
+        foreach ($candidates as $candidate) {
+            if ($candidate === '') {
+                continue;
+            }
+
+            if (array_key_exists($candidate, $postData)) {
+                $value = $postData[$candidate];
+                if ($value !== null && $value !== '') {
+                    return $value;
+                }
+            }
+
+            $normalizedCandidate = $this->normalizeSubmitKey($candidate);
+            foreach ($postData as $postedKey => $postedValue) {
+                if (!is_string($postedKey)) {
+                    continue;
+                }
+
+                $normalizedPostedKey = $this->normalizeSubmitKey($postedKey);
+                if (
+                    $normalizedPostedKey === $normalizedCandidate
+                    || str_starts_with($normalizedPostedKey, $normalizedCandidate . '_')
+                    || str_ends_with($normalizedPostedKey, '_' . $normalizedCandidate)
+                ) {
+                    if ($postedValue !== null && $postedValue !== '') {
+                        return $postedValue;
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function baseForeignKeyAlias(string $columnName): string
+    {
+        $normalized = trim($columnName);
+        if ($normalized === '') {
+            return '';
+        }
+
+        if (str_ends_with(strtolower($normalized), '_id')) {
+            return substr($normalized, 0, -3);
+        }
+
+        return $normalized;
     }
 
     private function isSubmitSystemColumn(string $columnName, $column): bool

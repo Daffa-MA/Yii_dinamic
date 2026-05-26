@@ -7,6 +7,7 @@ use yii\web\Controller;
 use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use yii\db\Expression;
+use yii\db\IntegrityException;
 use yii\db\Query;
 use yii\data\Pagination;
 use app\models\Project;
@@ -433,6 +434,12 @@ private function insertDefaultCmsData($newDb): void
                     ],
                 ],
             ],
+            'verbs' => [
+                'class' => \yii\filters\VerbFilter::class,
+                'actions' => [
+                    'delete' => ['post'],
+                ],
+            ],
         ];
     }
 
@@ -728,9 +735,29 @@ private function insertDefaultCmsData($newDb): void
 
     public function actionDelete($id)
     {
+        if (Yii::$app->user->isGuest && !(new CommanderAuthContext())->isAuthenticated()) {
+            return $this->redirect(['/site/login']);
+        }
+
+        if (!$this->isCommanderSuperAdmin()) {
+            throw new ForbiddenHttpException('Hanya superadmin yang boleh menghapus project.');
+        }
+
         $project = $this->findAccessibleProject((int)$id);
         if ($project === null) {
             throw new NotFoundHttpException('Project not found.');
+        }
+
+        $projectId = (int)$project->id;
+        $projectName = (string)$project->name;
+        $activeContext = new ActiveProjectContext();
+        $activeProjectId = $activeContext->getActiveProjectId();
+        if ($activeProjectId === $projectId) {
+            $activeContext->clear();
+            $metadataDb = Yii::$app->get('metadataDb', false);
+            if ($metadataDb instanceof \yii\db\Connection) {
+                Yii::$app->set('db', $metadataDb);
+            }
         }
 
         try {
@@ -740,13 +767,14 @@ private function insertDefaultCmsData($newDb): void
             return $this->redirect(['project/index']);
         }
 
-        $projectName = $project->name;
-        $project->delete();
-
-        $activeContext = new ActiveProjectContext();
-        $activeProjectId = $activeContext->getActiveProjectId();
-        if ($activeProjectId == (int)$id) {
-            $activeContext->clear();
+        try {
+            $project->delete();
+        } catch (IntegrityException $e) {
+            Yii::$app->session->setFlash('error', "Project '{$projectName}' tidak bisa dihapus karena masih memiliki data/workspace terkait.");
+            return $this->redirect(['project/index']);
+        } catch (\Throwable $e) {
+            Yii::$app->session->setFlash('error', "Project '{$projectName}' gagal dihapus: {$e->getMessage()}");
+            return $this->redirect(['project/index']);
         }
 
         Yii::$app->session->setFlash('success', "Project '{$projectName}' dan database-nya telah dihapus.");

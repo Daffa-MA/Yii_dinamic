@@ -357,14 +357,20 @@ class MasterFormController extends Controller
                 if ($normalizedAlias === '') {
                     continue;
                 }
+                $aliasTokens = array_values(array_filter(explode('_', $normalizedAlias)));
 
                 $score = 0.0;
                 if ($normalizedAlias === $normalizedCandidate) {
                     $score = 100.0;
-                } elseif (str_contains($normalizedAlias, $normalizedCandidate) || str_contains($normalizedCandidate, $normalizedAlias)) {
+                } elseif (count($candidateTokens) > 1 && count($aliasTokens) > 1 && empty(array_diff($candidateTokens, $aliasTokens)) && empty(array_diff($aliasTokens, $candidateTokens))) {
+                    $score = 98.0;
+                } elseif (
+                    $normalizedAlias !== 'id'
+                    && $normalizedCandidate !== 'id'
+                    && (str_contains($normalizedAlias, $normalizedCandidate) || str_contains($normalizedCandidate, $normalizedAlias))
+                ) {
                     $score = 80.0;
                 } else {
-                    $aliasTokens = array_values(array_filter(explode('_', $normalizedAlias)));
                     $intersection = array_intersect($candidateTokens, $aliasTokens);
                     $union = array_unique(array_merge($candidateTokens, $aliasTokens));
                     if (!empty($union)) {
@@ -646,6 +652,18 @@ class MasterFormController extends Controller
         $fields = $this->extractFieldsFromBuilderData($builderData);
         $previousLayout = $model->getActiveLayout()->one();
         $targetSchema = $this->resolveTargetTableSchema($model);
+        $syncDebug = [
+            'form_id' => (int)$model->id,
+            'target_table_id' => $this->resolveTargetTableId($model),
+            'target_table' => null,
+            'raw_fields_count' => count($fields),
+            'raw_fields' => [],
+            'saved_fields' => [],
+            'skipped_fields' => [],
+        ];
+        if ($targetSchema !== null) {
+            $syncDebug['target_table'] = $targetSchema->name ?? null;
+        }
         if ($customCode === null) {
             $customCode = [
                 'use_custom_code' => $model->hasAttribute('use_custom_code') ? (!empty($model->use_custom_code) ? 1 : 0) : (!empty($model->custom_code_mode) ? 1 : 0),
@@ -660,12 +678,31 @@ class MasterFormController extends Controller
 
         foreach ($fields as $index => $fieldData) {
             if (!is_array($fieldData)) {
+                $syncDebug['skipped_fields'][] = [
+                    'index' => (int)$index,
+                    'reason' => 'not_array',
+                ];
                 continue;
             }
+            $syncDebug['raw_fields'][] = [
+                'index' => (int)$index,
+                'name' => $fieldData['name'] ?? $fieldData['field_name'] ?? $fieldData['field_key'] ?? $fieldData['column_name'] ?? null,
+                'label' => $fieldData['label'] ?? $fieldData['field_label'] ?? null,
+                'type' => $fieldData['inputType'] ?? $fieldData['type'] ?? $fieldData['field_type'] ?? null,
+                'relation_config' => $fieldData['relation_config'] ?? null,
+                'is_foreign_key' => !empty($fieldData['is_foreign_key']),
+                'excluded' => !empty($fieldData['excluded']),
+            ];
 
             $field = new MasterFormField();
             $fieldName = $this->normalizeFieldName($fieldData, (int)$index, $targetSchema);
             if ($this->isSystemFieldDataForModel($fieldData, $model)) {
+                $syncDebug['skipped_fields'][] = [
+                    'index' => (int)$index,
+                    'name' => $fieldName,
+                    'reason' => 'system_field',
+                    'relation_config' => $fieldData['relation_config'] ?? null,
+                ];
                 continue;
             }
 
@@ -711,20 +748,43 @@ class MasterFormController extends Controller
             $field->field_label = $this->resolveFieldLabel($fieldData, $fieldName);
             $field->field_type = $fieldType;
             $field->component_type = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $fieldType);
-            $field->is_required = !empty($fieldData['required'] ?? $fieldData['is_required']) ? 1 : 0;
+            $field->is_required = !empty($fieldData['required'] ?? $fieldData['is_required'] ?? null) ? 1 : 0;
             $field->placeholder = (string)($fieldData['placeholder'] ?? '');
             $field->default_value = isset($fieldData['default_value']) ? (string)$fieldData['default_value'] : null;
             $field->dropdown_source = (string)($fieldData['dropdown_source'] ?? (!empty($fieldData['fk_options']) ? 'foreign_key' : (!empty($fieldData['options']) ? 'static_options' : '')));
-            $field->foreign_key_table = isset($fieldData['fk_referenced_table']) ? (string)$fieldData['fk_referenced_table'] : (isset($fieldData['source_table_name']) ? (string)$fieldData['source_table_name'] : null);
-            $field->foreign_key_column = isset($fieldData['fk_display_column']) ? (string)$fieldData['fk_display_column'] : (isset($fieldData['label_column']) ? (string)$fieldData['label_column'] : null);
+            $field->foreign_key_table = isset($fieldData['fk_referenced_table'])
+                ? (string)$fieldData['fk_referenced_table']
+                : (isset($fieldData['source_table_name'])
+                    ? (string)$fieldData['source_table_name']
+                    : (isset($relationConfig['referenced_table'])
+                        ? (string)$relationConfig['referenced_table']
+                        : (isset($relationConfig['referenced_table_name']) ? (string)$relationConfig['referenced_table_name'] : null)));
+            $field->foreign_key_column = isset($fieldData['fk_display_column'])
+                ? (string)$fieldData['fk_display_column']
+                : (isset($fieldData['label_column'])
+                    ? (string)$fieldData['label_column']
+                    : (isset($relationConfig['display_column'])
+                        ? (string)$relationConfig['display_column']
+                        : (isset($relationConfig['display_column_name']) ? (string)$relationConfig['display_column_name'] : null)));
             $field->validation_rules = Json::encode([
-                'required' => !empty($fieldData['required'] ?? $fieldData['is_required']),
+                'required' => !empty($fieldData['required'] ?? $fieldData['is_required'] ?? null),
                 'rules' => $fieldData['validation_rules'] ?? null,
             ]);
             $field->field_config = Json::encode($fieldData);
             $field->field_settings = Json::encode($fieldData);
             $field->sort_order = (int)$index;
             $field->save(false);
+            $syncDebug['saved_fields'][] = [
+                'index' => (int)$index,
+                'name' => $fieldName,
+                'column_name' => $fieldName,
+                'label' => $field->field_label,
+                'type' => $field->field_type,
+                'component_type' => $field->component_type,
+                'foreign_key_table' => $field->foreign_key_table,
+                'foreign_key_column' => $field->foreign_key_column,
+                'relation_config' => $fieldData['relation_config'] ?? null,
+            ];
 
         }
 
@@ -752,6 +812,7 @@ class MasterFormController extends Controller
         if (!empty($attributes)) {
             $model->save(false, $attributes);
         }
+        Yii::info($syncDebug, 'form-render-fields');
     }
 
     public function beforeAction($action)

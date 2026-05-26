@@ -74,12 +74,20 @@ class FormRenderService
                 || !empty($form->custom_code_mode)
             : ($form->hasAttribute('use_custom_code') && !empty($form->use_custom_code)) || !empty($form->custom_code_mode);
 
+        $rawFieldDebug = [];
         $normalizedFields = [];
-        foreach (FormSystemFieldHelper::filterFields($fields) as $field) {
+        foreach (FormSystemFieldHelper::filterFields($fields) as $index => $field) {
             if (!is_array($field)) {
                 continue;
             }
-            $normalizedFields[] = $field;
+            $normalizedFields[] = self::normalizeFieldForRender($field, (int)$index);
+            $rawFieldDebug[] = [
+                'index' => (int)$index,
+                'raw_name' => (string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''),
+                'raw_type' => (string)($field['inputType'] ?? $field['type'] ?? $field['field_type'] ?? ''),
+                'relation_config' => $field['relation_config'] ?? null,
+                'is_foreign_key' => !empty($field['is_foreign_key']),
+            ];
         }
 
         $fields = array_map(static function (array $field): array {
@@ -87,18 +95,47 @@ class FormRenderService
             if ($resolvedName !== '') {
                 $field['resolved_name'] = $resolvedName;
                 $field['resolved_column_name'] = $resolvedName;
+                $field['name'] = $resolvedName;
+                $field['field_name'] = $resolvedName;
+                $field['field_key'] = $resolvedName;
+                $field['column_name'] = $resolvedName;
             }
             $resolvedLabel = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
             if ($resolvedLabel !== '') {
                 $field['resolved_label'] = $resolvedLabel;
+                $field['label'] = $resolvedLabel;
+                $field['field_label'] = $resolvedLabel;
             }
             $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);
+            if (self::isRelationField($field)) {
+                $field['inputType'] = 'select';
+                $field['type'] = 'select';
+                $field['field_type'] = 'select';
+                $field['is_foreign_key'] = true;
+            }
             if (in_array($field['inputType'], ['date', 'time', 'datetime-local'], true)) {
                 $field['type'] = $field['inputType'];
             }
             $field = self::resolveDynamicChoiceOptions($field);
             return $field;
         }, $normalizedFields);
+        Yii::info([
+            'form_id' => (int)$form->id,
+            'target_table' => $form->table_id ?? null,
+            'raw_fields' => $rawFieldDebug,
+            'normalized_fields' => array_map(static function (array $field): array {
+                return [
+                    'name' => $field['name'] ?? null,
+                    'column_name' => $field['column_name'] ?? null,
+                    'label' => $field['label'] ?? null,
+                    'type' => $field['type'] ?? null,
+                    'inputType' => $field['inputType'] ?? null,
+                    'relation_config' => $field['relation_config'] ?? null,
+                    'is_foreign_key' => !empty($field['is_foreign_key']),
+                    'options_count' => is_array($field['options'] ?? null) ? count($field['options']) : 0,
+                ];
+            }, $fields),
+        ], 'form-render-fields');
         $customHtml = self::normalizeCustomFieldNames($customHtml, $fields);
         $customHtml = self::resolveFormSourceTokens($customHtml, $fields);
         $customHtml = self::hydrateCustomDropdownOptions($customHtml, $fields);
@@ -116,17 +153,25 @@ class FormRenderService
 
     public static function resolveDynamicChoiceOptions(array $field): array
     {
+        $relationConfig = self::extractRelationConfig($field);
+        $isForeignKey = self::isRelationField($field);
+        if ($isForeignKey) {
+            $field['is_foreign_key'] = true;
+            $field['type'] = 'select';
+            $field['field_type'] = 'select';
+            $field['inputType'] = 'select';
+        }
+
         $type = (string)($field['type'] ?? $field['field_type'] ?? '');
         $source = (string)($field['dropdown_source'] ?? $field['options_source'] ?? '');
-        $isForeignKey = !empty($field['is_foreign_key']);
         if (!in_array($type, ['select', 'radio', 'checkboxes'], true) || ($source !== 'table' && !$isForeignKey)) {
             return $field;
         }
 
         $tableId = (int)($field['source_table_id'] ?? $field['dropdown_table_id'] ?? 0);
-        $fkTableName = trim((string)($field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? ''));
-        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? $field['fk_referenced_column'] ?? $field['foreign_key_column'] ?? $field['referenced_column_name'] ?? ''));
-        $labelColumn = trim((string)($field['label_column'] ?? $field['dropdown_label_column'] ?? ''));
+        $fkTableName = trim((string)($field['fk_referenced_table'] ?? $field['foreign_key_table'] ?? $field['referenced_table_name'] ?? $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? $relationConfig['target_table'] ?? ''));
+        $valueColumn = trim((string)($field['value_column'] ?? $field['dropdown_value_column'] ?? $field['fk_referenced_column'] ?? $field['foreign_key_column'] ?? $field['referenced_column_name'] ?? $relationConfig['value_column'] ?? $relationConfig['referenced_column'] ?? $relationConfig['referenced_column_name'] ?? ''));
+        $labelColumn = trim((string)($field['display_column'] ?? $field['label_column'] ?? $field['dropdown_label_column'] ?? $relationConfig['display_column'] ?? $relationConfig['display_column_name'] ?? ''));
 
         try {
             $tableName = '';
@@ -194,16 +239,80 @@ class FormRenderService
             }
 
             $field['options'] = $options;
-            if ($isForeignKey && !in_array($type, ['select', 'radio', 'checkboxes'], true)) {
-                $field['inputType'] = 'select';
-                $field['type'] = 'select';
-            }
+            $field['inputType'] = $isForeignKey ? 'select' : ($field['inputType'] ?? $type);
+            $field['type'] = $isForeignKey ? 'select' : ($field['type'] ?? $type);
             $field['dynamic_options_loaded'] = true;
+            $field['value_column'] = $valueColumn;
+            $field['display_column'] = $labelColumn;
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve dynamic dropdown options: ' . $e->getMessage(), 'form-render');
         }
 
         return $field;
+    }
+
+    public static function normalizeFieldForRender(array $field, int $index = 0): array
+    {
+        $relationConfig = self::extractRelationConfig($field);
+        $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? $relationConfig['local_column'] ?? $relationConfig['source_column'] ?? $relationConfig['column_name'] ?? ''));
+        if ($name === '') {
+            $name = 'field_' . ($index + 1);
+        }
+        $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['labelText'] ?? ''));
+        if ($label === '') {
+            $label = ucwords(str_replace('_', ' ', $name));
+        }
+
+        $field['resolved_name'] = $name;
+        $field['resolved_column_name'] = $name;
+        $field['name'] = $name;
+        $field['field_name'] = $name;
+        $field['field_key'] = $name;
+        $field['column_name'] = $name;
+        $field['resolved_label'] = $label;
+        $field['label'] = $label;
+        $field['field_label'] = $label;
+
+        if (self::isRelationField($field)) {
+            $field['is_foreign_key'] = true;
+            $field['type'] = 'select';
+            $field['field_type'] = 'select';
+            $field['inputType'] = 'select';
+            if (!empty($relationConfig)) {
+                $field['relation_config'] = $relationConfig;
+            }
+        }
+
+        return $field;
+    }
+
+    private static function isRelationField(array $field): bool
+    {
+        $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? $field['component_type'] ?? $field['componentType'] ?? '')));
+        return !empty($field['is_foreign_key'])
+            || !empty($field['fk_referenced_table'])
+            || !empty($field['foreign_key_table'])
+            || !empty($field['referenced_table_name'])
+            || in_array($type, ['foreign_key', 'relation', 'relasi'], true)
+            || !empty(self::extractRelationConfig($field));
+    }
+
+    private static function extractRelationConfig(array $field): array
+    {
+        foreach (['relation_config', 'relationConfig', 'relation'] as $key) {
+            $value = $field[$key] ?? null;
+            if (is_array($value)) {
+                return $value;
+            }
+            if (is_string($value) && trim($value) !== '') {
+                $decoded = json_decode($value, true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        }
+
+        return [];
     }
 
     public static function prepareCustomFormSubmission(string $html, int $formId, array $hiddenInputs = []): string

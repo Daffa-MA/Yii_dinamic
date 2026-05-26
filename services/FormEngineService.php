@@ -41,7 +41,7 @@ class FormEngineService
         $fieldRows = [];
         foreach ($fields as $field) {
             $settings = $this->decodeJson($field->field_settings);
-            $resolvedField = $this->normalizeResolvedField([
+            $baseFieldData = [
                 'id' => $field->id,
                 'name' => $field->field_name ?: $field->field_key,
                 'field_name' => $field->field_name ?: $field->field_key,
@@ -61,7 +61,8 @@ class FormEngineService
                 'fk_display_column' => $field->foreign_key_column,
                 'field_config' => $settings,
                 'field_settings' => $settings,
-            ], $form, (int)$field->sort_order, $targetSchema);
+            ];
+            $resolvedField = $this->normalizeResolvedField(array_merge($settings, $baseFieldData), $form, (int)$field->sort_order, $targetSchema);
 
             if ($this->isSystemFieldForForm($resolvedField, $form)) {
                 $field->delete();
@@ -449,14 +450,20 @@ class FormEngineService
                 if ($normalizedAlias === '') {
                     continue;
                 }
+                $aliasTokens = array_values(array_filter(explode('_', $normalizedAlias)));
 
                 $score = 0.0;
                 if ($normalizedAlias === $normalizedCandidate) {
                     $score = 100.0;
-                } elseif (str_contains($normalizedAlias, $normalizedCandidate) || str_contains($normalizedCandidate, $normalizedAlias)) {
+                } elseif (count($candidateTokens) > 1 && count($aliasTokens) > 1 && empty(array_diff($candidateTokens, $aliasTokens)) && empty(array_diff($aliasTokens, $candidateTokens))) {
+                    $score = 98.0;
+                } elseif (
+                    $normalizedAlias !== 'id'
+                    && $normalizedCandidate !== 'id'
+                    && (str_contains($normalizedAlias, $normalizedCandidate) || str_contains($normalizedCandidate, $normalizedAlias))
+                ) {
                     $score = 80.0;
                 } else {
-                    $aliasTokens = array_values(array_filter(explode('_', $normalizedAlias)));
                     $intersection = array_intersect($candidateTokens, $aliasTokens);
                     $union = array_unique(array_merge($candidateTokens, $aliasTokens));
                     if (!empty($union)) {

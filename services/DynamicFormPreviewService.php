@@ -123,11 +123,12 @@ class DynamicFormPreviewService
         }
 
         $fieldHtml = '';
-        foreach ($fields as $field) {
+        foreach ($fields as $index => $field) {
             if (FormSystemFieldHelper::isSystemFieldData($field)) {
                 continue;
             }
 
+            $field = FormRenderService::resolveDynamicChoiceOptions(FormRenderService::normalizeFieldForRender((array)$field, (int)$index));
             $name = Html::encode((string)($field['name'] ?? 'field'));
             $label = Html::encode((string)($field['label'] ?? ucfirst($name)));
             $type = FormSystemFieldHelper::resolveFieldInputType($field);
@@ -139,7 +140,18 @@ class DynamicFormPreviewService
                 continue;
             }
             if ($type === 'select') {
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"><option value="">Pilih...</option></select></div>';
+                $optionHtml = '<option value="">Pilih...</option>';
+                foreach ((array)($field['options'] ?? []) as $option) {
+                    if (!is_array($option)) {
+                        continue;
+                    }
+                    $value = (string)($option['value'] ?? '');
+                    if ($value === '') {
+                        continue;
+                    }
+                    $optionHtml .= '<option value="' . Html::encode($value) . '">' . Html::encode((string)($option['label'] ?? $value)) . '</option>';
+                }
+                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
                 continue;
             }
             if ($type === 'checkbox') {

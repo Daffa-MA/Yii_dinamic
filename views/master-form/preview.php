@@ -20,8 +20,28 @@ if (empty($fields)) {
     }
     $fields = is_array($formData) ? $formData : [];
 }
-$fields = array_values(array_filter($fields, static fn($field) => is_array($field)));
-$fields = array_map([FormRenderService::class, 'resolveDynamicChoiceOptions'], FormSystemFieldHelper::filterFields($fields));
+$rawPreviewFields = array_values(array_filter($fields, static fn($field) => is_array($field)));
+$fields = [];
+foreach (FormSystemFieldHelper::filterFields($rawPreviewFields) as $index => $field) {
+    $fields[] = FormRenderService::resolveDynamicChoiceOptions(FormRenderService::normalizeFieldForRender($field, (int)$index));
+}
+Yii::info([
+    'form_id' => (int)$model->id,
+    'target_table' => $model->table_id ?? null,
+    'raw_fields_count' => count($rawPreviewFields),
+    'normalized_fields' => array_map(static function (array $field): array {
+        return [
+            'name' => $field['name'] ?? null,
+            'column_name' => $field['column_name'] ?? null,
+            'label' => $field['label'] ?? null,
+            'type' => $field['type'] ?? null,
+            'inputType' => $field['inputType'] ?? null,
+            'relation_config' => $field['relation_config'] ?? null,
+            'is_foreign_key' => !empty($field['is_foreign_key']),
+            'options_count' => is_array($field['options'] ?? null) ? count($field['options']) : 0,
+        ];
+    }, $fields),
+], 'form-render-fields');
 $formName = $model->form_name ?? 'Form';
 $formRenderService = new FormRenderService();
 $hasCustomCode = $formRenderService->hasCustomCodePayload($renderPayload, $model);

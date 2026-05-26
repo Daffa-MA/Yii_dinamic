@@ -613,6 +613,7 @@ $this->title = 'Preview: ' . $formName;
                             <?= Html::dropDownList($name, $defaultValue, $optionsList, [
                                 'class' => 'preview-input preview-select',
                                 'required' => $required,
+                                'data-fk-submit-name' => $isFk ? $name : null,
                             ]) ?>
                             <?php if ($isFk): ?>
                                 <div class="preview-fk-badge">
@@ -693,3 +694,32 @@ $this->title = 'Preview: ' . $formName;
         ]) ?>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var previewForm = document.getElementById('preview-form');
+    if (!previewForm) {
+        return;
+    }
+
+    previewForm.addEventListener('submit', function() {
+        previewForm.querySelectorAll('select[data-fk-submit-name]').forEach(function(select) {
+            var submitName = select.getAttribute('data-fk-submit-name');
+            if (!submitName) {
+                return;
+            }
+
+            var hiddenName = '__fk_submit_' + submitName;
+            var hiddenInput = previewForm.querySelector('input[name="' + hiddenName + '"]');
+            if (!hiddenInput) {
+                hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = hiddenName;
+                previewForm.appendChild(hiddenInput);
+            }
+
+            hiddenInput.value = select.value || '';
+        });
+    });
+});
+</script>

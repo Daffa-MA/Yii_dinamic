@@ -973,20 +973,25 @@ $this->params['breadcrumbs'][] = $this->title;
                     <?php foreach ($fields as $field): ?>
                         <?php
                         $fieldData = $field instanceof \yii\db\ActiveRecord ? $field->getAttributes() : (array)$field;
-                        $type = $fieldData['field_type'] ?? $fieldData['type'] ?? 'text';
-                        $label = $fieldData['field_label'] ?? $fieldData['label'] ?? $fieldData['field_name'] ?? 'Field';
-                        $name = $fieldData['field_name'] ?? $fieldData['field_key'] ?? $fieldData['name'] ?? '';
-                        $required = !empty($fieldData['is_required'] ?? $fieldData['required']);
-                        $isFk = !empty(($fieldData['foreign_key_table'] ?? ($fieldData['is_foreign_key'] ?? false)));
-                        $isExcluded = !empty($fieldData['excluded']);
-                        $fkTable = $fieldData['foreign_key_table'] ?? $fieldData['fk_referenced_table'] ?? '';
+                        $type = trim((string)($fieldData['field_type'] ?? $fieldData['type'] ?? 'text'));
+                        $label = trim((string)($fieldData['resolved_label'] ?? $fieldData['field_label'] ?? $fieldData['label'] ?? $fieldData['field_name'] ?? 'Field'));
+                        $name = trim((string)($fieldData['resolved_name'] ?? $fieldData['field_name'] ?? $fieldData['field_key'] ?? $fieldData['name'] ?? ''));
+                        $required = !empty($fieldData['is_required'] ?? $fieldData['required'] ?? false);
+                        $isFk = !empty($fieldData['foreign_key_table'] ?? false) || !empty($fieldData['is_foreign_key'] ?? false) || !empty($fieldData['fk_referenced_table'] ?? false);
+                        $isExcluded = !empty($fieldData['excluded'] ?? false);
+                        $fkTable = trim((string)($fieldData['foreign_key_table'] ?? $fieldData['fk_referenced_table'] ?? ''));
                         $fieldSettings = [];
                         if (!empty($fieldData['field_settings'])) {
                             $fieldSettings = is_string($fieldData['field_settings']) ? (json_decode($fieldData['field_settings'], true) ?? []) : (array)$fieldData['field_settings'];
                         } elseif (!empty($fieldData['field_config'])) {
                             $fieldSettings = is_string($fieldData['field_config']) ? (json_decode($fieldData['field_config'], true) ?? []) : (array)$fieldData['field_config'];
                         }
-                        $optionsCount = isset($fieldSettings['options']) ? count($fieldSettings['options']) : (isset($fieldSettings['fk_options']) ? count($fieldSettings['fk_options']) : 0);
+                        $optionsCount = 0;
+                        if (isset($fieldSettings['options']) && is_array($fieldSettings['options'])) {
+                            $optionsCount = count($fieldSettings['options']);
+                        } elseif (isset($fieldSettings['fk_options']) && is_array($fieldSettings['fk_options'])) {
+                            $optionsCount = count($fieldSettings['fk_options']);
+                        }
                         
                         $iconMap = [
                             'text' => 'text_fields',

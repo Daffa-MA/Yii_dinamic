@@ -1422,20 +1422,6 @@ class MasterFormController extends Controller
                 'field_mapping' => $fieldMappingDebug,
                 'fk_debug' => $fkDebugInfo,
             ], 'submit_debug');
-            $submitDebugPayload = [
-                'form_id' => (int)$model->id,
-                'target_table' => $tableName,
-                'schema_columns' => $colNames,
-                'raw_post_keys' => array_keys($postData),
-                'raw_post_payload' => $postData,
-                'raw_posted_table_data' => $rawPostedTableData,
-                'posted_foreign_key_data' => $postedForeignKeyData,
-                'resolved_missing_foreign_keys' => $resolvedMissingForeignKeys,
-                'normalized_payload' => $insertData,
-                'field_mapping' => $fieldMappingDebug,
-                'fk_debug' => $fkDebugInfo,
-            ];
-
             $columnError = $this->validateInsertDataColumns($insertData, $columns->columns);
             if ($columnError !== null) {
                 FormFlowDebugLogger::logSubmit([
@@ -1464,7 +1450,6 @@ class MasterFormController extends Controller
                 if ($isAjax) {
                     return ['success' => false, 'message' => $columnError];
                 }
-                Yii::$app->session->setFlash('submit_debug_payload', Json::encode($submitDebugPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 Yii::$app->session->setFlash('error', $columnError);
                 return $this->redirect(['preview', 'id' => $id]);
             }
@@ -1474,7 +1459,6 @@ class MasterFormController extends Controller
                 if ($isAjax) {
                     return ['success' => false, 'message' => $requiredError];
                 }
-                Yii::$app->session->setFlash('submit_debug_payload', Json::encode($submitDebugPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 Yii::$app->session->setFlash('error', $requiredError);
                 return $this->redirect(['preview', 'id' => $id]);
             }
@@ -1484,7 +1468,6 @@ class MasterFormController extends Controller
                 if ($isAjax) {
                     return ['success' => false, 'message' => $lengthError];
                 }
-                Yii::$app->session->setFlash('submit_debug_payload', Json::encode($submitDebugPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                 Yii::$app->session->setFlash('error', $lengthError);
                 return $this->redirect(['preview', 'id' => $id]);
             }
@@ -1530,7 +1513,6 @@ class MasterFormController extends Controller
                     if ($isAjax) {
                         return ['success' => true, 'message' => $successMessage];
                     }
-                    Yii::$app->session->setFlash('submit_debug_payload', Json::encode($submitDebugPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                     Yii::$app->session->setFlash('success', 'Data saved! Fields: ' . implode(', ', array_keys($insertData)));
                     $this->activityLogService->log($model, 'submit', 'success', 'Submission saved to target table.', [
                         'target_table' => $tableName,
@@ -1555,8 +1537,6 @@ class MasterFormController extends Controller
                     if ($isAjax) {
                         return ['success' => false, 'message' => $message];
                     }
-                    $submitDebugPayload['save_error'] = $e->getMessage();
-                    Yii::$app->session->setFlash('submit_debug_payload', Json::encode($submitDebugPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
                     Yii::$app->session->setFlash('error', $message);
                     $this->activityLogService->log($model, 'submit', 'failed', 'Submission failed: ' . $e->getMessage(), [
                         'target_table' => $tableName,

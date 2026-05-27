@@ -12,6 +12,10 @@ $tableList = [];
 $pages = [];
 $pageList = [];
 $resolvedTargetTableId = 0;
+/** @var string[] $formNameErrors */
+$formNameErrors = $model->getErrors('form_name');
+/** @var string[] $allFormErrors */
+$allFormErrors = $model->getFirstErrors();
 if ($model->hasAttribute('db_table_id') && !empty($model->getAttribute('db_table_id'))) {
     $resolvedTargetTableId = (int)$model->getAttribute('db_table_id');
 }
@@ -1132,12 +1136,24 @@ body.dashboard-main-page {
                         <?php if (!empty($model->id)): ?>
                         <input type="hidden" name="MasterForm[form_id]" id="form-id-input" value="<?= $model->id ?>">
                         <?php endif; ?>
+                        <?php if (!empty($allFormErrors)): ?>
+                        <div style="margin:16px 20px 0;padding:12px 14px;border:1px solid #fecaca;background:#fef2f2;color:#b91c1c;border-radius:10px;font-size:13px;line-height:1.6;">
+                            <?php foreach ($allFormErrors as $errorMessage): ?>
+                            <div><?= Html::encode($errorMessage) ?></div>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
                         
                         <div style="display:flex;gap:12px;padding:16px 20px;align-items:center;flex-wrap:wrap;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
                             <select id="table-selector" class="prop-input" style="width:200px;">
                                 <option value="">-- Pilih Tabel --</option>
                             </select>
-                            <input type="text" name="MasterForm[form_name]" class="prop-input" placeholder="Nama Form" style="flex:1;max-width:300px;">
+                            <div style="display:flex;flex-direction:column;flex:1;max-width:300px;gap:6px;">
+                                <input type="text" name="MasterForm[form_name]" class="prop-input" value="<?= Html::encode($model->form_name) ?>" placeholder="Nama Form" style="<?= !empty($formNameErrors) ? 'border-color:#ef4444;box-shadow:0 0 0 3px rgba(239,68,68,.12);' : '' ?>">
+                                <?php if (!empty($formNameErrors)): ?>
+                                <div style="font-size:12px;color:#dc2626;line-height:1.4;"><?= Html::encode($formNameErrors[0]) ?></div>
+                                <?php endif; ?>
+                            </div>
                             <button type="button" id="generate-from-table" class="btn-cancel" style="display:flex;align-items:center;gap:6px;">
                                 <span class="material-symbols-outlined" style="font-size:18px;">autorenew</span>
                                 Generate Fields
@@ -3296,3 +3312,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<?php if (!empty($formNameErrors)): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    alert(<?= json_encode($formNameErrors[0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>);
+});
+</script>
+<?php endif; ?>

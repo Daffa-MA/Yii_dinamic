@@ -1517,6 +1517,18 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
+    function getCurrentTableForeignKeyPanelState() {
+        const currentTableId = getCurrentBuilderTableId();
+        const cacheKey = String(currentTableId || '');
+        const isLoaded = !!(currentTableId && dropdownSourceColumnsCache[cacheKey]);
+        const columns = currentTableId ? getCurrentTableForeignKeyColumnsSync() : [];
+        return {
+            tableId: currentTableId,
+            isLoaded: isLoaded,
+            columns: columns,
+        };
+    }
+
     function buildDropdownColumnOptions(field, selectedColumn) {
         const tableId = field.source_table_id || field.dropdown_table_id || '';
         const columns = dropdownSourceColumnsCache[String(tableId)] || [];
@@ -2018,7 +2030,7 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
-        if (field.type === 'select' && !field.is_foreign_key) {
+        if (field.type === 'select') {
             const sourceMode = getDropdownSourceMode(field);
             html += '<div class="prop-section"><div class="prop-section-title">Dropdown Source</div>';
             html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setDropdownSourceMode(this.value)">';
@@ -2026,15 +2038,16 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Ambil dari Table</option>';
             html += '</select></div>';
             if (sourceMode === 'table') {
-                const currentTableId = getCurrentBuilderTableId();
-                const currentFkColumns = getCurrentTableForeignKeyColumnsSync();
-                if (!currentTableId) {
+                const fkPanelState = getCurrentTableForeignKeyPanelState();
+                if (!fkPanelState.tableId) {
                     html += '<small style="display:block;color:#b45309;line-height:1.5;">Pilih target table form terlebih dulu. Source dari table hanya tersedia jika form sudah memakai table aktif.</small>';
-                } else if (currentFkColumns.length === 0) {
+                } else if (!fkPanelState.isLoaded) {
+                    html += '<small style="display:block;color:#64748b;line-height:1.5;">Memuat kolom foreign key dari table aktif...</small>';
+                } else if (fkPanelState.columns.length === 0) {
                     html += '<small style="display:block;color:#b45309;line-height:1.5;">Table aktif tidak memiliki kolom foreign key. Ambil dari table tidak tersedia untuk dropdown ini.</small>';
                 } else {
                     html += '<div class="prop-group"><label class="prop-label">Kolom FK dari Table Aktif</label><select class="prop-select" onchange="setDropdownSourceForeignKey(this.value)">' + buildCurrentTableForeignKeyOptions(field.source_column_id) + '</select></div>';
-                    html += '<small style="display:block;color:#64748b;line-height:1.5;">Pilih salah satu kolom FK dari table aktif. Referenced table, value column, dan display column akan diisi otomatis dari metadata relasi.</small>';
+                    html += '<small style="display:block;color:#64748b;line-height:1.5;">Pilih salah satu kolom FK dari table aktif. Setelah dipilih, dropdown akan memakai data relasi itu.</small>';
                 }
             }
             html += '</div>';
@@ -2062,7 +2075,7 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.readonly ? 'checked' : '') + ' data-prop="readonly" onchange="updateFieldProp(\'readonly\', this.checked)">Read-only</label></div>';
         html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.disabled ? 'checked' : '') + ' data-prop="disabled" onchange="updateFieldProp(\'disabled\', this.checked)">Disabled</label></div></div>';
         
-        if (field.is_foreign_key) {
+        if (field.type === 'select' && field.is_foreign_key) {
             html += '<div class="prop-section"><div class="prop-section-title">Foreign Key</div>';
             html += '<div class="prop-group"><label class="prop-label">Local Column / Kolom Form</label><input type="text" class="prop-input" value="' + escapeAttr(field.local_column || field.name || '-') + '" readonly style="background:#f1f5f9;"></div>';
             html += '<div class="prop-group"><label class="prop-label">Referenced Table</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
@@ -2093,33 +2106,18 @@ document.addEventListener('DOMContentLoaded', function() {
         
         propsPanel.innerHTML = html;
 
-        if (field.type === 'select') {
+        if (field.type === 'select' && field.is_foreign_key) {
             const tableId = field.source_table_id || field.dropdown_table_id || '';
-            if (getDropdownSourceMode(field) === 'table' && !field.is_foreign_key) {
-                ensureCurrentTableForeignKeyColumnsLoaded().then(function(columns) {
-                    if (selectedIndex !== null && formFields[selectedIndex] === field && columns.length > 0) {
-                        renderPropsPanel(field);
-                    }
-                });
-            } else {
-                ensureDropdownSourceTablesLoaded().then(function() {
-                    if (selectedIndex === null || formFields[selectedIndex] !== field) return;
-                    if ((getDropdownSourceMode(field) === 'table' || field.is_foreign_key) && tableId) {
-                        const hadColumns = !!dropdownSourceColumnsCache[String(tableId)];
-                        ensureDropdownSourceColumnsLoaded(tableId).then(function() {
-                            if (!hadColumns && selectedIndex !== null && formFields[selectedIndex] === field) {
-                                renderPropsPanel(field);
-                            }
-                        });
-                    } else if (field.is_foreign_key) {
-                        ensureRelationTableContext(field).then(function(columns) {
-                            if (columns.length > 0 && selectedIndex !== null && formFields[selectedIndex] === field) {
-                                renderPropsPanel(field);
-                            }
-                        });
-                    }
-                });
-            }
+            ensureDropdownSourceTablesLoaded().then(function() {
+                if (selectedIndex === null || formFields[selectedIndex] !== field) return;
+                if (tableId && !dropdownSourceColumnsCache[String(tableId)]) {
+                    ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+                        if (selectedIndex !== null && formFields[selectedIndex] === field) {
+                            renderPropsPanel(field);
+                        }
+                    });
+                }
+            });
         }
     }
     
@@ -2185,16 +2183,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         ensureCurrentTableForeignKeyColumnsLoaded().then(function(columns) {
-            if (!columns.length) {
-                field.dropdown_source = 'static_options';
-                resetDropdownTableSourceField(field);
-                normalizeChoiceOptions(field);
-                normalizeFieldState(field);
-                renderFields();
-                renderPropsPanel(field);
-                updateData();
-                alert('Table aktif tidak memiliki kolom foreign key. Dropdown ini tidak bisa mengambil opsi dari table.');
-                return;
+            if (!field.source_column_id) {
+                field.is_foreign_key = false;
             }
             renderPropsPanel(field);
             updateData();
@@ -2207,8 +2197,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!columnId) {
             field.dropdown_source = 'table';
             field.source_column_id = '';
+            resetDropdownTableSourceField(field);
+            field.dropdown_source = 'table';
             field.options = [];
-            field.fk_options = [];
             renderFields();
             renderPropsPanel(field);
             updateData();

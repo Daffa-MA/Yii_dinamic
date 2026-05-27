@@ -1320,6 +1320,22 @@ document.addEventListener('DOMContentLoaded', function() {
         return field.dropdown_source === 'table' ? 'table' : 'manual';
     }
 
+    function hasResolvedRelationConfig(field) {
+        if (!field || typeof field !== 'object') {
+            return false;
+        }
+
+        const relationConfig = field.relation_config && typeof field.relation_config === 'object'
+            ? field.relation_config
+            : (field.relationConfig && typeof field.relationConfig === 'object' ? field.relationConfig : {});
+
+        const localColumn = String(field.local_column || field.name || field.field_name || field.field_key || relationConfig.local_column || '').trim();
+        const referencedTable = String(field.fk_referenced_table || field.source_table_name || field.referenced_table_name || relationConfig.referenced_table || relationConfig.referenced_table_name || '').trim();
+        const referencedValueColumn = String(field.fk_referenced_column || field.value_column || field.dropdown_value_column || field.referenced_value_column || field.referenced_column_name || relationConfig.referenced_value_column || relationConfig.value_column || relationConfig.referenced_column || '').trim();
+
+        return localColumn !== '' && referencedTable !== '' && referencedValueColumn !== '';
+    }
+
     function syncRelationConfig(field) {
         if (!field || typeof field !== 'object') {
             return field;
@@ -1394,8 +1410,11 @@ document.addEventListener('DOMContentLoaded', function() {
         field.relation_value_column = field.relation_value_column || field.value_column || field.fk_referenced_column || relationConfig.referenced_value_column || relationConfig.value_column || '';
         field.relation_display_column = field.relation_display_column || field.label_column || field.fk_display_column || relationConfig.display_column || relationConfig.display_column_name || '';
 
-        if (field.is_foreign_key || String(field.dropdown_source || '').toLowerCase() === 'table' || Array.isArray(field.fk_options)) {
+        if (field.is_foreign_key || String(field.fk_referenced_table || '').trim() !== '' || Array.isArray(field.fk_options)) {
             field.is_foreign_key = true;
+        }
+        if (!hasResolvedRelationConfig(field)) {
+            field.is_foreign_key = false;
         }
 
         return syncRelationConfig(field);
@@ -1403,11 +1422,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function isRelationField(field) {
         return !!field && (
-            !!field.is_foreign_key ||
-            String(field.dropdown_source || '').toLowerCase() === 'table' ||
-            String(field.relation_table_name || '').trim() !== '' ||
-            String(field.fk_referenced_table || '').trim() !== '' ||
-            (Array.isArray(field.fk_options) && field.fk_options.length > 0)
+            hasResolvedRelationConfig(field) ||
+            (!!field.is_foreign_key && String(field.fk_referenced_table || '').trim() !== '')
         );
     }
 
@@ -1807,9 +1823,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function isRelationSelectField(field) {
         return !!field && String(field.type || '').toLowerCase() === 'select' && (
-            !!field.is_foreign_key ||
-            String(field.dropdown_source || '').toLowerCase() === 'table' ||
-            (Array.isArray(field.fk_options) && field.fk_options.length > 0)
+            hasResolvedRelationConfig(field) ||
+            (!!field.is_foreign_key && String(field.fk_referenced_table || '').trim() !== '')
         );
     }
 

@@ -2496,6 +2496,39 @@ document.addEventListener('DOMContentLoaded', function() {
         return resolved;
     }
 
+    function normalizeGeneratedFieldMarkup(markup, field, index) {
+        let resolved = String(markup || '');
+        const fieldName = field.name || getFieldTokenName(field, index);
+        const fieldLabel = getFieldLabel(field, index);
+        const fieldPlaceholder = getFieldPlaceholder(field, index);
+
+        resolved = resolved.replace(/(<label\b[^>]*class="field-label"[^>]*>)([\s\S]*?)(<\/label>)/i, function(_, open, _text, close) {
+            return open + escapeHtml(fieldLabel) + close;
+        });
+
+        resolved = resolved.replace(/<(input|select|textarea)\b([^>]*)\bname=(["'])(.*?)\3([^>]*)>/i, function(match, tag, before, quote, _name, after) {
+            return '<' + tag + before + 'name=' + quote + escapeAttr(fieldName) + quote + after + '>';
+        });
+
+        if (String(field.type || '').toLowerCase() === 'select') {
+            const optionsMarkup = buildSelectOptionsMarkup(field);
+            const placeholderLabel = escapeHtml(field.placeholder || 'Pilih...');
+            resolved = resolved.replace(/<select\b([\s\S]*?)>[\s\S]*?<\/select>/i, function(_match, attrs) {
+                return '<select' + attrs + '>\n    <option value="">' + placeholderLabel + '</option>' + (optionsMarkup ? '\n    ' + optionsMarkup.split('\n').join('\n    ') + '\n  ' : '\n  ') + '</select>';
+            });
+        } else if (resolved.includes('placeholder=')) {
+            resolved = resolved.replace(/placeholder=(["'])(.*?)\1/i, 'placeholder="' + escapeAttr(fieldPlaceholder) + '"');
+        } else if (/<(input|textarea)\b/i.test(resolved) && String(field.type || '').toLowerCase() !== 'date') {
+            resolved = resolved.replace(/<(input|textarea)\b([^>]*)>/i, function(match, tag, attrs) {
+                if (tag.toLowerCase() === 'input' || tag.toLowerCase() === 'textarea') {
+                    return '<' + tag + attrs + ' placeholder="' + escapeAttr(fieldPlaceholder) + '">';
+                }
+                return match;
+            });
+        }
+        return resolved;
+    }
+
     function resolveFormSourceTokens(source) {
         let resolved = String(source || '');
 
@@ -2580,11 +2613,11 @@ document.addEventListener('DOMContentLoaded', function() {
             lines.push('    <!-- Field ' + (index + 1) + ': ' + field.label + ' -->');
             
             if (field.customHtml && !(isRelationSelectField(field) && looksLikeDummySelectCode(field.customHtml))) {
-                lines.push('    ' + field.customHtml.split('\n').join('\n    '));
+                lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(field.customHtml, field, index), field, index).split('\n').join('\n    '));
             } else {
                 // Use base template
                 const baseCode = getFieldBaseCode(field.type, 'html');
-                lines.push('    ' + applyFieldTokensToCode(baseCode, field, index).split('\n').join('\n    '));
+                lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(baseCode, field, index), field, index).split('\n').join('\n    '));
             }
         });
         

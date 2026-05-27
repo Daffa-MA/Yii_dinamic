@@ -1633,6 +1633,33 @@ document.addEventListener('DOMContentLoaded', function() {
         return enabled ? ' ' + name : '';
     }
 
+    function buildSelectOptionsMarkup(field) {
+        const options = getFieldConfiguredOptions(field);
+        if (!options.length) {
+            return '';
+        }
+
+        return options.map(function(opt) {
+            const value = escapeAttr(opt.value ?? '');
+            const label = escapeHtml(opt.label ?? opt.value ?? '');
+            if (!value) return '';
+            return '<option value="' + value + '">' + label + '</option>';
+        }).join('');
+    }
+
+    function isRelationSelectField(field) {
+        return !!field && String(field.type || '').toLowerCase() === 'select' && (
+            !!field.is_foreign_key ||
+            String(field.dropdown_source || '').toLowerCase() === 'table' ||
+            (Array.isArray(field.fk_options) && field.fk_options.length > 0)
+        );
+    }
+
+    function looksLikeDummySelectCode(code) {
+        const normalized = String(code || '');
+        return normalized.includes('Opsi 1') && normalized.includes('Opsi 2') && normalized.includes('<select');
+    }
+
     // Render Preview Input
     function renderPreview(field) {
         if (!field) return '';
@@ -2215,6 +2242,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         var codeKey = 'custom' + currentCodeLang.charAt(0).toUpperCase() + currentCodeLang.slice(1);
         var code = field[codeKey] || '';
+        if (isRelationSelectField(field) && looksLikeDummySelectCode(code)) {
+            code = '';
+        }
 
         // Load base code template if no custom code exists
         if (!code) {
@@ -2254,7 +2284,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 js: ''
             },
             select: {
-                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <select name="{name}" class="field-select">\n    <option value="">Pilih...</option>\n    <option value="opt1">Opsi 1</option>\n    <option value="opt2">Opsi 2</option>\n  </select>\n</div>',
+                html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <select name="{name}" class="field-select">\n    <option value="">Pilih...</option>\n    {options}\n  </select>\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-select {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n  background: white;\n}',
                 js: ''
             },
@@ -2436,11 +2466,49 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function applyFieldTokensToCode(code, field, index) {
-        return String(code || '')
+        let resolved = String(code || '')
             .replace(/\{label\}/g, getFieldLabel(field, index))
             .replace(/\{placeholder\}/g, getFieldPlaceholder(field, index))
             .replace(/\{name\}/g, field.name || getFieldTokenName(field, index))
             .replace(/\{type\}/g, field.type || 'text');
+        if (String(code || '').indexOf('{options}') !== -1) {
+            resolved = resolved.replace(/\{options\}/g, buildSelectOptionsMarkup(field));
+        }
+        return resolved;
+    }
+
+    function normalizeGeneratedFieldMarkup(markup, field, index) {
+        let resolved = String(markup || '');
+        const fieldName = field.name || getFieldTokenName(field, index);
+        const fieldLabel = getFieldLabel(field, index);
+        const fieldPlaceholder = getFieldPlaceholder(field, index);
+
+        resolved = resolved.replace(/(<label\b[^>]*class="field-label"[^>]*>)([\s\S]*?)(<\/label>)/i, function(_, open, _text, close) {
+            return open + escapeHtml(fieldLabel) + close;
+        });
+
+        resolved = resolved.replace(/<(input|select|textarea)\b([^>]*)\bname=(["'])(.*?)\3([^>]*)>/i, function(match, tag, before, quote, _name, after) {
+            return '<' + tag + before + 'name=' + quote + escapeAttr(fieldName) + quote + after + '>';
+        });
+
+        if (String(field.type || '').toLowerCase() === 'select') {
+            const optionsMarkup = buildSelectOptionsMarkup(field);
+            const placeholderLabel = escapeHtml(field.placeholder || 'Pilih...');
+            resolved = resolved.replace(/<select\b([\s\S]*?)>[\s\S]*?<\/select>/i, function(_match, attrs) {
+                return '<select' + attrs + '>\n    <option value="">' + placeholderLabel + '</option>' + (optionsMarkup ? '\n    ' + optionsMarkup.split('\n').join('\n    ') + '\n  ' : '\n  ') + '</select>';
+            });
+        } else if (resolved.includes('placeholder=')) {
+            resolved = resolved.replace(/placeholder=(["'])(.*?)\1/i, 'placeholder="' + escapeAttr(fieldPlaceholder) + '"');
+        } else if (/<(input|textarea)\b/i.test(resolved) && String(field.type || '').toLowerCase() !== 'date') {
+            resolved = resolved.replace(/<(input|textarea)\b([^>]*)>/i, function(match, tag, attrs) {
+                if (tag.toLowerCase() === 'input' || tag.toLowerCase() === 'textarea') {
+                    return '<' + tag + attrs + ' placeholder="' + escapeAttr(fieldPlaceholder) + '">';
+                }
+                return match;
+            });
+        }
+
+        return resolved;
     }
 
     function resolveFormSourceTokens(source) {
@@ -2526,12 +2594,12 @@ document.addEventListener('DOMContentLoaded', function() {
             lines.push('');
             lines.push('    <!-- Field ' + (index + 1) + ': ' + field.label + ' -->');
             
-            if (field.customHtml) {
-                lines.push('    ' + field.customHtml.split('\n').join('\n    '));
+            if (field.customHtml && !(isRelationSelectField(field) && looksLikeDummySelectCode(field.customHtml))) {
+                lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(field.customHtml, field, index), field, index).split('\n').join('\n    '));
             } else {
                 // Use base template
                 const baseCode = getFieldBaseCode(field.type, 'html');
-                lines.push('    ' + applyFieldTokensToCode(baseCode, field, index).split('\n').join('\n    '));
+                lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(baseCode, field, index), field, index).split('\n').join('\n    '));
             }
         });
         

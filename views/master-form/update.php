@@ -1469,10 +1469,45 @@ document.addEventListener('DOMContentLoaded', function() {
         return field.options;
     }
 
-    function buildDropdownTableOptions(selectedTableId) {
-        let html = '<option value="">Pilih table...</option>';
-        dropdownSourceTables.forEach(table => {
-            html += '<option value="' + escapeAttr(table.id) + '"' + boolAttr('selected', String(selectedTableId || '') === String(table.id)) + '>' + escapeHtml(table.label || table.name) + '</option>';
+    function getCurrentBuilderTableId() {
+        const hiddenInput = document.getElementById('table-id-input');
+        const selector = document.getElementById('table-selector');
+        const rawValue = (hiddenInput && hiddenInput.value) || (selector && selector.value) || '';
+        const parsed = parseInt(rawValue, 10);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    function isGenericDropdownName(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (!normalized) {
+            return true;
+        }
+        return /^(field|select|dropdown|pilihan)(_\d+)?$/.test(normalized);
+    }
+
+    function isGenericDropdownLabel(value) {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (!normalized) {
+            return true;
+        }
+        return ['dropdown', 'select', 'pilihan', 'opsi', 'dropdown manual'].includes(normalized);
+    }
+
+    function getCurrentTableForeignKeyColumnsSync() {
+        const tableId = getCurrentBuilderTableId();
+        if (!tableId) {
+            return [];
+        }
+        const columns = dropdownSourceColumnsCache[String(tableId)] || [];
+        return columns.filter(column => !!column && !!column.id && !!column.is_foreign_key && !!column.referenced_table_name && !!column.referenced_column_name);
+    }
+
+    function buildCurrentTableForeignKeyOptions(selectedColumnId) {
+        const columns = getCurrentTableForeignKeyColumnsSync();
+        let html = '<option value="">Pilih kolom foreign key...</option>';
+        columns.forEach(column => {
+            const label = column.label || column.name;
+            html += '<option value="' + escapeAttr(column.id) + '"' + boolAttr('selected', String(selectedColumnId || '') === String(column.id)) + '>' + escapeHtml(label + ' (' + column.name + ')') + '</option>';
         });
         return html;
     }
@@ -1601,6 +1636,104 @@ document.addEventListener('DOMContentLoaded', function() {
                 return dropdownSourceColumnsCache[tableId];
             })
             .catch(() => []);
+    }
+
+    function ensureCurrentTableForeignKeyColumnsLoaded() {
+        const tableId = getCurrentBuilderTableId();
+        if (!tableId) {
+            return Promise.resolve([]);
+        }
+        return ensureDropdownSourceColumnsLoaded(tableId).then(function(columns) {
+            return (Array.isArray(columns) ? columns : []).filter(column => {
+                return !!column && !!column.id && !!column.is_foreign_key && !!column.referenced_table_name && !!column.referenced_column_name;
+            });
+        });
+    }
+
+    function resetDropdownTableSourceField(field) {
+        delete field.source_column_id;
+        delete field.local_column;
+        delete field.source_table_id;
+        delete field.dropdown_table_id;
+        delete field.source_table_name;
+        delete field.value_column;
+        delete field.label_column;
+        delete field.dropdown_value_column;
+        delete field.dropdown_label_column;
+        delete field.fk_options;
+        delete field.fk_referenced_table;
+        delete field.fk_referenced_column;
+        delete field.fk_display_column;
+        delete field.relation_table_name;
+        delete field.relation_target_column;
+        delete field.relation_value_column;
+        delete field.relation_display_column;
+        delete field.relation_config;
+        delete field.relationConfig;
+        delete field.dynamic_options_loaded;
+        field.is_foreign_key = false;
+    }
+
+    function applyForeignKeyColumnToDropdownField(field, fkColumn, fkData) {
+        const relationLabel = fkColumn.label || fkColumn.name;
+        if (isGenericDropdownName(field.name) || !field.name) {
+            field.name = fkColumn.name;
+            field.field_name = fkColumn.name;
+            field.field_key = fkColumn.name;
+        }
+        if (isGenericDropdownLabel(field.label)) {
+            field.label = relationLabel;
+        }
+
+        field.dropdown_source = 'table';
+        field.is_foreign_key = true;
+        field.source_column_id = fkColumn.id;
+        field.local_column = fkColumn.name;
+        field.column_name = fkColumn.name;
+        field.field_name = fkColumn.name;
+        field.field_key = fkColumn.name;
+        field.name = fkColumn.name;
+        field.source_table_id = fkData.referenced_table_id || field.source_table_id || '';
+        field.dropdown_table_id = field.source_table_id || '';
+        field.source_table_name = fkData.referenced_table || fkColumn.referenced_table_name || '';
+        field.fk_referenced_table = fkData.referenced_table || fkColumn.referenced_table_name || '';
+        field.fk_referenced_column = fkData.referenced_value_column || fkColumn.referenced_column_name || '';
+        field.value_column = field.fk_referenced_column;
+        field.dropdown_value_column = field.fk_referenced_column;
+        field.fk_display_column = fkData.display_column || field.fk_display_column || '';
+        field.label_column = field.fk_display_column || '';
+        field.dropdown_label_column = field.label_column || '';
+        field.relation_table_name = field.fk_referenced_table || '';
+        field.relation_target_column = field.local_column || field.name || '';
+        field.relation_value_column = field.fk_referenced_column || '';
+        field.relation_display_column = field.fk_display_column || '';
+        field.options = Array.isArray(fkData.options) ? fkData.options : [];
+        field.fk_options = Array.isArray(fkData.options) ? fkData.options : [];
+        field.dynamic_options_loaded = true;
+        syncRelationConfig(field);
+    }
+
+    function loadDropdownSourceFromForeignKey(field, columnId) {
+        const targetColumnId = parseInt(columnId, 10);
+        const fkColumn = getCurrentTableForeignKeyColumnsSync().find(column => String(column.id) === String(targetColumnId));
+        if (!fkColumn) {
+            return Promise.resolve(false);
+        }
+
+        return fetch('/tables/foreign-key-options/' + encodeURIComponent(targetColumnId) + '?t=' + Date.now(), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.message || 'Gagal memuat opsi foreign key.');
+                }
+                applyForeignKeyColumnToDropdownField(field, fkColumn, data);
+                return true;
+            });
     }
 
     function refreshDropdownOptionsFromTable(field) {
@@ -1889,11 +2022,16 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Ambil dari Table</option>';
             html += '</select></div>';
             if (sourceMode === 'table') {
-                html += '<div class="prop-group"><label class="prop-label">Source Table</label><select class="prop-select" onchange="setDropdownSourceTable(this.value)">' + buildDropdownTableOptions(field.source_table_id || field.dropdown_table_id) + '</select></div>';
-                html += '<div class="prop-group"><label class="prop-label">Value Column</label><select class="prop-select" onchange="setDropdownSourceColumn(\'value_column\', this.value)">' + buildDropdownColumnOptions(field, field.value_column || field.dropdown_value_column) + '</select></div>';
-                html += '<div class="prop-group"><label class="prop-label">Label Column</label><select class="prop-select" onchange="setDropdownSourceColumn(\'label_column\', this.value)">' + buildDropdownColumnOptions(field, field.label_column || field.dropdown_label_column) + '</select></div>';
-                html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="reloadDropdownSourceOptions()">Refresh options dari table</button></div>';
-                html += '<small style="display:block;color:#64748b;line-height:1.5;">Contoh: pilih table jurusan, value=id, label=nama_jurusan.</small>';
+                const currentTableId = getCurrentBuilderTableId();
+                const currentFkColumns = getCurrentTableForeignKeyColumnsSync();
+                if (!currentTableId) {
+                    html += '<small style="display:block;color:#b45309;line-height:1.5;">Pilih target table form terlebih dulu. Source dari table hanya tersedia jika form sudah memakai table aktif.</small>';
+                } else if (currentFkColumns.length === 0) {
+                    html += '<small style="display:block;color:#b45309;line-height:1.5;">Table aktif tidak memiliki kolom foreign key. Ambil dari table tidak tersedia untuk dropdown ini.</small>';
+                } else {
+                    html += '<div class="prop-group"><label class="prop-label">Kolom FK dari Table Aktif</label><select class="prop-select" onchange="setDropdownSourceForeignKey(this.value)">' + buildCurrentTableForeignKeyOptions(field.source_column_id) + '</select></div>';
+                    html += '<small style="display:block;color:#64748b;line-height:1.5;">Pilih salah satu kolom FK dari table aktif. Referenced table, value column, dan display column akan diisi otomatis dari metadata relasi.</small>';
+                }
             }
             html += '</div>';
         }
@@ -1953,25 +2091,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (field.type === 'select') {
             const tableId = field.source_table_id || field.dropdown_table_id || '';
-            ensureDropdownSourceTablesLoaded().then(function() {
-                if (selectedIndex === null || formFields[selectedIndex] !== field) return;
-                if ((getDropdownSourceMode(field) === 'table' || field.is_foreign_key) && tableId) {
-                    const hadColumns = !!dropdownSourceColumnsCache[String(tableId)];
-                    ensureDropdownSourceColumnsLoaded(tableId).then(function() {
-                        if (!hadColumns && selectedIndex !== null && formFields[selectedIndex] === field) {
-                            renderPropsPanel(field);
-                        }
-                    });
-                } else if (field.is_foreign_key) {
-                    ensureRelationTableContext(field).then(function(columns) {
-                        if (columns.length > 0 && selectedIndex !== null && formFields[selectedIndex] === field) {
-                            renderPropsPanel(field);
-                        }
-                    });
-                } else if (dropdownSourceTables.length > 0 && propsPanel.querySelector('select[onchange^="setDropdownSourceTable"]') && propsPanel.querySelector('select[onchange^="setDropdownSourceTable"]').options.length <= 1) {
-                    renderPropsPanel(field);
-                }
-            });
+            if (getDropdownSourceMode(field) === 'table' && !field.is_foreign_key) {
+                ensureCurrentTableForeignKeyColumnsLoaded().then(function(columns) {
+                    if (selectedIndex !== null && formFields[selectedIndex] === field && columns.length > 0) {
+                        renderPropsPanel(field);
+                    }
+                });
+            } else {
+                ensureDropdownSourceTablesLoaded().then(function() {
+                    if (selectedIndex === null || formFields[selectedIndex] !== field) return;
+                    if ((getDropdownSourceMode(field) === 'table' || field.is_foreign_key) && tableId) {
+                        const hadColumns = !!dropdownSourceColumnsCache[String(tableId)];
+                        ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+                            if (!hadColumns && selectedIndex !== null && formFields[selectedIndex] === field) {
+                                renderPropsPanel(field);
+                            }
+                        });
+                    } else if (field.is_foreign_key) {
+                        ensureRelationTableContext(field).then(function(columns) {
+                            if (columns.length > 0 && selectedIndex !== null && formFields[selectedIndex] === field) {
+                                renderPropsPanel(field);
+                            }
+                        });
+                    }
+                });
+            }
         }
     }
     
@@ -2027,21 +2171,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const field = formFields[selectedIndex];
         field.dropdown_source = mode === 'table' ? 'table' : 'static_options';
         if (mode !== 'table') {
-            delete field.source_table_id;
-            delete field.source_table_name;
-            delete field.value_column;
-            delete field.label_column;
-            delete field.fk_options;
-            delete field.fk_referenced_table;
-            delete field.fk_referenced_column;
-            delete field.fk_display_column;
-            delete field.relation_table_name;
-            delete field.relation_target_column;
-            delete field.relation_value_column;
-            delete field.relation_display_column;
-            delete field.relation_config;
-            delete field.relationConfig;
-            field.is_foreign_key = false;
+            resetDropdownTableSourceField(field);
             normalizeChoiceOptions(field);
             normalizeFieldState(field);
             renderFields();
@@ -2050,10 +2180,47 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        ensureDropdownSourceTablesLoaded().then(function() {
+        ensureCurrentTableForeignKeyColumnsLoaded().then(function(columns) {
+            if (!columns.length) {
+                field.dropdown_source = 'static_options';
+                resetDropdownTableSourceField(field);
+                normalizeChoiceOptions(field);
+                normalizeFieldState(field);
+                renderFields();
+                renderPropsPanel(field);
+                updateData();
+                alert('Table aktif tidak memiliki kolom foreign key. Dropdown ini tidak bisa mengambil opsi dari table.');
+                return;
+            }
             renderPropsPanel(field);
             updateData();
         });
+    };
+
+    window.setDropdownSourceForeignKey = function(columnId) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        if (!columnId) {
+            field.dropdown_source = 'table';
+            field.source_column_id = '';
+            field.options = [];
+            field.fk_options = [];
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+            return;
+        }
+
+        loadDropdownSourceFromForeignKey(field, columnId)
+            .then(function() {
+                normalizeFieldState(field);
+                renderFields();
+                renderPropsPanel(field);
+                updateData();
+            })
+            .catch(function() {
+                alert('Gagal memuat konfigurasi foreign key dari kolom yang dipilih.');
+            });
     };
 
     window.setDropdownSourceTable = function(tableId) {

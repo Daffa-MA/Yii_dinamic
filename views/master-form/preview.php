@@ -174,6 +174,7 @@ if ($model->table_id) {
 }
 
 $this->title = 'Preview: ' . $formName;
+$submitDebugPayload = Yii::$app->session->getFlash('submit_debug_payload');
 ?>
 
 <style>
@@ -481,6 +482,16 @@ $this->title = 'Preview: ' . $formName;
     <div class="preview-alert warning">
         <span class="material-symbols-outlined">warning</span>
         <?= Yii::$app->session->getFlash('warning') ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if (!empty($submitDebugPayload)): ?>
+    <div class="preview-alert warning" style="display:block; overflow:auto;">
+        <span class="material-symbols-outlined">bug_report</span>
+        <div style="width:100%;">
+            <div style="font-weight:600; margin-bottom:8px;">Submit Debug</div>
+            <pre style="margin:0; white-space:pre-wrap; word-break:break-word; font-size:12px; line-height:1.5;"><?= Html::encode($submitDebugPayload) ?></pre>
+        </div>
     </div>
     <?php endif; ?>
     

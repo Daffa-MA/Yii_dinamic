@@ -20,6 +20,13 @@ $existingUseCustomCode = !empty($model->custom_code_mode)
 $existingCustomHtml = $model->hasAttribute('custom_html') && (string)$model->custom_html !== '' ? (string)$model->custom_html : ($activeLayout ? (string)$activeLayout->custom_html : '');
 $existingCustomCss = $model->hasAttribute('custom_css') && (string)$model->custom_css !== '' ? (string)$model->custom_css : ($activeLayout ? (string)$activeLayout->custom_css : '');
 $existingCustomJs = $model->hasAttribute('custom_js') && (string)$model->custom_js !== '' ? (string)$model->custom_js : ($activeLayout ? (string)$activeLayout->custom_js : '');
+$resolvedTargetTableId = 0;
+if ($model->hasAttribute('db_table_id') && !empty($model->getAttribute('db_table_id'))) {
+    $resolvedTargetTableId = (int)$model->getAttribute('db_table_id');
+}
+if ($resolvedTargetTableId <= 0 && !empty($model->table_id)) {
+    $resolvedTargetTableId = (int)$model->table_id;
+}
 
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_END]);
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js', ['position' => \yii\web\View::POS_END]);
@@ -1130,7 +1137,7 @@ body.dashboard-main-page {
                         <textarea name="MasterForm[custom_html]" id="custom-html-input" style="display:none;"><?= Html::encode($existingCustomHtml) ?></textarea>
                         <textarea name="MasterForm[custom_css]" id="custom-css-input" style="display:none;"><?= Html::encode($existingCustomCss) ?></textarea>
                         <textarea name="MasterForm[custom_js]" id="custom-js-input" style="display:none;"><?= Html::encode($existingCustomJs) ?></textarea>
-                        <input type="hidden" name="MasterForm[table_id]" id="table-id-input" value="<?= !empty($model->table_id) ? $model->table_id : '' ?>">
+                        <input type="hidden" name="MasterForm[table_id]" id="table-id-input" value="<?= $resolvedTargetTableId > 0 ? $resolvedTargetTableId : '' ?>">
                         <?php if (!empty($model->id)): ?>
                         <input type="hidden" name="MasterForm[form_id]" id="form-id-input" value="<?= $model->id ?>">
                         <?php endif; ?>
@@ -3086,6 +3093,7 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(res => res.json())
     .then(data => {
         const selector = document.getElementById('table-selector');
+        const currentTableId = getCurrentBuilderTableId();
         if (data.tables && data.tables.length > 0) {
             data.tables.forEach(table => {
                 const opt = document.createElement('option');
@@ -3093,6 +3101,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 opt.textContent = table.label;
                 opt.dataset.name = table.name;
                 selector.appendChild(opt);
+            });
+        }
+
+        if (currentTableId) {
+            selector.value = String(currentTableId);
+            document.getElementById('table-id-input').value = String(currentTableId);
+            ensureDropdownSourceColumnsLoaded(currentTableId).then(function() {
+                if (selectedIndex !== null && formFields[selectedIndex]) {
+                    renderPropsPanel(formFields[selectedIndex]);
+                }
             });
         }
     });

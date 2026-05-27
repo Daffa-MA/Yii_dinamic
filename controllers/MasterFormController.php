@@ -1349,6 +1349,14 @@ class MasterFormController extends Controller
                     }
                 }
             }
+            $resolvedMissingForeignKeys = $this->resolveMissingForeignKeyValues($postData, $tableId, $columns->columns, $insertData);
+            if (!empty($resolvedMissingForeignKeys)) {
+                foreach ($resolvedMissingForeignKeys as $columnName => $postedValue) {
+                    if (!array_key_exists($columnName, $insertData) || $insertData[$columnName] === null || $insertData[$columnName] === '') {
+                        $insertData[$columnName] = $postedValue;
+                    }
+                }
+            }
 
             $preSystemInsertData = $insertData;
             if (empty($preSystemInsertData)) {
@@ -1408,6 +1416,7 @@ class MasterFormController extends Controller
                 'raw_post_payload' => $postData,
                 'raw_posted_table_data' => $rawPostedTableData,
                 'posted_foreign_key_data' => $postedForeignKeyData,
+                'resolved_missing_foreign_keys' => $resolvedMissingForeignKeys,
                 'normalized_payload' => $insertData,
                 'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
                 'field_mapping' => $fieldMappingDebug,
@@ -1847,6 +1856,143 @@ class MasterFormController extends Controller
         }
 
         return $normalized;
+    }
+
+    /**
+     * @param array<string, mixed> $postData
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     * @param array<string, mixed> $insertData
+     * @return array<string, mixed>
+     */
+    private function resolveMissingForeignKeyValues(array $postData, int $tableId, array $schemaColumns, array $insertData): array
+    {
+        if ($tableId <= 0) {
+            return [];
+        }
+
+        $fkColumns = DbTableColumn::find()
+            ->where(['table_id' => $tableId, 'is_foreign_key' => true])
+            ->all();
+
+        if (empty($fkColumns)) {
+            return [];
+        }
+
+        $resolved = [];
+        $missingColumns = [];
+        foreach ($fkColumns as $fkColumn) {
+            $columnName = trim((string)$fkColumn->name);
+            if ($columnName === '' || !isset($schemaColumns[$columnName])) {
+                continue;
+            }
+
+            if (array_key_exists($columnName, $insertData) && $insertData[$columnName] !== null && $insertData[$columnName] !== '') {
+                continue;
+            }
+
+            $missingColumns[] = $fkColumn;
+        }
+
+        if (empty($missingColumns)) {
+            return [];
+        }
+
+        $unusedPostedScalars = $this->collectUnusedPostedScalars($postData, $insertData);
+        foreach ($missingColumns as $fkColumn) {
+            $columnName = trim((string)$fkColumn->name);
+            $baseAlias = $this->baseForeignKeyAlias($columnName);
+            $referencedTable = trim((string)$fkColumn->getAttribute('referenced_table_name'));
+            $label = trim((string)($fkColumn->label ?? ''));
+
+            $matchedValue = null;
+            foreach ($unusedPostedScalars as $postedKey => $postedValue) {
+                $normalizedPostedKey = $this->normalizeSubmitKey($postedKey);
+                $candidates = array_filter([
+                    $this->normalizeSubmitKey($columnName),
+                    $baseAlias !== '' ? $this->normalizeSubmitKey($baseAlias) : '',
+                    $referencedTable !== '' ? $this->normalizeSubmitKey($referencedTable) : '',
+                    $label !== '' ? $this->normalizeSubmitKey($label) : '',
+                ]);
+
+                foreach ($candidates as $candidate) {
+                    if (
+                        $normalizedPostedKey === $candidate
+                        || str_contains($normalizedPostedKey, $candidate)
+                        || str_contains($candidate, $normalizedPostedKey)
+                    ) {
+                        $matchedValue = $postedValue;
+                        unset($unusedPostedScalars[$postedKey]);
+                        break 2;
+                    }
+                }
+            }
+
+            if (($matchedValue === null || $matchedValue === '') && count($missingColumns) === 1 && count($unusedPostedScalars) === 1) {
+                $matchedValue = reset($unusedPostedScalars);
+                $firstKey = array_key_first($unusedPostedScalars);
+                if ($firstKey !== null) {
+                    unset($unusedPostedScalars[$firstKey]);
+                }
+            }
+
+            if ($matchedValue !== null && $matchedValue !== '') {
+                $resolved[$columnName] = $matchedValue;
+            }
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @param array<string, mixed> $postData
+     * @param array<string, mixed> $insertData
+     * @return array<string, scalar>
+     */
+    private function collectUnusedPostedScalars(array $postData, array $insertData): array
+    {
+        $usedKeys = [];
+        foreach (array_keys($insertData) as $insertKey) {
+            $usedKeys[$this->normalizeSubmitKey((string)$insertKey)] = true;
+            $usedKeys[$this->normalizeSubmitKey('__fk_display_' . (string)$insertKey)] = true;
+            $usedKeys[$this->normalizeSubmitKey('__fk_submit_' . (string)$insertKey)] = true;
+            $baseAlias = $this->baseForeignKeyAlias((string)$insertKey);
+            if ($baseAlias !== '') {
+                $usedKeys[$this->normalizeSubmitKey($baseAlias)] = true;
+                $usedKeys[$this->normalizeSubmitKey('__fk_display_' . $baseAlias)] = true;
+                $usedKeys[$this->normalizeSubmitKey('__fk_submit_' . $baseAlias)] = true;
+            }
+        }
+
+        $ignoredKeys = [
+            Yii::$app->request->csrfParam,
+            '_csrf',
+            '_embedded',
+            'render_context',
+            'return_url',
+            'page_id',
+            'menu_id',
+            'project_id',
+            'workspace_role',
+        ];
+
+        $result = [];
+        foreach ($postData as $postedKey => $postedValue) {
+            if (!is_string($postedKey) || in_array($postedKey, $ignoredKeys, true)) {
+                continue;
+            }
+            if (is_array($postedValue) || $postedValue === null || $postedValue === '') {
+                continue;
+            }
+
+            $normalizedKey = $this->normalizeSubmitKey($postedKey);
+            if ($normalizedKey === '' || isset($usedKeys[$normalizedKey])) {
+                continue;
+            }
+
+            $result[$postedKey] = $postedValue;
+        }
+
+        return $result;
     }
 
     private function isSubmitSystemColumn(string $columnName, $column): bool

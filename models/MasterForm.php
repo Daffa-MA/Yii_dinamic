@@ -97,10 +97,39 @@ class MasterForm extends ActiveRecord
             [['form_data'], 'safe'],
             [['custom_html', 'custom_css', 'custom_js'], 'string'],
             [['form_name'], 'string', 'max' => 255],
+            [['form_name'], 'validateUniqueFormName'],
             [['slug'], 'string', 'max' => 100],
             [['form_type', 'database_context'], 'string', 'max' => 100],
             [['page_id', 'table_id', 'project_id', 'custom_code_mode', 'use_custom_code', 'is_active'], 'integer', 'skipOnEmpty' => true],
         ];
+    }
+
+    public function validateUniqueFormName($attribute, $params): void
+    {
+        $formName = trim((string)$this->$attribute);
+        if ($formName === '') {
+            return;
+        }
+
+        $candidateSlug = trim((string)$this->slug);
+        if ($candidateSlug === '') {
+            $candidateSlug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $formName)));
+        }
+
+        $query = self::findScoped();
+        if ((int)$this->id > 0) {
+            $query->andWhere(['!=', 'id', (int)$this->id]);
+        }
+
+        $query->andWhere([
+            'or',
+            ['form_name' => $formName],
+            $candidateSlug !== '' ? ['slug' => $candidateSlug] : ['id' => 0],
+        ]);
+
+        if ($query->exists()) {
+            $this->addError($attribute, 'Nama form sudah dipakai. Gunakan nama form lain.');
+        }
     }
 
     public function attributeLabels()

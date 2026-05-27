@@ -24,6 +24,7 @@ use app\services\FormActivityLogService;
 use app\services\FormEngineService;
 use app\services\FormRenderService;
 use yii\data\ActiveDataProvider;
+use yii\db\IntegrityException;
 use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -1052,11 +1053,19 @@ class MasterFormController extends Controller
                 $model->form_type = 'dynamic';
             }
             
-            if ($model->save()) {
-                $this->syncFormArchitecture($model, $customCode);
-                $this->activityLogService->log($model, 'form_created', 'success', 'Form created and synced.');
-                Yii::$app->session->setFlash('success', 'Form berhasil dibuat dan struktur fields/layout tersimpan.');
-                return $this->redirect(['view', 'id' => $model->id]);
+            try {
+                if ($model->save()) {
+                    $this->syncFormArchitecture($model, $customCode);
+                    $this->activityLogService->log($model, 'form_created', 'success', 'Form created and synced.');
+                    Yii::$app->session->setFlash('success', 'Form berhasil dibuat dan struktur fields/layout tersimpan.');
+                    return $this->redirect(['view', 'id' => $model->id]);
+                }
+            } catch (IntegrityException $e) {
+                if (stripos($e->getMessage(), 'form_name') !== false || stripos($e->getMessage(), 'slug') !== false || stripos($e->getMessage(), 'duplicate') !== false) {
+                    $model->addError('form_name', 'Nama form sudah dipakai. Gunakan nama form lain.');
+                } else {
+                    throw $e;
+                }
             }
         }
 
@@ -1095,11 +1104,19 @@ class MasterFormController extends Controller
                 $model->database_context = (string)($dbContext['activeDatabase'] ?? '');
             }
             
-            if ($model->save()) {
-                $this->syncFormArchitecture($model, $customCode);
-                $this->activityLogService->log($model, 'form_updated', 'success', 'Form updated and synced.');
-                Yii::$app->session->setFlash('success', 'Form berhasil diperbarui dan struktur fields/layout disinkronkan.');
-                return $this->redirect(['view', 'id' => $model->id]);
+            try {
+                if ($model->save()) {
+                    $this->syncFormArchitecture($model, $customCode);
+                    $this->activityLogService->log($model, 'form_updated', 'success', 'Form updated and synced.');
+                    Yii::$app->session->setFlash('success', 'Form berhasil diperbarui dan struktur fields/layout disinkronkan.');
+                    return $this->redirect(['view', 'id' => $model->id]);
+                }
+            } catch (IntegrityException $e) {
+                if (stripos($e->getMessage(), 'form_name') !== false || stripos($e->getMessage(), 'slug') !== false || stripos($e->getMessage(), 'duplicate') !== false) {
+                    $model->addError('form_name', 'Nama form sudah dipakai. Gunakan nama form lain.');
+                } else {
+                    throw $e;
+                }
             }
         }
 

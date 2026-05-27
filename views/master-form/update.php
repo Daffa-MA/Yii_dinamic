@@ -1506,7 +1506,7 @@ document.addEventListener('DOMContentLoaded', function() {
             return [];
         }
         const columns = dropdownSourceColumnsCache[String(tableId)] || [];
-        return columns.filter(column => !!column && !!column.id && !!column.is_foreign_key && !!column.referenced_table_name && !!column.referenced_column_name);
+        return columns.filter(column => !!column && !!column.id && !!column.is_foreign_key);
     }
 
     function buildCurrentTableForeignKeyOptions(selectedColumnId) {
@@ -1652,7 +1652,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         return ensureDropdownSourceColumnsLoaded(tableId).then(function(columns) {
             return (Array.isArray(columns) ? columns : []).filter(column => {
-                return !!column && !!column.id && !!column.is_foreign_key && !!column.referenced_table_name && !!column.referenced_column_name;
+                return !!column && !!column.id && !!column.is_foreign_key;
             });
         });
     }

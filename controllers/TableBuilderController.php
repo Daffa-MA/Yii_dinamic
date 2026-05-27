@@ -3934,6 +3934,8 @@ class TableBuilderController extends Controller
                     'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
                     'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
                     'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
+                    'referenced_table_name' => $col->hasAttribute('referenced_table_name') ? $col->getAttribute('referenced_table_name') : null,
+                    'referenced_column_name' => $col->hasAttribute('referenced_column_name') ? $col->getAttribute('referenced_column_name') : null,
                     'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-columns', $schemaColumn),
                     'default_value' => $col->default_value,
                     'max_length' => $col->length,

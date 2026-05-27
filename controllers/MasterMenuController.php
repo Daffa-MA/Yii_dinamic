@@ -81,6 +81,38 @@ class MasterMenuController extends Controller
         $this->buildTreeRecursive($menus, null, 0, $tree);
         return $tree;
     }
+
+    private function flattenErrors($errors): array
+    {
+        $messages = [];
+
+        if ($errors instanceof \yii\base\Model) {
+            $errors = $errors->getErrors();
+        }
+
+        if (!is_array($errors)) {
+            $text = trim((string)$errors);
+            return $text !== '' ? [$text] : [];
+        }
+
+        foreach ($errors as $key => $value) {
+            if (is_array($value)) {
+                foreach ($this->flattenErrors($value) as $nestedMessage) {
+                    $messages[] = $nestedMessage;
+                }
+                continue;
+            }
+
+            $text = trim((string)$value);
+            if ($text !== '') {
+                $messages[] = $text;
+            } elseif (!is_int($key) && !is_string($value)) {
+                $messages[] = trim((string)$key);
+            }
+        }
+
+        return array_values(array_unique(array_filter($messages)));
+    }
     
     private function buildTreeRecursive($menus, $parentId, $level, &$tree)
     {
@@ -108,6 +140,7 @@ class MasterMenuController extends Controller
      */
     public function actionCreate()
     {
+        MasterMenu::ensureColumnsExist();
         $model = new MasterMenu();
         
         // Get current max sort order for new menu
@@ -170,10 +203,7 @@ class MasterMenuController extends Controller
                     Yii::$app->session->setFlash('success', 'Menu berhasil dibuat!');
                     return $this->redirect(['index']);
                 } else {
-                    $errors = $model->getErrors();
-                    $errorMsg = implode('; ', array_map(function($attr, $msgs) {
-                        return $attr . ': ' . implode(', ', $msgs);
-                    }, array_keys($errors), $errors));
+                    $errorMsg = implode('; ', $this->flattenErrors($model->getErrors()));
                     Yii::$app->session->setFlash('error', 'Gagal menyimpan menu: ' . $errorMsg);
                 }
             } else {
@@ -198,6 +228,7 @@ class MasterMenuController extends Controller
      */
     public function actionUpdate($id)
     {
+        MasterMenu::ensureColumnsExist();
         $model = $this->findModel($id);
 
         if (Yii::$app->request->isPost) {
@@ -209,7 +240,8 @@ class MasterMenuController extends Controller
                 Yii::$app->session->setFlash('success', $result['message']);
                 return $this->redirect(['index']);
             } else {
-                Yii::$app->session->setFlash('error', implode('<br>', $result['errors']));
+                $messages = $this->flattenErrors($result['errors'] ?? []);
+                Yii::$app->session->setFlash('error', implode('<br>', $messages ?: ['Gagal memperbarui menu.']));
                 if (isset($result['model']) && $result['model'] instanceof MasterMenu) {
                     $model = $result['model'];
                 } else {
@@ -230,12 +262,14 @@ class MasterMenuController extends Controller
      */
     public function actionDelete($id)
     {
+        MasterMenu::ensureColumnsExist();
         $result = $this->menuService->deleteMenu($id);
 
         if ($result['success']) {
             Yii::$app->session->setFlash('success', $result['message']);
         } else {
-            Yii::$app->session->setFlash('error', implode('<br>', $result['errors']));
+            $messages = $this->flattenErrors($result['errors'] ?? []);
+            Yii::$app->session->setFlash('error', implode('<br>', $messages ?: ['Gagal menghapus menu.']));
         }
 
         return $this->redirect(['index']);
@@ -246,12 +280,14 @@ class MasterMenuController extends Controller
      */
     public function actionToggle($id)
     {
+        MasterMenu::ensureColumnsExist();
         $result = $this->menuService->toggleStatus($id);
 
         if ($result['success']) {
             Yii::$app->session->setFlash('success', $result['message']);
         } else {
-            Yii::$app->session->setFlash('error', implode('<br>', $result['errors']));
+            $messages = $this->flattenErrors($result['errors'] ?? []);
+            Yii::$app->session->setFlash('error', implode('<br>', $messages ?: ['Gagal mengubah status menu.']));
         }
 
         return $this->redirect(['index']);

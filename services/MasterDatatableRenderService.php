@@ -152,7 +152,7 @@ class MasterDatatableRenderService
             $columns[$field] = [
                 'field' => $field,
                 'label' => trim((string)($item['label'] ?? '')) ?: ($metadataMap[$field]->label ?: $field),
-            ];
+            ] + $this->resolveForeignKeyDisplayConfig($metadataMap[$field], $item);
         }
 
         if (!empty($columns)) {
@@ -166,10 +166,108 @@ class MasterDatatableRenderService
             $columns[] = [
                 'field' => $column->name,
                 'label' => $column->label ?: $column->name,
-            ];
+            ] + $this->resolveForeignKeyDisplayConfig($column, []);
         }
 
         return array_slice($columns, 0, 6);
+    }
+
+    private function resolveForeignKeyDisplayConfig(DbTableColumn $metadataColumn, array $item): array
+    {
+        $isForeignKey = $metadataColumn->hasAttribute('is_foreign_key') && (bool)$metadataColumn->getAttribute('is_foreign_key');
+        if (!$isForeignKey) {
+            return [];
+        }
+
+        $referencedTable = $metadataColumn->hasAttribute('referenced_table_name')
+            ? trim((string)$metadataColumn->getAttribute('referenced_table_name'))
+            : '';
+        $referencedColumn = $metadataColumn->hasAttribute('referenced_column_name')
+            ? trim((string)$metadataColumn->getAttribute('referenced_column_name'))
+            : '';
+        if ($referencedTable === '') {
+            return [];
+        }
+
+        $displayMode = strtolower(trim((string)($item['fkDisplayMode'] ?? $item['fk_display_mode'] ?? 'raw_id')));
+        if (!in_array($displayMode, ['raw_id', 'related_column'], true)) {
+            $displayMode = 'raw_id';
+        }
+
+        $relatedDisplayColumn = trim((string)($item['relatedDisplayColumn'] ?? $item['related_display_column'] ?? ''));
+        $schema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
+        if ($schema === null) {
+            return [];
+        }
+
+        if ($referencedColumn === '' || !isset($schema->columns[$referencedColumn])) {
+            $referencedColumn = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
+        }
+        if ($relatedDisplayColumn === '' || !isset($schema->columns[$relatedDisplayColumn])) {
+            $relatedDisplayColumn = $referencedColumn;
+        }
+
+        return [
+            'fk_display_mode' => $displayMode,
+            'related_display_column' => $relatedDisplayColumn,
+            'referenced_table' => $referencedTable,
+            'referenced_column' => $referencedColumn,
+        ];
+    }
+
+    private function buildRelatedDisplayLookup(array $columns, array $rows): array
+    {
+        $lookup = [];
+        if (empty($rows)) {
+            return $lookup;
+        }
+
+        foreach ($columns as $column) {
+            if (($column['fk_display_mode'] ?? 'raw_id') !== 'related_column') {
+                continue;
+            }
+
+            $field = (string)($column['field'] ?? '');
+            $referencedTable = (string)($column['referenced_table'] ?? '');
+            $referencedColumn = (string)($column['referenced_column'] ?? '');
+            $displayColumn = (string)($column['related_display_column'] ?? '');
+            if ($field === '' || $referencedTable === '' || $referencedColumn === '' || $displayColumn === '') {
+                continue;
+            }
+
+            $ids = [];
+            foreach ($rows as $row) {
+                $rawValue = $row[$field] ?? null;
+                if ($rawValue === null || $rawValue === '') {
+                    continue;
+                }
+                $ids[(string)$rawValue] = $rawValue;
+            }
+            if (empty($ids)) {
+                continue;
+            }
+
+            try {
+                $relatedRows = (new Query())
+                    ->from($referencedTable)
+                    ->select(array_values(array_unique([$referencedColumn, $displayColumn])))
+                    ->where([$referencedColumn => array_values($ids)])
+                    ->all(Yii::$app->db);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to build datatable FK display lookup: ' . $e->getMessage(), 'master-datatable');
+                continue;
+            }
+
+            foreach ($relatedRows as $relatedRow) {
+                $key = isset($relatedRow[$referencedColumn]) ? (string)$relatedRow[$referencedColumn] : '';
+                if ($key === '') {
+                    continue;
+                }
+                $lookup[$field][$key] = $relatedRow[$displayColumn] ?? null;
+            }
+        }
+
+        return $lookup;
     }
 
     private function resolveActions(array $config): array
@@ -267,6 +365,7 @@ class MasterDatatableRenderService
         $colspan = count($columns) + ($hasActions ? 1 : 0);
         $totalPages = max(1, (int)ceil(($state['total'] ?: 0) / $state['pageSize']));
         $rowFields = $this->resolveRowFields($table, $columns);
+        $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
 
         ob_start();
         ?>
@@ -429,7 +528,7 @@ class MasterDatatableRenderService
                             <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
                             <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>">
                                 <?php foreach ($columns as $column): ?>
-                                    <td><?= Html::encode($this->formatValue($row[$column['field']] ?? null)) ?></td>
+                                    <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
                                 <?php endforeach; ?>
                                 <?php if ($hasActions): ?>
                                     <td>
@@ -1215,6 +1314,25 @@ class MasterDatatableRenderService
             return json_encode($value, JSON_UNESCAPED_UNICODE) ?: '';
         }
         return (string)$value;
+    }
+
+    private function formatDisplayValue(array $row, array $column, array $displayLookup): string
+    {
+        $field = (string)($column['field'] ?? '');
+        $rawValue = $field !== '' && array_key_exists($field, $row) ? $row[$field] : null;
+        if (($column['fk_display_mode'] ?? 'raw_id') !== 'related_column') {
+            return $this->formatValue($rawValue);
+        }
+
+        $lookupKey = $rawValue === null ? '' : (string)$rawValue;
+        if ($field !== '' && $lookupKey !== '' && array_key_exists($lookupKey, $displayLookup[$field] ?? [])) {
+            $displayValue = $displayLookup[$field][$lookupKey];
+            if ($displayValue !== null && $displayValue !== '') {
+                return $this->formatValue($displayValue);
+            }
+        }
+
+        return $this->formatValue($rawValue);
     }
 
     private function buildRowKeyFromRow(array $row, array $primaryKeys): array

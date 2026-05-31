@@ -561,11 +561,43 @@ class MasterPageController extends Controller
         foreach ($query->all() as $table) {
             $columns = [];
             foreach ($table->columns as $column) {
+                $isForeignKey = $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
+                $referencedTable = $isForeignKey && $column->hasAttribute('referenced_table_name')
+                    ? trim((string)$column->getAttribute('referenced_table_name'))
+                    : '';
+                $referencedColumn = $isForeignKey && $column->hasAttribute('referenced_column_name')
+                    ? trim((string)$column->getAttribute('referenced_column_name'))
+                    : '';
+                $relatedColumns = [];
+                if ($isForeignKey && $referencedTable !== '') {
+                    try {
+                        $schema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
+                        if ($schema !== null) {
+                            foreach ($schema->columns as $schemaColumnName => $schemaColumn) {
+                                $relatedColumns[] = [
+                                    'field' => (string)$schemaColumnName,
+                                    'label' => (string)$schemaColumnName,
+                                    'type' => (string)($schemaColumn->type ?? ''),
+                                ];
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Yii::warning('Failed to load related columns for datatable builder FK: ' . $e->getMessage(), 'master-page-builder');
+                    }
+                }
+
                 $columns[] = [
                     'field' => (string)$column->name,
                     'label' => (string)($column->label ?: $column->name),
                     'type' => (string)$column->type,
                     'primary' => (bool)$column->is_primary,
+                    'isForeignKey' => $isForeignKey,
+                    'is_foreign_key' => $isForeignKey,
+                    'referencedTable' => $referencedTable,
+                    'referenced_table' => $referencedTable,
+                    'referencedColumn' => $referencedColumn,
+                    'referenced_column' => $referencedColumn,
+                    'relatedColumns' => $relatedColumns,
                 ];
             }
             $items[] = [

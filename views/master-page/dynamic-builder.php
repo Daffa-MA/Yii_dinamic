@@ -2582,15 +2582,56 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         return (window.availableTables || []).find(t => String(t.id) === String(props.tableId || props.table_id || ''));
     }
 
+    function getDatatableColumnMeta(props = {}, field = '') {
+        const table = getDatatableTable(props);
+        if (!table || !field) return null;
+        return (table.columns || []).find(col => String(col.field) === String(field)) || null;
+    }
+
+    function isDatatableForeignKeyColumn(props = {}, col = {}) {
+        const meta = getDatatableColumnMeta(props, col.field);
+        return !!(meta && (meta.isForeignKey || meta.is_foreign_key));
+    }
+
+    function normalizeDatatableColumnConfig(col = {}, meta = {}) {
+        const normalized = Object.assign({}, col);
+        if (!meta || !(meta.isForeignKey || meta.is_foreign_key)) {
+            delete normalized.fkDisplayMode;
+            delete normalized.fk_display_mode;
+            delete normalized.relatedDisplayColumn;
+            delete normalized.related_display_column;
+            return normalized;
+        }
+
+        const relatedColumns = Array.isArray(meta.relatedColumns) ? meta.relatedColumns : [];
+        const relatedColumnNames = relatedColumns.map(item => String(item.field || '')).filter(Boolean);
+        let displayMode = String(normalized.fkDisplayMode || normalized.fk_display_mode || 'raw_id');
+        if (!['raw_id', 'related_column'].includes(displayMode)) {
+            displayMode = 'raw_id';
+        }
+
+        let relatedDisplayColumn = String(normalized.relatedDisplayColumn || normalized.related_display_column || '');
+        const referencedColumn = String(meta.referencedColumn || meta.referenced_column || '');
+        if (relatedDisplayColumn === '' || !relatedColumnNames.includes(relatedDisplayColumn)) {
+            relatedDisplayColumn = relatedColumnNames.includes(referencedColumn) ? referencedColumn : (relatedColumnNames[0] || '');
+        }
+
+        normalized.fkDisplayMode = displayMode;
+        normalized.relatedDisplayColumn = relatedDisplayColumn;
+        return normalized;
+    }
+
     function getDatatableColumns(props = {}) {
         const table = getDatatableTable(props);
         if (!table) return [];
         const configured = Array.isArray(props.columns) ? props.columns : [];
-        if (configured.length) return configured;
+        if (configured.length) {
+            return configured.map(col => normalizeDatatableColumnConfig(col, getDatatableColumnMeta(props, col.field) || {}));
+        }
         return (table.columns || [])
             .filter(col => !col.primary)
             .slice(0, 5)
-            .map(col => ({ field: col.field, label: col.label || col.field, visible: true }));
+            .map(col => normalizeDatatableColumnConfig({ field: col.field, label: col.label || col.field, visible: true }, col));
     }
 
     function normalizeDatatableActions(actions = {}) {
@@ -3153,7 +3194,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const known = new Set(columns.map(col => col.field));
         (table.columns || []).forEach(col => {
             if (!known.has(col.field) && !col.primary) {
-                columns.push({ field: col.field, label: col.label || col.field, visible: false });
+                columns.push(normalizeDatatableColumnConfig({ field: col.field, label: col.label || col.field, visible: false }, col));
             }
         });
 
@@ -3170,8 +3211,44 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     </div>
                 </div>
                 <input type="text" class="prop-input" value="${escapeAttr(col.label || col.field)}" onchange="updateDatatableColumn('${blockId}', ${index}, 'label', this.value)" placeholder="Custom header">
+                ${renderDatatableFkDisplayEditor(blockId, props, col, index)}
             </div>
         `).join('');
+    }
+
+    function renderDatatableFkDisplayEditor(blockId, props = {}, col = {}, index = 0) {
+        const meta = getDatatableColumnMeta(props, col.field);
+        if (!meta || !(meta.isForeignKey || meta.is_foreign_key)) {
+            return '';
+        }
+
+        const relatedColumns = Array.isArray(meta.relatedColumns) ? meta.relatedColumns : [];
+        const normalized = normalizeDatatableColumnConfig(col, meta);
+        const displayMode = normalized.fkDisplayMode || 'raw_id';
+        const relatedDisplayColumn = normalized.relatedDisplayColumn || '';
+        const refText = [meta.referencedTable || meta.referenced_table, meta.referencedColumn || meta.referenced_column].filter(Boolean).join('.');
+
+        return `
+            <div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;">
+                <div style="font-size:11px;font-weight:800;color:#2563eb;margin-bottom:8px;">Foreign Key${refText ? ': ' + escapeAttr(refText) : ''}</div>
+                <div class="prop-group" style="margin-bottom:8px;">
+                    <label>Display Mode</label>
+                    <select class="prop-select" onchange="updateDatatableColumn('${blockId}', ${index}, 'fkDisplayMode', this.value)">
+                        <option value="raw_id" ${displayMode === 'raw_id' ? 'selected' : ''}>Raw ID</option>
+                        <option value="related_column" ${displayMode === 'related_column' ? 'selected' : ''}>Related Column</option>
+                    </select>
+                </div>
+                <div class="prop-group" style="margin-bottom:0;">
+                    <label>Related Display Column</label>
+                    <select class="prop-select" onchange="updateDatatableColumn('${blockId}', ${index}, 'relatedDisplayColumn', this.value)" ${displayMode === 'related_column' ? '' : 'disabled'}>
+                        ${relatedColumns.map(item => {
+                            const field = String(item.field || '');
+                            return `<option value="${escapeAttr(field)}" ${relatedDisplayColumn === field ? 'selected' : ''}>${escapeAttr(item.label || field)}</option>`;
+                        }).join('')}
+                    </select>
+                </div>
+            </div>
+        `;
     }
 
     function setDatatablePreset(blockId, presetId) {
@@ -3204,11 +3281,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const existingActions = normalizeDatatableActions(block.props.actions || {});
         block.props.tableId = tableId;
         block.props.datatableId = '';
-        block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => ({
+        block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => normalizeDatatableColumnConfig({
             field: col.field,
             label: col.label || col.field,
             visible: true
-        })) : [];
+        }, col)) : [];
         block.props.actions = normalizeDatatableActions(existingActions);
         renderBuilder(window.pageState);
         renderProperties(blockId);
@@ -3221,6 +3298,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         block.props.columns = getDatatableColumns(block.props);
         if (!block.props.columns[index]) return;
         block.props.columns[index][key] = value;
+        block.props.columns[index] = normalizeDatatableColumnConfig(
+            block.props.columns[index],
+            getDatatableColumnMeta(block.props, block.props.columns[index].field) || {}
+        );
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }

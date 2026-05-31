@@ -526,7 +526,8 @@ class MasterDatatableRenderService
                     <?php else: ?>
                         <?php foreach ($rows as $row): ?>
                             <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
-                            <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>">
+                            <?php $rowDisplayValues = $this->buildRowDisplayValues($row, $columns, $displayLookup); ?>
+                            <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>" data-row-display-values="<?= Html::encode(Json::encode($rowDisplayValues)) ?>">
                                 <?php foreach ($columns as $column): ?>
                                     <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
                                 <?php endforeach; ?>
@@ -673,6 +674,14 @@ class MasterDatatableRenderService
                     }
                 }
 
+                function getRowDisplayData(row) {
+                    try {
+                        return JSON.parse(row.getAttribute('data-row-display-values') || '{}') || {};
+                    } catch (error) {
+                        return {};
+                    }
+                }
+
                 function getRowKey(row) {
                     try {
                         return JSON.parse(row.getAttribute('data-row-key') || '{}') || {};
@@ -733,6 +742,27 @@ class MasterDatatableRenderService
                         return value.join(', ');
                     }
                     return String(value);
+                }
+
+                function usesRelatedColumnDisplay(field) {
+                    return !!(field && field.is_foreign_key && String(field.fk_display_mode || 'raw_id') === 'related_column');
+                }
+
+                function getRowDetailDisplayValue(field, rowData, rowDisplayData) {
+                    const fieldName = field.field || field.name || '';
+                    if (usesRelatedColumnDisplay(field) && Object.prototype.hasOwnProperty.call(rowDisplayData || {}, fieldName)) {
+                        const displayValue = rowDisplayData[fieldName];
+                        if (displayValue !== null && displayValue !== undefined && String(displayValue) !== '') {
+                            return String(displayValue);
+                        }
+                    }
+
+                    const rawValue = rowData[fieldName];
+                    if (field && field.is_foreign_key) {
+                        return rawValue === null || rawValue === undefined || rawValue === '' ? '-' : String(rawValue);
+                    }
+
+                    return getDisplayValue(field, rawValue);
                 }
 
                 function getInitials(text) {
@@ -848,7 +878,7 @@ class MasterDatatableRenderService
                     '</div>';
                 }
 
-                function getHeroMetaText(rowData) {
+                function getHeroMetaText(rowData, rowDisplayData) {
                     const priorityFields = payload.fields.filter(function(field) {
                         const label = String(field.label || field.field || '').toLowerCase();
                         const name = String(field.field || '').toLowerCase();
@@ -858,7 +888,7 @@ class MasterDatatableRenderService
 
                     if (priorityFields.length) {
                         const candidate = priorityFields[0];
-                        const candidateValue = getDisplayValue(candidate, rowData[candidate.field]);
+                        const candidateValue = getRowDetailDisplayValue(candidate, rowData, rowDisplayData || {});
                         if (candidateValue && candidateValue !== '-') {
                             return candidateValue;
                         }
@@ -871,13 +901,13 @@ class MasterDatatableRenderService
                     return 'record detail';
                 }
 
-                function renderSummary(rowKey) {
+                function renderSummary(rowKey, rowData, rowDisplayData) {
                     const primaryField = payload.fields[0] || null;
                     const secondaryField = payload.fields[1] || null;
-                    const primaryValue = primaryField ? getDisplayValue(primaryField, activeRow ? activeRow[primaryField.field] : '') : '';
-                    const secondaryValue = secondaryField ? getDisplayValue(secondaryField, activeRow ? activeRow[secondaryField.field] : '') : '';
+                    const primaryValue = primaryField ? getRowDetailDisplayValue(primaryField, rowData || {}, rowDisplayData || {}) : '';
+                    const secondaryValue = secondaryField ? getRowDetailDisplayValue(secondaryField, rowData || {}, rowDisplayData || {}) : '';
                     const displayName = primaryValue && primaryValue !== '-' ? primaryValue : (primaryField ? primaryField.label : 'Data Row');
-                    const roleText = getHeroMetaText(activeRow || {});
+                    const roleText = getHeroMetaText(rowData || {}, rowDisplayData || {});
                     const idText = Object.keys(rowKey || {}).length ? 'ID #' + Object.values(rowKey).join(' · ') : 'Record detail';
                     const initials = getInitials(displayName);
 
@@ -902,17 +932,17 @@ class MasterDatatableRenderService
                     '</div>';
                 }
 
-                function renderView(rowData) {
+                function renderView(rowData, rowDisplayData) {
                     const gridFields = payload.fields;
 
                     viewGrid.innerHTML = gridFields.map(function(field, index) {
                         const value = rowData[field.field];
-                        const displayValue = getDisplayValue(field, value);
+                        const displayValue = getRowDetailDisplayValue(field, rowData, rowDisplayData || {});
                         const isGenderLike = /^(jk|jenis kelamin|gender|sex)$/i.test(String(field.label || field.field || ''));
                         const icon = isGenderLike && displayValue ? String(displayValue).trim().charAt(0).toUpperCase() : null;
                         const valueHtml = isGenderLike && icon
                             ? '<div class="dt-row-view-badge"><span class="dt-row-view-badge-circle">' + escapeHtml(icon) + '</span><span class="dt-row-view-value">' + escapeHtml(displayValue) + '</span></div>'
-                            : '<div class="dt-row-view-value">' + (field.inputType === 'select' ? escapeHtml(displayValue) : formatViewValue(field, value)) + '</div>';
+                            : '<div class="dt-row-view-value">' + (usesRelatedColumnDisplay(field) || field.inputType === 'select' || field.is_foreign_key ? escapeHtml(displayValue) : formatViewValue(field, value)) + '</div>';
                         return '<div class="dt-row-view-item' + (index === 0 ? ' dt-row-view-item--lead' : '') + '">' +
                             '<span class="dt-row-view-label">' + escapeHtml(field.label) + '</span>' +
                             valueHtml +
@@ -1138,6 +1168,7 @@ class MasterDatatableRenderService
 
                 function openRow(row, mode) {
                     const rowData = getRowData(row);
+                    const rowDisplayData = getRowDisplayData(row);
                     const rowKey = getRowKey(row);
                     activeRow = row;
                     const editModeLabel = payload.editMode === 'default' ? 'Default modal' : 'Custom form modal';
@@ -1146,8 +1177,8 @@ class MasterDatatableRenderService
                     modalSubtitle.textContent = mode === 'edit'
                         ? 'Ubah data langsung dari modal yang sudah terisi nilai lama. Mode: ' + editModeLabel + (formName ? ' · ' + formName : '')
                         : '';
-                    renderSummary(rowKey, rowData);
-                    renderView(rowData);
+                    renderSummary(rowKey, rowData, rowDisplayData);
+                    renderView(rowData, rowDisplayData);
                     if (mode === 'edit') {
                         if (payload.editMode === 'default') {
                             renderDefaultEdit(rowData);
@@ -1335,6 +1366,20 @@ class MasterDatatableRenderService
         return $this->formatValue($rawValue);
     }
 
+    private function buildRowDisplayValues(array $row, array $columns, array $displayLookup): array
+    {
+        $values = [];
+        foreach ($columns as $column) {
+            $field = (string)($column['field'] ?? '');
+            if ($field === '') {
+                continue;
+            }
+            $values[$field] = $this->formatDisplayValue($row, $column, $displayLookup);
+        }
+
+        return $values;
+    }
+
     private function buildRowKeyFromRow(array $row, array $primaryKeys): array
     {
         $key = [];
@@ -1379,6 +1424,8 @@ class MasterDatatableRenderService
                 'options' => $this->inferFieldOptions($metadataColumn, $schemaColumn),
                 'componentType' => SystemFieldService::isForeignKey($metadataColumn, $schemaColumn) ? 'foreign_key' : 'field',
                 'is_foreign_key' => SystemFieldService::isForeignKey($metadataColumn, $schemaColumn),
+                'fk_display_mode' => (string)($column['fk_display_mode'] ?? 'raw_id'),
+                'related_display_column' => (string)($column['related_display_column'] ?? ''),
                 'sourceColumn' => $fieldName,
                 'readonly' => SystemFieldService::shouldBeReadonlyInGrid($metadataColumn, $schemaColumn),
             ];

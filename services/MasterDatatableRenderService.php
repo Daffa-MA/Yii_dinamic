@@ -365,6 +365,7 @@ class MasterDatatableRenderService
         $colspan = count($columns) + ($hasActions ? 1 : 0);
         $totalPages = max(1, (int)ceil(($state['total'] ?: 0) / $state['pageSize']));
         $rowFields = $this->resolveRowFields($table, $columns);
+        $detailFields = $this->resolveDetailFields($columns);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
 
         ob_start();
@@ -637,6 +638,7 @@ class MasterDatatableRenderService
                     'editMode' => $editMode,
                     'editForm' => $editForm,
                     'fields' => $rowFields,
+                    'detailFields' => $detailFields,
                 ]) ?>;
                 const modal = root.querySelector('[data-row-modal]');
                 const viewMode = root.querySelector('[data-row-view-mode]');
@@ -750,7 +752,7 @@ class MasterDatatableRenderService
 
                 function getRowDetailDisplayValue(field, rowData, rowDisplayData) {
                     const fieldName = field.field || field.name || '';
-                    if (usesRelatedColumnDisplay(field) && Object.prototype.hasOwnProperty.call(rowDisplayData || {}, fieldName)) {
+                    if (Object.prototype.hasOwnProperty.call(rowDisplayData || {}, fieldName)) {
                         const displayValue = rowDisplayData[fieldName];
                         if (displayValue !== null && displayValue !== undefined && String(displayValue) !== '') {
                             return String(displayValue);
@@ -879,7 +881,7 @@ class MasterDatatableRenderService
                 }
 
                 function getHeroMetaText(rowData, rowDisplayData) {
-                    const priorityFields = payload.fields.filter(function(field) {
+                    const priorityFields = (payload.detailFields || payload.fields || []).filter(function(field) {
                         const label = String(field.label || field.field || '').toLowerCase();
                         const name = String(field.field || '').toLowerCase();
                         return /^(user|role|status|type|tipe|kelas|level|kategori|group|grup|jabatan|bagian)$/.test(label)
@@ -902,8 +904,9 @@ class MasterDatatableRenderService
                 }
 
                 function renderSummary(rowKey, rowData, rowDisplayData) {
-                    const primaryField = payload.fields[0] || null;
-                    const secondaryField = payload.fields[1] || null;
+                    const detailFields = payload.detailFields || payload.fields || [];
+                    const primaryField = detailFields[0] || null;
+                    const secondaryField = detailFields[1] || null;
                     const primaryValue = primaryField ? getRowDetailDisplayValue(primaryField, rowData || {}, rowDisplayData || {}) : '';
                     const secondaryValue = secondaryField ? getRowDetailDisplayValue(secondaryField, rowData || {}, rowDisplayData || {}) : '';
                     const displayName = primaryValue && primaryValue !== '-' ? primaryValue : (primaryField ? primaryField.label : 'Data Row');
@@ -933,7 +936,7 @@ class MasterDatatableRenderService
                 }
 
                 function renderView(rowData, rowDisplayData) {
-                    const gridFields = payload.fields;
+                    const gridFields = payload.detailFields || payload.fields || [];
 
                     viewGrid.innerHTML = gridFields.map(function(field, index) {
                         const value = rowData[field.field];
@@ -1084,6 +1087,14 @@ class MasterDatatableRenderService
                     });
                 }
 
+                function suppressCustomSubmitControls(rootEl) {
+                    rootEl.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]').forEach(function(button) {
+                        button.style.display = 'none';
+                        button.setAttribute('aria-hidden', 'true');
+                        button.setAttribute('tabindex', '-1');
+                    });
+                }
+
                 function renderCustomEdit(rowData) {
                     formGrid.className = 'dt-row-custom-form-shell';
                     if (formNote) {
@@ -1104,6 +1115,7 @@ class MasterDatatableRenderService
                             formGrid.appendChild(script);
                         }
                         applyValuesToCustomMarkup(formGrid, rowData);
+                        suppressCustomSubmitControls(formGrid);
                         bindModalChangeDebug(formGrid);
                         return;
                     }
@@ -1194,7 +1206,7 @@ class MasterDatatableRenderService
                     }
                     saveButton.style.display = mode === 'edit' ? 'inline-flex' : 'none';
                     if (modalFooter) {
-                        modalFooter.classList.toggle('is-hidden', mode === 'edit' && payload.editMode === 'custom');
+                        modalFooter.classList.remove('is-hidden');
                         modalFooter.classList.toggle('view-footer', mode === 'view');
                         if (footerInfo) {
                             footerInfo.innerHTML = '<i class="ti ti-database" style="font-size:14px;" aria-hidden="true"></i> 1 record';
@@ -1378,6 +1390,34 @@ class MasterDatatableRenderService
         }
 
         return $values;
+    }
+
+    private function resolveDetailFields(array $columns): array
+    {
+        $fields = [];
+        foreach ($columns as $column) {
+            $fieldName = trim((string)($column['field'] ?? ''));
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $isForeignKey = !empty($column['referenced_table']) || !empty($column['referenced_column']) || !empty($column['fk_display_mode']);
+            $fields[] = [
+                'field' => $fieldName,
+                'name' => $fieldName,
+                'field_name' => $fieldName,
+                'field_key' => $fieldName,
+                'column_name' => $fieldName,
+                'label' => (string)($column['label'] ?? $fieldName),
+                'inputType' => 'text',
+                'componentType' => $isForeignKey ? 'foreign_key' : 'field',
+                'is_foreign_key' => $isForeignKey,
+                'fk_display_mode' => (string)($column['fk_display_mode'] ?? 'raw_id'),
+                'related_display_column' => (string)($column['related_display_column'] ?? ''),
+            ];
+        }
+
+        return $fields;
     }
 
     private function buildRowKeyFromRow(array $row, array $primaryKeys): array

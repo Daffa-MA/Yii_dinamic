@@ -29,6 +29,42 @@ class MasterDatatableRenderService
         return $this->renderFromConfig($preset->toComponentConfig(), $options);
     }
 
+    public function renderAjaxByPresetId(int $presetId): array
+    {
+        $preset = MasterDatatable::findScoped()->andWhere(['id' => $presetId, 'is_active' => 1])->one();
+        if (!$preset instanceof MasterDatatable) {
+            return [
+                'success' => false,
+                'message' => 'Preset datatable tidak ditemukan atau sedang nonaktif.',
+            ];
+        }
+
+        $data = $this->buildRenderData($preset->toComponentConfig());
+        if ($data === null) {
+            return [
+                'success' => false,
+                'message' => 'Datatable tidak dapat dimuat.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'tableId' => (int)$data['table']->id,
+            'tableName' => (string)$data['table']->name,
+            'tbodyHtml' => $this->renderRowsHtml(
+                $data['table'],
+                $data['columns'],
+                $data['rows'],
+                $data['actions'],
+                $data['primaryKeys'],
+                $data['displayLookup'],
+                $data['colspan']
+            ),
+            'total' => (int)$data['state']['total'],
+            'subtitle' => (int)$data['state']['total'] . ' row' . ((int)$data['state']['total'] === 1 ? '' : 's') . ' from ' . (string)$data['table']->name,
+        ];
+    }
+
     public function renderFromConfig(array $config, array $options = []): string
     {
         $presetId = (int)($config['datatableId'] ?? $config['datatable_id'] ?? 0);
@@ -39,24 +75,34 @@ class MasterDatatableRenderService
             }
         }
 
+        $data = $this->buildRenderData($config);
+        if ($data === null) {
+            return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
+        }
+
+        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId);
+    }
+
+    private function buildRenderData(array $config): ?array
+    {
         $tableId = (int)($config['tableId'] ?? $config['table_id'] ?? 0);
         if ($tableId <= 0) {
-            return $this->renderNotice('No data available', 'Pilih source table untuk menampilkan datatable.');
+            return null;
         }
 
         $table = DbTable::find()->where(['id' => $tableId])->one();
         if (!$table instanceof DbTable || !$this->canUseTable($table)) {
-            return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
+            return null;
         }
 
         $tableSchema = Yii::$app->db->schema->getTableSchema($table->name, true);
         if ($tableSchema === null) {
-            return $this->renderNotice('No data available', 'Physical SQL table belum dibuat.');
+            return null;
         }
 
         $columns = $this->resolveColumns($table, $config);
         if (empty($columns)) {
-            return $this->renderNotice('No data available', 'Belum ada kolom yang dipilih untuk datatable ini.');
+            return null;
         }
 
         $searchEnabled = (bool)($config['search'] ?? $config['search_enabled'] ?? true);
@@ -92,17 +138,31 @@ class MasterDatatableRenderService
         $editForm = $this->resolveEditForm($config);
         $primaryKeys = !empty($tableSchema->primaryKey) ? array_values($tableSchema->primaryKey) : [];
         $uid = 'dt-' . $tableId . '-' . substr(md5(json_encode($config)), 0, 8);
+        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
+        $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
 
-        return $this->renderTable($uid, $table, $columns, $rows, $actions, $editMode, $editForm, $primaryKeys, [
-            'searchEnabled' => $searchEnabled,
-            'paginationEnabled' => $paginationEnabled,
-            'page' => $page,
-            'pageSize' => $pageSize,
-            'total' => $total,
-            'search' => $search,
-            'pageParam' => $pageParam,
-            'searchParam' => $searchParam,
-        ]);
+        return [
+            'uid' => $uid,
+            'table' => $table,
+            'columns' => $columns,
+            'rows' => $rows,
+            'actions' => $actions,
+            'editMode' => $editMode,
+            'editForm' => $editForm,
+            'primaryKeys' => $primaryKeys,
+            'displayLookup' => $displayLookup,
+            'colspan' => count($columns) + ($hasActions ? 1 : 0),
+            'state' => [
+                'searchEnabled' => $searchEnabled,
+                'paginationEnabled' => $paginationEnabled,
+                'page' => $page,
+                'pageSize' => $pageSize,
+                'total' => $total,
+                'search' => $search,
+                'pageParam' => $pageParam,
+                'searchParam' => $searchParam,
+            ],
+        ];
     }
 
     public function deleteRow(int $tableId, array $rowKey): bool
@@ -359,7 +419,7 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0): string
     {
         $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $colspan = count($columns) + ($hasActions ? 1 : 0);
@@ -367,6 +427,7 @@ class MasterDatatableRenderService
         $rowFields = $this->resolveRowFields($table, $columns);
         $detailFields = $this->resolveDetailFields($columns);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
+        $reloadUrl = $presetId > 0 ? Url::to(['/master-datatable/reload', 'id' => $presetId]) : '';
 
         ob_start();
         ?>
@@ -378,6 +439,9 @@ class MasterDatatableRenderService
             data-datatable-primary-keys="<?= Html::encode(Json::encode($primaryKeys)) ?>"
             data-datatable-columns="<?= Html::encode(Json::encode($columns)) ?>"
             data-datatable-has-actions="<?= $hasActions ? '1' : '0' ?>"
+            data-component="datatable"
+            data-table="<?= Html::encode($table->name) ?>"
+            data-reload-url="<?= Html::encode($reloadUrl) ?>"
             data-delete-url="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>"
             data-csrf-param="<?= Html::encode(Yii::$app->request->csrfParam) ?>"
             data-csrf-token="<?= Html::encode(Yii::$app->request->csrfToken) ?>"
@@ -508,7 +572,7 @@ class MasterDatatableRenderService
             <div class="dt-head">
                 <div>
                     <h3 class="dt-title"><?= Html::encode($table->label ?: $table->name) ?></h3>
-                    <p class="dt-subtitle"><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
+                    <p class="dt-subtitle" data-datatable-subtitle><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
                 </div>
                 <?php if ($state['searchEnabled']): ?>
                     <form method="get">
@@ -532,38 +596,7 @@ class MasterDatatableRenderService
                     </tr>
                     </thead>
                     <tbody>
-                    <?php if (empty($rows)): ?>
-                        <tr><td colspan="<?= (int)$colspan ?>"><div class="dt-empty"><strong>No data available</strong>This table does not have any data yet.</div></td></tr>
-                    <?php else: ?>
-                        <?php foreach ($rows as $row): ?>
-                            <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
-                            <?php $rowDisplayValues = $this->buildRowDisplayValues($row, $columns, $displayLookup); ?>
-                            <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>" data-row-display-values="<?= Html::encode(Json::encode($rowDisplayValues)) ?>">
-                                <?php foreach ($columns as $column): ?>
-                                    <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
-                                <?php endforeach; ?>
-                                <?php if ($hasActions): ?>
-                                    <td>
-                                        <div class="dt-actions">
-                                            <?php if ($actions['view']): ?>
-                                                <button type="button" class="dt-btn" data-row-action="view">View</button>
-                                            <?php endif; ?>
-                                            <?php if ($actions['edit']): ?>
-                                                <button type="button" class="dt-btn" data-row-action="edit">Edit</button>
-                                            <?php endif; ?>
-                                            <?php if ($actions['delete']): ?>
-                                                <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>" onsubmit="return confirm('Delete this row?');">
-                                                    <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
-                                                    <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
-                                                    <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                <?php endif; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                    <?= $this->renderRowsHtml($table, $columns, $rows, $actions, $primaryKeys, $displayLookup, $colspan) ?>
                     </tbody>
                 </table>
             </div>
@@ -1570,6 +1603,47 @@ class MasterDatatableRenderService
         </section>
         <?php
         return (string)ob_get_clean();
+    }
+
+    private function renderRowsHtml(DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $displayLookup, int $colspan): string
+    {
+        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
+        ob_start();
+        ?>
+        <?php if (empty($rows)): ?>
+            <tr><td colspan="<?= (int)$colspan ?>"><div class="dt-empty"><strong>No data available</strong>This table does not have any data yet.</div></td></tr>
+        <?php else: ?>
+            <?php foreach ($rows as $row): ?>
+                <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
+                <?php $rowDisplayValues = $this->buildRowDisplayValues($row, $columns, $displayLookup); ?>
+                <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>" data-row-display-values="<?= Html::encode(Json::encode($rowDisplayValues)) ?>">
+                    <?php foreach ($columns as $column): ?>
+                        <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
+                    <?php endforeach; ?>
+                    <?php if ($hasActions): ?>
+                        <td>
+                            <div class="dt-actions">
+                                <?php if ($actions['view']): ?>
+                                    <button type="button" class="dt-btn" data-row-action="view">View</button>
+                                <?php endif; ?>
+                                <?php if ($actions['edit']): ?>
+                                    <button type="button" class="dt-btn" data-row-action="edit">Edit</button>
+                                <?php endif; ?>
+                                <?php if ($actions['delete']): ?>
+                                    <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>" onsubmit="return confirm('Delete this row?');">
+                                        <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
+                                        <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
+                                        <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    <?php endif; ?>
+                </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        <?php
+        return trim((string)ob_get_clean());
     }
 
     private function renderNotice(string $title, string $message): string

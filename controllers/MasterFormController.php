@@ -1655,6 +1655,9 @@ class MasterFormController extends Controller
                         return [
                             'success' => true,
                             'message' => $successMessage,
+                            'table' => $tableName,
+                            'tableName' => $tableName,
+                            'tableId' => (int)$tableId,
                             'insertedData' => $insertData,
                             'insertedRowKey' => !empty($insertedRowKey) ? $insertedRowKey : null,
                         ];

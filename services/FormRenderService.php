@@ -869,6 +869,9 @@ class FormRenderService
     }
 
     function setSubmitting(form, submitting) {
+        if (form) {
+            form.dataset.submitting = submitting ? 'true' : 'false';
+        }
         var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])');
         buttons.forEach(function(button) {
             if (submitting) {
@@ -887,7 +890,7 @@ class FormRenderService
     }
 
     function submitEmbeddedForm(form) {
-        if (!form || form.__customSubmitting) return;
+        if (!form || form.__customSubmitting || form.dataset.submitting === 'true') return;
         form.__customSubmitting = true;
         collectInto(form);
         setSubmitting(form, true);
@@ -928,6 +931,7 @@ class FormRenderService
                         type: 'custom-form-submit-success',
                         source: 'embedded-custom-form',
                         targetTableId: targetTableId > 0 ? targetTableId : null,
+                        targetTableName: data && data.table ? data.table : (data && data.tableName ? data.tableName : null),
                         formId: form.getAttribute('data-form-id') ? parseInt(form.getAttribute('data-form-id'), 10) : null,
                         submittedData: submittedData,
                         submittedDisplayData: submittedDisplayData,
@@ -937,6 +941,7 @@ class FormRenderService
                     }, '*');
                 }
                 if (data && data.success && !data.duplicate) {
+                    form.reset();
                     rotateSubmitRequestId(form);
                 }
             })
@@ -954,6 +959,10 @@ class FormRenderService
         collectInto(form);
         if (!isEmbeddedCustomForm(form)) return;
         event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') {
+            event.stopImmediatePropagation();
+        }
         submitEmbeddedForm(form);
     }, true);
 

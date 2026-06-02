@@ -2040,20 +2040,75 @@ class MasterFormController extends Controller
 
     private function getDynamicFormBehaviorConfig(MasterForm $model, array $fields = []): array
     {
-        $formData = $model->getFormDataArray();
-        if (isset($formData['behavior']) && is_array($formData['behavior']) && $this->hasManualBehaviorConfig($formData['behavior'])) {
-            return $formData['behavior'];
-        }
-        if (isset($formData['form_behavior']) && is_array($formData['form_behavior']) && $this->hasManualBehaviorConfig($formData['form_behavior'])) {
-            return $formData['form_behavior'];
-        }
-
         if (empty($fields)) {
             $schema = $this->formEngineService->getResolvedFormSchema($model);
             $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
         }
 
-        return (new DynamicFormBehaviorDetector())->detect($model, $fields);
+        $detected = (new DynamicFormBehaviorDetector())->detect($model, $fields);
+        $formData = $model->getFormDataArray();
+        if (isset($formData['behavior']) && is_array($formData['behavior']) && $this->hasManualBehaviorConfig($formData['behavior'])) {
+            return $this->mergeDynamicBehaviorConfig($detected, $formData['behavior']);
+        }
+        if (isset($formData['form_behavior']) && is_array($formData['form_behavior']) && $this->hasManualBehaviorConfig($formData['form_behavior'])) {
+            return $this->mergeDynamicBehaviorConfig($detected, $formData['form_behavior']);
+        }
+
+        return $detected;
+    }
+
+    private function mergeDynamicBehaviorConfig(array $detected, array $manual): array
+    {
+        $merged = $detected;
+        foreach ($manual as $key => $value) {
+            if (in_array($key, ['auto_fill_rules', 'unique_validation_rules'], true)) {
+                if (!empty($value)) {
+                    $merged[$key] = $key === 'auto_fill_rules'
+                        ? $this->enrichManualAutoFillRules((array)$value, (array)($detected[$key] ?? []))
+                        : $value;
+                }
+                continue;
+            }
+
+            if (in_array($key, ['detail_card', 'calculated_summary'], true) && is_array($value)) {
+                if (empty($value['enabled']) && empty($value['items'])) {
+                    continue;
+                }
+                $base = is_array($merged[$key] ?? null) ? $merged[$key] : [];
+                $merged[$key] = array_replace_recursive($base, $value);
+                continue;
+            }
+
+            if ($value !== null && $value !== '') {
+                $merged[$key] = $value;
+            }
+        }
+
+        return $merged;
+    }
+
+    private function enrichManualAutoFillRules(array $manualRules, array $detectedRules): array
+    {
+        $detectedByKey = [];
+        foreach ($detectedRules as $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $key = ($rule['trigger_field'] ?? '') . '|' . ($rule['target_field'] ?? '') . '|' . ($rule['source_path'] ?? '');
+            $detectedByKey[$key] = $rule;
+        }
+
+        foreach ($manualRules as $index => $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $key = ($rule['trigger_field'] ?? '') . '|' . ($rule['target_field'] ?? '') . '|' . ($rule['source_path'] ?? '');
+            if (isset($detectedByKey[$key])) {
+                $manualRules[$index] = array_replace($detectedByKey[$key], $rule);
+            }
+        }
+
+        return $manualRules;
     }
 
     private function hasManualBehaviorConfig(array $config): bool
@@ -2210,10 +2265,11 @@ class MasterFormController extends Controller
                 continue;
             }
             $resolved = $this->resolveRelationPath($model, $fieldMap, $targetTableName, $sourcePath, $triggerValue, Yii::$app->db);
-            $value = $resolved['value'] ?? '';
+            $format = (string)($item['format'] ?? '');
+            $value = $this->resolveDetailDisplayValue($resolved, $format, Yii::$app->db);
             $items[] = [
-                'label' => (string)($item['label'] ?? $sourcePath),
-                'value' => $this->formatDynamicValue($value, (string)($item['format'] ?? '')),
+                'label' => $this->formatDetailLabel((string)($item['label'] ?? $sourcePath), $resolved),
+                'value' => $this->formatDynamicValue($value, $format),
             ];
         }
 
@@ -2246,7 +2302,7 @@ class MasterFormController extends Controller
         }
 
         if (empty($parts)) {
-            return ['value' => $triggerValue, 'row' => $currentRow, 'table' => $currentTable];
+            return ['value' => $triggerValue, 'row' => $currentRow, 'table' => $currentTable, 'field' => $currentColumn];
         }
 
         while (!empty($parts)) {
@@ -2256,7 +2312,7 @@ class MasterFormController extends Controller
             }
             $value = $currentRow[$part];
             if (empty($parts)) {
-                return ['value' => $value, 'row' => $currentRow, 'table' => $currentTable];
+                return ['value' => $value, 'row' => $currentRow, 'table' => $currentTable, 'field' => $part];
             }
 
             $nextRelation = $this->resolveTableColumnRelation($currentTable, $part, $db);
@@ -2267,7 +2323,7 @@ class MasterFormController extends Controller
             $currentColumn = (string)$nextRelation['column'];
             $currentRow = (new \yii\db\Query())->from($currentTable)->where([$currentColumn => $value])->one($db);
             if (!$currentRow) {
-                return ['value' => null, 'table' => $currentTable];
+                return ['value' => null, 'table' => $currentTable, 'field' => $currentColumn];
             }
         }
 
@@ -2358,6 +2414,79 @@ class MasterFormController extends Controller
             return 'Rp' . number_format((float)$value, 0, ',', '.');
         }
         return (string)$value;
+    }
+
+    private function resolveDetailDisplayValue(array $resolved, string $format, \yii\db\Connection $db)
+    {
+        if ($format !== '') {
+            return $resolved['value'] ?? '';
+        }
+
+        $table = trim((string)($resolved['table'] ?? ''));
+        $field = trim((string)($resolved['field'] ?? ''));
+        $value = $resolved['value'] ?? null;
+        if ($table === '' || $field === '' || $value === null || $value === '') {
+            return $value ?? '';
+        }
+
+        $relation = $this->resolveTableColumnRelation($table, $field, $db);
+        if ($relation === null) {
+            return $value;
+        }
+
+        try {
+            $relatedRow = (new \yii\db\Query())
+                ->from((string)$relation['table'])
+                ->where([(string)$relation['column'] => $value])
+                ->one($db);
+            if (!$relatedRow) {
+                return $value;
+            }
+
+            $displayColumn = $this->preferredDisplayColumnFromRow($relatedRow);
+            return $displayColumn !== null ? ($relatedRow[$displayColumn] ?? $value) : $value;
+        } catch (\Throwable $e) {
+            Yii::warning('Failed resolving detail display value: ' . $e->getMessage(), __METHOD__);
+            return $value;
+        }
+    }
+
+    private function preferredDisplayColumnFromRow(array $row): ?string
+    {
+        $preferred = ['nama', 'name', 'title', 'label', 'tier', 'kode', 'code'];
+        foreach ($preferred as $column) {
+            if (array_key_exists($column, $row) && $row[$column] !== null && $row[$column] !== '') {
+                return $column;
+            }
+        }
+
+        foreach ($row as $column => $value) {
+            $normalized = strtolower((string)$column);
+            if (in_array($normalized, ['id', 'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by'], true)) {
+                continue;
+            }
+            if (str_ends_with($normalized, '_id')) {
+                continue;
+            }
+            if ($value !== null && $value !== '') {
+                return (string)$column;
+            }
+        }
+
+        return null;
+    }
+
+    private function formatDetailLabel(string $label, array $resolved): string
+    {
+        $label = trim($label);
+        $field = trim((string)($resolved['field'] ?? ''));
+        if ($field !== '' && str_ends_with(strtolower($field), '_id')) {
+            $label = preg_replace('/\bId\b/i', '', $label) ?? $label;
+            $label = str_replace('  ', ' ', trim($label));
+        }
+
+        $label = $label !== '' ? $label : ($field !== '' ? ucwords(str_replace('_', ' ', $field)) : 'Detail');
+        return str_ireplace('Spp', 'SPP', ucwords($label));
     }
 
     private function extractRawPostedTableData(array $postData, array $columns): array

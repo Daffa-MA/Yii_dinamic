@@ -240,13 +240,68 @@ class DynamicFormPreviewService
     private function extractDynamicFormBehaviorConfig(MasterForm $form, array $fields): array
     {
         $formData = $form->getFormDataArray();
+        $detected = (new DynamicFormBehaviorDetector())->detect($form, $fields);
         if (isset($formData['behavior']) && is_array($formData['behavior']) && $this->hasDynamicFormBehaviorConfig($formData['behavior'])) {
-            return $formData['behavior'];
+            return $this->mergeDynamicBehaviorConfig($detected, $formData['behavior']);
         }
         if (isset($formData['form_behavior']) && is_array($formData['form_behavior']) && $this->hasDynamicFormBehaviorConfig($formData['form_behavior'])) {
-            return $formData['form_behavior'];
+            return $this->mergeDynamicBehaviorConfig($detected, $formData['form_behavior']);
         }
-        return (new DynamicFormBehaviorDetector())->detect($form, $fields);
+        return $detected;
+    }
+
+    private function mergeDynamicBehaviorConfig(array $detected, array $manual): array
+    {
+        $merged = $detected;
+        foreach ($manual as $key => $value) {
+            if (in_array($key, ['auto_fill_rules', 'unique_validation_rules'], true)) {
+                if (!empty($value)) {
+                    $merged[$key] = $key === 'auto_fill_rules'
+                        ? $this->enrichManualAutoFillRules((array)$value, (array)($detected[$key] ?? []))
+                        : $value;
+                }
+                continue;
+            }
+
+            if (in_array($key, ['detail_card', 'calculated_summary'], true) && is_array($value)) {
+                if (empty($value['enabled']) && empty($value['items'])) {
+                    continue;
+                }
+                $base = is_array($merged[$key] ?? null) ? $merged[$key] : [];
+                $merged[$key] = array_replace_recursive($base, $value);
+                continue;
+            }
+
+            if ($value !== null && $value !== '') {
+                $merged[$key] = $value;
+            }
+        }
+
+        return $merged;
+    }
+
+    private function enrichManualAutoFillRules(array $manualRules, array $detectedRules): array
+    {
+        $detectedByKey = [];
+        foreach ($detectedRules as $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $key = ($rule['trigger_field'] ?? '') . '|' . ($rule['target_field'] ?? '') . '|' . ($rule['source_path'] ?? '');
+            $detectedByKey[$key] = $rule;
+        }
+
+        foreach ($manualRules as $index => $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $key = ($rule['trigger_field'] ?? '') . '|' . ($rule['target_field'] ?? '') . '|' . ($rule['source_path'] ?? '');
+            if (isset($detectedByKey[$key])) {
+                $manualRules[$index] = array_replace($detectedByKey[$key], $rule);
+            }
+        }
+
+        return $manualRules;
     }
 
     private function hasDynamicFormBehaviorConfig(array $config): bool
@@ -270,39 +325,24 @@ class DynamicFormPreviewService
             . 'function allByName(form,name){return form ? Array.prototype.slice.call(form.querySelectorAll("[name=\"" + name + "\"], [name=\"" + name + "[]\"]")) : [];}'
             . 'function money(value){var n=Number(String(value||"0").replace(/[^0-9.-]/g,"")); if(!isFinite(n)) n=0; return new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(n);}'
             . 'function formatValue(value,format){return format==="currency_idr"?money(value):String(value==null?"":value);}'
-            . 'function setControlValue(control,value,label){'
-            . 'if(!control||value===undefined||value===null)return;'
-            . 'var normalized=String(value);'
-            . 'if(control.tagName==="SELECT"){'
-            . 'var found=false; Array.prototype.forEach.call(control.options||[],function(option){if(String(option.value)===normalized) found=true;});'
-            . 'if(!found&&normalized!==""){var option=document.createElement("option"); option.value=normalized; option.textContent=label||normalized; control.appendChild(option);}'
-            . '}'
-            . 'control.value=normalized; control.dispatchEvent(new Event("change",{bubbles:true}));'
-            . '}'
+            . 'function esc(value){return String(value==null?"":value).replace(/[&<>"\']/g,function(ch){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","\'":"&#039;"}[ch];});}'
+            . 'function cssIdent(value){if(window.CSS&&CSS.escape)return CSS.escape(value); return String(value).replace(/["\\\\]/g,"\\\\$&");}'
+            . 'function ensureReadonly(control){if(!control||control.type==="hidden"||control.tagName==="SELECT")return; control.readOnly=true; control.setAttribute("aria-readonly","true"); control.style.background="#f8fafc"; control.style.cursor="default";}'
+            . 'function ensureCurrencyDisplay(control,format){if(!control||format!=="currency_idr"||control.tagName==="SELECT")return null; var name=control.getAttribute("name")||""; var proxy=control.parentNode?control.parentNode.querySelector("[data-autofill-display-for=\""+cssIdent(name)+"\"]"):null; if(!proxy){proxy=document.createElement("input"); proxy.type="text"; proxy.readOnly=true; proxy.setAttribute("aria-readonly","true"); proxy.dataset.autofillDisplayFor=name; proxy.style.cssText=control.style.cssText||""; proxy.style.background="#f8fafc"; proxy.style.cursor="default"; proxy.style.fontWeight="600"; control.parentNode.insertBefore(proxy, control.nextSibling);} control.type="hidden"; return proxy;}'
+            . 'function setControlValue(control,value,label,rule){if(!control||value===undefined||value===null)return; var normalized=String(value); var format=(rule&&rule.format)||""; if(control.tagName==="SELECT"){var found=false; Array.prototype.forEach.call(control.options||[],function(option){if(String(option.value)===normalized) found=true;}); if(!found&&normalized!==""){var option=document.createElement("option"); option.value=normalized; option.textContent=label||normalized; control.appendChild(option);}} control.value=normalized; ensureReadonly(control); var proxy=ensureCurrencyDisplay(control,format); if(proxy){proxy.value=formatValue(normalized,format);} control.dispatchEvent(new Event("change",{bubbles:true}));}'
             . 'function ensureDetailCard(form){var card=form.querySelector(".dynamic-autofill-detail-card"); if(card)return card; card=document.createElement("div"); card.className="dynamic-autofill-detail-card"; card.style.cssText="display:none;margin:10px 0;padding:12px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;color:#0f172a;font-size:12px;line-height:1.6;"; form.insertBefore(card,form.firstChild.nextSibling); return card;}'
-            . 'function ensureSummary(form){var summary=form.querySelector(".dynamic-calculated-summary"); if(summary)return summary; summary=document.createElement("div"); summary.className="dynamic-calculated-summary"; summary.style.cssText="margin:8px 0 12px;padding:12px;border:1px solid #dbeafe;background:#f8fafc;border-radius:10px;color:#0f172a;font-size:12px;line-height:1.7;"; form.insertBefore(summary,form.querySelector("button[type=submit]")||null); return summary;}'
+            . 'function ensureSummary(form){var summary=form.querySelector(".dynamic-calculated-summary"); if(summary)return summary; summary=document.createElement("div"); summary.className="dynamic-calculated-summary"; summary.style.cssText="margin:10px 0 12px;padding:12px;border:1px solid #dbeafe;background:#f8fafc;border-radius:10px;color:#0f172a;font-size:12px;line-height:1.8;"; form.insertBefore(summary,form.querySelector("button[type=submit]")||null); return summary;}'
             . 'function selectedValues(form,field){var controls=allByName(form,field); if(controls.length===1&&controls[0].tagName==="SELECT"&&controls[0].multiple){return Array.prototype.slice.call(controls[0].selectedOptions||[]).map(function(option){return String(option.value||"");}).filter(Boolean);} return controls.filter(function(input){return input.checked||input.selected;}).map(function(input){return String(input.value||"");}).filter(Boolean);}'
             . 'function rawFieldValue(form,field){var control=byName(form,field); return control?control.value:"";}'
             . 'function calcValue(form,node){if(!node)return 0; if(node.type==="count_selected")return selectedValues(form,node.field).length; if(node.type==="field_value")return Number(String(rawFieldValue(form,node.field)||"0").replace(/[^0-9.-]/g,""))||0; if(node.type==="multiply")return calcValue(form,node.left)*calcValue(form,node.right); return 0;}'
-            . 'function updateSummary(form){var cfg=behavior.calculated_summary||{}; if(!cfg.enabled)return; var summary=ensureSummary(form); var html="<strong>"+(cfg.title||"Ringkasan")+"</strong>"; (cfg.items||[]).forEach(function(item){var value=calcValue(form,item); if(item.type==="field_value") value=rawFieldValue(form,item.field); var display=formatValue(value,item.format||""); html+="<br>"+(item.highlight?"<strong>":"")+String(item.label||"Nilai")+": "+display+(item.highlight?"</strong>":"");}); summary.innerHTML=html;}'
-            . 'function showHint(form,message,isError){'
-            . 'var box=form.querySelector(".dynamic-behavior-hint");'
-            . 'if(!box){box=document.createElement("div"); box.className="dynamic-behavior-hint"; box.style.cssText="margin:6px 0 10px;padding:8px 10px;border-radius:8px;font-size:12px;"; form.insertBefore(box, form.firstChild.nextSibling);}'
-            . 'box.textContent=message||""; box.style.display=message?"block":"none"; box.style.background=isError?"#fef2f2":"#eff6ff"; box.style.color=isError?"#991b1b":"#1e3a8a"; box.style.border=isError?"1px solid #fecaca":"1px solid #bfdbfe";'
-            . '}'
-            . 'function attach(form){'
-            . 'if(!form||form.dataset.dynamicBehaviorBound==="1")return; form.dataset.dynamicBehaviorBound="1";'
-            . 'var triggers={}; (behavior.auto_fill_rules||[]).forEach(function(rule){if(rule.trigger_field)triggers[rule.trigger_field]=true;}); if(behavior.detail_card&&behavior.detail_card.enabled&&behavior.detail_card.trigger_field)triggers[behavior.detail_card.trigger_field]=true;'
-            . '(behavior.auto_fill_rules||[]).forEach(function(rule){var target=byName(form,rule.target_field); if(target&&target.type!=="hidden"&&target.tagName!=="SELECT"){target.readOnly=true; target.style.background="#f8fafc";}});'
-            . 'Object.keys(triggers).forEach(function(trigger){var control=byName(form,trigger); if(!control)return; control.addEventListener("change",function(){var val=String(control.value||"").trim(); if(!val){showHint(form,"",false);return;} fetch(lookupUrl+"?form_id="+encodeURIComponent(formId)+"&trigger_field="+encodeURIComponent(trigger)+"&trigger_value="+encodeURIComponent(val),{headers:{"X-Requested-With":"XMLHttpRequest"}})'
-            . '.then(function(response){return response.json();})'
-            . '.then(function(result){'
-            . 'if(!result||!result.success){showHint(form,(result&&result.message)||"Data tidak ditemukan.",true); return;} Object.keys(result.values||{}).forEach(function(field){var target=byName(form,field); var rule=(behavior.auto_fill_rules||[]).find(function(item){return item&&item.target_field===field&&item.trigger_field===trigger;})||{}; if(rule.fill_when_empty&&target&&String(target.value||"").trim()!=="")return; setControlValue(target,result.values[field]);}); var display=result.display||{}; if(display.enabled&&display.items&&display.items.length){var card=ensureDetailCard(form); card.style.display="block"; var html="<strong>"+(display.detail_title||"Detail")+"</strong>"; display.items.forEach(function(item){html+="<br>"+String(item.label||"")+": "+String(item.value||"");}); card.innerHTML=html;} updateSummary(form); showHint(form,"Data berhasil diisi otomatis.",false);'
-            . '})'
-            . '.catch(function(){showHint(form,"Gagal memuat data otomatis.",true);});});});'
+            . 'function updateSummary(form){var cfg=behavior.calculated_summary||{}; if(!cfg.enabled)return; var summary=ensureSummary(form); var html="<strong>"+esc(cfg.title||"Ringkasan Pembayaran")+"</strong>"; (cfg.items||[]).forEach(function(item){var value=calcValue(form,item); if(item.type==="field_value") value=rawFieldValue(form,item.field); var display=formatValue(value,item.format||""); html+="<br>"+(item.highlight?"<strong>":"")+esc(item.label||"Nilai")+" : "+esc(display)+(item.highlight?"</strong>":"");}); summary.innerHTML=html;}'
+            . 'function showHint(form,message,isError){var box=form.querySelector(".dynamic-behavior-hint"); if(!box){box=document.createElement("div"); box.className="dynamic-behavior-hint"; box.style.cssText="margin:6px 0 10px;padding:8px 10px;border-radius:8px;font-size:12px;"; form.insertBefore(box, form.firstChild.nextSibling);} box.textContent=message||""; box.style.display=message?"block":"none"; box.style.background=isError?"#fef2f2":"#eff6ff"; box.style.color=isError?"#991b1b":"#1e3a8a"; box.style.border=isError?"1px solid #fecaca":"1px solid #bfdbfe";}'
+            . 'function ruleFor(trigger,field){return (behavior.auto_fill_rules||[]).find(function(item){return item&&item.target_field===field&&item.trigger_field===trigger;})||{};}'
+            . 'function attach(form){if(!form||form.dataset.dynamicBehaviorBound==="1")return; form.dataset.dynamicBehaviorBound="1"; var triggers={}; (behavior.auto_fill_rules||[]).forEach(function(rule){if(rule.trigger_field)triggers[rule.trigger_field]=true;}); if(behavior.detail_card&&behavior.detail_card.enabled&&behavior.detail_card.trigger_field)triggers[behavior.detail_card.trigger_field]=true;'
+            . '(behavior.auto_fill_rules||[]).forEach(function(rule){var target=byName(form,rule.target_field); if(target){ensureReadonly(target); if(rule.format==="currency_idr"){ensureCurrencyDisplay(target,rule.format);}}});'
+            . 'Object.keys(triggers).forEach(function(trigger){var control=byName(form,trigger); if(!control)return; control.addEventListener("change",function(){var val=String(control.value||"").trim(); if(!val){showHint(form,"",false);return;} fetch(lookupUrl+"?form_id="+encodeURIComponent(formId)+"&trigger_field="+encodeURIComponent(trigger)+"&trigger_value="+encodeURIComponent(val),{headers:{"X-Requested-With":"XMLHttpRequest"}}).then(function(response){if(!response.ok){throw new Error("HTTP "+response.status);} return response.json();}).then(function(result){console.info("[dynamic-autofill] response success:", !!(result&&result.success)); console.info("[dynamic-autofill] values:", result&&result.values); console.info("[dynamic-autofill] display:", result&&result.display); if(!result||!result.success){showHint(form,(result&&result.message)||"Data tidak ditemukan.",true); return;} var valuesApplied=false; try{Object.keys(result.values||{}).forEach(function(field){var target=byName(form,field); var rule=ruleFor(trigger,field); if(rule.fill_when_empty&&target&&String(target.value||"").trim()!=="")return; setControlValue(target,result.values[field],null,rule); valuesApplied=true;});}catch(valueError){console.error("[dynamic-autofill] exception message:", valueError&&valueError.message ? valueError.message : valueError); showHint(form,"Gagal memproses data otomatis.",true); return;} try{var display=result.display||{}; if(display.enabled&&display.items&&display.items.length){var card=ensureDetailCard(form); card.style.display="block"; var html="<strong>"+esc(display.detail_title||"Detail")+"</strong>"; display.items.forEach(function(item){html+="<br>"+esc(item.label||"")+": "+esc(item.value||"");}); card.innerHTML=html;}}catch(displayError){console.warn("[dynamic-autofill] exception message:", displayError&&displayError.message ? displayError.message : displayError);} try{updateSummary(form);}catch(summaryError){console.warn("[dynamic-autofill] exception message:", summaryError&&summaryError.message ? summaryError.message : summaryError);} if(valuesApplied){showHint(form,"Data berhasil diisi otomatis.",false);}}).catch(function(error){console.error("[dynamic-autofill] exception message:", error&&error.message ? error.message : error); showHint(form,"Gagal memuat data otomatis.",true);});});});'
             . 'var summaryFields={}; (behavior.calculated_summary&&behavior.calculated_summary.items||[]).forEach(function(item){[item.field,item.left&&item.left.field,item.right&&item.right.field].forEach(function(f){if(f)summaryFields[f]=true;});}); Object.keys(summaryFields).forEach(function(field){allByName(form,field).forEach(function(input){input.addEventListener("change",function(){updateSummary(form);}); input.addEventListener("input",function(){updateSummary(form);});});}); updateSummary(form);'
-            . 'form.addEventListener("submit",function(e){if(behavior.submit_mode==="multiple_row_insert"&&behavior.multiple_row_field){if(selectedValues(form,behavior.multiple_row_field).length<1){e.preventDefault(); e.stopImmediatePropagation(); showHint(form,"Pilih minimal 1 data untuk "+behavior.multiple_row_field+".",true); return false;}}},true);'
-            . '}'
+            . 'form.addEventListener("submit",function(e){if(behavior.submit_mode==="multiple_row_insert"&&behavior.multiple_row_field){if(selectedValues(form,behavior.multiple_row_field).length<1){e.preventDefault(); e.stopImmediatePropagation(); showHint(form,"Pilih minimal 1 data untuk "+behavior.multiple_row_field+".",true); return false;}}},true);}'
             . 'document.querySelectorAll("form.dynamic-embedded-form").forEach(attach);'
             . '})();</script>';
     }

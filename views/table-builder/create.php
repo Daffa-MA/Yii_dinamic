@@ -890,12 +890,24 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                                 <?php if (!empty($sqlDebug)) : ?>
                                     <div class="sql-debug-grid">
                                         <div><strong>Success:</strong> <?= Html::encode(var_export((bool)($sqlDebug['success'] ?? false), true)) ?></div>
+                                        <div><strong>Active Database:</strong> <?= Html::encode($sqlDebug['active_database'] ?? '-') ?></div>
+                                        <div><strong>Table Name:</strong> <?= Html::encode($sqlDebug['table_name'] ?? '-') ?></div>
                                         <div><strong>SQLSTATE:</strong> <?= Html::encode($sqlDebug['sqlstate'] ?? '-') ?></div>
                                         <div><strong>Error Code:</strong> <?= Html::encode((string)($sqlDebug['error_code'] ?? '-')) ?></div>
+                                        <div><strong>Physical Table Exists:</strong> <?= Html::encode(var_export((bool)($sqlDebug['physical_table_exists'] ?? false), true)) ?></div>
+                                        <div><strong>Metadata Table Exists:</strong> <?= Html::encode(var_export((bool)($sqlDebug['metadata_table_exists'] ?? false), true)) ?></div>
                                         <div><strong>Failed Statement:</strong></div>
                                         <pre class="sql-debug-pre"><?= Html::encode((string)($sqlDebug['failed_statement'] ?? '-')) ?></pre>
                                         <div><strong>Created Table:</strong> <?= Html::encode((string)($sqlDebug['created_table_name'] ?? '-')) ?></div>
                                         <div><strong>Parsed Columns:</strong> <?= Html::encode((string)count((array)($sqlDebug['parsed_columns'] ?? []))) ?></div>
+                                        <?php if (!empty($sqlDebug['suggested_fix'])) : ?>
+                                            <div><strong>Suggested Fix:</strong></div>
+                                            <pre class="sql-debug-pre"><?= Html::encode((string)$sqlDebug['suggested_fix']) ?></pre>
+                                        <?php endif; ?>
+                                        <?php if (!empty($sqlDebug['diagnostics'])) : ?>
+                                            <div><strong>Diagnostics:</strong></div>
+                                            <pre class="sql-debug-pre"><?= Html::encode(json_encode($sqlDebug['diagnostics'], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)) ?></pre>
+                                        <?php endif; ?>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -905,6 +917,10 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                         <div class="sql-warning">
                             Gunakan query ini untuk schema, bukan untuk manipulasi data. Jika ragu, jalankan satu table dulu.
                         </div>
+                        <label class="field-note" style="display:flex;align-items:center;gap:8px;margin-top:12px;">
+                            <input type="checkbox" name="safe_create" value="1">
+                            Safe create (CREATE TABLE IF NOT EXISTS)
+                        </label>
                         <div class="sql-example">CREATE TABLE products (
   id INT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(255) NOT NULL,
@@ -1328,13 +1344,19 @@ document.addEventListener('DOMContentLoaded', function () {
             '<code>' + escapeHtml(payload.sql_error || payload.message || '-') + '</code>',
             '<div class="sql-debug-grid">' +
                 '<div><strong>Success:</strong> ' + escapeHtml(payload.success ? 'true' : 'false') + '</div>' +
+                '<div><strong>Active Database:</strong> ' + escapeHtml(payload.active_database || '-') + '</div>' +
+                '<div><strong>Table Name:</strong> ' + escapeHtml(payload.table_name || '-') + '</div>' +
                 '<div><strong>Stage:</strong> ' + escapeHtml(payload.stage || '-') + '</div>' +
                 '<div><strong>SQLSTATE:</strong> ' + escapeHtml(payload.sqlstate || '-') + '</div>' +
                 '<div><strong>Error Code:</strong> ' + escapeHtml(payload.error_code || '-') + '</div>' +
+                '<div><strong>Physical Table Exists:</strong> ' + escapeHtml((payload.physical_table_exists === true) ? 'true' : 'false') + '</div>' +
+                '<div><strong>Metadata Table Exists:</strong> ' + escapeHtml((payload.metadata_table_exists === true) ? 'true' : 'false') + '</div>' +
                 '<div><strong>Failed Statement:</strong></div>' +
                 '<pre class="sql-debug-pre">' + escapeHtml(payload.failed_statement || '-') + '</pre>' +
                 '<div><strong>Created Table:</strong> ' + escapeHtml(payload.created_table_name || '-') + '</div>' +
                 '<div><strong>Parsed Columns:</strong> ' + escapeHtml((payload.parsed_columns && typeof payload.parsed_columns === 'object') ? Object.keys(payload.parsed_columns).length : 0) + '</div>' +
+                (payload.suggested_fix ? '<div><strong>Suggested Fix:</strong></div><pre class="sql-debug-pre">' + escapeHtml(payload.suggested_fix) + '</pre>' : '') +
+                (payload.diagnostics ? '<div><strong>Diagnostics:</strong></div><pre class="sql-debug-pre">' + escapeHtml(JSON.stringify(payload.diagnostics, null, 2)) + '</pre>' : '') +
             '</div>'
         ];
 

@@ -329,15 +329,141 @@ if ($hasCustomPageSource): ?>
                 return value.charAt(0) === '{' && value.indexOf('"success"') !== -1;
             }
 
-            function forwardSuccessToIframe(data) {
-                document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {
+            function getIframeDocument() {
+                var iframe = document.querySelector('[data-custom-page-source-iframe]');
+                if (!iframe || !iframe.contentWindow) {
+                    return null;
+                }
+                try {
+                    return iframe.contentWindow.document || null;
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            function escapeAttr(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+
+            function toStringValue(value) {
+                if (value === null || value === undefined || value === '') {
+                    return '';
+                }
+                if (Array.isArray(value)) {
+                    return value.join(', ');
+                }
+                if (typeof value === 'object') {
                     try {
-                        if (iframe && iframe.contentWindow) {
-                            iframe.contentWindow.postMessage(data, '*');
-                        }
+                        return JSON.stringify(value);
                     } catch (error) {
+                        return '';
+                    }
+                }
+                return String(value);
+            }
+
+            function buildRowKey(rowData, primaryKeys) {
+                var rowKey = {};
+                (primaryKeys || []).forEach(function(key) {
+                    if (Object.prototype.hasOwnProperty.call(rowData || {}, key)) {
+                        rowKey[key] = rowData[key];
                     }
                 });
+                return rowKey;
+            }
+
+            function buildRowHtml(columns, rowData, rowDisplayData, primaryKeys, hasActions, deleteUrl, csrfParam, csrfToken) {
+                var rowKey = buildRowKey(rowData, primaryKeys);
+                var html = '<tr data-row-key="' + escapeAttr(JSON.stringify(rowKey || {})) + '" data-row-values="' + escapeAttr(JSON.stringify(rowData || {})) + '" data-row-display-values="' + escapeAttr(JSON.stringify(rowDisplayData || {})) + '">';
+                (columns || []).forEach(function(column) {
+                    var field = String(column.field || '');
+                    var value = Object.prototype.hasOwnProperty.call(rowDisplayData || {}, field)
+                        ? rowDisplayData[field]
+                        : (Object.prototype.hasOwnProperty.call(rowData || {}, field) ? rowData[field] : '');
+                    html += '<td>' + escapeHtml(toStringValue(value)) + '</td>';
+                });
+                if (hasActions) {
+                    html += '<td><div class="dt-actions">';
+                    html += '<button type="button" class="dt-btn" data-row-action="view">View</button>';
+                    html += '<button type="button" class="dt-btn" data-row-action="edit">Edit</button>';
+                    if (deleteUrl) {
+                        html += '<form method="post" action="' + escapeAttr(deleteUrl) + '" onsubmit="return confirm(\'Delete this row?\');">' +
+                            '<input type="hidden" name="' + escapeAttr(csrfParam || '_csrf') + '" value="' + escapeAttr(csrfToken || '') + '">' +
+                            '<input type="hidden" name="row_key" value="' + escapeAttr(JSON.stringify(rowKey || {})) + '">' +
+                            '<button class="dt-btn dt-btn-danger" type="submit">Delete</button>' +
+                        '</form>';
+                    }
+                    html += '</div></td>';
+                }
+                html += '</tr>';
+                return html;
+            }
+
+            function refreshDatatableInIframe(data) {
+                var doc = getIframeDocument();
+                if (!doc) {
+                    return false;
+                }
+
+                var root = doc.querySelector('[data-datatable-table-id="' + String(data && data.targetTableId ? data.targetTableId : '') + '"]');
+                if (!root) {
+                    return false;
+                }
+
+                var columns = [];
+                try {
+                    columns = JSON.parse(root.getAttribute('data-datatable-columns') || '[]') || [];
+                } catch (error) {
+                    columns = [];
+                }
+                var primaryKeys = [];
+                try {
+                    primaryKeys = JSON.parse(root.getAttribute('data-datatable-primary-keys') || '[]') || [];
+                } catch (error) {
+                    primaryKeys = [];
+                }
+                var hasActions = String(root.getAttribute('data-datatable-has-actions') || '0') === '1';
+                var tbody = root.querySelector('tbody');
+                if (!tbody) {
+                    return false;
+                }
+
+                var rowData = data && data.insertedData && typeof data.insertedData === 'object'
+                    ? data.insertedData
+                    : (data && data.submittedData && typeof data.submittedData === 'object' ? data.submittedData : null);
+                if (!rowData) {
+                    return false;
+                }
+                var rowDisplayData = data && data.submittedDisplayData && typeof data.submittedDisplayData === 'object'
+                    ? data.submittedDisplayData
+                    : rowData;
+                var rowKey = data && data.insertedRowKey && typeof data.insertedRowKey === 'object'
+                    ? data.insertedRowKey
+                    : buildRowKey(rowData, primaryKeys);
+                var rowKeyJson = JSON.stringify(rowKey || {});
+
+                var emptyCell = tbody.querySelector('.dt-empty');
+                if (emptyCell) {
+                    var emptyRow = emptyCell.closest('tr');
+                    if (emptyRow) {
+                        emptyRow.remove();
+                    }
+                }
+
+                var existingRows = tbody.querySelectorAll('tr[data-row-key]');
+                for (var i = 0; i < existingRows.length; i += 1) {
+                    if ((existingRows[i].getAttribute('data-row-key') || '') === rowKeyJson) {
+                        existingRows[i].outerHTML = buildRowHtml(columns, rowData, rowDisplayData, primaryKeys, hasActions, root.getAttribute('data-delete-url') || '', root.getAttribute('data-csrf-param') || '_csrf', root.getAttribute('data-csrf-token') || '');
+                        return true;
+                    }
+                }
+
+                tbody.insertAdjacentHTML('afterbegin', buildRowHtml(columns, rowData, rowDisplayData, primaryKeys, hasActions, root.getAttribute('data-delete-url') || '', root.getAttribute('data-csrf-param') || '_csrf', root.getAttribute('data-csrf-token') || ''));
+                return true;
             }
 
             window.addEventListener('message', function(event) {
@@ -347,7 +473,7 @@ if ($hasCustomPageSource): ?>
                 }
 
                 showSubmitToast('success', 'Data berhasil dikirim.');
-                forwardSuccessToIframe(data);
+                refreshDatatableInIframe(data);
             });
 
             document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {

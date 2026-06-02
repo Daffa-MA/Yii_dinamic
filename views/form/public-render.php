@@ -9,6 +9,7 @@
 use yii\bootstrap5\Html;
 use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
+use kartik\select2\Select2;
 use app\services\FormRenderService;
 
 $this->title = $model->name;
@@ -591,43 +592,57 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
 
                                             <?php elseif ($fieldType === 'select'): ?>
-                                                <select name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
-                                                    <option value=""><?= Html::encode($placeholder ?: '-- Pilih --') ?></option>
-                                                    <?php
-                                                    $optionsList = $resolveOptionsFromField($field);
-                                                    if (empty($optionsList) && isset($field['options'])) {
-                                                        if (is_string($field['options'])) {
-                                                            $lines = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)$field['options']) ?: []));
-                                                            foreach ($lines as $line) {
-                                                                $optionsList[] = ['value' => $line, 'label' => $line];
-                                                            }
-                                                        } elseif (is_array($field['options'])) {
-                                                            foreach ($field['options'] as $option) {
-                                                                if (is_array($option)) {
-                                                                    $value = trim((string)($option['value'] ?? ''));
-                                                                    if ($value === '') {
-                                                                        continue;
-                                                                    }
-                                                                    $label = trim((string)($option['label'] ?? $value));
-                                                                    $optionsList[] = [
-                                                                        'value' => $value,
-                                                                        'label' => $label !== '' ? $label : $value,
-                                                                    ];
-                                                                } else {
-                                                                    $option = trim((string)$option);
-                                                                    if ($option !== '') {
-                                                                        $optionsList[] = ['value' => $option, 'label' => $option];
-                                                                    }
+                                                <?php
+                                                $optionsList = $resolveOptionsFromField($field);
+                                                if (empty($optionsList) && isset($field['options'])) {
+                                                    if (is_string($field['options'])) {
+                                                        $lines = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)$field['options']) ?: []));
+                                                        foreach ($lines as $line) {
+                                                            $optionsList[] = ['value' => $line, 'label' => $line];
+                                                        }
+                                                    } elseif (is_array($field['options'])) {
+                                                        foreach ($field['options'] as $option) {
+                                                            if (is_array($option)) {
+                                                                $value = trim((string)($option['value'] ?? ''));
+                                                                if ($value === '') {
+                                                                    continue;
+                                                                }
+                                                                $label = trim((string)($option['label'] ?? $value));
+                                                                $optionsList[] = [
+                                                                    'value' => $value,
+                                                                    'label' => $label !== '' ? $label : $value,
+                                                                ];
+                                                            } else {
+                                                                $option = trim((string)$option);
+                                                                if ($option !== '') {
+                                                                    $optionsList[] = ['value' => $option, 'label' => $option];
                                                                 }
                                                             }
                                                         }
                                                     }
-                                                    foreach ($optionsList as $option):
-                                                    ?>
-                                                        <option value="<?= Html::encode((string)($option['value'] ?? '')) ?>"><?= Html::encode((string)($option['label'] ?? '')) ?></option>
-                                                    <?php endforeach; ?>
-                                                </select>
+                                                }
+                                                $selectData = [];
+                                                foreach ($optionsList as $option) {
+                                                    $value = (string)($option['value'] ?? '');
+                                                    if ($value === '') {
+                                                        continue;
+                                                    }
+                                                    $selectData[$value] = (string)($option['label'] ?? $value);
+                                                }
+                                                echo Select2::widget([
+                                                    'name' => $fieldName . (!empty($field['multiple']) ? '[]' : ''),
+                                                    'data' => $selectData,
+                                                    'options' => [
+                                                        'placeholder' => $placeholder ?: '-- Pilih --',
+                                                        'multiple' => !empty($field['multiple']),
+                                                        'required' => $required,
+                                                    ],
+                                                    'pluginOptions' => [
+                                                        'allowClear' => true,
+                                                        'width' => '100%',
+                                                    ],
+                                                ]);
+                                                ?>
 
                                             <?php elseif ($fieldType === 'checkbox'): ?>
                                                 <label class="flex items-center gap-3 cursor-pointer group">
@@ -637,6 +652,49 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                         <?= Html::encode($field['text'] ?? $fieldLabel) ?>
                                                     </span>
                                                 </label>
+
+                                            <?php elseif ($fieldType === 'checkboxes'): ?>
+                                                <?php
+                                                $checkboxOptions = $resolveOptionsFromField($field);
+                                                if (empty($checkboxOptions) && isset($field['options'])) {
+                                                    if (is_string($field['options'])) {
+                                                        $lines = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)$field['options']) ?: []));
+                                                        foreach ($lines as $line) {
+                                                            $checkboxOptions[] = ['value' => $line, 'label' => $line];
+                                                        }
+                                                    } elseif (is_array($field['options'])) {
+                                                        foreach ($field['options'] as $option) {
+                                                            if (is_array($option)) {
+                                                                $value = trim((string)($option['value'] ?? ''));
+                                                                if ($value === '') {
+                                                                    continue;
+                                                                }
+                                                                $label = trim((string)($option['label'] ?? $value));
+                                                                $checkboxOptions[] = [
+                                                                    'value' => $value,
+                                                                    'label' => $label !== '' ? $label : $value,
+                                                                ];
+                                                            } else {
+                                                                $option = trim((string)$option);
+                                                                if ($option !== '') {
+                                                                    $checkboxOptions[] = ['value' => $option, 'label' => $option];
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                ?>
+                                                <div class="space-y-2">
+                                                    <?php foreach ($checkboxOptions as $option): ?>
+                                                        <label class="flex items-center gap-3 cursor-pointer group">
+                                                            <input type="checkbox" name="<?= Html::encode($fieldName) ?>[]" value="<?= Html::encode((string)($option['value'] ?? '')) ?>" <?= $options ?>
+                                                                class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
+                                                            <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
+                                                                <?= Html::encode((string)($option['label'] ?? '')) ?>
+                                                            </span>
+                                                        </label>
+                                                    <?php endforeach; ?>
+                                                </div>
 
                                             <?php elseif ($fieldType === 'radio'): ?>
                                                 <div class="space-y-2">

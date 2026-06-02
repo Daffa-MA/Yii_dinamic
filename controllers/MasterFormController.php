@@ -1414,9 +1414,12 @@ class MasterFormController extends Controller
                     continue;
                 }
                 
-                if ($fieldType === 'checkboxes') {
-                    $values = is_array($postedValue) ? $postedValue : ($postedValue ? [$postedValue] : []);
-                    if (!empty($values)) {
+                $repeatableField = $this->shouldExpandSubmissionField($field);
+                if (is_array($postedValue)) {
+                    $values = array_values(array_filter(array_map(static fn($value) => is_scalar($value) ? trim((string)$value) : '', $postedValue), static fn(string $value): bool => $value !== ''));
+                    if ($repeatableField) {
+                        $insertData[$fieldName] = $values;
+                    } elseif (!empty($values)) {
                         $insertData[$fieldName] = implode(',', $values);
                     }
                 } elseif ($postedValue !== null && $postedValue !== '') {
@@ -1525,54 +1528,61 @@ class MasterFormController extends Controller
                 'field_mapping' => $fieldMappingDebug,
                 'fk_debug' => $fkDebugInfo,
             ], 'submit_debug');
-            $columnError = $this->validateInsertDataColumns($insertData, $columns->columns);
-            if ($columnError !== null) {
-                FormFlowDebugLogger::logSubmit([
-                    'host' => Yii::$app->request->hostInfo,
-                    'project_id' => $this->getActiveProjectId(),
-                    'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
-                    'form_id' => (int)$model->id,
-                    'target_table_id' => $tableId,
-                    'resolved_table_name' => $tableName,
-                    'metadata_found' => true,
-                    'metadata_source' => 'master_form.table_id',
-                    'submitted_fields' => array_keys($postData),
-                    'system_fields_applied' => $systemFieldsApplied,
-                    'insert_result' => 'schema_mismatch',
-                    'error' => $columnError,
-                ]);
-                Yii::warning([
-                    'target_table' => $tableName,
-                    'schema_columns' => $colNames,
-                    'raw_post_keys' => array_keys($postData),
-                    'raw_post_payload' => $postData,
-                    'normalized_payload' => $insertData,
-                    'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($insertData))),
-                    'field_mapping' => $fieldMappingDebug,
-                ], 'submit_debug');
-                if ($isAjax) {
-                    return ['success' => false, 'message' => $columnError];
-                }
-                Yii::$app->session->setFlash('error', $columnError);
-                return $this->redirect(['preview', 'id' => $id]);
+            $submissionRows = $this->buildSubmissionRows($fields, $insertData, $columns->columns);
+            if (empty($submissionRows)) {
+                $submissionRows = [$insertData];
             }
 
-            $requiredError = $this->validateRequiredInsertData($insertData, $columns->columns);
-            if ($requiredError !== null) {
-                if ($isAjax) {
-                    return ['success' => false, 'message' => $requiredError];
+            foreach ($submissionRows as $rowIndex => $rowPayload) {
+                $columnError = $this->validateInsertDataColumns($rowPayload, $columns->columns);
+                if ($columnError !== null) {
+                    FormFlowDebugLogger::logSubmit([
+                        'host' => Yii::$app->request->hostInfo,
+                        'project_id' => $this->getActiveProjectId(),
+                        'active_db' => (string)($dbContext['activeDatabase'] ?? Yii::$app->db->dsn),
+                        'form_id' => (int)$model->id,
+                        'target_table_id' => $tableId,
+                        'resolved_table_name' => $tableName,
+                        'metadata_found' => true,
+                        'metadata_source' => 'master_form.table_id',
+                        'submitted_fields' => array_keys($postData),
+                        'system_fields_applied' => $systemFieldsApplied,
+                        'insert_result' => 'schema_mismatch',
+                        'error' => $columnError,
+                    ]);
+                    Yii::warning([
+                        'target_table' => $tableName,
+                        'schema_columns' => $colNames,
+                        'raw_post_keys' => array_keys($postData),
+                        'raw_post_payload' => $postData,
+                        'normalized_payload' => $rowPayload,
+                        'rejected_fields' => array_values(array_diff(array_keys($postData), array_keys($rowPayload))),
+                        'field_mapping' => $fieldMappingDebug,
+                    ], 'submit_debug');
+                    if ($isAjax) {
+                        return ['success' => false, 'message' => $columnError];
+                    }
+                    Yii::$app->session->setFlash('error', $columnError);
+                    return $this->redirect(['preview', 'id' => $id]);
                 }
-                Yii::$app->session->setFlash('error', $requiredError);
-                return $this->redirect(['preview', 'id' => $id]);
-            }
 
-            $lengthError = $this->validateInsertDataLengths($insertData, $columns->columns);
-            if ($lengthError !== null) {
-                if ($isAjax) {
-                    return ['success' => false, 'message' => $lengthError];
+                $requiredError = $this->validateRequiredInsertData($rowPayload, $columns->columns);
+                if ($requiredError !== null) {
+                    if ($isAjax) {
+                        return ['success' => false, 'message' => $requiredError];
+                    }
+                    Yii::$app->session->setFlash('error', $requiredError);
+                    return $this->redirect(['preview', 'id' => $id]);
                 }
-                Yii::$app->session->setFlash('error', $lengthError);
-                return $this->redirect(['preview', 'id' => $id]);
+
+                $lengthError = $this->validateInsertDataLengths($rowPayload, $columns->columns);
+                if ($lengthError !== null) {
+                    if ($isAjax) {
+                        return ['success' => false, 'message' => $lengthError];
+                    }
+                    Yii::$app->session->setFlash('error', $lengthError);
+                    return $this->redirect(['preview', 'id' => $id]);
+                }
             }
             
             if (!empty($insertData)) {
@@ -1596,32 +1606,50 @@ class MasterFormController extends Controller
                     \Yii::info("Target table: $tableName", 'submit_debug');
                     \Yii::info("Data to insert: " . json_encode($insertData), 'submit_debug');
                     
-                    $cmd = $db->createCommand()->insert($tableName, $insertData);
-                    $sql = $cmd->getSql();
-                    \Yii::info("SQL: $sql", 'submit_debug');
-                    
-                    $cmd->execute();
-                    $insertedRowKey = [];
-                    if (!empty($columns->primaryKey)) {
-                        $primaryKeys = array_values((array)$columns->primaryKey);
-                        if (count($primaryKeys) === 1) {
-                            $primaryKey = (string)$primaryKeys[0];
-                            if (array_key_exists($primaryKey, $insertData) && $insertData[$primaryKey] !== null && $insertData[$primaryKey] !== '') {
-                                $insertedRowKey[$primaryKey] = $insertData[$primaryKey];
-                            } else {
-                                $lastInsertId = $db->getLastInsertID();
-                                if ($lastInsertId !== null && $lastInsertId !== '') {
-                                    $insertedRowKey[$primaryKey] = is_numeric($lastInsertId) ? (string)(int)$lastInsertId : (string)$lastInsertId;
+                    $transaction = $db->beginTransaction();
+                    $insertedRowKeys = [];
+                    $insertedRowsCount = 0;
+                    try {
+                        foreach ($submissionRows as $rowPayload) {
+                            $cmd = $db->createCommand()->insert($tableName, $rowPayload);
+                            $sql = $cmd->getSql();
+                            \Yii::info("SQL: $sql", 'submit_debug');
+
+                            $cmd->execute();
+                            $insertedRowsCount++;
+
+                            $insertedRowKey = [];
+                            if (!empty($columns->primaryKey)) {
+                                $primaryKeys = array_values((array)$columns->primaryKey);
+                                if (count($primaryKeys) === 1) {
+                                    $primaryKey = (string)$primaryKeys[0];
+                                    if (array_key_exists($primaryKey, $rowPayload) && $rowPayload[$primaryKey] !== null && $rowPayload[$primaryKey] !== '') {
+                                        $insertedRowKey[$primaryKey] = $rowPayload[$primaryKey];
+                                    } else {
+                                        $lastInsertId = $db->getLastInsertID();
+                                        if ($lastInsertId !== null && $lastInsertId !== '') {
+                                            $insertedRowKey[$primaryKey] = is_numeric($lastInsertId) ? (string)(int)$lastInsertId : (string)$lastInsertId;
+                                        }
+                                    }
+                                } else {
+                                    foreach ($primaryKeys as $primaryKey) {
+                                        $primaryKey = (string)$primaryKey;
+                                        if (array_key_exists($primaryKey, $rowPayload) && $rowPayload[$primaryKey] !== null && $rowPayload[$primaryKey] !== '') {
+                                            $insertedRowKey[$primaryKey] = $rowPayload[$primaryKey];
+                                        }
+                                    }
                                 }
                             }
-                        } else {
-                            foreach ($primaryKeys as $primaryKey) {
-                                $primaryKey = (string)$primaryKey;
-                                if (array_key_exists($primaryKey, $insertData) && $insertData[$primaryKey] !== null && $insertData[$primaryKey] !== '') {
-                                    $insertedRowKey[$primaryKey] = $insertData[$primaryKey];
-                                }
+                            if (!empty($insertedRowKey)) {
+                                $insertedRowKeys[] = $insertedRowKey;
                             }
                         }
+                        $transaction->commit();
+                    } catch (\Throwable $rowException) {
+                        if ($transaction->isActive) {
+                            $transaction->rollBack();
+                        }
+                        throw $rowException;
                     }
                     FormFlowDebugLogger::logSubmit([
                         'host' => Yii::$app->request->hostInfo,
@@ -1659,16 +1687,23 @@ class MasterFormController extends Controller
                             'tableName' => $tableName,
                             'tableId' => (int)$tableId,
                             'insertedData' => $insertData,
-                            'insertedRowKey' => !empty($insertedRowKey) ? $insertedRowKey : null,
+                            'insertedRows' => $submissionRows,
+                            'insertedRowsCount' => $insertedRowsCount,
+                            'insertedRowKey' => !empty($insertedRowKeys) ? $insertedRowKeys[0] : null,
+                            'insertedRowKeys' => !empty($insertedRowKeys) ? $insertedRowKeys : null,
                         ];
                     }
                     if ($submissionToken !== '') {
                         $this->markSubmissionTokenProcessed((int)$model->id, $submissionToken);
                     }
-                    Yii::$app->session->setFlash('success', 'Data saved! Fields: ' . implode(', ', array_keys($insertData)));
+                    $savedMessage = $insertedRowsCount > 1
+                        ? $insertedRowsCount . ' data berhasil disimpan.'
+                        : 'Data saved! Fields: ' . implode(', ', array_keys($insertData));
+                    Yii::$app->session->setFlash('success', $savedMessage);
                     $this->activityLogService->log($model, 'submit', 'success', 'Submission saved to target table.', [
                         'target_table' => $tableName,
                         'fields' => array_keys($insertData),
+                        'rows_inserted' => $insertedRowsCount,
                     ]);
                 } catch (\Exception $e) {
                     if ($submissionToken !== '') {
@@ -1821,6 +1856,125 @@ class MasterFormController extends Controller
         }
 
         return null;
+    }
+
+    private function shouldExpandSubmissionField(array $field): bool
+    {
+        $candidates = [
+            $field['save_as_multiple_rows'] ?? null,
+            $field['saveAsMultipleRows'] ?? null,
+            $field['repeat_rows'] ?? null,
+            $field['repeatRows'] ?? null,
+            $field['expand_rows'] ?? null,
+            $field['expandRows'] ?? null,
+            $field['repeat_on_multiple'] ?? null,
+            $field['repeatOnMultiple'] ?? null,
+            $field['multi_row'] ?? null,
+            $field['multiRow'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_bool($candidate) && $candidate) {
+                return true;
+            }
+            if (is_string($candidate)) {
+                $normalized = strtolower(trim($candidate));
+                if (in_array($normalized, ['1', 'true', 'yes', 'on'], true)) {
+                    return true;
+                }
+            }
+            if (is_int($candidate) && $candidate === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $fields
+     * @param array<string, mixed> $insertData
+     * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildSubmissionRows(array $fields, array $insertData, array $schemaColumns): array
+    {
+        $repeatFieldName = null;
+        $repeatValues = [];
+
+        foreach ($fields as $fieldIndex => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            if (!$this->shouldExpandSubmissionField($field)) {
+                continue;
+            }
+
+            $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+            if ($fieldName === '') {
+                $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, null, 0);
+            }
+            if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
+                continue;
+            }
+
+            $rawValue = $insertData[$fieldName];
+            if (!is_array($rawValue)) {
+                continue;
+            }
+
+            $normalizedValues = array_values(array_filter(array_map(static function ($value): string {
+                if (is_bool($value)) {
+                    return $value ? '1' : '0';
+                }
+                if (is_scalar($value)) {
+                    return trim((string)$value);
+                }
+                return '';
+            }, $rawValue), static fn(string $value): bool => $value !== ''));
+            if (empty($normalizedValues)) {
+                continue;
+            }
+
+            $repeatFieldName = $fieldName;
+            $repeatValues = $normalizedValues;
+            break;
+        }
+
+        if ($repeatFieldName === null || empty($repeatValues)) {
+            $singleRow = [];
+            foreach ($insertData as $columnName => $value) {
+                if (is_array($value)) {
+                    $singleRow[$columnName] = implode(',', array_map(static fn($item) => is_scalar($item) ? (string)$item : '', $value));
+                    continue;
+                }
+                $singleRow[$columnName] = $value;
+            }
+
+            return [$singleRow];
+        }
+
+        $rows = [];
+        foreach ($repeatValues as $repeatValue) {
+            $row = [];
+            foreach ($insertData as $columnName => $value) {
+                if ($columnName === $repeatFieldName) {
+                    $row[$columnName] = $repeatValue;
+                    continue;
+                }
+
+                if (is_array($value)) {
+                    $row[$columnName] = implode(',', array_map(static fn($item) => is_scalar($item) ? (string)$item : '', $value));
+                    continue;
+                }
+
+                $row[$columnName] = $value;
+            }
+            $rows[] = $row;
+        }
+
+        return $rows;
     }
 
     private function extractRawPostedTableData(array $postData, array $columns): array

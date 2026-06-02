@@ -1286,10 +1286,10 @@ document.addEventListener('DOMContentLoaded', function() {
         tel: { label: 'Phone', inputType: 'tel', placeholder: '+62 xxx' },
         url: { label: 'URL', inputType: 'url', placeholder: 'https://...' },
         textarea: { label: 'Textarea', inputType: 'textarea', rows: 4, placeholder: 'Masukkan teks panjang...' },
-        select: { label: 'Dropdown', inputType: 'select', options: [{value:'',label:'Pilih...'}, {value:'opt1',label:'Opsi 1'}] },
-        radio: { label: 'Radio Group', inputType: 'radio', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
+        select: { label: 'Dropdown', inputType: 'select', option_source: 'manual', dropdown_source: 'static_options', options: [{value:'',label:'Pilih...'}, {value:'opt1',label:'Opsi 1'}] },
+        radio: { label: 'Radio Group', inputType: 'radio', option_source: 'manual', dropdown_source: 'static_options', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
         checkbox: { label: 'Checkbox', inputType: 'checkbox', labelText: 'Centang ini' },
-        checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
+        checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', option_source: 'manual', dropdown_source: 'static_options', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
         date: { label: 'Date', inputType: 'date' },
         time: { label: 'Time', inputType: 'time' },
         datetime: { label: 'Date Time', inputType: 'datetime-local' },
@@ -1334,6 +1334,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function getDropdownSourceMode(field) {
         return field.dropdown_source === 'table' ? 'table' : 'manual';
+    }
+
+    function getOptionSourceMode(field) {
+        if (!field || typeof field !== 'object') {
+            return 'manual';
+        }
+        if (field.option_source === 'preset' || field.option_preset) {
+            return 'preset';
+        }
+        if (field.option_source === 'table' || field.dropdown_source === 'table') {
+            return 'table';
+        }
+        return 'manual';
     }
 
     function hasResolvedRelationConfig(field) {
@@ -1489,6 +1502,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 : (Array.isArray(field.options) ? field.options : []);
         }
 
+        if (['select', 'radio', 'checkboxes'].includes(field.type)) {
+            if (!field.option_source) {
+                field.option_source = getOptionSourceMode(field);
+            }
+            if (field.option_source === 'preset' && field.option_preset === 'calendar_months') {
+                field = applyOptionPreset(field, 'calendar_months');
+            } else if (field.option_source === 'manual') {
+                field.dropdown_source = field.dropdown_source === 'table' ? 'static_options' : (field.dropdown_source || 'static_options');
+            }
+        }
+
         return field;
     }
 
@@ -1533,6 +1557,34 @@ document.addEventListener('DOMContentLoaded', function() {
             label: opt.label ?? ('Opsi ' + (index + 1))
         }));
         return field.options;
+    }
+
+    function buildMonthOptions() {
+        return [
+            { value: '01', label: 'Januari' },
+            { value: '02', label: 'Februari' },
+            { value: '03', label: 'Maret' },
+            { value: '04', label: 'April' },
+            { value: '05', label: 'Mei' },
+            { value: '06', label: 'Juni' },
+            { value: '07', label: 'Juli' },
+            { value: '08', label: 'Agustus' },
+            { value: '09', label: 'September' },
+            { value: '10', label: 'Oktober' },
+            { value: '11', label: 'November' },
+            { value: '12', label: 'Desember' }
+        ];
+    }
+
+    function applyOptionPreset(field, preset) {
+        if (!field || preset !== 'calendar_months') {
+            return field;
+        }
+        field.option_source = 'preset';
+        field.option_preset = 'calendar_months';
+        field.dropdown_source = 'preset';
+        field.options = buildMonthOptions();
+        return field;
     }
 
     function getCurrentBuilderTableId() {
@@ -1763,6 +1815,7 @@ document.addEventListener('DOMContentLoaded', function() {
             field.label = relationLabel;
         }
 
+        field.option_source = 'table';
         field.dropdown_source = 'table';
         field.is_foreign_key = true;
         field.source_column_id = fkColumn.id;
@@ -2106,13 +2159,20 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
-        if (field.type === 'select') {
-            const sourceMode = getDropdownSourceMode(field);
-            html += '<div class="prop-section"><div class="prop-section-title">Dropdown Source</div>';
-            html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setDropdownSourceMode(this.value)">';
-            html += '<option value="manual"' + boolAttr('selected', sourceMode === 'manual') + '>Manual Options</option>';
-            html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Ambil dari Table</option>';
+        if (['select', 'radio', 'checkboxes'].includes(field.type)) {
+            const sourceMode = getOptionSourceMode(field);
+            html += '<div class="prop-section"><div class="prop-section-title">Option Source</div>';
+            html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setOptionSourceMode(this.value)">';
+            html += '<option value="manual"' + boolAttr('selected', sourceMode === 'manual') + '>Manual</option>';
+            html += '<option value="preset"' + boolAttr('selected', sourceMode === 'preset') + '>Preset</option>';
+            html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Dari Table</option>';
             html += '</select></div>';
+            if (sourceMode === 'preset') {
+                html += '<div class="prop-group"><label class="prop-label">Preset</label><select class="prop-select" onchange="setOptionPreset(this.value)">';
+                html += '<option value="calendar_months"' + boolAttr('selected', field.option_preset === 'calendar_months') + '>Calendar Months / Bulan Kalender</option>';
+                html += '</select></div>';
+                html += '<small style="display:block;color:#64748b;line-height:1.5;">Value yang disimpan ke database: 01 sampai 12. Label hanya untuk tampilan.</small>';
+            }
             if (sourceMode === 'table') {
                 const fkPanelState = getCurrentTableForeignKeyPanelState();
                 if (!fkPanelState.tableId) {
@@ -2129,7 +2189,7 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
-        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key && getDropdownSourceMode(field) !== 'table') {
+        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key && getOptionSourceMode(field) === 'manual') {
             const options = normalizeChoiceOptions(field);
             html += '<div class="prop-section"><div class="prop-section-title">Options</div>';
             html += '<div class="prop-group">';
@@ -2205,10 +2265,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (propName === 'type') {
             formFields[selectedIndex].inputType = getInputType(value);
             if (['select', 'radio', 'checkboxes'].includes(value)) {
+                if (!formFields[selectedIndex].option_source) {
+                    formFields[selectedIndex].option_source = 'manual';
+                    formFields[selectedIndex].dropdown_source = 'static_options';
+                }
                 normalizeChoiceOptions(formFields[selectedIndex]);
             }
             if (value !== 'select') {
-                formFields[selectedIndex].dropdown_source = 'static_options';
+                if (formFields[selectedIndex].option_source !== 'table') {
+                    formFields[selectedIndex].dropdown_source = 'static_options';
+                }
             }
         }
         renderFields();
@@ -2247,7 +2313,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setDropdownSourceMode = function(mode) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
+        field.option_source = mode === 'table' ? 'table' : 'manual';
         field.dropdown_source = mode === 'table' ? 'table' : 'static_options';
+        field.option_preset = '';
         if (mode !== 'table') {
             resetDropdownTableSourceField(field);
             normalizeChoiceOptions(field);
@@ -2267,10 +2335,62 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
+    window.setOptionSourceMode = function(mode) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.option_source = mode;
+
+        if (mode === 'preset') {
+            applyOptionPreset(field, field.option_preset || 'calendar_months');
+            normalizeFieldState(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+            return;
+        }
+
+        if (mode === 'table') {
+            field.dropdown_source = 'table';
+            field.option_preset = '';
+            field.options = [];
+            ensureCurrentTableForeignKeyColumnsLoaded().then(function() {
+                if (!field.source_column_id) {
+                    field.is_foreign_key = false;
+                }
+                normalizeFieldState(field);
+                renderFields();
+                renderPropsPanel(field);
+                updateData();
+            });
+            return;
+        }
+
+        field.option_source = 'manual';
+        field.option_preset = '';
+        field.dropdown_source = 'static_options';
+        resetDropdownTableSourceField(field);
+        normalizeChoiceOptions(field);
+        normalizeFieldState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.setOptionPreset = function(preset) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        applyOptionPreset(field, preset);
+        normalizeFieldState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
     window.setDropdownSourceForeignKey = function(columnId) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
         if (!columnId) {
+            field.option_source = 'table';
             field.dropdown_source = 'table';
             field.source_column_id = '';
             resetDropdownTableSourceField(field);
@@ -2298,6 +2418,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
         const table = dropdownSourceTables.find(item => String(item.id) === String(tableId));
+        field.option_source = 'table';
         field.dropdown_source = 'table';
         field.source_table_id = tableId ? parseInt(tableId, 10) : '';
         field.source_table_name = table ? table.name : '';
@@ -2334,6 +2455,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setDropdownSourceColumn = function(propName, value) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
+        field.option_source = 'table';
         field.dropdown_source = 'table';
         field[propName] = value;
         refreshDropdownOptionsFromTable(field).then(function() {

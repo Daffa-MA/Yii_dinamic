@@ -278,6 +278,43 @@ class MasterFormController extends Controller
         return !empty($store[(string)$formId][$token]);
     }
 
+    private function reserveSubmissionToken(int $formId, string $token): bool
+    {
+        $token = trim($token);
+        if ($formId <= 0 || $token === '') {
+            return true;
+        }
+
+        $store = $this->getSubmissionTokenStore();
+        if (!isset($store[(string)$formId]) || !is_array($store[(string)$formId])) {
+            $store[(string)$formId] = [];
+        }
+        if (!empty($store[(string)$formId][$token])) {
+            return false;
+        }
+
+        $store[(string)$formId][$token] = [
+            'status' => 'processing',
+            'reserved_at' => date('Y-m-d H:i:s'),
+        ];
+        Yii::$app->session->set('master_form_submission_tokens', $store);
+        return true;
+    }
+
+    private function releaseSubmissionToken(int $formId, string $token): void
+    {
+        $token = trim($token);
+        if ($formId <= 0 || $token === '') {
+            return;
+        }
+
+        $store = $this->getSubmissionTokenStore();
+        if (isset($store[(string)$formId][$token])) {
+            unset($store[(string)$formId][$token]);
+            Yii::$app->session->set('master_form_submission_tokens', $store);
+        }
+    }
+
     private function markSubmissionTokenProcessed(int $formId, string $token): void
     {
         $token = trim($token);
@@ -290,6 +327,7 @@ class MasterFormController extends Controller
             $store[(string)$formId] = [];
         }
         $store[(string)$formId][$token] = [
+            'status' => 'processed',
             'processed_at' => date('Y-m-d H:i:s'),
         ];
         Yii::$app->session->set('master_form_submission_tokens', $store);
@@ -1539,6 +1577,19 @@ class MasterFormController extends Controller
             
             if (!empty($insertData)) {
                 try {
+                    if ($submissionToken !== '' && !$this->reserveSubmissionToken((int)$model->id, $submissionToken)) {
+                        $message = 'Pengiriman duplikat diabaikan.';
+                        if ($isAjax) {
+                            return [
+                                'success' => true,
+                                'message' => $message,
+                                'duplicate' => true,
+                            ];
+                        }
+                        Yii::$app->session->setFlash('success', $message);
+                        return $this->redirect(['preview', 'id' => $id]);
+                    }
+
                     $dbDsn = $db->dsn;
                     \Yii::info("=== SUBMIT DEBUG ===", 'submit_debug');
                     \Yii::info("DB DSN: $dbDsn", 'submit_debug');
@@ -1617,6 +1668,9 @@ class MasterFormController extends Controller
                         'fields' => array_keys($insertData),
                     ]);
                 } catch (\Exception $e) {
+                    if ($submissionToken !== '') {
+                        $this->releaseSubmissionToken((int)$model->id, $submissionToken);
+                    }
                     $message = $this->buildFriendlySaveErrorMessage($e, $columns->columns);
                     FormFlowDebugLogger::logSubmit([
                         'host' => Yii::$app->request->hostInfo,

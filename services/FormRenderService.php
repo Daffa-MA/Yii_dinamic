@@ -676,6 +676,41 @@ class FormRenderService
         return !!(form && form.querySelector('input[name="_embedded"]'));
     }
 
+    function createSubmitRequestId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return 'submit_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+    }
+
+    function rotateSubmitRequestId(form) {
+        var tokenInput = form ? form.querySelector('input[name="_submit_request_id"]') : null;
+        if (tokenInput) {
+            tokenInput.value = createSubmitRequestId();
+        }
+    }
+
+    function getCustomFormFields() {
+        var fields = [];
+        var seen = {};
+        var controls = document.querySelectorAll('input[name], select[name], textarea[name]');
+        controls.forEach(function(control) {
+            var name = String(control.name || '').replace(/\[\]$/, '');
+            if (!name || name.charAt(0) === '_' || seen[name]) {
+                return;
+            }
+            seen[name] = true;
+            var type = (control.type || '').toLowerCase();
+            var tag = String(control.tagName || '').toLowerCase();
+            fields.push({
+                field: name,
+                name: name,
+                inputType: tag === 'select' ? 'select' : (type || tag || 'text')
+            });
+        });
+        return fields;
+    }
+
     function collectValuesFromCustomMarkup(rootEl) {
         var values = {};
         var fields = getCustomFormFields();
@@ -900,6 +935,9 @@ class FormRenderService
                         insertedRowKey: data && data.insertedRowKey ? data.insertedRowKey : null,
                         duplicate: !!(data && data.duplicate)
                     }, '*');
+                }
+                if (data && data.success && !data.duplicate) {
+                    rotateSubmitRequestId(form);
                 }
             })
             .catch(function(error) {

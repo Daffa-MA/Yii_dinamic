@@ -10,6 +10,7 @@
 /** @var string|null $heroText */
 /** @var string|null $submitLabel */
 /** @var string|null $sqlError */
+/** @var array|null $sqlDebug */
 
 use app\models\DbTableColumn;
 use yii\bootstrap5\ActiveForm;
@@ -54,6 +55,7 @@ $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16
 $builderMode = $builderMode ?? 'manual';
 $rawSql = $rawSql ?? '';
 $sqlError = $sqlError ?? null;
+$sqlDebug = $sqlDebug ?? null;
 $tableBuilderSuccess = Yii::$app->session->getFlash('tableBuilderSuccess');
 $tableBuilderError = Yii::$app->session->getFlash('tableBuilderError');
 $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
@@ -318,6 +320,30 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
     word-break: break-word;
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
     font-size: 13px;
+}
+
+.table-create-page .sql-debug-grid {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.table-create-page .sql-debug-grid strong {
+    color: #7f1d1d;
+}
+
+.table-create-page .sql-debug-pre {
+    margin: 8px 0 0;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(254, 202, 202, 0.85);
+    color: #7f1d1d;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
 }
 
 .table-create-page .sql-editor-toolbar {
@@ -857,11 +883,24 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                             <li>Setelah dijalankan, table akan masuk ke metadata table builder otomatis</li>
                         </ul>
                         <?php if (!empty($sqlError)) : ?>
-                            <div class="sql-error">
+                            <div class="sql-error" id="sql-debug-result">
                                 <strong>SQL gagal dijalankan.</strong>
                                 <div>Periksa syntax atau statement terakhir yang diproses.</div>
                                 <code><?= Html::encode($sqlError) ?></code>
+                                <?php if (!empty($sqlDebug)) : ?>
+                                    <div class="sql-debug-grid">
+                                        <div><strong>Success:</strong> <?= Html::encode(var_export((bool)($sqlDebug['success'] ?? false), true)) ?></div>
+                                        <div><strong>SQLSTATE:</strong> <?= Html::encode($sqlDebug['sqlstate'] ?? '-') ?></div>
+                                        <div><strong>Error Code:</strong> <?= Html::encode((string)($sqlDebug['error_code'] ?? '-')) ?></div>
+                                        <div><strong>Failed Statement:</strong></div>
+                                        <pre class="sql-debug-pre"><?= Html::encode((string)($sqlDebug['failed_statement'] ?? '-')) ?></pre>
+                                        <div><strong>Created Table:</strong> <?= Html::encode((string)($sqlDebug['created_table_name'] ?? '-')) ?></div>
+                                        <div><strong>Parsed Columns:</strong> <?= Html::encode((string)count((array)($sqlDebug['parsed_columns'] ?? []))) ?></div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
+                        <?php else : ?>
+                            <div class="sql-error" id="sql-debug-result" style="display:none;"></div>
                         <?php endif; ?>
                         <div class="sql-warning">
                             Gunakan query ini untuk schema, bukan untuk manipulasi data. Jika ragu, jalankan satu table dulu.
@@ -1163,6 +1202,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const sqlSampleBtn = document.getElementById('sql-sample-btn');
     const sqlSubmitBtn = document.getElementById('sql-submit-btn');
     const primarySubmitBtn = document.getElementById('primary-submit-btn');
+    const tableForm = document.getElementById('table-form');
+    const sqlDebugResult = document.getElementById('sql-debug-result');
     const manualSubmitLabel = <?= \yii\helpers\Json::encode($submitLabel) ?>;
     let sqlEditor = null;
     const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
@@ -1258,6 +1299,46 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             return value;
         }
+    }
+
+    function escapeHtml(value) {
+        return (value === null || value === undefined ? '' : String(value))
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderSqlDebugResult(payload) {
+        if (!sqlDebugResult) {
+            return;
+        }
+
+        if (!payload) {
+            sqlDebugResult.style.display = 'none';
+            sqlDebugResult.innerHTML = '';
+            return;
+        }
+
+        sqlDebugResult.style.display = '';
+        const details = [
+            '<strong>SQL gagal dijalankan.</strong>',
+            '<div>' + escapeHtml(payload.message || 'Terjadi kesalahan saat memproses SQL.') + '</div>',
+            '<code>' + escapeHtml(payload.sql_error || payload.message || '-') + '</code>',
+            '<div class="sql-debug-grid">' +
+                '<div><strong>Success:</strong> ' + escapeHtml(payload.success ? 'true' : 'false') + '</div>' +
+                '<div><strong>Stage:</strong> ' + escapeHtml(payload.stage || '-') + '</div>' +
+                '<div><strong>SQLSTATE:</strong> ' + escapeHtml(payload.sqlstate || '-') + '</div>' +
+                '<div><strong>Error Code:</strong> ' + escapeHtml(payload.error_code || '-') + '</div>' +
+                '<div><strong>Failed Statement:</strong></div>' +
+                '<pre class="sql-debug-pre">' + escapeHtml(payload.failed_statement || '-') + '</pre>' +
+                '<div><strong>Created Table:</strong> ' + escapeHtml(payload.created_table_name || '-') + '</div>' +
+                '<div><strong>Parsed Columns:</strong> ' + escapeHtml((payload.parsed_columns && typeof payload.parsed_columns === 'object') ? Object.keys(payload.parsed_columns).length : 0) + '</div>' +
+            '</div>'
+        ];
+
+        sqlDebugResult.innerHTML = details.join('');
     }
 
     function fkDebugLog(stage, payload) {
@@ -1358,7 +1439,11 @@ document.addEventListener('DOMContentLoaded', function () {
         element.addEventListener('change', updateSummary);
     });
 
-    document.getElementById('table-form').addEventListener('submit', function (event) {
+    if (sqlDebugResult && <?= !empty($sqlDebug) ? 'true' : 'false' ?>) {
+        renderSqlDebugResult(<?= \yii\helpers\Json::encode($sqlDebug) ?>);
+    }
+
+    tableForm.addEventListener('submit', function (event) {
         if (getBuilderMode() === 'sql') {
             if (sqlEditor && sqlTextarea) {
                 sqlTextarea.value = sqlEditor.getValue();
@@ -1368,8 +1453,49 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Paste SQL schema terlebih dahulu.');
                 return false;
             }
+            event.preventDefault();
             setSubmittingState(true);
-            return;
+            renderSqlDebugResult(null);
+
+            if (typeof fetch !== 'function') {
+                tableForm.submit();
+                return false;
+            }
+
+            fetch(tableForm.action || window.location.href, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+                body: new FormData(tableForm)
+            })
+                .then(function (response) {
+                    return response.json().then(function (payload) {
+                        return { ok: response.ok, payload: payload };
+                    }).catch(function () {
+                        return { ok: response.ok, payload: null };
+                    });
+                })
+                .then(function (result) {
+                    setSubmittingState(false);
+                    const payload = result.payload || {};
+                    if (result.ok && payload.success) {
+                        window.location.href = payload.redirect_url || (tableForm.action || window.location.href);
+                        return;
+                    }
+
+                    renderSqlDebugResult(payload);
+                    if (!payload || !payload.message) {
+                        alert('SQL gagal dijalankan.');
+                    }
+                })
+                .catch(function () {
+                    setSubmittingState(false);
+                    alert('Gagal mengirim SQL editor.');
+                });
+
+            return false;
         }
 
         if (columns.length === 0) {

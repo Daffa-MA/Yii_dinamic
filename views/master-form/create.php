@@ -1477,6 +1477,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (typeof field.inputType === 'string') {
             field.inputType = field.inputType.toLowerCase();
         }
+        if (field.type === 'checkboxes') {
+            field.inputType = 'checkboxes';
+        }
 
         if (field.type === 'select' && isRelationField(field)) {
             field.options = Array.isArray(field.fk_options) && field.fk_options.length > 0
@@ -1937,7 +1940,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 `</div>`;
         }
         
-        const type = String(field.inputType || field.type || 'text').toLowerCase();
+        const componentType = String(field.type || field.field_type || '').toLowerCase();
+        const type = componentType === 'checkboxes'
+            ? 'checkboxes'
+            : String(field.inputType || field.type || 'text').toLowerCase();
         const placeholders = {
             text: 'Input text...',
             email: 'email@example.com',
@@ -1954,7 +1960,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputType = {
             text: 'text', email: 'email', password: 'password', number: 'number',
             tel: 'tel', url: 'url', textarea: 'textarea', select: 'select',
-            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkbox',
+            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkboxes',
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };
@@ -3450,7 +3456,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const types = {
             text: 'text', email: 'email', password: 'password', number: 'number',
             tel: 'tel', url: 'url', textarea: 'textarea', select: 'select',
-            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkbox', boolean: 'boolean',
+            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkboxes', boolean: 'boolean',
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };

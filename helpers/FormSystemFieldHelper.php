@@ -51,6 +51,11 @@ class FormSystemFieldHelper
 
     public static function resolveFieldInputType(array $field): string
     {
+        $componentType = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? '')));
+        if (in_array($componentType, ['select', 'radio', 'checkboxes'], true)) {
+            return $componentType;
+        }
+
         if (self::isBooleanColumn($field)) {
             return 'boolean';
         }

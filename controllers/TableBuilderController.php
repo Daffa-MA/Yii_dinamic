@@ -7,6 +7,7 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
 use yii\db\Connection;
+use yii\helpers\Url;
 use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
@@ -1425,7 +1426,7 @@ class TableBuilderController extends Controller
                     'existed_before_execute' => $executionResult['existed_before_execute'] ?? null,
                     'exists_after_execute' => $executionResult['exists_after_execute'] ?? null,
                     'executed_statement_count' => $executionResult['executed_statement_count'] ?? null,
-                    'redirect_url' => $this->createUrl(['index']),
+                    'redirect_url' => Url::to(['table-builder/index']),
                 ];
 
                 if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {

@@ -892,6 +892,9 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                                         <div><strong>Success:</strong> <?= Html::encode(var_export((bool)($sqlDebug['success'] ?? false), true)) ?></div>
                                         <div><strong>Active Database:</strong> <?= Html::encode($sqlDebug['active_database'] ?? '-') ?></div>
                                         <div><strong>Table Name:</strong> <?= Html::encode($sqlDebug['table_name'] ?? '-') ?></div>
+                                        <div><strong>Existed Before:</strong> <?= Html::encode(var_export((bool)($sqlDebug['existed_before_execute'] ?? false), true)) ?></div>
+                                        <div><strong>Exists After:</strong> <?= Html::encode(var_export((bool)($sqlDebug['exists_after_execute'] ?? false), true)) ?></div>
+                                        <div><strong>Executed Statements:</strong> <?= Html::encode((string)($sqlDebug['executed_statement_count'] ?? '-')) ?></div>
                                         <div><strong>SQLSTATE:</strong> <?= Html::encode($sqlDebug['sqlstate'] ?? '-') ?></div>
                                         <div><strong>Error Code:</strong> <?= Html::encode((string)($sqlDebug['error_code'] ?? '-')) ?></div>
                                         <div><strong>Physical Table Exists:</strong> <?= Html::encode(var_export((bool)($sqlDebug['physical_table_exists'] ?? false), true)) ?></div>
@@ -1346,6 +1349,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<div><strong>Success:</strong> ' + escapeHtml(payload.success ? 'true' : 'false') + '</div>' +
                 '<div><strong>Active Database:</strong> ' + escapeHtml(payload.active_database || '-') + '</div>' +
                 '<div><strong>Table Name:</strong> ' + escapeHtml(payload.table_name || '-') + '</div>' +
+                '<div><strong>Existed Before:</strong> ' + escapeHtml(payload.existed_before_execute === true ? 'true' : 'false') + '</div>' +
+                '<div><strong>Exists After:</strong> ' + escapeHtml(payload.exists_after_execute === true ? 'true' : 'false') + '</div>' +
+                '<div><strong>Executed Statements:</strong> ' + escapeHtml(payload.executed_statement_count !== undefined && payload.executed_statement_count !== null ? payload.executed_statement_count : '-') + '</div>' +
                 '<div><strong>Stage:</strong> ' + escapeHtml(payload.stage || '-') + '</div>' +
                 '<div><strong>SQLSTATE:</strong> ' + escapeHtml(payload.sqlstate || '-') + '</div>' +
                 '<div><strong>Error Code:</strong> ' + escapeHtml(payload.error_code || '-') + '</div>' +

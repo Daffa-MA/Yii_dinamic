@@ -43,11 +43,15 @@ class DynamicFormBehaviorDetector
                 }
 
                 if (isset($directColumns[$targetField])) {
-                    $autoFillRules[] = [
+                    $rule = [
                         'trigger_field' => $triggerField,
                         'target_field' => $targetField,
                         'source_path' => $triggerField . '.' . $targetField,
                     ];
+                    if ($this->looksMoneyLike($targetField)) {
+                        $rule['format'] = 'currency_idr';
+                    }
+                    $autoFillRules[] = $rule;
                     continue;
                 }
 
@@ -57,12 +61,16 @@ class DynamicFormBehaviorDetector
                     if ($matchedColumn === null) {
                         continue;
                     }
-                    $autoFillRules[] = [
+                    $rule = [
                         'trigger_field' => $triggerField,
                         'target_field' => $targetField,
                         'source_path' => $triggerField . '.' . $nestedField . '.' . $matchedColumn,
                         'fill_when_empty' => $this->isLikelyUserEditable($fieldMap[$targetField]),
                     ];
+                    if ($this->looksMoneyLike($matchedColumn) || $this->looksMoneyLike($targetField)) {
+                        $rule['format'] = 'currency_idr';
+                    }
+                    $autoFillRules[] = $rule;
                     break;
                 }
             }
@@ -122,10 +130,12 @@ class DynamicFormBehaviorDetector
     private function summaryConfig(array $fields, array $autoFillRules): array
     {
         $multipleField = '';
+        $multipleLabel = 'Item';
         foreach ($fields as $field) {
             $type = strtolower((string)($field['type'] ?? $field['inputType'] ?? ''));
             if ($type === 'checkboxes') {
                 $multipleField = (string)($field['name'] ?? $field['field_name'] ?? '');
+                $multipleLabel = trim((string)($field['label'] ?? $field['field_label'] ?? '')) ?: ucwords(str_replace('_', ' ', $multipleField));
                 break;
             }
         }
@@ -142,6 +152,10 @@ class DynamicFormBehaviorDetector
                 $amountField = $target;
                 break;
             }
+            if ($target !== '' && (string)($rule['format'] ?? '') === 'currency_idr') {
+                $amountField = $target;
+                break;
+            }
         }
         if ($amountField === '') {
             return [];
@@ -150,10 +164,10 @@ class DynamicFormBehaviorDetector
         return [
             'enabled' => true,
             'items' => [
-                ['label' => 'Jumlah dipilih', 'type' => 'count_selected', 'field' => $multipleField],
-                ['label' => 'Nominal per item', 'type' => 'field_value', 'field' => $amountField, 'format' => 'currency_idr'],
+                ['label' => 'Jumlah ' . $multipleLabel . ' Dipilih', 'type' => 'count_selected', 'field' => $multipleField],
+                ['label' => 'Nominal per ' . $multipleLabel, 'type' => 'field_value', 'field' => $amountField, 'format' => 'currency_idr'],
                 [
-                    'label' => 'Total',
+                    'label' => 'Total Bayar',
                     'type' => 'multiply',
                     'left' => ['type' => 'field_value', 'field' => $amountField],
                     'right' => ['type' => 'count_selected', 'field' => $multipleField],

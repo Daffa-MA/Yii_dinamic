@@ -676,6 +676,96 @@ class FormRenderService
         return !!(form && form.querySelector('input[name="_embedded"]'));
     }
 
+    function collectValuesFromCustomMarkup(rootEl) {
+        var values = {};
+        var fields = getCustomFormFields();
+        fields.forEach(function(field) {
+            var fieldName = field.field || field.name || '';
+            if (!fieldName) {
+                return;
+            }
+            var inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+            if (!inputs || !inputs.length) {
+                return;
+            }
+
+            var firstInput = inputs[0];
+            var type = (firstInput.type || '').toLowerCase();
+            if (field.inputType === 'checkboxes') {
+                values[fieldName] = Array.prototype.slice.call(inputs)
+                    .filter(function(input) { return input.checked; })
+                    .map(function(input) { return String(input.value || ''); });
+                return;
+            }
+            if (field.inputType === 'radio') {
+                var selected = Array.prototype.slice.call(inputs).find(function(input) {
+                    return input.checked;
+                });
+                values[fieldName] = selected ? selected.value : '';
+                return;
+            }
+            if (field.inputType === 'boolean' || field.inputType === 'checkbox' || type === 'checkbox') {
+                values[fieldName] = firstInput.checked ? 1 : 0;
+                return;
+            }
+            values[fieldName] = firstInput.value;
+        });
+        return values;
+    }
+
+    function collectDisplayValuesFromCustomMarkup(rootEl) {
+        var values = {};
+        var fields = getCustomFormFields();
+        fields.forEach(function(field) {
+            var fieldName = field.field || field.name || '';
+            if (!fieldName) {
+                return;
+            }
+            var inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+            if (!inputs || !inputs.length) {
+                return;
+            }
+
+            var firstInput = inputs[0];
+            var type = (firstInput.type || '').toLowerCase();
+            if (field.inputType === 'checkboxes') {
+                values[fieldName] = Array.prototype.slice.call(inputs)
+                    .filter(function(input) { return input.checked; })
+                    .map(function(input) {
+                        var label = input && input.closest ? input.closest('label') : null;
+                        return label ? String(label.textContent || '').trim() : String(input.value || '');
+                    })
+                    .filter(function(item) {
+                        return String(item || '').trim() !== '';
+                    });
+                return;
+            }
+            if (field.inputType === 'radio') {
+                var selected = Array.prototype.slice.call(inputs).find(function(input) {
+                    return input.checked;
+                });
+                if (!selected) {
+                    values[fieldName] = '';
+                    return;
+                }
+                var selectedLabel = selected.closest ? selected.closest('label') : null;
+                values[fieldName] = selectedLabel ? String(selectedLabel.textContent || '').trim() : String(selected.value || '');
+                return;
+            }
+            if (field.inputType === 'boolean' || field.inputType === 'checkbox' || type === 'checkbox') {
+                values[fieldName] = firstInput.checked ? 1 : 0;
+                return;
+            }
+            if (firstInput.tagName === 'SELECT') {
+                var selectedOption = firstInput.options && firstInput.selectedIndex >= 0 ? firstInput.options[firstInput.selectedIndex] : null;
+                values[fieldName] = selectedOption ? String(selectedOption.textContent || selectedOption.value || '').trim() : String(firstInput.value || '');
+                return;
+            }
+            values[fieldName] = firstInput.value;
+        });
+        return values;
+    }
+
     function showCustomFormAlert(type, message) {
         var existing = document.getElementById('custom-form-submit-alert');
         if (existing) existing.remove();
@@ -795,9 +885,19 @@ class FormRenderService
             .then(function(data) {
                 showCustomFormAlert(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
                 if (data && data.success && window.parent && window.parent !== window) {
+                    var targetTableInput = form.querySelector('input[name="_datatable_target_table_id"]');
+                    var targetTableId = targetTableInput ? parseInt(targetTableInput.value || '0', 10) : 0;
+                    var submittedData = collectValuesFromCustomMarkup(form);
+                    var submittedDisplayData = collectDisplayValuesFromCustomMarkup(form);
                     window.parent.postMessage({
                         type: 'custom-form-submit-success',
-                        source: 'embedded-custom-form'
+                        source: 'embedded-custom-form',
+                        targetTableId: targetTableId > 0 ? targetTableId : null,
+                        formId: form.getAttribute('data-form-id') ? parseInt(form.getAttribute('data-form-id'), 10) : null,
+                        submittedData: submittedData,
+                        submittedDisplayData: submittedDisplayData,
+                        insertedData: data && data.insertedData ? data.insertedData : null,
+                        insertedRowKey: data && data.insertedRowKey ? data.insertedRowKey : null
                     }, '*');
                 }
             })

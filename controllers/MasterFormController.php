@@ -1502,6 +1502,28 @@ class MasterFormController extends Controller
                     \Yii::info("SQL: $sql", 'submit_debug');
                     
                     $cmd->execute();
+                    $insertedRowKey = [];
+                    if (!empty($columns->primaryKey)) {
+                        $primaryKeys = array_values((array)$columns->primaryKey);
+                        if (count($primaryKeys) === 1) {
+                            $primaryKey = (string)$primaryKeys[0];
+                            if (array_key_exists($primaryKey, $insertData) && $insertData[$primaryKey] !== null && $insertData[$primaryKey] !== '') {
+                                $insertedRowKey[$primaryKey] = $insertData[$primaryKey];
+                            } else {
+                                $lastInsertId = $db->getLastInsertID();
+                                if ($lastInsertId !== null && $lastInsertId !== '') {
+                                    $insertedRowKey[$primaryKey] = is_numeric($lastInsertId) ? (string)(int)$lastInsertId : (string)$lastInsertId;
+                                }
+                            }
+                        } else {
+                            foreach ($primaryKeys as $primaryKey) {
+                                $primaryKey = (string)$primaryKey;
+                                if (array_key_exists($primaryKey, $insertData) && $insertData[$primaryKey] !== null && $insertData[$primaryKey] !== '') {
+                                    $insertedRowKey[$primaryKey] = $insertData[$primaryKey];
+                                }
+                            }
+                        }
+                    }
                     FormFlowDebugLogger::logSubmit([
                         'host' => Yii::$app->request->hostInfo,
                         'project_id' => $this->getActiveProjectId(),
@@ -1525,10 +1547,15 @@ class MasterFormController extends Controller
                         $checkRows = $db->createCommand("SELECT * FROM $tableName $orderBy LIMIT 1")->queryAll();
                         \Yii::info("Last row after insert: " . json_encode($checkRows), 'submit_debug');
                     }
-                    
+
                     $successMessage = 'Data berhasil dikirim.';
                     if ($isAjax) {
-                        return ['success' => true, 'message' => $successMessage];
+                        return [
+                            'success' => true,
+                            'message' => $successMessage,
+                            'insertedData' => $insertData,
+                            'insertedRowKey' => !empty($insertedRowKey) ? $insertedRowKey : null,
+                        ];
                     }
                     Yii::$app->session->setFlash('success', 'Data saved! Fields: ' . implode(', ', array_keys($insertData)));
                     $this->activityLogService->log($model, 'submit', 'success', 'Submission saved to target table.', [

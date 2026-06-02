@@ -1075,6 +1075,25 @@ class MasterFormController extends Controller
         ]);
     }
 
+    public function actionResolveAutofill($form_id = null, $trigger_field = null, $trigger_value = null)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $formId = (int)($form_id ?? Yii::$app->request->get('form_id', 0));
+        $triggerField = trim((string)($trigger_field ?? Yii::$app->request->get('trigger_field', '')));
+        $triggerValue = Yii::$app->request->get('trigger_value', $trigger_value);
+        if ($formId <= 0 || $triggerField === '' || $triggerValue === null || $triggerValue === '') {
+            return ['success' => false, 'message' => 'Parameter auto fill tidak lengkap.'];
+        }
+
+        $model = MasterForm::findByIdScoped($formId);
+        if ($model === null) {
+            return ['success' => false, 'message' => 'Form tidak ditemukan.'];
+        }
+
+        return $this->resolveAutoFillRulesResponse($model, $triggerField, $triggerValue);
+    }
+
     public function actionView($id)
     {
         $model = $this->findScopedModel($id);
@@ -1463,6 +1482,8 @@ class MasterFormController extends Controller
                     }
                 }
             }
+            $behaviorConfig = $this->getDynamicFormBehaviorConfig($model);
+            $insertData = $this->applyDynamicAutoFillRules($model, $insertData, $behaviorConfig, $fields, $db);
 
             $preSystemInsertData = $insertData;
             if (empty($preSystemInsertData)) {
@@ -1528,9 +1549,20 @@ class MasterFormController extends Controller
                 'field_mapping' => $fieldMappingDebug,
                 'fk_debug' => $fkDebugInfo,
             ], 'submit_debug');
-            $submissionRows = $this->buildSubmissionRows($fields, $insertData, $columns->columns);
+            $submissionRows = $this->buildSubmissionRows($fields, $insertData, $columns->columns, $behaviorConfig);
             if (empty($submissionRows)) {
                 $submissionRows = [$insertData];
+            }
+            foreach ($submissionRows as $submissionRowIndex => $submissionRow) {
+                $submissionRows[$submissionRowIndex] = $this->applyDynamicAutoFillRules($model, $submissionRow, $behaviorConfig, $fields, $db);
+            }
+            $dynamicValidationError = $this->validateDynamicFormBehaviorRows($submissionRows, $behaviorConfig, $db, $tableName);
+            if ($dynamicValidationError !== null) {
+                if ($isAjax) {
+                    return ['success' => false, 'message' => $dynamicValidationError];
+                }
+                Yii::$app->session->setFlash('error', $dynamicValidationError);
+                return $this->redirect(['preview', 'id' => $id]);
             }
 
             foreach ($submissionRows as $rowIndex => $rowPayload) {
@@ -1897,49 +1929,41 @@ class MasterFormController extends Controller
      * @param array<string, \yii\db\ColumnSchema> $schemaColumns
      * @return array<int, array<string, mixed>>
      */
-    private function buildSubmissionRows(array $fields, array $insertData, array $schemaColumns): array
+    private function buildSubmissionRows(array $fields, array $insertData, array $schemaColumns, array $behaviorConfig = []): array
     {
         $repeatFieldName = null;
         $repeatValues = [];
 
-        foreach ($fields as $fieldIndex => $field) {
-            if (!is_array($field)) {
-                continue;
+        if (($behaviorConfig['submit_mode'] ?? 'normal_insert') === 'multiple_row_insert') {
+            $configuredField = trim((string)($behaviorConfig['multiple_row_field'] ?? ''));
+            if ($configuredField !== '' && array_key_exists($configuredField, $insertData) && is_array($insertData[$configuredField])) {
+                $repeatFieldName = $configuredField;
+                $repeatValues = $this->normalizeSubmittedArrayValues($insertData[$configuredField]);
             }
+        }
 
-            if (!$this->shouldExpandSubmissionField($field)) {
-                continue;
-            }
-
-            $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
-            if ($fieldName === '') {
-                $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, null, 0);
-            }
-            if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
-                continue;
-            }
-
-            $rawValue = $insertData[$fieldName];
-            if (!is_array($rawValue)) {
-                continue;
-            }
-
-            $normalizedValues = array_values(array_filter(array_map(static function ($value): string {
-                if (is_bool($value)) {
-                    return $value ? '1' : '0';
+        if ($repeatFieldName === null) {
+            foreach ($fields as $fieldIndex => $field) {
+                if (!is_array($field)) {
+                    continue;
                 }
-                if (is_scalar($value)) {
-                    return trim((string)$value);
-                }
-                return '';
-            }, $rawValue), static fn(string $value): bool => $value !== ''));
-            if (empty($normalizedValues)) {
-                continue;
-            }
 
-            $repeatFieldName = $fieldName;
-            $repeatValues = $normalizedValues;
-            break;
+                if (!$this->shouldExpandSubmissionField($field)) {
+                    continue;
+                }
+
+                $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+                if ($fieldName === '') {
+                    $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, null, 0);
+                }
+                if ($fieldName === '' || !array_key_exists($fieldName, $insertData) || !is_array($insertData[$fieldName])) {
+                    continue;
+                }
+
+                $repeatFieldName = $fieldName;
+                $repeatValues = $this->normalizeSubmittedArrayValues($insertData[$fieldName]);
+                break;
+            }
         }
 
         if ($repeatFieldName === null || empty($repeatValues)) {
@@ -1975,6 +1999,327 @@ class MasterFormController extends Controller
         }
 
         return $rows;
+    }
+
+    private function normalizeSubmittedArrayValues(array $values): array
+    {
+        return array_values(array_filter(array_map(static function ($value): string {
+            if (is_bool($value)) {
+                return $value ? '1' : '0';
+            }
+            if (is_scalar($value)) {
+                return trim((string)$value);
+            }
+            return '';
+        }, $values), static fn(string $value): bool => $value !== ''));
+    }
+
+    private function getDynamicFormBehaviorConfig(MasterForm $model): array
+    {
+        $formData = $model->getFormDataArray();
+        if (isset($formData['behavior']) && is_array($formData['behavior'])) {
+            return $formData['behavior'];
+        }
+        if (isset($formData['form_behavior']) && is_array($formData['form_behavior'])) {
+            return $formData['form_behavior'];
+        }
+
+        return [];
+    }
+
+    private function applyDynamicAutoFillRules(MasterForm $model, array $insertData, array $behaviorConfig, array $fields, \yii\db\Connection $db): array
+    {
+        $rules = is_array($behaviorConfig['auto_fill_rules'] ?? null) ? $behaviorConfig['auto_fill_rules'] : [];
+        if (empty($rules)) {
+            return $insertData;
+        }
+
+        $fieldMap = $this->buildFieldConfigMap($fields);
+        $targetTable = $this->findTargetTableModel($model);
+        $targetTableName = $targetTable ? (string)$targetTable->name : '';
+
+        foreach ($rules as $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $triggerField = trim((string)($rule['trigger_field'] ?? ''));
+            $targetField = trim((string)($rule['target_field'] ?? ''));
+            $sourcePath = trim((string)($rule['source_path'] ?? ''));
+            if ($triggerField === '' || $targetField === '' || $sourcePath === '' || !array_key_exists($triggerField, $insertData)) {
+                continue;
+            }
+            if (!empty($rule['fill_when_empty']) && array_key_exists($targetField, $insertData) && $insertData[$targetField] !== null && $insertData[$targetField] !== '') {
+                continue;
+            }
+
+            $resolved = $this->resolveRelationPath($model, $fieldMap, $targetTableName, $sourcePath, $insertData[$triggerField], $db);
+            if (array_key_exists('value', $resolved) && $resolved['value'] !== null && $resolved['value'] !== '') {
+                $insertData[$targetField] = $resolved['value'];
+            }
+        }
+
+        return $insertData;
+    }
+
+    private function validateDynamicFormBehaviorRows(array $rows, array $behaviorConfig, \yii\db\Connection $db, string $tableName): ?string
+    {
+        if (($behaviorConfig['submit_mode'] ?? 'normal_insert') === 'multiple_row_insert') {
+            $multipleField = trim((string)($behaviorConfig['multiple_row_field'] ?? ''));
+            if ($multipleField !== '') {
+                $hasValue = false;
+                foreach ($rows as $row) {
+                    if (trim((string)($row[$multipleField] ?? '')) !== '') {
+                        $hasValue = true;
+                        break;
+                    }
+                }
+                if (!$hasValue) {
+                    return 'Pilih minimal 1 data untuk ' . $this->formatColumnLabel($multipleField) . '.';
+                }
+            }
+        }
+
+        $rules = is_array($behaviorConfig['unique_validation_rules'] ?? null) ? $behaviorConfig['unique_validation_rules'] : [];
+        foreach ($rules as $rule) {
+            if (!is_array($rule) || !is_array($rule['fields'] ?? null) || empty($rule['fields'])) {
+                continue;
+            }
+            $fields = array_values(array_filter(array_map('strval', $rule['fields'])));
+            $message = trim((string)($rule['message'] ?? 'Data dengan kombinasi field tersebut sudah pernah disimpan.'));
+            $seen = [];
+            foreach ($rows as $row) {
+                $where = [];
+                $keyParts = [];
+                foreach ($fields as $field) {
+                    $value = $row[$field] ?? null;
+                    if ($value === null || $value === '') {
+                        $where = [];
+                        break;
+                    }
+                    $where[$field] = $value;
+                    $keyParts[] = (string)$value;
+                }
+                if (empty($where)) {
+                    continue;
+                }
+                $localKey = implode('|', $keyParts);
+                if (isset($seen[$localKey])) {
+                    return $message;
+                }
+                $seen[$localKey] = true;
+                try {
+                    if ((new \yii\db\Query())->from($tableName)->where($where)->exists($db)) {
+                        return $message;
+                    }
+                } catch (\Throwable $e) {
+                    Yii::warning('Failed validating dynamic unique rule: ' . $e->getMessage(), __METHOD__);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function resolveAutoFillRulesResponse(MasterForm $model, string $triggerField, $triggerValue): array
+    {
+        $schema = $this->formEngineService->getResolvedFormSchema($model);
+        $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
+        $behaviorConfig = $this->getDynamicFormBehaviorConfig($model);
+        $rules = is_array($behaviorConfig['auto_fill_rules'] ?? null) ? $behaviorConfig['auto_fill_rules'] : [];
+        $fieldMap = $this->buildFieldConfigMap($fields);
+        $targetTable = $this->findTargetTableModel($model);
+        $targetTableName = $targetTable ? (string)$targetTable->name : '';
+        $values = [];
+
+        foreach ($rules as $rule) {
+            if (!is_array($rule) || trim((string)($rule['trigger_field'] ?? '')) !== $triggerField) {
+                continue;
+            }
+            $targetField = trim((string)($rule['target_field'] ?? ''));
+            $sourcePath = trim((string)($rule['source_path'] ?? ''));
+            if ($targetField === '' || $sourcePath === '') {
+                continue;
+            }
+            $resolved = $this->resolveRelationPath($model, $fieldMap, $targetTableName, $sourcePath, $triggerValue, Yii::$app->db);
+            if (array_key_exists('value', $resolved)) {
+                $values[$targetField] = $resolved['value'];
+            }
+        }
+
+        $display = $this->resolveDynamicDetailCard($model, $behaviorConfig, $fieldMap, $targetTableName, $triggerField, $triggerValue);
+
+        return [
+            'success' => true,
+            'values' => $values,
+            'display' => $display,
+        ];
+    }
+
+    private function resolveDynamicDetailCard(MasterForm $model, array $behaviorConfig, array $fieldMap, string $targetTableName, string $triggerField, $triggerValue): array
+    {
+        $config = is_array($behaviorConfig['detail_card'] ?? null) ? $behaviorConfig['detail_card'] : [];
+        if (empty($config['enabled']) || trim((string)($config['trigger_field'] ?? '')) !== $triggerField) {
+            return ['enabled' => false, 'items' => []];
+        }
+
+        $items = [];
+        foreach ((array)($config['items'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $sourcePath = trim((string)($item['source_path'] ?? ''));
+            if ($sourcePath === '') {
+                continue;
+            }
+            $resolved = $this->resolveRelationPath($model, $fieldMap, $targetTableName, $sourcePath, $triggerValue, Yii::$app->db);
+            $value = $resolved['value'] ?? '';
+            $items[] = [
+                'label' => (string)($item['label'] ?? $sourcePath),
+                'value' => $this->formatDynamicValue($value, (string)($item['format'] ?? '')),
+            ];
+        }
+
+        return [
+            'enabled' => true,
+            'detail_title' => (string)($config['title'] ?? 'Detail'),
+            'items' => $items,
+        ];
+    }
+
+    private function resolveRelationPath(MasterForm $model, array $fieldMap, string $targetTableName, string $sourcePath, $triggerValue, \yii\db\Connection $db): array
+    {
+        $parts = array_values(array_filter(array_map('trim', explode('.', $sourcePath)), static fn(string $part): bool => $part !== ''));
+        if (empty($parts)) {
+            return ['value' => null];
+        }
+
+        $triggerField = array_shift($parts);
+        $fieldConfig = $fieldMap[$triggerField] ?? [];
+        $relation = $this->resolveFieldRelation($fieldConfig, $targetTableName, $triggerField, $db);
+        if ($relation === null) {
+            return ['value' => null];
+        }
+
+        $currentTable = (string)$relation['table'];
+        $currentColumn = (string)$relation['column'];
+        $currentRow = (new \yii\db\Query())->from($currentTable)->where([$currentColumn => $triggerValue])->one($db);
+        if (!$currentRow) {
+            return ['value' => null];
+        }
+
+        if (empty($parts)) {
+            return ['value' => $triggerValue, 'row' => $currentRow, 'table' => $currentTable];
+        }
+
+        while (!empty($parts)) {
+            $part = array_shift($parts);
+            if (!array_key_exists($part, $currentRow)) {
+                return ['value' => null, 'row' => $currentRow, 'table' => $currentTable];
+            }
+            $value = $currentRow[$part];
+            if (empty($parts)) {
+                return ['value' => $value, 'row' => $currentRow, 'table' => $currentTable];
+            }
+
+            $nextRelation = $this->resolveTableColumnRelation($currentTable, $part, $db);
+            if ($nextRelation === null || $value === null || $value === '') {
+                return ['value' => null, 'row' => $currentRow, 'table' => $currentTable];
+            }
+            $currentTable = (string)$nextRelation['table'];
+            $currentColumn = (string)$nextRelation['column'];
+            $currentRow = (new \yii\db\Query())->from($currentTable)->where([$currentColumn => $value])->one($db);
+            if (!$currentRow) {
+                return ['value' => null, 'table' => $currentTable];
+            }
+        }
+
+        return ['value' => null];
+    }
+
+    private function buildFieldConfigMap(array $fields): array
+    {
+        $map = [];
+        foreach ($fields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            foreach (['name', 'field_name', 'field_key', 'column_name', 'resolved_name', 'resolved_column_name'] as $key) {
+                $name = trim((string)($field[$key] ?? ''));
+                if ($name !== '') {
+                    $map[$name] = $field;
+                }
+            }
+        }
+        return $map;
+    }
+
+    private function findTargetTableModel(MasterForm $model): ?DbTable
+    {
+        $tableId = $this->resolveTargetTableId($model);
+        return $tableId > 0 ? DbTable::findOne($tableId) : null;
+    }
+
+    private function resolveFieldRelation(array $fieldConfig, string $targetTableName, string $fieldName, \yii\db\Connection $db): ?array
+    {
+        $relationConfig = is_array($fieldConfig['relation_config'] ?? null) ? $fieldConfig['relation_config'] : [];
+        $table = trim((string)($fieldConfig['fk_referenced_table'] ?? $fieldConfig['foreign_key_table'] ?? $fieldConfig['referenced_table_name'] ?? $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? ''));
+        $column = trim((string)($fieldConfig['fk_referenced_column'] ?? $fieldConfig['value_column'] ?? $fieldConfig['referenced_value_column'] ?? $relationConfig['referenced_value_column'] ?? $relationConfig['value_column'] ?? $relationConfig['referenced_column'] ?? ''));
+        if ($table !== '') {
+            return ['table' => $table, 'column' => $column !== '' ? $column : 'id'];
+        }
+
+        return $this->resolveTableColumnRelation($targetTableName, $fieldName, $db);
+    }
+
+    private function resolveTableColumnRelation(string $tableName, string $columnName, \yii\db\Connection $db): ?array
+    {
+        if ($tableName === '' || $columnName === '') {
+            return null;
+        }
+
+        $metadataTable = DbTable::find()->where(['name' => $tableName])->one();
+        if ($metadataTable !== null) {
+            $metadataColumn = DbTableColumn::find()
+                ->where(['table_id' => (int)$metadataTable->id, 'name' => $columnName])
+                ->one();
+            if ($metadataColumn !== null && $metadataColumn->hasAttribute('referenced_table_name') && (string)$metadataColumn->getAttribute('referenced_table_name') !== '') {
+                return [
+                    'table' => (string)$metadataColumn->getAttribute('referenced_table_name'),
+                    'column' => (string)($metadataColumn->hasAttribute('referenced_column_name') ? $metadataColumn->getAttribute('referenced_column_name') : 'id') ?: 'id',
+                ];
+            }
+        }
+
+        try {
+            $row = $db->createCommand(
+                'SELECT REFERENCED_TABLE_NAME AS referenced_table, REFERENCED_COLUMN_NAME AS referenced_column
+                 FROM information_schema.KEY_COLUMN_USAGE
+                 WHERE TABLE_SCHEMA = DATABASE()
+                   AND TABLE_NAME = :table
+                   AND COLUMN_NAME = :column
+                   AND REFERENCED_TABLE_NAME IS NOT NULL
+                 LIMIT 1',
+                [':table' => $tableName, ':column' => $columnName]
+            )->queryOne();
+            if ($row && !empty($row['referenced_table'])) {
+                return [
+                    'table' => (string)$row['referenced_table'],
+                    'column' => (string)($row['referenced_column'] ?? 'id') ?: 'id',
+                ];
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Failed resolving relation path metadata: ' . $e->getMessage(), __METHOD__);
+        }
+
+        return null;
+    }
+
+    private function formatDynamicValue($value, string $format): string
+    {
+        if ($format === 'currency_idr') {
+            return 'Rp' . number_format((float)$value, 0, ',', '.');
+        }
+        return (string)$value;
     }
 
     private function extractRawPostedTableData(array $postData, array $columns): array

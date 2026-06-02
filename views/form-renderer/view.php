@@ -265,7 +265,7 @@ $containerClass = $layoutTemplates[$layoutTemplate] ?? $layoutTemplates['default
                 <div id="form-fields-container">
                     <?php foreach ($fields as $index => $field): ?>
                         <?php
-                        $type = FormSystemFieldHelper::resolveFieldInputType($field);
+                        $type = strtolower(FormSystemFieldHelper::resolveFieldInputType($field));
                         $label = $field['label'] ?? $field['name'] ?? 'Field ' . ($index + 1);
                         $name = $field['name'] ?? 'field_' . $index;
                         $required = $field['required'] ?? false;
@@ -326,6 +326,13 @@ $containerClass = $layoutTemplates[$layoutTemplate] ?? $layoutTemplates['default
                                         array_column($field['options'] ?? [['value' => '', 'label' => 'Pilih...']], 'value', 'label'),
                                         ['class' => 'form-input form-select', 'required' => $required]
                                     ) ?>
+                                
+                                <?php elseif ($type === 'boolean'): ?>
+                                    <?php $booleanChecked = (string)$defaultValue === '1' || strtolower((string)$defaultValue) === 'true'; ?>
+                                    <label class="form-checkbox-item form-check form-switch">
+                                        <?= Html::checkbox($name, $booleanChecked, ['class' => 'form-input form-check-input', 'uncheck' => '0', 'value' => '1']) ?>
+                                        <span><?= Html::encode($label) ?></span>
+                                    </label>
                                 
                                 <?php elseif ($type === 'checkbox'): ?>
                                     <label class="form-checkbox-item">

@@ -1431,11 +1431,38 @@ document.addEventListener('DOMContentLoaded', function() {
             return field;
         }
 
+        const columnType = normalizeColumnType(
+            field.source_column_db_type ||
+            field.source_column_column_type ||
+            field.source_column_data_type ||
+            field.column_type ||
+            field.db_type ||
+            field.data_type ||
+            field.source_column_type ||
+            field.base_type ||
+            field.type ||
+            field.inputType ||
+            ''
+        );
+        const length = parseInt(field.source_column_length || field.length || field.size || field.precision || '', 10);
+
+        if (isBooleanColumnType(columnType, length)) {
+            field.type = 'boolean';
+            field.inputType = 'boolean';
+        }
+
         if (!field.type && field.inputType) {
             field.type = field.inputType;
         }
         if (!field.inputType && field.type) {
             field.inputType = field.type;
+        }
+
+        if (typeof field.type === 'string') {
+            field.type = field.type.toLowerCase();
+        }
+        if (typeof field.inputType === 'string') {
+            field.inputType = field.inputType.toLowerCase();
         }
 
         if (field.type === 'select' && isRelationField(field)) {
@@ -1857,7 +1884,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 `</div>`;
         }
         
-        const type = field.type || 'text';
+        const type = String(field.inputType || field.type || 'text').toLowerCase();
         const placeholders = {
             text: 'Input text...',
             email: 'email@example.com',
@@ -1922,6 +1949,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return '<div class="field-preview"><label style="display:flex;align-items:center;gap:8px;color:#475569;"><input type="checkbox"' + attr('name', field.name || '') + boolAttr('checked', field.default_checked) + boolAttr('required', field.required) + boolAttr('disabled', true) + '><span>' + escapeHtml(field.labelText || field.label || 'Checkbox') + '</span></label></div>';
         }
 
+        if (type === 'boolean') {
+            const checked = String(field.default_value || '') === '1' || String(field.default_value || '').toLowerCase() === 'true';
+            return '<div class="field-preview"><label class="form-check form-switch" style="display:flex;align-items:center;gap:8px;color:#475569;">' +
+                '<input type="checkbox" class="form-check-input" ' + boolAttr('checked', checked) + boolAttr('disabled', true) + '>' +
+                '<span>' + escapeHtml(field.label || field.labelText || 'Aktif / Nonaktif') + '</span>' +
+            '</label></div>';
+        }
+
         if (type === 'file') {
             return '<div class="field-preview"><input type="file"' + attr('name', field.name || '') + attr('accept', field.accept) + boolAttr('multiple', field.multiple) + boolAttr('required', field.required) + boolAttr('disabled', true) + '></div>';
         }
@@ -1981,6 +2016,7 @@ document.addEventListener('DOMContentLoaded', function() {
             text: 'text_fields', email: 'email', password: 'lock', number: 'pin',
             tel: 'phone', url: 'link', textarea: 'notes', select: 'arrow_drop_down_circle',
             radio: 'radio_button_checked', checkbox: 'check_box', checkboxes: 'checklist',
+            boolean: 'toggle_on',
             date: 'calendar_today', time: 'schedule', datetime: 'event',
             file: 'upload_file', hidden: 'visibility_off'
         };
@@ -1994,8 +2030,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         html += '<div class="prop-section"><div class="prop-section-title">Konfigurasi</div>';
         html += '<div class="prop-group"><label class="prop-label">Tipe Input</label><select class="prop-select" data-prop="type" onchange="updateFieldProp(\'type\', this.value)">';
-        const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'date', 'time', 'datetime', 'file', 'hidden'];
-        const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Date', 'Time', 'Date Time', 'File Upload', 'Hidden'];
+        const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'boolean', 'date', 'time', 'datetime', 'file', 'hidden'];
+        const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'Hidden'];
         types.forEach((t, i) => {
             html += '<option value="' + t + '" ' + (field.type === t ? 'selected' : '') + '>' + labels[i] + '</option>';
         });
@@ -3147,13 +3183,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     const colName = (col.name || '').toLowerCase();
                     
                     let fieldType = 'text';
-                    const colType = (col.base_type || col.type || '').toUpperCase();
+                    const colType = normalizeColumnType(col.db_type || col.column_type || col.data_type || col.base_type || col.type || '');
                     
                     if (isForeignKey) {
                         fieldType = 'select';
-                    } else if (colType.includes('INT') || colType.includes('DECIMAL') || colType.includes('FLOAT') || colType.includes('DOUBLE')) {
+                    } else if (isBooleanColumnType(colType, parseInt(col.length || col.max_length || '', 10))) {
+                        fieldType = 'boolean';
+                    } else if (colType.includes('int') || colType.includes('decimal') || colType.includes('float') || colType.includes('double') || colType === 'tinyint') {
                         fieldType = 'number';
-                    } else if (colType.includes('TEXT') || colType.includes('VARCHAR') || colType.includes('CHAR')) {
+                    } else if (colType.includes('text') || colType.includes('varchar') || colType.includes('char')) {
                         if (colName.includes('email')) fieldType = 'email';
                         else if (colName.includes('url') || colName.includes('website')) fieldType = 'url';
                         else if (colName.includes('phone') || colName.includes('telepon')) fieldType = 'tel';
@@ -3176,6 +3214,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         default_value: col.default_value || '',
                         excluded: false,
                         source_column_id: col.id,
+                        source_column_db_type: col.db_type || '',
+                        source_column_column_type: col.column_type || col.db_type || '',
+                        source_column_data_type: col.data_type || '',
+                        source_column_length: col.length || col.max_length || 0,
                         source_column_type: colType,
                         is_foreign_key: isForeignKey,
                         is_primary: isPrimaryKey,
@@ -3280,7 +3322,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const types = {
             text: 'text', email: 'email', password: 'password', number: 'number',
             tel: 'tel', url: 'url', textarea: 'textarea', select: 'select',
-            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkbox',
+            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkbox', boolean: 'boolean',
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };
@@ -3288,11 +3330,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function getFieldTypeFromColumnType(columnType) {
-        const normalizedType = String(columnType || '').trim().toUpperCase().match(/^[A-Z]+/)?.[0] || '';
-        if (normalizedType === 'DATE') return 'date';
-        if (normalizedType === 'TIME') return 'time';
-        if (normalizedType === 'DATETIME' || normalizedType === 'TIMESTAMP') return 'datetime';
+        const normalizedType = normalizeColumnType(columnType);
+        if (isBooleanColumnType(normalizedType)) return 'boolean';
+        if (normalizedType.startsWith('date')) return 'date';
+        if (normalizedType.startsWith('time')) return 'time';
+        if (normalizedType === 'datetime' || normalizedType === 'timestamp') return 'datetime';
         return 'text';
+    }
+
+    function normalizeColumnType(columnType) {
+        return String(columnType || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+(unsigned|zerofill)\b/g, '')
+            .replace(/\s+/g, '');
+    }
+
+    function isBooleanColumnType(columnType, length) {
+        const normalizedType = normalizeColumnType(columnType);
+        if (['bool', 'boolean'].includes(normalizedType)) {
+            return true;
+        }
+        if (normalizedType === 'bit(1)' || normalizedType === 'tinyint(1)') {
+            return true;
+        }
+        if (normalizedType === 'tinyint' && Number(length) === 1) {
+            return true;
+        }
+        return false;
     }
 
     function isSystemField(fieldName) {

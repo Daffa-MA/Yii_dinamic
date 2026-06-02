@@ -1381,8 +1381,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const readonlyAttr = column.readOnly ? ' readonly disabled' : '';
 
         if (column.inputType === 'boolean') {
-            const checked = safeValue === '1' || String(safeValue).toLowerCase() === 'true' ? ' checked' : '';
-            return '<input type="checkbox" id="' + fieldId + '" class="sheet-control sheet-field" data-sheet-field data-column="' + columnName + '" value="1"' + checked + readonlyAttr + '>';
+            const selectedValue = safeValue === '1' || String(safeValue).toLowerCase() === 'true' ? '1' : '0';
+            return '<select id="' + fieldId + '" class="sheet-control sheet-field" data-sheet-field data-column="' + columnName + '"' + readonlyAttr + '>' +
+                '<option value="1"' + (selectedValue === '1' ? ' selected' : '') + '>Aktif</option>' +
+                '<option value="0"' + (selectedValue === '0' ? ' selected' : '') + '>Nonaktif</option>' +
+            '</select>';
         }
 
         if (column.inputType === 'datalist') {

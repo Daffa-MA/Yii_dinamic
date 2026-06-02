@@ -2048,7 +2048,10 @@ class TableBuilderController extends Controller
         } elseif (in_array($type, ['ENUM', 'SET'], true)) {
             $inputType = 'select';
             $options = $this->parseEnumOptions((string)$column->getAttribute('enum_values'));
-        } elseif (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ((int)$column->length <= 1 || $column->type === 'BOOLEAN')) {
+        } elseif (
+            in_array($type, ['BOOLEAN', 'BOOL', 'BIT', 'TINYINT'], true)
+            && ((int)$column->length <= 1 || in_array($type, ['BOOLEAN', 'BOOL'], true))
+        ) {
             $inputType = 'boolean';
         } elseif (in_array($type, ['DATE'], true)) {
             $inputType = 'date';
@@ -3767,6 +3770,12 @@ class TableBuilderController extends Controller
     {
         $normalized = strtolower(trim($dbType));
         $normalized = preg_replace('/\s+unsigned$/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+zerofill$/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
+
+        if (in_array($normalized, ['bool', 'boolean', 'bit(1)', 'tinyint(1)'], true)) {
+            return ['BOOLEAN', 1, null];
+        }
 
         if (preg_match('/^([a-z]+)\(([^)]*)\)$/i', $normalized, $matches) === 1) {
             $type = strtoupper($matches[1]);
@@ -3929,6 +3938,9 @@ class TableBuilderController extends Controller
                     'label' => $col->label ?: $col->name,
                     'type' => $col->type,
                     'base_type' => $col->type,
+                    'db_type' => $schemaColumn !== null ? (string)($schemaColumn->dbType ?? '') : $col->type,
+                    'data_type' => $schemaColumn !== null ? (string)($schemaColumn->type ?? '') : $col->type,
+                    'column_type' => $schemaColumn !== null ? (string)($schemaColumn->dbType ?? '') : $col->type,
                     'is_nullable' => (bool)$col->is_nullable,
                     'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
                     'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
@@ -3939,6 +3951,7 @@ class TableBuilderController extends Controller
                     'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-columns', $schemaColumn),
                     'default_value' => $col->default_value,
                     'max_length' => $col->length,
+                    'length' => $col->length,
                 ];
             }
             

@@ -850,8 +850,8 @@ class MasterDatatableRenderService
                         control = '<select class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>' + optionHtml + '</select>';
                     } else if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
                         const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                        control = '<label class="dt-row-choice-item" style="margin:0;">' +
-                            '<input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '>' +
+                        control = '<label class="dt-row-choice-item form-check form-switch" style="margin:0;display:flex;align-items:center;gap:8px;">' +
+                            '<input type="checkbox" class="form-check-input" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '>' +
                             '<span>' + escapeHtml(label) + '</span>' +
                         '</label>';
                     } else if (field.inputType === 'radio') {
@@ -1150,7 +1150,7 @@ class MasterDatatableRenderService
 
                         if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
                             const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                            control = '<label class="dt-check form-check form-switch" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="form-check-input" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> ' + escapeHtml(field.label || 'Aktif / Nonaktif') + '</label>';
                         } else if (field.inputType === 'select') {
                             const options = Array.isArray(field.options) && field.options.length ? field.options : [];
                             const optionHtml = ['<option value="">-- Pilih --</option>'].concat(options.map(function(option) {
@@ -1483,7 +1483,7 @@ class MasterDatatableRenderService
             return 'select';
         }
 
-        if (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ($length <= 1 || $type === 'BOOLEAN')) {
+        if (in_array($type, ['BOOLEAN', 'BOOL', 'BIT', 'TINYINT'], true) && ($length <= 1 || in_array($type, ['BOOLEAN', 'BOOL'], true))) {
             return 'boolean';
         }
 

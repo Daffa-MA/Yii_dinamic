@@ -154,6 +154,15 @@ class DynamicFormPreviewService
                 $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
                 continue;
             }
+            if ($type === 'boolean') {
+                $checked = !empty($field['default_value']) && ((string)$field['default_value'] === '1' || strtolower((string)$field['default_value']) === 'true');
+                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;" class="form-check form-switch">'
+                    . ($interactive ? '<input type="hidden" name="' . $name . '" value="0">' : '')
+                    . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" ' . ($checked ? 'checked' : '') . ' style="margin-right:8px;" class="form-check-input">'
+                    . '<span>' . $label . $required . '</span>'
+                    . '</label></div>';
+                continue;
+            }
             if ($type === 'checkbox') {
                 $fieldHtml .= '<div style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
                 continue;

@@ -1008,6 +1008,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'date' => 'calendar_today',
                             'time' => 'schedule',
                             'datetime' => 'event',
+                            'boolean' => 'toggle_on',
                             'file' => 'upload_file',
                             'hidden' => 'visibility_off',
                         ];

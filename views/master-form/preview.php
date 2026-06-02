@@ -26,6 +26,7 @@ if (!empty($model->table_id)) {
     $targetTable = DbTable::findOne((int)$model->table_id);
 }
 if ($targetTable !== null) {
+    $targetSchema = Yii::$app->db->schema->getTableSchema((string)$targetTable->name, true);
     $existingFieldNames = [];
     foreach ($fields as $field) {
         if (!is_array($field)) {
@@ -48,19 +49,20 @@ if ($targetTable !== null) {
         }
 
         $isForeignKey = $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
-        $fieldType = 'text';
-        $columnType = strtoupper((string)($column->type ?? ''));
-        if ($isForeignKey) {
-            $fieldType = 'select';
-        } elseif (strpos($columnType, 'DATE') !== false && strpos($columnType, 'TIME') === false) {
-            $fieldType = 'date';
-        } elseif (strpos($columnType, 'DATETIME') !== false || strpos($columnType, 'TIMESTAMP') !== false) {
-            $fieldType = 'datetime';
-        } elseif (strpos($columnType, 'TEXT') !== false) {
-            $fieldType = 'textarea';
-        } elseif (preg_match('/INT|DECIMAL|FLOAT|DOUBLE/', $columnType) === 1) {
-            $fieldType = 'number';
-        }
+        $schemaColumn = $targetSchema !== null ? ($targetSchema->columns[$columnName] ?? null) : null;
+        $rawColumnType = (string)($schemaColumn !== null ? ($schemaColumn->dbType ?? $schemaColumn->type ?? '') : ($column->type ?? ''));
+        $fieldSeed = [
+            'name' => $columnName,
+            'field_name' => $columnName,
+            'field_key' => $columnName,
+            'column_name' => $columnName,
+            'source_column_db_type' => $rawColumnType,
+            'source_column_column_type' => $rawColumnType,
+            'source_column_data_type' => (string)($schemaColumn !== null ? ($schemaColumn->type ?? '') : ''),
+            'source_column_type' => (string)($column->type ?? ''),
+            'source_column_length' => $schemaColumn !== null ? (int)($schemaColumn->size ?? 0) : (int)($column->length ?? 0),
+        ];
+        $fieldType = $isForeignKey ? 'select' : FormSystemFieldHelper::resolveFieldInputType($fieldSeed);
 
         $referencedTable = $isForeignKey && $column->hasAttribute('referenced_table_name')
             ? trim((string)$column->getAttribute('referenced_table_name'))
@@ -84,6 +86,10 @@ if ($targetTable !== null) {
             'source_column_id' => (int)$column->id,
             'source_column_name' => $columnName,
             'source_column_type' => (string)($column->type ?? ''),
+            'source_column_db_type' => $rawColumnType,
+            'source_column_column_type' => $rawColumnType,
+            'source_column_data_type' => (string)($schemaColumn !== null ? ($schemaColumn->type ?? '') : ''),
+            'source_column_length' => $schemaColumn !== null ? (int)($schemaColumn->size ?? 0) : (int)($column->length ?? 0),
             'is_foreign_key' => $isForeignKey,
             'fk_referenced_table' => $referencedTable !== '' ? $referencedTable : null,
             'fk_referenced_column' => $referencedColumn !== '' ? $referencedColumn : null,
@@ -524,7 +530,7 @@ $this->title = 'Preview: ' . $formName;
                     if (!is_array($fieldRelationConfig)) {
                         $fieldRelationConfig = [];
                     }
-                    $type = trim((string)($field['inputType'] ?? FormSystemFieldHelper::resolveFieldInputType($field)));
+                    $type = strtolower(trim((string)($field['inputType'] ?? FormSystemFieldHelper::resolveFieldInputType($field))));
                     $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['name'] ?? $field['field_name'] ?? 'Field'));
                     $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
                     $required = !empty($field['required']);
@@ -621,6 +627,17 @@ $this->title = 'Preview: ' . $formName;
                                     Foreign Key - Data loaded from referenced table
                                 </div>
                             <?php endif; ?>
+                        
+                        <?php elseif ($type === 'boolean'): ?>
+                            <?php $booleanChecked = (string)$defaultValue === '1' || strtolower((string)$defaultValue) === 'true'; ?>
+                            <div class="preview-checkbox-item form-check form-switch">
+                                <?= Html::checkbox($name, $booleanChecked, [
+                                    'class' => 'preview-input form-check-input',
+                                    'uncheck' => '0',
+                                    'value' => '1',
+                                ]) ?>
+                                <span class="preview-label" style="margin-bottom:0;"><?= Html::encode($label) ?></span>
+                            </div>
                         
                         <?php elseif ($type === 'checkbox'): ?>
                             <label class="preview-checkbox-item">

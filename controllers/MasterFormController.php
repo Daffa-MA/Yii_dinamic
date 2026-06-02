@@ -261,6 +261,40 @@ class MasterFormController extends Controller
         return strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $key), '_'));
     }
 
+    private function getSubmissionTokenStore(): array
+    {
+        $store = Yii::$app->session->get('master_form_submission_tokens', []);
+        return is_array($store) ? $store : [];
+    }
+
+    private function hasProcessedSubmissionToken(int $formId, string $token): bool
+    {
+        $token = trim($token);
+        if ($formId <= 0 || $token === '') {
+            return false;
+        }
+
+        $store = $this->getSubmissionTokenStore();
+        return !empty($store[(string)$formId][$token]);
+    }
+
+    private function markSubmissionTokenProcessed(int $formId, string $token): void
+    {
+        $token = trim($token);
+        if ($formId <= 0 || $token === '') {
+            return;
+        }
+
+        $store = $this->getSubmissionTokenStore();
+        if (!isset($store[(string)$formId]) || !is_array($store[(string)$formId])) {
+            $store[(string)$formId] = [];
+        }
+        $store[(string)$formId][$token] = [
+            'processed_at' => date('Y-m-d H:i:s'),
+        ];
+        Yii::$app->session->set('master_form_submission_tokens', $store);
+    }
+
     private function normalizeSchemaKey(string $key): string
     {
         return strtolower(trim((string)preg_replace('/[^a-z0-9]+/i', '_', $key), '_'));
@@ -1223,6 +1257,7 @@ class MasterFormController extends Controller
             $schema = $this->formEngineService->getResolvedFormSchema($model);
             $fields = $schema['fields'];
             $postData = Yii::$app->request->post();
+            $submissionToken = trim((string)Yii::$app->request->post('_submit_request_id', ''));
             
             $tableId = $this->resolveTargetTableId($model);
             if (!$tableId) {
@@ -1271,6 +1306,19 @@ class MasterFormController extends Controller
             
             $tableName = $dbTable->name;
             \Yii::info("Target table: $tableName, DB: $dbDsn", 'submit_debug');
+
+            if ($submissionToken !== '' && $this->hasProcessedSubmissionToken((int)$model->id, $submissionToken)) {
+                $message = 'Pengiriman duplikat diabaikan.';
+                if ($isAjax) {
+                    return [
+                        'success' => true,
+                        'message' => $message,
+                        'duplicate' => true,
+                    ];
+                }
+                Yii::$app->session->setFlash('success', $message);
+                return $this->redirect(['preview', 'id' => $id]);
+            }
             
             $columns = $db->schema->getTableSchema($tableName, true);
             if (!$columns) {
@@ -1550,12 +1598,18 @@ class MasterFormController extends Controller
 
                     $successMessage = 'Data berhasil dikirim.';
                     if ($isAjax) {
+                        if ($submissionToken !== '') {
+                            $this->markSubmissionTokenProcessed((int)$model->id, $submissionToken);
+                        }
                         return [
                             'success' => true,
                             'message' => $successMessage,
                             'insertedData' => $insertData,
                             'insertedRowKey' => !empty($insertedRowKey) ? $insertedRowKey : null,
                         ];
+                    }
+                    if ($submissionToken !== '') {
+                        $this->markSubmissionTokenProcessed((int)$model->id, $submissionToken);
                     }
                     Yii::$app->session->setFlash('success', 'Data saved! Fields: ' . implode(', ', array_keys($insertData)));
                     $this->activityLogService->log($model, 'submit', 'success', 'Submission saved to target table.', [

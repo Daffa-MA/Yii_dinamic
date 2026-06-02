@@ -163,6 +163,28 @@ class DynamicFormPreviewService
                     . '</label></div>';
                 continue;
             }
+            if ($type === 'checkboxes') {
+                $optionHtml = '';
+                foreach ((array)($field['options'] ?? []) as $option) {
+                    if (!is_array($option)) {
+                        continue;
+                    }
+                    $value = (string)($option['value'] ?? '');
+                    if ($value === '') {
+                        continue;
+                    }
+                    $optionHtml .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin:4px 0;">'
+                        . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '[]" value="' . Html::encode($value) . '" style="margin-right:8px;">'
+                        . '<span>' . Html::encode((string)($option['label'] ?? $value)) . '</span>'
+                        . '</label>';
+                }
+                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">'
+                    . $label . $required
+                    . '</label><div style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">'
+                    . ($optionHtml !== '' ? $optionHtml : '<div style="font-size:12px;color:#64748b;">Tidak ada opsi.</div>')
+                    . '</div></div>';
+                continue;
+            }
             if ($type === 'checkbox') {
                 $fieldHtml .= '<div style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
                 continue;

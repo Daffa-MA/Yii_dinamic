@@ -109,10 +109,12 @@ class FormRenderService
             }
             $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);
             if (self::isRelationField($field)) {
-                $field['inputType'] = 'select';
-                $field['type'] = 'select';
-                $field['field_type'] = 'select';
                 $field['is_foreign_key'] = true;
+                if (!self::shouldPreserveChoiceTypeForTableSource($field)) {
+                    $field['inputType'] = 'select';
+                    $field['type'] = 'select';
+                    $field['field_type'] = 'select';
+                }
             }
             if (in_array($field['inputType'], ['date', 'time', 'datetime-local'], true)) {
                 $field['type'] = $field['inputType'];
@@ -154,13 +156,16 @@ class FormRenderService
 
     public static function resolveDynamicChoiceOptions(array $field): array
     {
+        $field = self::resolvePresetChoiceOptions($field);
         $relationConfig = self::resolveRelationConfig($field);
         $isForeignKey = self::isRelationField($field);
         if ($isForeignKey) {
             $field['is_foreign_key'] = true;
-            $field['type'] = 'select';
-            $field['field_type'] = 'select';
-            $field['inputType'] = 'select';
+            if (!self::shouldPreserveChoiceTypeForTableSource($field)) {
+                $field['type'] = 'select';
+                $field['field_type'] = 'select';
+                $field['inputType'] = 'select';
+            }
         }
 
         $type = (string)($field['type'] ?? $field['field_type'] ?? '');
@@ -229,8 +234,8 @@ class FormRenderService
 
             $field['options'] = $options;
             $field['fk_options'] = $options;
-            $field['inputType'] = $isForeignKey ? 'select' : ($field['inputType'] ?? $type);
-            $field['type'] = $isForeignKey ? 'select' : ($field['type'] ?? $type);
+            $field['inputType'] = ($isForeignKey && !self::shouldPreserveChoiceTypeForTableSource($field)) ? 'select' : ($field['inputType'] ?? $type);
+            $field['type'] = ($isForeignKey && !self::shouldPreserveChoiceTypeForTableSource($field)) ? 'select' : ($field['type'] ?? $type);
             $field['dynamic_options_loaded'] = true;
             $field['value_column'] = $valueColumn;
             $field['dropdown_value_column'] = $valueColumn;
@@ -258,6 +263,45 @@ class FormRenderService
         }
 
         return $field;
+    }
+
+    private static function resolvePresetChoiceOptions(array $field): array
+    {
+        $type = (string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '');
+        if (!in_array($type, ['select', 'radio', 'checkboxes'], true)) {
+            return $field;
+        }
+
+        $source = (string)($field['option_source'] ?? '');
+        $preset = (string)($field['option_preset'] ?? '');
+        if ($source !== 'preset' || $preset !== 'calendar_months') {
+            return $field;
+        }
+
+        $field['options'] = self::calendarMonthOptions();
+        $field['dropdown_source'] = 'preset';
+        $field['option_source'] = 'preset';
+        $field['option_preset'] = 'calendar_months';
+
+        return $field;
+    }
+
+    private static function calendarMonthOptions(): array
+    {
+        return [
+            ['value' => '01', 'label' => 'Januari'],
+            ['value' => '02', 'label' => 'Februari'],
+            ['value' => '03', 'label' => 'Maret'],
+            ['value' => '04', 'label' => 'April'],
+            ['value' => '05', 'label' => 'Mei'],
+            ['value' => '06', 'label' => 'Juni'],
+            ['value' => '07', 'label' => 'Juli'],
+            ['value' => '08', 'label' => 'Agustus'],
+            ['value' => '09', 'label' => 'September'],
+            ['value' => '10', 'label' => 'Oktober'],
+            ['value' => '11', 'label' => 'November'],
+            ['value' => '12', 'label' => 'Desember'],
+        ];
     }
 
     public static function normalizeFieldForRender(array $field, int $index = 0): array
@@ -315,15 +359,26 @@ class FormRenderService
 
         if (self::isRelationField($field)) {
             $field['is_foreign_key'] = true;
-            $field['type'] = 'select';
-            $field['field_type'] = 'select';
-            $field['inputType'] = 'select';
+            if (!self::shouldPreserveChoiceTypeForTableSource($field)) {
+                $field['type'] = 'select';
+                $field['field_type'] = 'select';
+                $field['inputType'] = 'select';
+            }
             if (!empty($relationConfig)) {
                 $field['relation_config'] = $relationConfig;
             }
         }
 
         return $field;
+    }
+
+    private static function shouldPreserveChoiceTypeForTableSource(array $field): bool
+    {
+        $type = (string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '');
+        $source = (string)($field['option_source'] ?? $field['dropdown_source'] ?? '');
+
+        return in_array($type, ['radio', 'checkboxes'], true)
+            && in_array($source, ['table'], true);
     }
 
     public static function isRelationField(array $field): bool

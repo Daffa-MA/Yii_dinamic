@@ -34,6 +34,7 @@ $emptyStateTitle = $isWorkspaceAdmin ? 'Belum ada konten' : 'Informasi belum ter
 $emptyStateDescription = $isWorkspaceAdmin
     ? 'Halaman ini siap digunakan tetapi belum memiliki konten. Tambahkan konten melalui Master Halaman.'
     : 'Halaman ini belum memiliki konten untuk ditampilkan. Silakan hubungi admin workspace jika halaman ini seharusnya berisi informasi.';
+$autoRefreshDelayMs = (int)(Yii::$app->params['formSubmitAutoRefreshDelayMs'] ?? 2500);
 
 $layoutClasses = 'grid gap-5';
 if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
@@ -318,6 +319,13 @@ if ($hasCustomPageSource): ?>
                         if (toast.parentNode) toast.remove();
                     }, 220);
                 }, isSuccess ? 4200 : 6500);
+
+                if (isSuccess) {
+                    clearTimeout(window.__pageSubmitReloadTimer);
+                    window.__pageSubmitReloadTimer = setTimeout(function() {
+                        window.location.reload();
+                    }, <?= (int)$autoRefreshDelayMs ?>);
+                }
             }
 
             function looksLikeJsonResponse(text) {
@@ -335,6 +343,12 @@ if ($hasCustomPageSource): ?>
 
                         var data = JSON.parse(String(text).trim());
                         showSubmitToast(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
+                        if (data && data.success) {
+                            clearTimeout(window.__pageSubmitReloadTimer);
+                            window.__pageSubmitReloadTimer = setTimeout(function() {
+                                window.location.reload();
+                            }, <?= (int)$autoRefreshDelayMs ?>);
+                        }
                         iframe.srcdoc = originalSrcdoc;
                     } catch (error) {
                     }
@@ -350,6 +364,11 @@ if ($hasCustomPageSource): ?>
         <div class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
             <?= Html::encode(Yii::$app->session->getFlash('success')) ?>
         </div>
+        <script>
+            setTimeout(function() {
+                window.location.reload();
+            }, <?= (int)$autoRefreshDelayMs ?>);
+        </script>
     <?php endif; ?>
 
     <?php if (Yii::$app->session->hasFlash('error')): ?>

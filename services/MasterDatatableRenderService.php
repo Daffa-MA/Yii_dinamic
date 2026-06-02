@@ -378,6 +378,9 @@ class MasterDatatableRenderService
             data-datatable-primary-keys="<?= Html::encode(Json::encode($primaryKeys)) ?>"
             data-datatable-columns="<?= Html::encode(Json::encode($columns)) ?>"
             data-datatable-has-actions="<?= $hasActions ? '1' : '0' ?>"
+            data-delete-url="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>"
+            data-csrf-param="<?= Html::encode(Yii::$app->request->csrfParam) ?>"
+            data-csrf-token="<?= Html::encode(Yii::$app->request->csrfToken) ?>"
         >
             <style>
                 #<?= Html::encode($uid) ?> { margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; overflow: hidden; box-shadow: 0 16px 36px rgba(15,23,42,.08); }

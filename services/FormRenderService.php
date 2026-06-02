@@ -794,6 +794,12 @@ class FormRenderService
             })
             .then(function(data) {
                 showCustomFormAlert(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
+                if (data && data.success && window.parent && window.parent !== window) {
+                    window.parent.postMessage({
+                        type: 'custom-form-submit-success',
+                        source: 'embedded-custom-form'
+                    }, '*');
+                }
             })
             .catch(function(error) {
                 showCustomFormAlert('error', error && error.message ? error.message : 'Terjadi kesalahan jaringan.');

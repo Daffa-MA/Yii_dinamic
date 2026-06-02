@@ -254,6 +254,8 @@ if ($hasCustomPageSource): ?>
     </div>
     <script>
         (function() {
+            var autoRefreshDelayMs = <?= (int)$autoRefreshDelayMs ?>;
+
             function escapeHtml(value) {
                 return String(value || '')
                     .replace(/&/g, '&amp;')
@@ -333,6 +335,23 @@ if ($hasCustomPageSource): ?>
                 return value.charAt(0) === '{' && value.indexOf('"success"') !== -1;
             }
 
+            function scheduleParentReload() {
+                clearTimeout(window.__pageSubmitReloadTimer);
+                window.__pageSubmitReloadTimer = setTimeout(function() {
+                    window.location.reload();
+                }, autoRefreshDelayMs);
+            }
+
+            window.addEventListener('message', function(event) {
+                var data = event && event.data ? event.data : null;
+                if (!data || data.type !== 'custom-form-submit-success') {
+                    return;
+                }
+
+                showSubmitToast('success', 'Data berhasil dikirim.');
+                scheduleParentReload();
+            });
+
             document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {
                 var originalSrcdoc = iframe.getAttribute('srcdoc') || '';
                 iframe.addEventListener('load', function() {
@@ -344,10 +363,7 @@ if ($hasCustomPageSource): ?>
                         var data = JSON.parse(String(text).trim());
                         showSubmitToast(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
                         if (data && data.success) {
-                            clearTimeout(window.__pageSubmitReloadTimer);
-                            window.__pageSubmitReloadTimer = setTimeout(function() {
-                                window.location.reload();
-                            }, <?= (int)$autoRefreshDelayMs ?>);
+                            scheduleParentReload();
                         }
                         iframe.srcdoc = originalSrcdoc;
                     } catch (error) {

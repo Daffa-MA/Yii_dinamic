@@ -34,7 +34,6 @@ $emptyStateTitle = $isWorkspaceAdmin ? 'Belum ada konten' : 'Informasi belum ter
 $emptyStateDescription = $isWorkspaceAdmin
     ? 'Halaman ini siap digunakan tetapi belum memiliki konten. Tambahkan konten melalui Master Halaman.'
     : 'Halaman ini belum memiliki konten untuk ditampilkan. Silakan hubungi admin workspace jika halaman ini seharusnya berisi informasi.';
-$autoRefreshDelayMs = (int)(Yii::$app->params['formSubmitAutoRefreshDelayMs'] ?? 2500);
 
 $layoutClasses = 'grid gap-5';
 if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
@@ -202,6 +201,7 @@ HTML;
 
         if ($fallbackFormId > 0) {
             try {
+                $fallbackFormModel = MasterForm::findOne($fallbackFormId);
                 $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, $fallbackFormId, [
                     '_embedded' => '1',
                     'render_context' => 'page_content',
@@ -209,6 +209,9 @@ HTML;
                     'menu_id' => $activeMenuId > 0 ? (string)$activeMenuId : '',
                     'project_id' => $activeProjectId !== null ? (string)$activeProjectId : '',
                     'workspace_role' => $workspaceRole,
+                    '_datatable_target_table_id' => $fallbackFormModel && $fallbackFormModel->hasAttribute('table_id')
+                        ? (string)(int)$fallbackFormModel->table_id
+                        : '',
                 ]);
             } catch (\Throwable $e) {
                 Yii::warning('Failed to prepare custom form submission on page view: ' . $e->getMessage(), 'app');
@@ -254,8 +257,6 @@ if ($hasCustomPageSource): ?>
     </div>
     <script>
         (function() {
-            var autoRefreshDelayMs = <?= (int)$autoRefreshDelayMs ?>;
-
             function escapeHtml(value) {
                 return String(value || '')
                     .replace(/&/g, '&amp;')
@@ -321,13 +322,6 @@ if ($hasCustomPageSource): ?>
                         if (toast.parentNode) toast.remove();
                     }, 220);
                 }, isSuccess ? 4200 : 6500);
-
-                if (isSuccess) {
-                    clearTimeout(window.__pageSubmitReloadTimer);
-                    window.__pageSubmitReloadTimer = setTimeout(function() {
-                        window.location.reload();
-                    }, <?= (int)$autoRefreshDelayMs ?>);
-                }
             }
 
             function looksLikeJsonResponse(text) {
@@ -335,11 +329,15 @@ if ($hasCustomPageSource): ?>
                 return value.charAt(0) === '{' && value.indexOf('"success"') !== -1;
             }
 
-            function scheduleParentReload() {
-                clearTimeout(window.__pageSubmitReloadTimer);
-                window.__pageSubmitReloadTimer = setTimeout(function() {
-                    window.location.reload();
-                }, autoRefreshDelayMs);
+            function forwardSuccessToIframe(data) {
+                document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {
+                    try {
+                        if (iframe && iframe.contentWindow) {
+                            iframe.contentWindow.postMessage(data, '*');
+                        }
+                    } catch (error) {
+                    }
+                });
             }
 
             window.addEventListener('message', function(event) {
@@ -349,7 +347,7 @@ if ($hasCustomPageSource): ?>
                 }
 
                 showSubmitToast('success', 'Data berhasil dikirim.');
-                scheduleParentReload();
+                forwardSuccessToIframe(data);
             });
 
             document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {
@@ -362,9 +360,6 @@ if ($hasCustomPageSource): ?>
 
                         var data = JSON.parse(String(text).trim());
                         showSubmitToast(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
-                        if (data && data.success) {
-                            scheduleParentReload();
-                        }
                         iframe.srcdoc = originalSrcdoc;
                     } catch (error) {
                     }
@@ -380,11 +375,6 @@ if ($hasCustomPageSource): ?>
         <div class="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
             <?= Html::encode(Yii::$app->session->getFlash('success')) ?>
         </div>
-        <script>
-            setTimeout(function() {
-                window.location.reload();
-            }, <?= (int)$autoRefreshDelayMs ?>);
-        </script>
     <?php endif; ?>
 
     <?php if (Yii::$app->session->hasFlash('error')): ?>

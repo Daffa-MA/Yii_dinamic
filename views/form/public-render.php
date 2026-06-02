@@ -14,6 +14,7 @@ use app\services\FormRenderService;
 $this->title = $model->name;
 $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerJs("document.body.style.minHeight = '100vh';", \yii\web\View::POS_READY);
+$autoRefreshDelayMs = (int)(Yii::$app->params['formSubmitAutoRefreshDelayMs'] ?? 2500);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
 $fieldConstraints = isset($fieldConstraints) && is_array($fieldConstraints) ? $fieldConstraints : [];
 $fkConfigJson = json_encode($fkConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -365,6 +366,11 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                         </svg>
                         <span class="font-medium"><?= Yii::$app->session->getFlash('success') ?></span>
                     </div>
+                    <script>
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, <?= (int)$autoRefreshDelayMs ?>);
+                    </script>
                 <?php endif; ?>
 
                 <?php if (Yii::$app->session->hasFlash('error')): ?>

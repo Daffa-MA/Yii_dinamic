@@ -19,6 +19,7 @@ $pageId = (int) Yii::$app->request->get('page_id', 0);
 $menuId = (int) Yii::$app->request->get('menu_id', 0);
 $projectId = (int) Yii::$app->request->get('project_id', 0);
 $workspaceRole = (string) Yii::$app->request->get('workspace_role', '');
+$autoRefreshDelayMs = (int)(Yii::$app->params['formSubmitAutoRefreshDelayMs'] ?? 2500);
 $bodyBackground = $embedded ? '#ffffff' : '#e5e9f0';
 $this->registerJs("document.body.classList.add('font-body', 'text-on-surface'); document.body.style.background = '{$bodyBackground}';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
@@ -213,6 +214,11 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                     <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">check_circle</span>
                     <?= Yii::$app->session->getFlash('success') ?>
                 </div>
+                <script>
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, <?= (int)$autoRefreshDelayMs ?>);
+                </script>
             <?php endif; ?>
 
             <?php if (Yii::$app->session->hasFlash('error')): ?>

@@ -6,4 +6,5 @@ return [
     'senderName' => 'Example.com mailer',
     'rootDomain' => 'appforge.web.id',
     'projectDomainSuffix' => 'appforge.web.id',
+    'formSubmitAutoRefreshDelayMs' => 2500,
 ];

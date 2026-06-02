@@ -1416,6 +1416,7 @@ class MasterFormController extends Controller
             
             \Yii::info("POST data received: " . json_encode(array_keys($postData)), 'submit_debug');
             
+            $behaviorConfig = $this->getDynamicFormBehaviorConfig($model, $fields);
             $insertData = [];
             $fieldMappingDebug = [];
             
@@ -1457,7 +1458,8 @@ class MasterFormController extends Controller
                     continue;
                 }
                 
-                $repeatableField = $this->shouldExpandSubmissionField($field);
+                $repeatableField = $this->shouldExpandSubmissionField($field)
+                    || $this->isConfiguredMultipleRowField($fieldName, $behaviorConfig);
                 if (is_array($postedValue)) {
                     $values = array_values(array_filter(array_map(static fn($value) => is_scalar($value) ? trim((string)$value) : '', $postedValue), static fn(string $value): bool => $value !== ''));
                     if ($repeatableField) {
@@ -1482,7 +1484,8 @@ class MasterFormController extends Controller
                 ];
             }
 
-            $rawPostedTableData = $this->extractRawPostedTableData($postData, $columns->columns);
+            $insertData = $this->restoreMultipleRowFieldArrayValues($insertData, $postData, $behaviorConfig);
+            $rawPostedTableData = $this->extractRawPostedTableData($postData, $columns->columns, $behaviorConfig);
             $postedForeignKeyData = $this->extractPostedForeignKeyData($postData, $tableId, $columns->columns);
             if (!empty($rawPostedTableData)) {
                 foreach ($rawPostedTableData as $columnName => $postedValue) {
@@ -1506,7 +1509,7 @@ class MasterFormController extends Controller
                     }
                 }
             }
-            $behaviorConfig = $this->getDynamicFormBehaviorConfig($model, $fields);
+            $insertData = $this->restoreMultipleRowFieldArrayValues($insertData, $postData, $behaviorConfig);
             $insertData = $this->applyDynamicAutoFillRules($model, $insertData, $behaviorConfig, $fields, $db);
 
             $preSystemInsertData = $insertData;
@@ -1731,7 +1734,9 @@ class MasterFormController extends Controller
                         \Yii::info("Last row after insert: " . json_encode($checkRows), 'submit_debug');
                     }
 
-                    $successMessage = 'Data berhasil dikirim.';
+                    $successMessage = $insertedRowsCount > 1
+                        ? $insertedRowsCount . ' data berhasil disimpan.'
+                        : 'Data berhasil dikirim.';
                     if ($isAjax) {
                         if ($submissionToken !== '') {
                             $this->markSubmissionTokenProcessed((int)$model->id, $submissionToken);
@@ -1945,6 +1950,40 @@ class MasterFormController extends Controller
         }
 
         return false;
+    }
+
+    private function isConfiguredMultipleRowField(string $fieldName, array $behaviorConfig): bool
+    {
+        return ($behaviorConfig['submit_mode'] ?? 'normal_insert') === 'multiple_row_insert'
+            && trim((string)($behaviorConfig['multiple_row_field'] ?? '')) === $fieldName;
+    }
+
+    private function restoreMultipleRowFieldArrayValues(array $insertData, array $postData, array $behaviorConfig): array
+    {
+        if (($behaviorConfig['submit_mode'] ?? 'normal_insert') !== 'multiple_row_insert') {
+            return $insertData;
+        }
+
+        $fieldName = trim((string)($behaviorConfig['multiple_row_field'] ?? ''));
+        if ($fieldName === '') {
+            return $insertData;
+        }
+
+        $postedValue = null;
+        if (array_key_exists($fieldName, $postData)) {
+            $postedValue = $postData[$fieldName];
+        } elseif (array_key_exists($fieldName . '[]', $postData)) {
+            $postedValue = $postData[$fieldName . '[]'];
+        }
+
+        if (is_array($postedValue)) {
+            $values = $this->normalizeSubmittedArrayValues($postedValue);
+            if (!empty($values)) {
+                $insertData[$fieldName] = $values;
+            }
+        }
+
+        return $insertData;
     }
 
     /**
@@ -2489,7 +2528,7 @@ class MasterFormController extends Controller
         return str_ireplace('Spp', 'SPP', ucwords($label));
     }
 
-    private function extractRawPostedTableData(array $postData, array $columns): array
+    private function extractRawPostedTableData(array $postData, array $columns, array $behaviorConfig = []): array
     {
         $data = [];
         foreach ($columns as $columnName => $column) {
@@ -2499,6 +2538,14 @@ class MasterFormController extends Controller
 
             $postedValue = $this->resolvePostedColumnValue($postData, (string)$columnName);
             if ($postedValue === null || $postedValue === '') {
+                continue;
+            }
+
+            if (is_array($postedValue) && $this->isConfiguredMultipleRowField((string)$columnName, $behaviorConfig)) {
+                $values = $this->normalizeSubmittedArrayValues($postedValue);
+                if (!empty($values)) {
+                    $data[(string)$columnName] = $values;
+                }
                 continue;
             }
 

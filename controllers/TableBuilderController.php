@@ -3685,7 +3685,8 @@ class TableBuilderController extends Controller
                     $db->createCommand($statement)->execute();
                     $statementExecuted = true;
                 } catch (\Throwable $statementError) {
-                    $statementCode = (int)$statementError->getCode();
+                    $statementErrorDetails = $this->extractDbErrorDetails($statementError);
+                    $statementCode = (int)($statementErrorDetails['error_code'] ?? $statementError->getCode());
                     $statementTableName = $this->extractCreatedTableName($statement);
                     if ($statementTableName !== null && $statementCode === 1050) {
                         $existsAfterExecute = $this->tableExistsInPhysicalDatabase($db, $statementTableName);
@@ -3693,7 +3694,7 @@ class TableBuilderController extends Controller
                             $primaryCreateTableName = $statementTableName;
                             $primaryExistedBeforeExecute = false;
                         }
-                        if ($existsAfterExecute && $primaryExistedBeforeExecute === false) {
+                        if ($existsAfterExecute && $primaryExistedBeforeExecute !== true) {
                             $statementExecuted = true;
                             $primaryRecoveredFrom1050 = true;
                             Yii::warning([
@@ -3703,7 +3704,9 @@ class TableBuilderController extends Controller
                                 'exists_after_execute' => $existsAfterExecute,
                                 'executed_statement_count' => $executedStatementCount,
                                 'execution_source' => $executionSource,
-                                'error' => $statementError->getMessage(),
+                                'error_code' => $statementCode,
+                                'sqlstate' => $statementErrorDetails['sqlstate'] ?? null,
+                                'error' => $statementErrorDetails['sql_error'] ?? $statementError->getMessage(),
                             ], 'table-builder-sql');
                         } else {
                             throw $statementError;

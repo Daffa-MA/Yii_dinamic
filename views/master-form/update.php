@@ -2100,6 +2100,12 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
+        if (field.type === 'checkboxes') {
+            html += '<div class="prop-section"><div class="prop-section-title">Checkboxes</div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.saveAsMultipleRows ? 'checked' : '') + ' onchange="updateFieldProp(\'saveAsMultipleRows\', this.checked)">Save each selected value as separate row</label></div>';
+            html += '</div>';
+        }
+
         if (field.type === 'select') {
             const sourceMode = getDropdownSourceMode(field);
             html += '<div class="prop-section"><div class="prop-section-title">Dropdown Source</div>';

@@ -62,7 +62,7 @@ class DynamicFormPreviewService
         $formAuthorized = true;
 
         $fields = is_array($payload['fields'] ?? null) ? $payload['fields'] : [];
-        $behaviorConfig = $this->extractDynamicFormBehaviorConfig($form);
+        $behaviorConfig = $this->extractDynamicFormBehaviorConfig($form, $fields);
         $customHtml = (string)($payload['customHtml'] ?? '');
         $customCss = (string)($payload['customCss'] ?? '');
         $customJs = (string)($payload['customJs'] ?? '');
@@ -237,16 +237,16 @@ class DynamicFormPreviewService
         return $html;
     }
 
-    private function extractDynamicFormBehaviorConfig(MasterForm $form): array
+    private function extractDynamicFormBehaviorConfig(MasterForm $form, array $fields): array
     {
         $formData = $form->getFormDataArray();
-        if (isset($formData['behavior']) && is_array($formData['behavior'])) {
+        if (isset($formData['behavior']) && is_array($formData['behavior']) && $this->hasDynamicFormBehaviorConfig($formData['behavior'])) {
             return $formData['behavior'];
         }
-        if (isset($formData['form_behavior']) && is_array($formData['form_behavior'])) {
+        if (isset($formData['form_behavior']) && is_array($formData['form_behavior']) && $this->hasDynamicFormBehaviorConfig($formData['form_behavior'])) {
             return $formData['form_behavior'];
         }
-        return [];
+        return (new DynamicFormBehaviorDetector())->detect($form, $fields);
     }
 
     private function hasDynamicFormBehaviorConfig(array $config): bool
@@ -293,6 +293,7 @@ class DynamicFormPreviewService
             . 'function attach(form){'
             . 'if(!form||form.dataset.dynamicBehaviorBound==="1")return; form.dataset.dynamicBehaviorBound="1";'
             . 'var triggers={}; (behavior.auto_fill_rules||[]).forEach(function(rule){if(rule.trigger_field)triggers[rule.trigger_field]=true;}); if(behavior.detail_card&&behavior.detail_card.enabled&&behavior.detail_card.trigger_field)triggers[behavior.detail_card.trigger_field]=true;'
+            . '(behavior.auto_fill_rules||[]).forEach(function(rule){var target=byName(form,rule.target_field); if(target&&target.type!=="hidden"&&target.tagName!=="SELECT"){target.readOnly=true; target.style.background="#f8fafc";}});'
             . 'Object.keys(triggers).forEach(function(trigger){var control=byName(form,trigger); if(!control)return; control.addEventListener("change",function(){var val=String(control.value||"").trim(); if(!val){showHint(form,"",false);return;} fetch(lookupUrl+"?form_id="+encodeURIComponent(formId)+"&trigger_field="+encodeURIComponent(trigger)+"&trigger_value="+encodeURIComponent(val),{headers:{"X-Requested-With":"XMLHttpRequest"}})'
             . '.then(function(response){return response.json();})'
             . '.then(function(result){'

@@ -21,6 +21,7 @@ use app\components\SystemFieldService;
 use app\helpers\FormSystemFieldHelper;
 use app\components\FormFlowDebugLogger;
 use app\services\FormActivityLogService;
+use app\services\DynamicFormBehaviorDetector;
 use app\services\FormEngineService;
 use app\services\FormRenderService;
 use yii\data\ActiveDataProvider;
@@ -1094,6 +1095,29 @@ class MasterFormController extends Controller
         return $this->resolveAutoFillRulesResponse($model, $triggerField, $triggerValue);
     }
 
+    public function actionGenerateAutoBehavior($form_id = null)
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $formId = (int)($form_id ?? Yii::$app->request->get('form_id', 0));
+        if ($formId <= 0) {
+            return ['success' => false, 'message' => 'Form belum tersimpan. Simpan form dulu, lalu generate auto behavior.'];
+        }
+
+        $model = MasterForm::findByIdScoped($formId);
+        if ($model === null) {
+            return ['success' => false, 'message' => 'Form tidak ditemukan.'];
+        }
+
+        $schema = $this->formEngineService->getResolvedFormSchema($model);
+        $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
+
+        return [
+            'success' => true,
+            'behavior' => (new DynamicFormBehaviorDetector())->detect($model, $fields),
+        ];
+    }
+
     public function actionView($id)
     {
         $model = $this->findScopedModel($id);
@@ -1482,7 +1506,7 @@ class MasterFormController extends Controller
                     }
                 }
             }
-            $behaviorConfig = $this->getDynamicFormBehaviorConfig($model);
+            $behaviorConfig = $this->getDynamicFormBehaviorConfig($model, $fields);
             $insertData = $this->applyDynamicAutoFillRules($model, $insertData, $behaviorConfig, $fields, $db);
 
             $preSystemInsertData = $insertData;
@@ -2014,17 +2038,31 @@ class MasterFormController extends Controller
         }, $values), static fn(string $value): bool => $value !== ''));
     }
 
-    private function getDynamicFormBehaviorConfig(MasterForm $model): array
+    private function getDynamicFormBehaviorConfig(MasterForm $model, array $fields = []): array
     {
         $formData = $model->getFormDataArray();
-        if (isset($formData['behavior']) && is_array($formData['behavior'])) {
+        if (isset($formData['behavior']) && is_array($formData['behavior']) && $this->hasManualBehaviorConfig($formData['behavior'])) {
             return $formData['behavior'];
         }
-        if (isset($formData['form_behavior']) && is_array($formData['form_behavior'])) {
+        if (isset($formData['form_behavior']) && is_array($formData['form_behavior']) && $this->hasManualBehaviorConfig($formData['form_behavior'])) {
             return $formData['form_behavior'];
         }
 
-        return [];
+        if (empty($fields)) {
+            $schema = $this->formEngineService->getResolvedFormSchema($model);
+            $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
+        }
+
+        return (new DynamicFormBehaviorDetector())->detect($model, $fields);
+    }
+
+    private function hasManualBehaviorConfig(array $config): bool
+    {
+        return !empty($config['auto_fill_rules'])
+            || !empty($config['detail_card']['enabled'])
+            || !empty($config['calculated_summary']['enabled'])
+            || !empty($config['unique_validation_rules'])
+            || (($config['submit_mode'] ?? 'normal_insert') === 'multiple_row_insert' && !empty($config['multiple_row_field']));
     }
 
     private function applyDynamicAutoFillRules(MasterForm $model, array $insertData, array $behaviorConfig, array $fields, \yii\db\Connection $db): array
@@ -2124,7 +2162,7 @@ class MasterFormController extends Controller
     {
         $schema = $this->formEngineService->getResolvedFormSchema($model);
         $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
-        $behaviorConfig = $this->getDynamicFormBehaviorConfig($model);
+        $behaviorConfig = $this->getDynamicFormBehaviorConfig($model, $fields);
         $rules = is_array($behaviorConfig['auto_fill_rules'] ?? null) ? $behaviorConfig['auto_fill_rules'] : [];
         $fieldMap = $this->buildFieldConfigMap($fields);
         $targetTable = $this->findTargetTableModel($model);

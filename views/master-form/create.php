@@ -1358,6 +1358,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const summary = formBehavior.calculated_summary || { enabled: false, items: [] };
         let html = '<div class="prop-header"><span class="material-symbols-outlined">settings_suggest</span><span class="block-type-badge">form behavior</span></div>';
         html += '<div class="prop-section"><div class="prop-section-title">Form Behavior</div>';
+        html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="generateAutoBehavior()">Generate Auto Behavior</button></div>';
         html += '<div class="prop-group"><label class="prop-label">Submit Mode</label><select class="prop-select" onchange="updateFormBehaviorProp(\'submit_mode\', this.value)">';
         html += '<option value="normal_insert"' + boolAttr('selected', (formBehavior.submit_mode || 'normal_insert') === 'normal_insert') + '>Normal Insert</option>';
         html += '<option value="multiple_row_insert"' + boolAttr('selected', formBehavior.submit_mode === 'multiple_row_insert') + '>Multiple Row Insert</option>';
@@ -3291,6 +3292,29 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedIndex = null;
         renderFields();
         renderFormBehaviorPanel();
+    };
+
+    window.generateAutoBehavior = function() {
+        const formIdInput = document.getElementById('form-id-input');
+        const formId = formIdInput ? String(formIdInput.value || '').trim() : '';
+        if (!formId) {
+            alert('Simpan form dulu, lalu buka edit form untuk generate auto behavior dari metadata.');
+            return;
+        }
+        fetch('/master-form/generate-auto-behavior?form_id=' + encodeURIComponent(formId), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (!result || !result.success) {
+                    alert((result && result.message) || 'Gagal generate auto behavior.');
+                    return;
+                }
+                formBehavior = Object.assign({}, formBehavior, result.behavior || {});
+                renderFormBehaviorPanel();
+                updateData();
+            })
+            .catch(() => alert('Gagal generate auto behavior.'));
     };
 
     function removeSystemFieldsFromState() {

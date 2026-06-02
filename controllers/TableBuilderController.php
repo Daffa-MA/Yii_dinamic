@@ -17,6 +17,11 @@ use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
 
+class SqlEditorExecutionException extends \RuntimeException
+{
+    public array $context = [];
+}
+
 class TableBuilderController extends Controller
 {
     public $layout = 'dashboard';
@@ -1381,13 +1386,29 @@ class TableBuilderController extends Controller
         if ($builderMode === 'sql' && Yii::$app->request->isPost) {
             try {
                 $executionResult = $this->executeRawSchemaSql($rawSql);
-                Yii::$app->session->setFlash(
-                    'success',
-                    'SQL schema berhasil dijalankan dan sinkron ke metadata untuk: ' . implode(', ', $executionResult['tables'])
-                );
+                $responsePayload = [
+                    'success' => true,
+                    'message' => 'SQL schema berhasil dijalankan dan sinkron ke metadata untuk: ' . implode(', ', $executionResult['tables']),
+                    'sql_error' => null,
+                    'failed_statement' => null,
+                    'parsed_columns' => $executionResult['parsed_columns'] ?? [],
+                    'created_table_name' => $executionResult['created_table_name'] ?? null,
+                    'redirect_url' => $this->createUrl(['index']),
+                ];
+
+                if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {
+                    return $this->asJson($responsePayload);
+                }
+
+                Yii::$app->session->setFlash('success', $responsePayload['message']);
                 return $this->redirect(['index']);
             } catch (\Throwable $e) {
-                $friendlySqlError = $this->buildFriendlyTableBuilderErrorMessage($e);
+                $sqlDebug = $this->buildSqlEditorDebugPayload($e, $rawSql);
+
+                if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {
+                    return $this->asJson($sqlDebug);
+                }
+
                 return $this->render('create', [
                     'model' => $model,
                     'savedColumns' => $savedColumns,
@@ -1395,7 +1416,8 @@ class TableBuilderController extends Controller
                     'databaseInfo' => $this->getDatabaseInfo(),
                     'builderMode' => 'sql',
                     'rawSql' => $rawSql,
-                    'sqlError' => $friendlySqlError,
+                    'sqlError' => $sqlDebug['message'] ?? $this->buildFriendlyTableBuilderErrorMessage($e),
+                    'sqlDebug' => $sqlDebug,
                 ]);
             }
         }
@@ -3403,6 +3425,90 @@ class TableBuilderController extends Controller
         return $message;
     }
 
+    private function buildSqlEditorDebugPayload(\Throwable $exception, string $sql, array $context = []): array
+    {
+        if ($exception instanceof SqlEditorExecutionException) {
+            $context = array_merge($exception->context, $context);
+        }
+
+        $dbError = $this->extractDbErrorDetails($exception);
+        $failedStatement = trim((string)($context['failed_statement'] ?? $context['last_statement'] ?? ''));
+        $createdTableName = $context['created_table_name'] ?? null;
+        $parsedColumns = $context['parsed_columns'] ?? [];
+        $stage = (string)($context['stage'] ?? 'execution');
+
+        $message = trim((string)$exception->getMessage());
+        if ($stage === 'metadata') {
+            $message = 'SQL berhasil dijalankan di database, tetapi sinkronisasi metadata gagal: ' . ($message !== '' ? $message : 'unknown error');
+        } elseif ($message === '') {
+            $message = 'SQL gagal dijalankan.';
+        }
+
+        if ($dbError['sql_error'] !== '') {
+            $message .= ' Database error: ' . $dbError['sql_error'];
+        }
+
+        return [
+            'success' => false,
+            'message' => $message,
+            'sql_error' => $dbError['sql_error'],
+            'sqlstate' => $dbError['sqlstate'],
+            'error_code' => $dbError['error_code'],
+            'database_error' => $dbError['database_error'],
+            'failed_statement' => $failedStatement !== '' ? $failedStatement : null,
+            'parsed_columns' => $parsedColumns,
+            'created_table_name' => $createdTableName,
+            'query_sql' => $sql,
+            'stage' => $stage,
+        ];
+    }
+
+    private function extractDbErrorDetails(\Throwable $exception): array
+    {
+        $sqlError = '';
+        $sqlState = '';
+        $errorCode = (string)$exception->getCode();
+        $databaseError = trim((string)$exception->getMessage());
+        $source = $exception;
+
+        while ($source !== null) {
+            if ($source instanceof \yii\db\Exception && is_array($source->errorInfo ?? null)) {
+                $errorInfo = $source->errorInfo;
+                $sqlState = (string)($errorInfo[0] ?? '');
+                $errorCode = (string)($errorInfo[1] ?? $errorCode);
+                $sqlError = trim((string)($errorInfo[2] ?? ''));
+                if ($sqlError === '' && $databaseError !== '') {
+                    $sqlError = $databaseError;
+                }
+                break;
+            }
+
+            if (property_exists($source, 'errorInfo') && is_array($source->errorInfo ?? null)) {
+                $errorInfo = $source->errorInfo;
+                $sqlState = (string)($errorInfo[0] ?? '');
+                $errorCode = (string)($errorInfo[1] ?? $errorCode);
+                $sqlError = trim((string)($errorInfo[2] ?? ''));
+                if ($sqlError === '' && $databaseError !== '') {
+                    $sqlError = $databaseError;
+                }
+                break;
+            }
+
+            $source = $source->getPrevious();
+        }
+
+        if ($sqlError === '') {
+            $sqlError = $databaseError;
+        }
+
+        return [
+            'sqlstate' => $sqlState !== '' ? $sqlState : null,
+            'error_code' => $errorCode !== '' ? $errorCode : null,
+            'sql_error' => $sqlError,
+            'database_error' => $databaseError !== '' ? $databaseError : $sqlError,
+        ];
+    }
+
     private function executeRawSchemaSql(string $sql): array
     {
         $sql = trim($sql);
@@ -3418,13 +3524,26 @@ class TableBuilderController extends Controller
         $db = $this->getPhysicalDb();
         $tablesToSync = [];
         $createdTables = [];
+        $lastStatement = '';
+        $lastStatementIndex = -1;
+        $parsedColumns = [];
+        $metadataStarted = false;
 
         try {
             foreach ($statements as $index => $statement) {
+                $lastStatement = $statement;
+                $lastStatementIndex = $index;
                 $validationError = $this->validateSchemaStatement($statement);
                 if ($validationError !== null) {
                     throw new \RuntimeException('Statement #' . ($index + 1) . ': ' . $validationError);
                 }
+
+                Yii::info([
+                    'stage' => 'sql_editor_execute',
+                    'statement_index' => $index + 1,
+                    'statement' => $statement,
+                    'sql' => $sql,
+                ], 'table-builder-sql');
 
                 $db->createCommand($statement)->execute();
 
@@ -3444,15 +3563,45 @@ class TableBuilderController extends Controller
                 throw new \RuntimeException('SQL berhasil dijalankan, tetapi tidak ada table yang bisa disinkronkan.');
             }
 
+            $metadataStarted = true;
+            $syncedTables = $this->syncImportedTables(array_keys($tablesToSync), $parsedColumns);
+
             return [
                 'statements' => $statements,
-                'tables' => $this->syncImportedTables(array_keys($tablesToSync)),
+                'tables' => $syncedTables,
+                'parsed_columns' => $parsedColumns,
+                'created_table_name' => !empty($createdTables) ? array_key_first($createdTables) : null,
+                'last_statement' => $lastStatement,
             ];
         } catch (\Throwable $e) {
+            $stage = $metadataStarted ? 'metadata' : 'execution';
             if (!empty($createdTables)) {
-                $this->cleanupSqlEditorArtifacts(array_keys($createdTables));
+                if ($stage === 'execution') {
+                    $this->cleanupSqlEditorArtifacts(array_keys($createdTables));
+                }
             }
-            throw $e;
+            $context = [
+                'stage' => $stage,
+                'failed_statement' => $lastStatement,
+                'last_statement' => $lastStatement,
+                'created_table_name' => !empty($createdTables) ? array_key_first($createdTables) : null,
+                'parsed_columns' => $parsedColumns,
+                'statement_index' => $lastStatementIndex,
+            ];
+            $payload = $this->buildSqlEditorDebugPayload($e, $sql, $context);
+            Yii::error([
+                'stage' => $stage,
+                'sql' => $sql,
+                'failed_statement' => $lastStatement,
+                'statement_index' => $lastStatementIndex + 1,
+                'error' => $payload,
+            ], 'table-builder-sql');
+            $runtime = new SqlEditorExecutionException($payload['message'] ?? $e->getMessage(), (int)$e->getCode(), $e);
+            $runtime->context = $context;
+            if (property_exists($e, 'errorInfo') && is_array($e->errorInfo ?? null)) {
+                $runtime->context['errorInfo'] = $e->errorInfo;
+            }
+            throw $runtime;
         }
     }
 
@@ -3623,11 +3772,12 @@ class TableBuilderController extends Controller
         return null;
     }
 
-    private function syncImportedTables(array $tableNames): array
+    private function syncImportedTables(array $tableNames, array &$parsedColumns = []): array
     {
         $synced = [];
         foreach (array_values(array_unique($tableNames)) as $tableName) {
             $synced[] = $this->syncImportedTable($tableName);
+            $parsedColumns[$tableName] = $this->describeImportedTableColumns($tableName);
         }
 
         return $synced;
@@ -3682,7 +3832,8 @@ class TableBuilderController extends Controller
         foreach ($schema->columns as $columnSchema) {
             $column = $this->buildImportedColumnModel($model->id, $columnSchema, $sortOrder, $primaryKeyColumns, $uniqueColumns, $foreignKeyMap);
             if (!$column->save(false)) {
-                throw new \RuntimeException("Gagal menyimpan metadata kolom '{$column->name}' pada '{$tableName}'.");
+                $rawDbType = trim((string)($columnSchema->dbType ?? $columnSchema->type ?? 'unknown'));
+                throw new \RuntimeException("Gagal menyimpan metadata kolom '{$column->name}' ({$rawDbType}) pada '{$tableName}'.");
             }
             $sortOrder++;
         }
@@ -3691,6 +3842,46 @@ class TableBuilderController extends Controller
 
         $db->schema->refreshTableSchema($tableName);
         return $model->name;
+    }
+
+    private function describeImportedTableColumns(string $tableName): array
+    {
+        $db = $this->getPhysicalDb();
+        $schema = $db->schema->getTableSchema($tableName, true);
+        if ($schema === null) {
+            throw new \RuntimeException("Table '{$tableName}' tidak ditemukan setelah sinkronisasi metadata.");
+        }
+
+        $primaryKeyColumns = array_flip(array_map('strtolower', (array)($schema->primaryKey ?? [])));
+        $uniqueColumns = $this->getUniqueColumnsFromTable($tableName);
+        $foreignKeyMap = $this->getForeignKeyMetadataFromTable($tableName);
+        $parsed = [];
+        $sortOrder = 1;
+
+        foreach ($schema->columns as $columnSchema) {
+            [$type, $length, $enumValues] = $this->inferImportedColumnType((string)($columnSchema->dbType ?? $columnSchema->type ?? 'TEXT'));
+            $rawDbType = trim((string)($columnSchema->dbType ?? $columnSchema->type ?? ''));
+            $parsed[] = [
+                'name' => strtolower((string)$columnSchema->name),
+                'type' => $type,
+                'length' => $length,
+                'enum_values' => $enumValues,
+                'db_type' => $rawDbType !== '' ? $rawDbType : null,
+                'column_type' => $rawDbType !== '' ? $rawDbType : null,
+                'data_type' => strtoupper(trim((string)($columnSchema->type ?? $type))),
+                'allow_null' => (bool)($columnSchema->allowNull ?? true),
+                'default_value' => $columnSchema->defaultValue !== null ? (string)$columnSchema->defaultValue : null,
+                'auto_increment' => (bool)($columnSchema->autoIncrement ?? false),
+                'is_primary' => isset($primaryKeyColumns[strtolower((string)$columnSchema->name)]),
+                'is_unique' => isset($uniqueColumns[strtolower((string)$columnSchema->name)]),
+                'comment' => $columnSchema->comment !== null ? (string)$columnSchema->comment : null,
+                'foreign_key' => $foreignKeyMap[strtolower((string)$columnSchema->name)] ?? null,
+                'sort_order' => $sortOrder,
+            ];
+            $sortOrder++;
+        }
+
+        return $parsed;
     }
 
     private function cleanupSqlEditorArtifacts(array $tableNames): void

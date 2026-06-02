@@ -1254,6 +1254,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const componentItems = document.querySelectorAll('.component-item');
     
     let formFields = [];
+    let formBehavior = {
+        submit_mode: 'normal_insert',
+        multiple_row_field: '',
+        auto_fill_rules: [],
+        detail_card: { enabled: false, trigger_field: '', title: 'Detail', items: [] },
+        calculated_summary: { enabled: false, items: [] },
+        unique_validation_rules: []
+    };
     let selectedIndex = null;
     let currentDevice = 'desktop';
     let dropdownSourceTables = [];
@@ -1312,6 +1320,63 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function escapeAttr(value) {
         return escapeHtml(value);
+    }
+
+    function fieldNameOptions(selectedValue) {
+        return '<option value="">-- Pilih Field --</option>' + formFields.map(field => {
+            const name = String(field.name || field.field_name || field.field_key || '').trim();
+            if (!name) return '';
+            return '<option value="' + escapeAttr(name) + '"' + boolAttr('selected', String(selectedValue || '') === name) + '>' + escapeHtml(field.label || name) + ' (' + escapeHtml(name) + ')</option>';
+        }).join('');
+    }
+
+    function choiceFieldNameOptions(selectedValue) {
+        return '<option value="">-- Pilih Field --</option>' + formFields.filter(field => ['checkboxes', 'select'].includes(String(field.type || '').toLowerCase())).map(field => {
+            const name = String(field.name || field.field_name || field.field_key || '').trim();
+            if (!name) return '';
+            return '<option value="' + escapeAttr(name) + '"' + boolAttr('selected', String(selectedValue || '') === name) + '>' + escapeHtml(field.label || name) + ' (' + escapeHtml(name) + ')</option>';
+        }).join('');
+    }
+
+    function safeJson(value) {
+        return JSON.stringify(value || [], null, 2);
+    }
+
+    function parseJsonConfig(raw, fallback) {
+        try {
+            const parsed = JSON.parse(raw || '');
+            return parsed && typeof parsed === 'object' ? parsed : fallback;
+        } catch (e) {
+            alert('Format JSON config tidak valid.');
+            return fallback;
+        }
+    }
+
+    function renderFormBehaviorPanel() {
+        if (!propsPanel) return;
+        const detailCard = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
+        const summary = formBehavior.calculated_summary || { enabled: false, items: [] };
+        let html = '<div class="prop-header"><span class="material-symbols-outlined">settings_suggest</span><span class="block-type-badge">form behavior</span></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Form Behavior</div>';
+        html += '<div class="prop-group"><label class="prop-label">Submit Mode</label><select class="prop-select" onchange="updateFormBehaviorProp(\'submit_mode\', this.value)">';
+        html += '<option value="normal_insert"' + boolAttr('selected', (formBehavior.submit_mode || 'normal_insert') === 'normal_insert') + '>Normal Insert</option>';
+        html += '<option value="multiple_row_insert"' + boolAttr('selected', formBehavior.submit_mode === 'multiple_row_insert') + '>Multiple Row Insert</option>';
+        html += '</select></div>';
+        html += '<div class="prop-group"><label class="prop-label">Multiple Row Field</label><select class="prop-select" onchange="updateFormBehaviorProp(\'multiple_row_field\', this.value)">' + choiceFieldNameOptions(formBehavior.multiple_row_field) + '</select></div>';
+        html += '</div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Auto Fill Rules</div>';
+        html += '<div class="prop-group"><label class="prop-label">Rules JSON</label><textarea class="prop-input" style="min-height:130px;font-family:monospace;font-size:11px;" onchange="updateFormBehaviorJson(\'auto_fill_rules\', this.value)">' + escapeHtml(safeJson(formBehavior.auto_fill_rules || [])) + '</textarea></div></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Detail Card</div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (detailCard.enabled ? 'checked' : '') + ' onchange="updateDetailCardProp(\'enabled\', this.checked)">Enable Detail Card</label></div>';
+        html += '<div class="prop-group"><label class="prop-label">Trigger Field</label><select class="prop-select" onchange="updateDetailCardProp(\'trigger_field\', this.value)">' + fieldNameOptions(detailCard.trigger_field) + '</select></div>';
+        html += '<div class="prop-group"><label class="prop-label">Title</label><input class="prop-input" value="' + escapeAttr(detailCard.title || 'Detail') + '" onchange="updateDetailCardProp(\'title\', this.value)"></div>';
+        html += '<div class="prop-group"><label class="prop-label">Items JSON</label><textarea class="prop-input" style="min-height:120px;font-family:monospace;font-size:11px;" onchange="updateDetailCardItems(this.value)">' + escapeHtml(safeJson(detailCard.items || [])) + '</textarea></div></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Calculated Summary</div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (summary.enabled ? 'checked' : '') + ' onchange="updateSummaryProp(\'enabled\', this.checked)">Enable Summary</label></div>';
+        html += '<div class="prop-group"><label class="prop-label">Items JSON</label><textarea class="prop-input" style="min-height:150px;font-family:monospace;font-size:11px;" onchange="updateSummaryItems(this.value)">' + escapeHtml(safeJson(summary.items || [])) + '</textarea></div></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Unique Validation Rules</div>';
+        html += '<div class="prop-group"><label class="prop-label">Rules JSON</label><textarea class="prop-input" style="min-height:120px;font-family:monospace;font-size:11px;" onchange="updateFormBehaviorJson(\'unique_validation_rules\', this.value)">' + escapeHtml(safeJson(formBehavior.unique_validation_rules || [])) + '</textarea></div></div>';
+        propsPanel.innerHTML = html;
     }
 
     function getDropdownSourceMode(field) {
@@ -2080,7 +2145,7 @@ document.addEventListener('DOMContentLoaded', function() {
             file: 'upload_file', hidden: 'visibility_off'
         };
         
-        let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span></div>';
+        let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span><button type="button" class="prop-option-add" style="margin-left:auto;padding:6px 10px;" onclick="selectFormBehavior()">Form Behavior</button></div>';
 
         html += '<div class="prop-section"><div class="prop-section-title">Label & Name</div>';
         html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + escapeAttr(field.label || '') + '" data-prop="label" onchange="updateFieldProp(\'label\', this.value)"></div>';
@@ -3169,15 +3234,64 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('form-data-input');
         if (input) {
             formFields = formFields.map(normalizeFieldState);
-            input.value = JSON.stringify(formFields);
+            input.value = JSON.stringify({
+                fields: formFields,
+                behavior: formBehavior
+            });
         }
         if (removedSystemFields) {
             renderFields();
             if (selectedIndex === null && propsPanel) {
-                propsPanel.innerHTML = '<div class="no-selection"><span class="material-symbols-outlined">touch_app</span><p style="font-size:14px">Pilih field untuk edit</p></div>';
+                renderFormBehaviorPanel();
             }
         }
     }
+
+    window.updateFormBehaviorProp = function(propName, value) {
+        formBehavior[propName] = value;
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateFormBehaviorJson = function(propName, rawJson) {
+        formBehavior[propName] = parseJsonConfig(rawJson, formBehavior[propName] || []);
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateDetailCardProp = function(propName, value) {
+        formBehavior.detail_card = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
+        formBehavior.detail_card[propName] = value;
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateDetailCardItems = function(rawJson) {
+        formBehavior.detail_card = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
+        formBehavior.detail_card.items = parseJsonConfig(rawJson, formBehavior.detail_card.items || []);
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateSummaryProp = function(propName, value) {
+        formBehavior.calculated_summary = formBehavior.calculated_summary || { enabled: false, items: [] };
+        formBehavior.calculated_summary[propName] = value;
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateSummaryItems = function(rawJson) {
+        formBehavior.calculated_summary = formBehavior.calculated_summary || { enabled: false, items: [] };
+        formBehavior.calculated_summary.items = parseJsonConfig(rawJson, formBehavior.calculated_summary.items || []);
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.selectFormBehavior = function() {
+        selectedIndex = null;
+        renderFields();
+        renderFormBehaviorPanel();
+    };
 
     function removeSystemFieldsFromState() {
         const beforeCount = formFields.length;
@@ -3198,6 +3312,7 @@ document.addEventListener('DOMContentLoaded', function() {
             addField(this.dataset.fieldType);
         });
     });
+    renderFormBehaviorPanel();
     
     dropZone.addEventListener('dragover', function(e) {
         e.preventDefault();

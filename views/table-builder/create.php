@@ -895,6 +895,7 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                                         <div><strong>Existed Before:</strong> <?= Html::encode(var_export((bool)($sqlDebug['existed_before_execute'] ?? false), true)) ?></div>
                                         <div><strong>Exists After:</strong> <?= Html::encode(var_export((bool)($sqlDebug['exists_after_execute'] ?? false), true)) ?></div>
                                         <div><strong>Executed Statements:</strong> <?= Html::encode((string)($sqlDebug['executed_statement_count'] ?? '-')) ?></div>
+                                        <div><strong>Current Stage:</strong> <?= Html::encode((string)($sqlDebug['current_stage'] ?? ($sqlDebug['stage'] ?? '-'))) ?></div>
                                         <div><strong>SQLSTATE:</strong> <?= Html::encode($sqlDebug['sqlstate'] ?? '-') ?></div>
                                         <div><strong>Error Code:</strong> <?= Html::encode((string)($sqlDebug['error_code'] ?? '-')) ?></div>
                                         <div><strong>Physical Table Exists:</strong> <?= Html::encode(var_export((bool)($sqlDebug['physical_table_exists'] ?? false), true)) ?></div>
@@ -1225,6 +1226,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const sqlDebugResult = document.getElementById('sql-debug-result');
     const manualSubmitLabel = <?= \yii\helpers\Json::encode($submitLabel) ?>;
     let sqlEditor = null;
+    let isSqlSubmitting = false;
     const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
 
     const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-enum-values', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
@@ -1352,6 +1354,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<div><strong>Existed Before:</strong> ' + escapeHtml(payload.existed_before_execute === true ? 'true' : 'false') + '</div>' +
                 '<div><strong>Exists After:</strong> ' + escapeHtml(payload.exists_after_execute === true ? 'true' : 'false') + '</div>' +
                 '<div><strong>Executed Statements:</strong> ' + escapeHtml(payload.executed_statement_count !== undefined && payload.executed_statement_count !== null ? payload.executed_statement_count : '-') + '</div>' +
+                '<div><strong>Current Stage:</strong> ' + escapeHtml(payload.current_stage || payload.stage || '-') + '</div>' +
                 '<div><strong>Stage:</strong> ' + escapeHtml(payload.stage || '-') + '</div>' +
                 '<div><strong>SQLSTATE:</strong> ' + escapeHtml(payload.sqlstate || '-') + '</div>' +
                 '<div><strong>Error Code:</strong> ' + escapeHtml(payload.error_code || '-') + '</div>' +
@@ -1473,6 +1476,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     tableForm.addEventListener('submit', function (event) {
         if (getBuilderMode() === 'sql') {
+            if (isSqlSubmitting) {
+                event.preventDefault();
+                return false;
+            }
             if (sqlEditor && sqlTextarea) {
                 sqlTextarea.value = sqlEditor.getValue();
             }
@@ -1482,6 +1489,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return false;
             }
             event.preventDefault();
+            isSqlSubmitting = true;
             setSubmittingState(true);
             renderSqlDebugResult(null);
 
@@ -1506,6 +1514,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     });
                 })
                 .then(function (result) {
+                    isSqlSubmitting = false;
                     setSubmittingState(false);
                     const payload = result.payload || {};
                     if (result.ok && payload.success) {
@@ -1519,6 +1528,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 })
                 .catch(function () {
+                    isSqlSubmitting = false;
                     setSubmittingState(false);
                     alert('Gagal mengirim SQL editor.');
                 });

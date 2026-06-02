@@ -3448,6 +3448,7 @@ class TableBuilderController extends Controller
         $existedBeforeExecute = $context['existed_before_execute'] ?? null;
         $existsAfterExecute = $context['exists_after_execute'] ?? null;
         $executedStatementCount = $context['executed_statement_count'] ?? null;
+        $currentStage = $context['current_stage'] ?? $stage;
         $executionSource = $context['execution_source'] ?? null;
         $physicalTableExists = $context['physical_table_exists'] ?? null;
         $metadataTableExists = $context['metadata_table_exists'] ?? null;
@@ -3500,6 +3501,7 @@ class TableBuilderController extends Controller
             'existed_before_execute' => $existedBeforeExecute,
             'exists_after_execute' => $existsAfterExecute,
             'executed_statement_count' => $executedStatementCount,
+            'current_stage' => $currentStage,
             'execution_source' => $executionSource,
             'physical_table_exists' => $physicalTableExists,
             'metadata_table_exists' => $metadataTableExists,
@@ -3614,6 +3616,19 @@ class TableBuilderController extends Controller
                     ], 'table-builder-sql');
 
                     if ($physicalExists) {
+                        if (isset($createdTables[$statementTableName])) {
+                            Yii::warning([
+                                'stage' => 'sql_editor_duplicate_create_skipped',
+                                'database' => $activeDatabase,
+                                'table_name' => $statementTableName,
+                                'executed_statement_count' => $executedStatementCount,
+                                'execution_source' => $executionSource,
+                            ], 'table-builder-sql');
+                            $tablesToSync[$statementTableName] = true;
+                            $primaryExistsAfterExecute = true;
+                            continue;
+                        }
+
                         $diagnostics = $this->collectSqlEditorTableDiagnostics($db, $statementTableName);
                         $precheckException = new SqlEditorExecutionException(
                             "Tabel '{$statementTableName}' sudah ada sebelum CREATE dijalankan di database aktif: " . ($activeDatabase ?: '-') . '.',

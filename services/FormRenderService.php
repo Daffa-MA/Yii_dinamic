@@ -268,14 +268,15 @@ class FormRenderService
     private static function resolvePresetChoiceOptions(array $field): array
     {
         $type = (string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '');
-        if (!in_array($type, ['select', 'radio', 'checkboxes'], true)) {
-            return $field;
-        }
-
         $source = (string)($field['option_source'] ?? '');
         $preset = (string)($field['option_preset'] ?? '');
-        if ($source !== 'preset' || $preset !== 'calendar_months') {
+        if (($source !== 'preset' && $preset === '') || $preset !== 'calendar_months') {
             return $field;
+        }
+        if (!in_array($type, ['select', 'radio', 'checkboxes'], true)) {
+            $field['type'] = 'checkboxes';
+            $field['field_type'] = 'checkboxes';
+            $field['inputType'] = 'checkboxes';
         }
 
         $field['options'] = self::calendarMonthOptions();

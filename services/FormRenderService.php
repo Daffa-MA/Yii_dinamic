@@ -884,7 +884,7 @@ class FormRenderService
             })
             .then(function(data) {
                 showCustomFormAlert(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
-                if (data && data.success && window.parent && window.parent !== window) {
+                if (data && data.success && !data.duplicate && window.parent && window.parent !== window) {
                     var targetTableInput = form.querySelector('input[name="_datatable_target_table_id"]');
                     var targetTableId = targetTableInput ? parseInt(targetTableInput.value || '0', 10) : 0;
                     var submittedData = collectValuesFromCustomMarkup(form);
@@ -897,7 +897,8 @@ class FormRenderService
                         submittedData: submittedData,
                         submittedDisplayData: submittedDisplayData,
                         insertedData: data && data.insertedData ? data.insertedData : null,
-                        insertedRowKey: data && data.insertedRowKey ? data.insertedRowKey : null
+                        insertedRowKey: data && data.insertedRowKey ? data.insertedRowKey : null,
+                        duplicate: !!(data && data.duplicate)
                     }, '*');
                 }
             })

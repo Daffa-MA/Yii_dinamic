@@ -202,6 +202,11 @@ HTML;
         if ($fallbackFormId > 0) {
             try {
                 $fallbackFormModel = MasterForm::findOne($fallbackFormId);
+                try {
+                    $submissionRequestId = bin2hex(random_bytes(16));
+                } catch (\Throwable $e) {
+                    $submissionRequestId = uniqid('submit_', true);
+                }
                 $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, $fallbackFormId, [
                     '_embedded' => '1',
                     'render_context' => 'page_content',
@@ -209,6 +214,7 @@ HTML;
                     'menu_id' => $activeMenuId > 0 ? (string)$activeMenuId : '',
                     'project_id' => $activeProjectId !== null ? (string)$activeProjectId : '',
                     'workspace_role' => $workspaceRole,
+                    '_submit_request_id' => $submissionRequestId,
                     '_datatable_target_table_id' => $fallbackFormModel && $fallbackFormModel->hasAttribute('table_id')
                         ? (string)(int)$fallbackFormModel->table_id
                         : '',
@@ -404,6 +410,9 @@ if ($hasCustomPageSource): ?>
             }
 
             function refreshDatatableInIframe(data) {
+                if (data && data.duplicate) {
+                    return false;
+                }
                 var doc = getIframeDocument();
                 if (!doc) {
                     return false;

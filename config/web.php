@@ -239,6 +239,7 @@ $config = [
                 'master-datatable/create' => 'master-datatable/create',
                 'master-datatable/update/<id:\d+>' => 'master-datatable/update',
                 'master-datatable/delete/<id:\d+>' => 'master-datatable/delete',
+                'master-datatable/reload/<id:\d+>' => 'master-datatable/reload',
                 'master-datatable/delete-row/<table_id:\d+>' => 'master-datatable/delete-row',
 
                 // Master Form routes

@@ -14,6 +14,7 @@ use Yii;
 use yii\filters\VerbFilter;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 
 class MasterDatatableController extends Controller
 {
@@ -92,6 +93,21 @@ class MasterDatatableController extends Controller
         $deleted = (new MasterDatatableRenderService())->deleteRow((int)$table_id, $rowKey);
         Yii::$app->session->setFlash($deleted ? 'success' : 'error', $deleted ? 'Data berhasil dihapus.' : 'Data gagal dihapus.');
         return $this->redirect(Yii::$app->request->referrer ?: ['/dashboard']);
+    }
+
+    public function actionReload($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            return (new MasterDatatableRenderService())->renderAjaxByPresetId((int)$id);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to reload master datatable: ' . $e->getMessage(), 'master-datatable');
+            return [
+                'success' => false,
+                'message' => 'Datatable gagal dimuat ulang.',
+            ];
+        }
     }
 
     private function saveFromPost(MasterDatatable $model): bool

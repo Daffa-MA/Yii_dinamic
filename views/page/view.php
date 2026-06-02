@@ -409,7 +409,35 @@ if ($hasCustomPageSource): ?>
                 return html;
             }
 
-            function refreshDatatableInIframe(data) {
+            async function reloadDatatableElement(root) {
+                var reloadUrl = root ? root.getAttribute('data-reload-url') : '';
+                if (!reloadUrl) {
+                    return false;
+                }
+
+                var response = await fetch(reloadUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+                var result = await response.json();
+                if (!result || !result.success) {
+                    return false;
+                }
+
+                var tbody = root.querySelector('tbody');
+                if (tbody && typeof result.tbodyHtml === 'string') {
+                    tbody.innerHTML = result.tbodyHtml;
+                }
+                var subtitle = root.querySelector('[data-datatable-subtitle]');
+                if (subtitle && result.subtitle) {
+                    subtitle.textContent = result.subtitle;
+                }
+                return true;
+            }
+
+            async function refreshDatatableInIframe(data) {
                 if (data && data.duplicate) {
                     return false;
                 }
@@ -418,61 +446,25 @@ if ($hasCustomPageSource): ?>
                     return false;
                 }
 
-                var root = doc.querySelector('[data-datatable-table-id="' + String(data && data.targetTableId ? data.targetTableId : '') + '"]');
-                if (!root) {
-                    return false;
-                }
-
-                var columns = [];
-                try {
-                    columns = JSON.parse(root.getAttribute('data-datatable-columns') || '[]') || [];
-                } catch (error) {
-                    columns = [];
-                }
-                var primaryKeys = [];
-                try {
-                    primaryKeys = JSON.parse(root.getAttribute('data-datatable-primary-keys') || '[]') || [];
-                } catch (error) {
-                    primaryKeys = [];
-                }
-                var hasActions = String(root.getAttribute('data-datatable-has-actions') || '0') === '1';
-                var tbody = root.querySelector('tbody');
-                if (!tbody) {
-                    return false;
-                }
-
-                var rowData = data && data.insertedData && typeof data.insertedData === 'object'
-                    ? data.insertedData
-                    : (data && data.submittedData && typeof data.submittedData === 'object' ? data.submittedData : null);
-                if (!rowData) {
-                    return false;
-                }
-                var rowDisplayData = data && data.submittedDisplayData && typeof data.submittedDisplayData === 'object'
-                    ? data.submittedDisplayData
-                    : rowData;
-                var rowKey = data && data.insertedRowKey && typeof data.insertedRowKey === 'object'
-                    ? data.insertedRowKey
-                    : buildRowKey(rowData, primaryKeys);
-                var rowKeyJson = JSON.stringify(rowKey || {});
-
-                var emptyCell = tbody.querySelector('.dt-empty');
-                if (emptyCell) {
-                    var emptyRow = emptyCell.closest('tr');
-                    if (emptyRow) {
-                        emptyRow.remove();
+                var targetTableId = data && data.targetTableId ? String(data.targetTableId) : '';
+                var targetTableName = data && data.targetTableName ? String(data.targetTableName) : '';
+                var roots = [];
+                doc.querySelectorAll('[data-component="datatable"], .master-datatable').forEach(function(root) {
+                    var matchesId = targetTableId !== '' && String(root.getAttribute('data-datatable-table-id') || '') === targetTableId;
+                    var matchesName = targetTableName !== '' && String(root.getAttribute('data-table') || '') === targetTableName;
+                    if (matchesId || matchesName || (targetTableId === '' && targetTableName === '')) {
+                        roots.push(root);
                     }
+                });
+                if (!roots.length) {
+                    return false;
                 }
 
-                var existingRows = tbody.querySelectorAll('tr[data-row-key]');
-                for (var i = 0; i < existingRows.length; i += 1) {
-                    if ((existingRows[i].getAttribute('data-row-key') || '') === rowKeyJson) {
-                        existingRows[i].outerHTML = buildRowHtml(columns, rowData, rowDisplayData, primaryKeys, hasActions, root.getAttribute('data-delete-url') || '', root.getAttribute('data-csrf-param') || '_csrf', root.getAttribute('data-csrf-token') || '');
-                        return true;
-                    }
+                var refreshed = false;
+                for (var i = 0; i < roots.length; i += 1) {
+                    refreshed = await reloadDatatableElement(roots[i]) || refreshed;
                 }
-
-                tbody.insertAdjacentHTML('afterbegin', buildRowHtml(columns, rowData, rowDisplayData, primaryKeys, hasActions, root.getAttribute('data-delete-url') || '', root.getAttribute('data-csrf-param') || '_csrf', root.getAttribute('data-csrf-token') || ''));
-                return true;
+                return refreshed;
             }
 
             window.addEventListener('message', function(event) {
@@ -482,7 +474,9 @@ if ($hasCustomPageSource): ?>
                 }
 
                 showSubmitToast('success', 'Data berhasil dikirim.');
-                refreshDatatableInIframe(data);
+                refreshDatatableInIframe(data).catch(function(error) {
+                    console.error(error);
+                });
             });
 
             document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {

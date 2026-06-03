@@ -65,8 +65,12 @@ class DynamicFormPreviewService
         $customJs = (string)($payload['customJs'] ?? '');
         $hasOverride = !empty($payload['useCustomCode']) || !empty($payload['hasOverride']);
 
+        $componentId = trim((string)($context['component_id'] ?? $context['componentId'] ?? 'component'));
+        $componentId = preg_replace('/[^A-Za-z0-9_-]+/', '-', $componentId) ?: 'component';
+        $instanceId = 'dynamic-form-' . (int)$form->id . '-' . ($pageId > 0 ? $pageId : 'preview') . '-' . $componentId;
+
         $titleHtml = $showTitle ? '<div style="font-weight:700;font-size:16px;color:#0f172a;margin-bottom:12px;">' . Html::encode((string)$form->form_name) . '</div>' : '';
-        $formOpen = $interactive ? '<form method="post" class="dynamic-embedded-form" action="/master-form/submit?id=' . (int)$form->id . '">' .
+        $formOpen = $interactive ? '<form method="post" id="' . Html::encode($instanceId) . '" class="dynamic-embedded-form" data-dynamic-form-instance="' . Html::encode($instanceId) . '" data-form-id="' . (int)$form->id . '" action="/master-form/submit?id=' . (int)$form->id . '">' .
             '<input type="hidden" name="' . Html::encode(\Yii::$app->request->csrfParam) . '" value="' . Html::encode(\Yii::$app->request->getCsrfToken()) . '">' : '';
         $formClose = $interactive ? '</form>' : '';
         $embeddedFlag = '';
@@ -140,7 +144,14 @@ class DynamicFormPreviewService
                 continue;
             }
             if ($type === 'select') {
+                $isFk = !empty($field['is_foreign_key']) || FormRenderService::isRelationField($field);
+                $pickerMode = $isFk ? strtolower(trim((string)($field['picker_mode'] ?? 'dropdown'))) : 'dropdown';
+                if (!in_array($pickerMode, ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'], true)) {
+                    $pickerMode = 'dropdown';
+                }
                 $optionHtml = '<option value="">Pilih...</option>';
+                $defaultValue = (string)($field['default_value'] ?? '');
+                $selectedLabel = '';
                 foreach ((array)($field['options'] ?? []) as $option) {
                     if (!is_array($option)) {
                         continue;
@@ -149,9 +160,71 @@ class DynamicFormPreviewService
                     if ($value === '') {
                         continue;
                     }
-                    $optionHtml .= '<option value="' . Html::encode($value) . '">' . Html::encode((string)($option['label'] ?? $value)) . '</option>';
+                    $labelOption = (string)($option['label'] ?? $value);
+                    if ($defaultValue !== '' && $defaultValue === $value) {
+                        $selectedLabel = $labelOption;
+                    }
+                    $optionHtml .= '<option value="' . Html::encode($value) . '"' . ($defaultValue === $value ? ' selected' : '') . '>' . Html::encode($labelOption) . '</option>';
                 }
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
+                if ($isFk && $pickerMode !== 'dropdown' && $interactive) {
+                    $fieldHtml .= '<div style="margin-bottom:10px;">'
+                        . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label>'
+                        . '<input type="hidden" class="relation-picker-value" data-relation-picker-value="' . $name . '" name="' . $name . '" value="' . Html::encode($defaultValue) . '">'
+                        . '<div class="relation-picker-row">'
+                        . '<input type="text" class="dynamic-form-input relation-picker-display" data-form-id="' . (int)$form->id . '" data-field-name="' . $name . '" data-picker-mode="' . Html::encode($pickerMode) . '" name="__fk_display_' . $name . '" value="' . Html::encode($selectedLabel) . '" placeholder="' . ($placeholder !== '' ? $placeholder : 'Cari ' . $label . '...') . '"' . ($pickerMode === 'modal_picker' ? ' readonly' : '') . ' style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">'
+                        . (($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal') ? '<button type="button" class="relation-picker-btn" data-relation-picker-open="' . $name . '">Pilih</button>' : '')
+                        . '</div>'
+                        . '<div class="relation-picker-status" data-relation-picker-status="' . $name . '">Tekan Enter untuk mencari data.</div>'
+                        . '</div>';
+                    continue;
+                }
+                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
+                continue;
+            }
+            if ($type === 'checkboxes') {
+                $options = (array)($field['options'] ?? []);
+                $items = '';
+                foreach ($options as $option) {
+                    if (!is_array($option)) {
+                        continue;
+                    }
+                    $value = trim((string)($option['value'] ?? ''));
+                    if ($value === '') {
+                        continue;
+                    }
+                    $optionLabel = (string)($option['label'] ?? $value);
+                    $items .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin-bottom:8px;">'
+                        . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '[]" value="' . Html::encode($value) . '" style="width:16px;height:16px;">'
+                        . Html::encode($optionLabel)
+                        . '</label>';
+                }
+                $fieldHtml .= '<div style="margin-bottom:10px;">'
+                    . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;">' . $label . $required . '</label>'
+                    . ($items !== '' ? $items : '<div style="font-size:12px;color:#94a3b8;">Tidak ada opsi.</div>')
+                    . '</div>';
+                continue;
+            }
+            if ($type === 'radio') {
+                $options = (array)($field['options'] ?? []);
+                $items = '';
+                foreach ($options as $option) {
+                    if (!is_array($option)) {
+                        continue;
+                    }
+                    $value = trim((string)($option['value'] ?? ''));
+                    if ($value === '') {
+                        continue;
+                    }
+                    $optionLabel = (string)($option['label'] ?? $value);
+                    $items .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin-bottom:8px;">'
+                        . '<input type="radio" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="' . Html::encode($value) . '" style="width:16px;height:16px;">'
+                        . Html::encode($optionLabel)
+                        . '</label>';
+                }
+                $fieldHtml .= '<div style="margin-bottom:10px;">'
+                    . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;">' . $label . $required . '</label>'
+                    . ($items !== '' ? $items : '<div style="font-size:12px;color:#94a3b8;">Tidak ada opsi.</div>')
+                    . '</div>';
                 continue;
             }
             if ($type === 'checkbox') {

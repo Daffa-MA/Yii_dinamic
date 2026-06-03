@@ -651,6 +651,7 @@ class MasterPageController extends Controller
                 'render_context' => (string)Yii::$app->request->get('render_context', ''),
                 'page_id' => (int)Yii::$app->request->get('page_id', 0),
                 'menu_id' => (int)Yii::$app->request->get('menu_id', 0),
+                'component_id' => (string)Yii::$app->request->get('component_id', ''),
             ]);
             return ['success' => true, 'html' => $html];
         } catch (\Throwable $e) {

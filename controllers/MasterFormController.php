@@ -1675,7 +1675,7 @@ class MasterFormController extends Controller
                 if ($fieldType === 'checkboxes') {
                     $values = is_array($postedValue) ? $postedValue : ($postedValue ? [$postedValue] : []);
                     if (!empty($values)) {
-                        $insertData[$fieldName] = implode(',', $values);
+                        $insertData[$fieldName] = $this->isMultipleRowFieldConfig($field) ? array_values($values) : implode(',', $values);
                     }
                 } elseif ($postedValue !== null && $postedValue !== '') {
                     $insertData[$fieldName] = $postedValue;
@@ -1746,6 +1746,7 @@ class MasterFormController extends Controller
                 return $this->redirect(['preview', 'id' => $id]);
             }
             $insertData = SystemFieldService::applyCreateValues($insertData, $columns->columns);
+            $multipleInsertRows = $this->buildMultipleInsertRows($insertData, $fields, $columns->columns);
             $systemFieldsApplied = array_values(array_diff(array_keys($insertData), array_keys($preSystemInsertData)));
             $fkDebugInfo = [];
             foreach ($fields as $fi) {
@@ -1783,7 +1784,14 @@ class MasterFormController extends Controller
                 'field_mapping' => $fieldMappingDebug,
                 'fk_debug' => $fkDebugInfo,
             ], 'submit_debug');
-            $columnError = $this->validateInsertDataColumns($insertData, $columns->columns);
+            $validationRows = $multipleInsertRows !== null ? $multipleInsertRows : [$insertData];
+            $columnError = null;
+            foreach ($validationRows as $validationRow) {
+                $columnError = $this->validateInsertDataColumns($validationRow, $columns->columns);
+                if ($columnError !== null) {
+                    break;
+                }
+            }
             if ($columnError !== null) {
                 FormFlowDebugLogger::logSubmit([
                     'host' => Yii::$app->request->hostInfo,
@@ -1815,7 +1823,13 @@ class MasterFormController extends Controller
                 return $this->redirect(['preview', 'id' => $id]);
             }
 
-            $requiredError = $this->validateRequiredInsertData($insertData, $columns->columns);
+            $requiredError = null;
+            foreach ($validationRows as $validationRow) {
+                $requiredError = $this->validateRequiredInsertData($validationRow, $columns->columns);
+                if ($requiredError !== null) {
+                    break;
+                }
+            }
             if ($requiredError !== null) {
                 if ($isAjax) {
                     return ['success' => false, 'message' => $requiredError];
@@ -1824,7 +1838,13 @@ class MasterFormController extends Controller
                 return $this->redirect(['preview', 'id' => $id]);
             }
 
-            $lengthError = $this->validateInsertDataLengths($insertData, $columns->columns);
+            $lengthError = null;
+            foreach ($validationRows as $validationRow) {
+                $lengthError = $this->validateInsertDataLengths($validationRow, $columns->columns);
+                if ($lengthError !== null) {
+                    break;
+                }
+            }
             if ($lengthError !== null) {
                 if ($isAjax) {
                     return ['success' => false, 'message' => $lengthError];
@@ -1841,11 +1861,13 @@ class MasterFormController extends Controller
                     \Yii::info("Target table: $tableName", 'submit_debug');
                     \Yii::info("Data to insert: " . json_encode($insertData), 'submit_debug');
                     
-                    $cmd = $db->createCommand()->insert($tableName, $insertData);
-                    $sql = $cmd->getSql();
-                    \Yii::info("SQL: $sql", 'submit_debug');
-                    
-                    $cmd->execute();
+                    $rowsToInsert = $multipleInsertRows !== null ? $multipleInsertRows : [$insertData];
+                    foreach ($rowsToInsert as $rowToInsert) {
+                        $cmd = $db->createCommand()->insert($tableName, $rowToInsert);
+                        $sql = $cmd->getSql();
+                        \Yii::info("SQL: $sql", 'submit_debug');
+                        $cmd->execute();
+                    }
                     FormFlowDebugLogger::logSubmit([
                         'host' => Yii::$app->request->hostInfo,
                         'project_id' => $this->getActiveProjectId(),
@@ -1857,7 +1879,8 @@ class MasterFormController extends Controller
                         'metadata_source' => 'master_form.table_id',
                         'submitted_fields' => array_keys($postData),
                         'system_fields_applied' => $systemFieldsApplied,
-                        'insert_result' => 'success',
+                        'insert_result' => $multipleInsertRows !== null ? 'success_multiple_rows' : 'success',
+                        'inserted_rows' => count($rowsToInsert),
                         'error' => null,
                     ]);
                     
@@ -1935,6 +1958,67 @@ class MasterFormController extends Controller
         }
         
         return $this->redirect(['preview', 'id' => $id]);
+    }
+
+    private function isMultipleRowFieldConfig(array $field): bool
+    {
+        foreach (['multiple_row_field', 'is_multiple_row', 'multiple_row', 'multiple_insert', 'submit_as_multiple_rows', 'insert_per_option'] as $key) {
+            if (array_key_exists($key, $field) && filter_var($field[$key], FILTER_VALIDATE_BOOLEAN)) {
+                return true;
+            }
+        }
+
+        $submitMode = strtolower(trim((string)($field['submit_mode'] ?? $field['insert_mode'] ?? '')));
+        return in_array($submitMode, ['multiple_row', 'multiple_rows', 'insert_many', 'per_option'], true);
+    }
+
+    private function buildMultipleInsertRows(array $insertData, array $fields, array $schemaColumns): ?array
+    {
+        $schema = (object)['columns' => $schemaColumns];
+        $multipleColumn = null;
+        foreach ($fields as $index => $field) {
+            if (!is_array($field) || !$this->isMultipleRowFieldConfig($field)) {
+                continue;
+            }
+
+            $columnName = $this->normalizeFieldName($field, (int)$index, $schema);
+            if ($columnName !== '' && array_key_exists($columnName, $insertData) && is_array($insertData[$columnName])) {
+                $multipleColumn = $columnName;
+                break;
+            }
+        }
+
+        if ($multipleColumn === null) {
+            return null;
+        }
+
+        $values = array_values(array_filter(array_map(static function ($value): string {
+            return trim((string)$value);
+        }, $insertData[$multipleColumn]), static fn(string $value): bool => $value !== ''));
+
+        if (count($values) <= 1) {
+            if (count($values) === 1) {
+                $insertData[$multipleColumn] = $values[0];
+                return [$insertData];
+            }
+            return null;
+        }
+
+        $rows = [];
+        foreach ($values as $value) {
+            $row = $insertData;
+            $row[$multipleColumn] = $value;
+            $rows[] = $row;
+        }
+
+        Yii::info([
+            'multiple_row_insert' => true,
+            'column' => $multipleColumn,
+            'values' => $values,
+            'row_count' => count($rows),
+        ], 'submit_debug');
+
+        return $rows;
     }
 
     private function resolvePostedFieldValue(array $postData, array $field, string $fieldName)

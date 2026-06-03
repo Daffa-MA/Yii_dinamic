@@ -16,6 +16,11 @@ use yii\helpers\Json;
 
 class FormEngineService
 {
+    /** @var array<string, array<string, mixed>> */
+    private static array $resolvedSchemaCache = [];
+    /** @var array<string, DbTable|null> */
+    private static array $targetTableCache = [];
+
     public function getResolvedFormSchema(MasterForm $form): array
     {
         if (Yii::$app instanceof \yii\web\Application || Yii::$app->has('session', true)) {
@@ -23,6 +28,11 @@ class FormEngineService
             if (DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db)) {
                 Yii::$app->db->schema->refresh();
             }
+        }
+
+        $cacheKey = 'form:' . (int)$form->id . ':' . (string)($form->updated_at ?? $form->updatedAt ?? '') . ':' . (string)Yii::$app->db->dsn;
+        if (isset(self::$resolvedSchemaCache[$cacheKey])) {
+            return self::$resolvedSchemaCache[$cacheKey];
         }
 
         $fields = $form->getFields()->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
@@ -89,7 +99,7 @@ class FormEngineService
             ]);
         }
 
-        return [
+        return self::$resolvedSchemaCache[$cacheKey] = [
             'fields' => $fieldRows,
             'layout' => $layout,
             'autoSynced' => $autoSynced,
@@ -176,6 +186,11 @@ class FormEngineService
 
     private function resolveTargetTable(MasterForm $form): ?DbTable
     {
+        $cacheKey = 'form:' . (int)$form->id . ':' . (string)($form->updated_at ?? $form->updatedAt ?? '') . ':' . (string)Yii::$app->db->dsn;
+        if (array_key_exists($cacheKey, self::$targetTableCache)) {
+            return self::$targetTableCache[$cacheKey];
+        }
+
         $tableId = 0;
         if ($form->hasAttribute('db_table_id')) {
             $tableId = (int)$form->getAttribute('db_table_id');
@@ -184,10 +199,10 @@ class FormEngineService
             $tableId = (int)$form->table_id;
         }
         if ($tableId <= 0) {
-            return null;
+            return self::$targetTableCache[$cacheKey] = null;
         }
 
-        return DbTable::findOne(['id' => $tableId]);
+        return self::$targetTableCache[$cacheKey] = DbTable::findOne(['id' => $tableId]);
     }
 
     /**

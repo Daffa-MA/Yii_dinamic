@@ -19,6 +19,9 @@ use yii\helpers\Url;
 
 class MasterDatatableRenderService
 {
+    /** @var array<string, array<string, mixed>|null> */
+    private static array $renderDataCache = [];
+
     public function renderByPresetId(int $presetId, array $options = []): string
     {
         $preset = MasterDatatable::findScoped()->andWhere(['id' => $presetId, 'is_active' => 1])->one();
@@ -26,7 +29,9 @@ class MasterDatatableRenderService
             return $this->renderNotice('Datatable tidak tersedia.', 'Preset datatable tidak ditemukan atau sedang nonaktif.');
         }
 
-        return $this->renderFromConfig($preset->toComponentConfig(), $options);
+        $config = $preset->toComponentConfig();
+        $config['_preset_loaded'] = true;
+        return $this->renderFromConfig($config, $options);
     }
 
     public function renderAjaxByPresetId(int $presetId): array
@@ -68,10 +73,11 @@ class MasterDatatableRenderService
     public function renderFromConfig(array $config, array $options = []): string
     {
         $presetId = (int)($config['datatableId'] ?? $config['datatable_id'] ?? 0);
-        if ($presetId > 0) {
+        if ($presetId > 0 && empty($config['_preset_loaded'])) {
             $preset = MasterDatatable::findScoped()->andWhere(['id' => $presetId, 'is_active' => 1])->one();
             if ($preset instanceof MasterDatatable) {
                 $config = array_replace_recursive($preset->toComponentConfig(), $config);
+                $config['_preset_loaded'] = true;
             }
         }
 
@@ -86,30 +92,48 @@ class MasterDatatableRenderService
     private function buildRenderData(array $config): ?array
     {
         $tableId = (int)($config['tableId'] ?? $config['table_id'] ?? 0);
+        $pageParam = 'dt_page_' . $tableId;
+        $searchParam = 'dt_search_' . $tableId;
+        $cacheKey = md5(Json::encode([
+            'tableId' => $tableId,
+            'columns' => $config['columns'] ?? [],
+            'actions' => $config['actions'] ?? [],
+            'editFormId' => $config['editFormId'] ?? $config['edit_form_id'] ?? null,
+            'search' => $config['search'] ?? $config['search_enabled'] ?? true,
+            'pagination' => $config['pagination'] ?? $config['pagination_enabled'] ?? true,
+            'pageSize' => $config['pageSize'] ?? $config['page_size'] ?? 10,
+            'page' => Yii::$app->request->get($pageParam, 1),
+            'searchQuery' => Yii::$app->request->get($searchParam, ''),
+            'projectId' => (new ActiveProjectContext())->getActiveProjectId(),
+            'userId' => Yii::$app->user->isGuest ? 0 : (int)Yii::$app->user->id,
+            'dsn' => (string)Yii::$app->db->dsn,
+        ]));
+        if (array_key_exists($cacheKey, self::$renderDataCache)) {
+            return self::$renderDataCache[$cacheKey];
+        }
+
         if ($tableId <= 0) {
-            return null;
+            return self::$renderDataCache[$cacheKey] = null;
         }
 
         $table = DbTable::find()->where(['id' => $tableId])->one();
         if (!$table instanceof DbTable || !$this->canUseTable($table)) {
-            return null;
+            return self::$renderDataCache[$cacheKey] = null;
         }
 
         $tableSchema = Yii::$app->db->schema->getTableSchema($table->name, true);
         if ($tableSchema === null) {
-            return null;
+            return self::$renderDataCache[$cacheKey] = null;
         }
 
         $columns = $this->resolveColumns($table, $config);
         if (empty($columns)) {
-            return null;
+            return self::$renderDataCache[$cacheKey] = null;
         }
 
         $searchEnabled = (bool)($config['search'] ?? $config['search_enabled'] ?? true);
         $paginationEnabled = (bool)($config['pagination'] ?? $config['pagination_enabled'] ?? true);
         $pageSize = max(1, min(100, (int)($config['pageSize'] ?? $config['page_size'] ?? 10)));
-        $pageParam = 'dt_page_' . $tableId;
-        $searchParam = 'dt_search_' . $tableId;
         $page = max(1, (int)Yii::$app->request->get($pageParam, 1));
         $search = trim((string)Yii::$app->request->get($searchParam, ''));
         $fields = array_column($columns, 'field');
@@ -141,7 +165,7 @@ class MasterDatatableRenderService
         $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
 
-        return [
+        return self::$renderDataCache[$cacheKey] = [
             'uid' => $uid,
             'table' => $table,
             'columns' => $columns,

@@ -14,6 +14,9 @@ use yii\helpers\Url;
 
 class FormRenderService
 {
+    /** @var array<string, array<int, array<string, string>>> */
+    private static array $dynamicChoiceOptionsCache = [];
+
     public function hasCustomCodePayload(array $renderPayload, ?MasterForm $form = null): bool
     {
         $customHtml = trim((string)($renderPayload['customHtml'] ?? ''));
@@ -208,28 +211,34 @@ class FormRenderService
 
             $labelColumn = self::resolveDisplayColumnForSchema($schema, $tableName, $valueColumn, $labelColumn);
 
-            $rows = (new \yii\db\Query())
-                ->select([
-                    'value' => $valueColumn,
-                    'label' => $labelColumn,
-                ])
-                ->from($tableName)
-                ->orderBy([$labelColumn => SORT_ASC])
-                ->limit(500)
-                ->all($db);
+            $cacheKey = (string)$db->dsn . '|' . $tableName . '|' . $valueColumn . '|' . $labelColumn;
+            if (isset(self::$dynamicChoiceOptionsCache[$cacheKey])) {
+                $options = self::$dynamicChoiceOptionsCache[$cacheKey];
+            } else {
+                $rows = (new \yii\db\Query())
+                    ->select([
+                        'value' => $valueColumn,
+                        'label' => $labelColumn,
+                    ])
+                    ->from($tableName)
+                    ->orderBy([$labelColumn => SORT_ASC])
+                    ->limit(500)
+                    ->all($db);
 
-            $options = [];
-            foreach ($rows as $row) {
-                $value = isset($row['value']) ? (string)$row['value'] : '';
-                if ($value === '') {
-                    continue;
+                $options = [];
+                foreach ($rows as $row) {
+                    $value = isset($row['value']) ? (string)$row['value'] : '';
+                    if ($value === '') {
+                        continue;
+                    }
+
+                    $label = trim((string)($row['label'] ?? ''));
+                    $options[] = [
+                        'value' => $value,
+                        'label' => $label !== '' ? $label : $value,
+                    ];
                 }
-
-                $label = trim((string)($row['label'] ?? ''));
-                $options[] = [
-                    'value' => $value,
-                    'label' => $label !== '' ? $label : $value,
-                ];
+                self::$dynamicChoiceOptionsCache[$cacheKey] = $options;
             }
 
             $field['options'] = $options;

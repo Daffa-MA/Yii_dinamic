@@ -249,22 +249,7 @@ class PageDisplayService
             ->orderBy(['order' => SORT_ASC])
             ->all();
 
-        // Get form models
-        $formsData = [];
-        foreach ($pageForms as $pf) {
-            $form = Form::findOne($pf->form_id);
-            if ($form) {
-                $schema = method_exists($form, 'getSchema') ? $form->getSchema() : [];
-                $formsData[] = [
-                    'id' => $form->id,
-                    'name' => $form->name,
-                    'description' => $form->description ?? '',
-                    'order' => $pf->order,
-                    'schema' => is_array($schema) ? $schema : [],
-                    'schema_json' => $form->schema_js ?? $form->schema_json ?? '{}',
-                ];
-            }
-        }
+        $formsData = $this->buildFormsDataFromPageForms($pageForms);
 
         // Determine render mode
         $renderMode = $this->determineRenderMode($formsData);
@@ -396,13 +381,7 @@ class PageDisplayService
             ->orderBy(['order' => SORT_ASC])
             ->all();
         
-        $forms = [];
-        foreach ($pageForms as $pf) {
-            $form = Form::findOne($pf->form_id);
-            if ($form) {
-                $forms[] = $form;
-            }
-        }
+        $forms = $this->getFormModelsByPageForms($pageForms);
         
         return $forms;
     }
@@ -723,21 +702,7 @@ class PageDisplayService
             ->orderBy(['order' => SORT_ASC])
             ->all();
 
-        $formsData = [];
-        foreach ($pageForms as $pf) {
-            $form = Form::findOne($pf->form_id);
-            if ($form) {
-                $schema = method_exists($form, 'getSchema') ? $form->getSchema() : [];
-                $formsData[] = [
-                    'id' => $form->id,
-                    'name' => $form->name,
-                    'description' => $form->description ?? '',
-                    'order' => $pf->order,
-                    'schema' => is_array($schema) ? $schema : [],
-                    'schema_json' => $form->schema_js ?? $form->schema_json ?? '{}',
-                ];
-            }
-        }
+        $formsData = $this->buildFormsDataFromPageForms($pageForms);
 
         $renderMode = $this->determineRenderMode($formsData);
 
@@ -796,21 +761,7 @@ class PageDisplayService
             ->orderBy(['order' => SORT_ASC])
             ->all();
 
-        $formsData = [];
-        foreach ($pageForms as $pf) {
-            $form = Form::findOne($pf->form_id);
-            if ($form) {
-                $schema = method_exists($form, 'getSchema') ? $form->getSchema() : [];
-                $formsData[] = [
-                    'id' => $form->id,
-                    'name' => $form->name,
-                    'description' => $form->description ?? '',
-                    'order' => $pf->order,
-                    'schema' => is_array($schema) ? $schema : [],
-                    'schema_json' => $form->schema_js ?? $form->schema_json ?? '{}',
-                ];
-            }
-        }
+        $formsData = $this->buildFormsDataFromPageForms($pageForms);
 
         $renderMode = $this->determineRenderMode($formsData);
 
@@ -842,14 +793,76 @@ class PageDisplayService
             ->orderBy(['order' => SORT_ASC])
             ->all();
 
+        $forms = $this->getFormModelsByPageForms($pageForms);
+
+        return $forms;
+    }
+
+    /**
+     * @param PageForms[] $pageForms
+     * @return Form[]
+     */
+    private function getFormModelsByPageForms(array $pageForms): array
+    {
+        $formIds = array_values(array_unique(array_filter(array_map(static function ($pageForm): int {
+            return (int)($pageForm->form_id ?? 0);
+        }, $pageForms))));
+        if (empty($formIds)) {
+            return [];
+        }
+
+        $formMap = Form::find()
+            ->where(['id' => $formIds])
+            ->indexBy('id')
+            ->all();
+
         $forms = [];
-        foreach ($pageForms as $pf) {
-            $form = Form::findOne($pf->form_id);
-            if ($form) {
-                $forms[] = $form;
+        foreach ($pageForms as $pageForm) {
+            $formId = (int)($pageForm->form_id ?? 0);
+            if ($formId > 0 && isset($formMap[$formId])) {
+                $forms[] = $formMap[$formId];
             }
         }
 
         return $forms;
+    }
+
+    /**
+     * @param PageForms[] $pageForms
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildFormsDataFromPageForms(array $pageForms): array
+    {
+        $formIds = array_values(array_unique(array_filter(array_map(static function ($pageForm): int {
+            return (int)($pageForm->form_id ?? 0);
+        }, $pageForms))));
+        if (empty($formIds)) {
+            return [];
+        }
+
+        $formMap = Form::find()
+            ->where(['id' => $formIds])
+            ->indexBy('id')
+            ->all();
+
+        $formsData = [];
+        foreach ($pageForms as $pageForm) {
+            $formId = (int)($pageForm->form_id ?? 0);
+            if ($formId <= 0 || !isset($formMap[$formId])) {
+                continue;
+            }
+            $form = $formMap[$formId];
+            $schema = method_exists($form, 'getSchema') ? $form->getSchema() : [];
+            $formsData[] = [
+                'id' => $form->id,
+                'name' => $form->name,
+                'description' => $form->description ?? '',
+                'order' => $pageForm->order ?? 0,
+                'schema' => is_array($schema) ? $schema : [],
+                'schema_json' => $form->schema_js ?? $form->schema_json ?? '{}',
+            ];
+        }
+
+        return $formsData;
     }
 }

@@ -2460,6 +2460,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         formFields[selectedIndex][propName] = value;
         normalizeFieldState(formFields[selectedIndex]);
+        const rerenderPanelProps = new Set([
+            'type', 'readonly', 'disabled', 'required', 'excluded',
+            'default_checked', 'saveAsMultipleRows', 'option_source',
+            'option_preset', 'source_column_id', 'source_table_id',
+            'label_column', 'value_column', 'picker_mode'
+        ]);
         if (propName === 'type') {
             formFields[selectedIndex].inputType = getInputType(value);
             if (['select', 'radio', 'checkboxes'].includes(value)) {
@@ -2476,7 +2482,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         renderFields();
-        renderPropsPanel(formFields[selectedIndex]);
+        if (rerenderPanelProps.has(propName)) {
+            renderPropsPanel(formFields[selectedIndex]);
+        }
         updateData();
     };
 

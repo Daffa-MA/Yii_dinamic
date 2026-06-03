@@ -12,6 +12,9 @@ use yii\helpers\Html;
 
 class DynamicFormPreviewService
 {
+    /** @var array<string, string> */
+    private static array $renderCache = [];
+
     public function renderByScopedId(?int $formId, bool $showTitle = true, bool $interactive = false, array $context = []): string
     {
         if (empty($formId)) {
@@ -47,13 +50,27 @@ class DynamicFormPreviewService
             return $this->renderInfo('Form tidak ditemukan pada workspace/project aktif.');
         }
 
+        $pageId = (int)($context['page_id'] ?? 0);
+        $renderContext = (string)($context['render_context'] ?? '');
+        $cacheKey = implode('|', [
+            (int)$form->id,
+            $showTitle ? '1' : '0',
+            $interactive ? '1' : '0',
+            $renderContext,
+            $pageId,
+            (int)($context['menu_id'] ?? 0),
+            (string)($context['component_id'] ?? $context['componentId'] ?? ''),
+            (string)($context['workspace_role'] ?? ''),
+        ]);
+        if (!$interactive && isset(self::$renderCache[$cacheKey])) {
+            return self::$renderCache[$cacheKey];
+        }
+
         $engine = new FormEngineService();
         $renderer = new FormRenderService();
         $schema = $engine->getResolvedFormSchema($form);
         $payload = $renderer->buildRenderPayload($form, $schema['fields'], $schema['layout']);
         $projectId = (new ActiveProjectContext())->getActiveProjectId();
-        $pageId = (int)($context['page_id'] ?? 0);
-        $renderContext = (string)($context['render_context'] ?? '');
         $pageAuthorized = $pageId > 0 && $renderContext === 'page_content'
             ? (new ProjectPermissionService())->canUseFormAsPageContent((int)$form->id, $pageId, $projectId)
             : false;
@@ -294,6 +311,10 @@ class DynamicFormPreviewService
             . $submitHtml
             . $formClose
             . '</div>';
+
+        if (!$interactive) {
+            self::$renderCache[$cacheKey] = $html;
+        }
 
         if ($interactive) {
             $html = FormRenderService::attachAjaxSubmitHandler($html);

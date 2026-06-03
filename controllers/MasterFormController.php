@@ -1463,7 +1463,10 @@ class MasterFormController extends Controller
 
         return $this->render('create', [
             'model' => $model,
-            'pages' => MasterPage::find()->all(),
+            'pages' => MasterPage::find()
+                ->select(['id', 'name', 'slug', 'is_active'])
+                ->orderBy(['name' => SORT_ASC, 'id' => SORT_ASC])
+                ->all(),
         ]);
     }
     
@@ -1518,7 +1521,10 @@ class MasterFormController extends Controller
 
         return $this->render('update', [
             'model' => $model,
-            'pages' => MasterPage::find()->all(),
+            'pages' => MasterPage::find()
+                ->select(['id', 'name', 'slug', 'is_active'])
+                ->orderBy(['name' => SORT_ASC, 'id' => SORT_ASC])
+                ->all(),
         ]);
     }
 

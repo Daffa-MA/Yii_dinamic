@@ -2023,7 +2023,8 @@ class MasterFormController extends Controller
                         'metadata_source' => 'master_form.table_id',
                         'submitted_fields' => array_keys($postData),
                         'system_fields_applied' => $systemFieldsApplied,
-                        'insert_result' => 'success',
+                        'insert_result' => count($submissionRows) > 1 ? 'success_multiple_rows' : 'success',
+                        'inserted_rows' => $insertedRowsCount,
                         'error' => null,
                     ]);
                     

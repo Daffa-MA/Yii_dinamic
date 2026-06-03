@@ -176,10 +176,12 @@ class DynamicFormPreviewService
                 if ($isFk && $pickerMode !== 'dropdown' && $interactive) {
                     $fieldHtml .= '<div style="margin-bottom:10px;">'
                         . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label>'
-                        . '<input type="hidden" class="relation-picker-value" data-relation-picker-value="' . $name . '" name="' . $name . '" value="' . Html::encode($defaultValue) . '">'
-                        . '<div class="relation-picker-row">'
+                        . '<div class="relation-picker-wrapper" data-form-id="' . (int)$form->id . '" data-field-name="' . $name . '" data-picker-mode="' . Html::encode($pickerMode) . '">'
+                        . '<div class="relation-picker-input-group relation-picker-row" style="display:flex;align-items:stretch;gap:8px;width:100%;">'
                         . '<input type="text" class="dynamic-form-input relation-picker-display" data-form-id="' . (int)$form->id . '" data-field-name="' . $name . '" data-picker-mode="' . Html::encode($pickerMode) . '" name="__fk_display_' . $name . '" value="' . Html::encode($selectedLabel) . '" placeholder="' . ($placeholder !== '' ? $placeholder : 'Cari ' . $label . '...') . '"' . ($pickerMode === 'modal_picker' ? ' readonly' : '') . ' style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">'
-                        . (($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal') ? '<button type="button" class="relation-picker-btn" data-relation-picker-open="' . $name . '">Pilih</button>' : '')
+                        . '<input type="hidden" class="relation-picker-value" data-relation-picker-value="' . $name . '" name="' . $name . '" value="' . Html::encode($defaultValue) . '">'
+                        . (($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal') ? '<button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="' . $name . '" data-field-name="' . $name . '" data-picker-field="' . $name . '" style="display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap;">Pilih</button>' : '')
+                        . '</div>'
                         . '</div>'
                         . '<div class="relation-picker-status" data-relation-picker-status="' . $name . '">Tekan Enter untuk mencari data.</div>'
                         . '</div>';

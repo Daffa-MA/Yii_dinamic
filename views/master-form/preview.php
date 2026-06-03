@@ -298,16 +298,25 @@ $this->title = 'Preview: ' . $formName;
     color: #9ca3af;
 }
 
+.relation-picker-wrapper {
+    width: 100%;
+}
+
+.relation-picker-input-group,
 .relation-picker-row {
     display: flex;
     gap: 8px;
     align-items: stretch;
+    width: 100%;
 }
 
+.relation-picker-input-group .preview-input,
 .relation-picker-row .preview-input {
     flex: 1;
+    min-width: 0;
 }
 
+.relation-picker-button,
 .relation-picker-btn {
     border: 1px solid #dbe3ef;
     background: #ffffff;
@@ -734,7 +743,7 @@ $this->title = 'Preview: ' . $formName;
                                         'data-picker-mode' => $pickerMode,
                                     ]) ?>
                                     <?php if ($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal'): ?>
-                                        <button type="button" class="relation-picker-btn" data-relation-picker-open="<?= Html::encode($name) ?>">Pilih</button>
+                                        <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="<?= Html::encode($name) ?>" data-field-name="<?= Html::encode($name) ?>" data-picker-field="<?= Html::encode($name) ?>">Pilih</button>
                                     <?php endif; ?>
                                 </div>
                                 <div class="relation-picker-status" data-relation-picker-status="<?= Html::encode($name) ?>">

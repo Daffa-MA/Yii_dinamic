@@ -140,6 +140,40 @@ $layoutJson = Json::decode($layoutJson, true);
                 return window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/"/g, '\\"');
             }
 
+            function parsePickerList(value) {
+                return String(value || '')
+                    .split(',')
+                    .map((item) => item.trim())
+                    .filter(Boolean);
+            }
+
+            function getPickerMeta(form, fieldName) {
+                if (!form || !fieldName) {
+                    return { searchColumns: [], displayColumns: [], pageSize: 10 };
+                }
+                const wrapper = form.querySelector('.relation-picker-wrapper[data-field-name="' + cssEscape(fieldName) + '"]');
+                if (!wrapper) {
+                    return { searchColumns: [], displayColumns: [], pageSize: 10 };
+                }
+                return {
+                    searchColumns: parsePickerList(wrapper.getAttribute('data-picker-search-columns')),
+                    displayColumns: parsePickerList(wrapper.getAttribute('data-picker-display-columns')),
+                    pageSize: Math.max(1, Math.min(50, parseInt(wrapper.getAttribute('data-picker-page-size') || '10', 10) || 10))
+                };
+            }
+
+            function setPickerModalSummary(modal, meta) {
+                if (!modal) return;
+                const summary = modal.querySelector('[data-picker-summary]');
+                if (!summary) return;
+                const searchText = meta.searchColumns.length ? meta.searchColumns.slice(0, 4).join(', ') : 'Tidak disetel';
+                const displayText = meta.displayColumns.length ? meta.displayColumns.slice(0, 4).join(', ') : 'Tidak disetel';
+                summary.innerHTML =
+                    '<div><strong>Search columns:</strong> ' + escapeHtml(searchText) + '</div>' +
+                    '<div><strong>Display columns:</strong> ' + escapeHtml(displayText) + '</div>' +
+                    '<div><strong>Page size:</strong> ' + escapeHtml(String(meta.pageSize || 10)) + '</div>';
+            }
+
             function ensureModal() {
                 let modal = document.getElementById('dynamicRelationPickerModal');
                 if (modal) return modal;
@@ -150,8 +184,11 @@ $layoutJson = Json::decode($layoutJson, true);
                 modal.innerHTML = `
                     <div class="relation-picker-panel">
                         <div class="relation-picker-head">
-                            <strong>Pilih Data</strong>
-                            <button type="button" class="relation-picker-btn" data-picker-close>Tutup</button>
+                            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;width:100%;">
+                                <strong>Pilih Data</strong>
+                                <button type="button" class="relation-picker-btn" data-picker-close>Tutup</button>
+                            </div>
+                            <div data-picker-summary style="font-size:12px;color:#64748b;line-height:1.45;display:grid;gap:2px;margin-top:8px;"></div>
                         </div>
                         <div class="relation-picker-body">
                             <input type="text" class="relation-picker-search" data-picker-search placeholder="Cari data...">
@@ -224,6 +261,7 @@ $layoutJson = Json::decode($layoutJson, true);
                 const modal = ensureModal();
                 const search = modal.querySelector('[data-picker-search]');
                 if (search) search.value = query || '';
+                setPickerModalSummary(modal, getPickerMeta(form, fieldName));
                 modal.classList.add('open');
                 loadPickerPage();
             }
@@ -240,6 +278,7 @@ $layoutJson = Json::decode($layoutJson, true);
                 const pageInfo = modal.querySelector('[data-picker-page]');
                 const query = search ? search.value : '';
                 content.innerHTML = '<div style="font-size:13px;color:#64748b;">Loading...</div>';
+                setPickerModalSummary(modal, getPickerMeta(pickerState.form, pickerState.fieldName));
                 fetch(buildPickerUrl(pickerDataUrl, pickerState.formId, pickerState.fieldName, query, pickerState.page), {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })

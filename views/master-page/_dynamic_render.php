@@ -201,9 +201,13 @@ foreach ($state as $block) {
     .dynamic-page-container .bg-gray-600 { background-color: #4b5563; }
     .dynamic-page-container .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
     .dynamic-page-container .font-bold { font-weight: 700; }
-    .relation-picker-row { display:flex; gap:8px; align-items:stretch; }
-    .relation-picker-row .dynamic-form-input { flex:1; }
-    .relation-picker-btn { border:1px solid #dbe3ef; background:#fff; color:#334155; border-radius:10px; padding:0 12px; font-weight:700; cursor:pointer; }
+    .relation-picker-wrapper { width:100%; }
+    .relation-picker-input-group,
+    .relation-picker-row { display:flex; gap:8px; align-items:stretch; width:100%; }
+    .relation-picker-input-group .dynamic-form-input,
+    .relation-picker-row .dynamic-form-input { flex:1; min-width:0; }
+    .relation-picker-btn,
+    .relation-picker-button { display:inline-flex; align-items:center; justify-content:center; min-height:38px; border:1px solid #dbe3ef; background:#fff; color:#334155; border-radius:10px; padding:0 14px; font-weight:700; cursor:pointer; white-space:nowrap; text-decoration:none; }
     .relation-picker-status { margin-top:6px; font-size:12px; color:#64748b; }
     .relation-picker-modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:20px; z-index:12000; background:rgba(15,23,42,.48); backdrop-filter:blur(4px); }
     .relation-picker-modal.open { display:flex; }
@@ -401,9 +405,11 @@ window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
             });
         });
 
-        form.querySelectorAll('[data-relation-picker-open]').forEach((button) => {
-            button.addEventListener('click', function() {
-                const fieldName = button.getAttribute('data-relation-picker-open') || '';
+        form.querySelectorAll('[data-relation-picker-open], .relation-picker-button').forEach((button) => {
+            button.addEventListener('click', function(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const fieldName = button.getAttribute('data-relation-picker-open') || button.getAttribute('data-field-name') || button.getAttribute('data-picker-field') || '';
                 const input = form.querySelector('.relation-picker-display[data-field-name="' + cssEscape(fieldName) + '"]');
                 openPicker(form, fieldName, input ? (input.getAttribute('data-form-id') || '') : (form.getAttribute('data-form-id') || ''), input ? input.value : '');
             });

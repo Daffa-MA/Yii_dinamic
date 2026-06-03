@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Json;
+use yii\helpers\Url;
 use yii\web\View;
 use app\models\DbTable;
 use app\components\SystemFieldService;
@@ -295,6 +296,101 @@ $this->title = 'Preview: ' . $formName;
 
 .preview-input::placeholder {
     color: #9ca3af;
+}
+
+.relation-picker-row {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.relation-picker-row .preview-input {
+    flex: 1;
+}
+
+.relation-picker-btn {
+    border: 1px solid #dbe3ef;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 12px;
+    padding: 0 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.relation-picker-status {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.relation-picker-modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 12000;
+    background: rgba(15, 23, 42, .48);
+    backdrop-filter: blur(4px);
+}
+
+.relation-picker-modal.open {
+    display: flex;
+}
+
+.relation-picker-panel {
+    width: min(860px, 100%);
+    max-height: min(680px, 88vh);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 18px;
+    box-shadow: 0 28px 90px rgba(15, 23, 42, .28);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.relation-picker-head,
+.relation-picker-foot {
+    padding: 14px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+
+.relation-picker-foot {
+    border-bottom: 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+.relation-picker-body {
+    padding: 16px 18px;
+    overflow: auto;
+}
+
+.relation-picker-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.relation-picker-table th,
+.relation-picker-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #eef2f7;
+    text-align: left;
+    font-size: 13px;
+}
+
+.relation-picker-table tr {
+    cursor: pointer;
+}
+
+.relation-picker-table tbody tr:hover {
+    background: #f8fafc;
 }
 
 .preview-textarea {
@@ -615,12 +711,42 @@ $this->title = 'Preview: ' . $formName;
                                 }
                                 $optionsList[$optionValue] = (string)($opt['label'] ?? $optionValue);
                             }
+                            $pickerMode = $isFk ? strtolower(trim((string)($field['picker_mode'] ?? 'dropdown'))) : 'dropdown';
+                            $allowedPickerModes = ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'];
+                            if (!in_array($pickerMode, $allowedPickerModes, true)) {
+                                $pickerMode = 'dropdown';
+                            }
+                            $selectedDisplay = $defaultValue !== '' && isset($optionsList[(string)$defaultValue]) ? $optionsList[(string)$defaultValue] : '';
                             ?>
-                            <?= Html::dropDownList($name, $defaultValue, $optionsList, [
-                                'class' => 'preview-input preview-select',
-                                'required' => $required,
-                                'data-fk-submit-name' => $isFk ? $name : null,
-                            ]) ?>
+                            <?php if ($isFk && $pickerMode !== 'dropdown'): ?>
+                                <?= Html::hiddenInput($name, $defaultValue, [
+                                    'class' => 'relation-picker-value',
+                                    'data-relation-picker-value' => $name,
+                                ]) ?>
+                                <div class="relation-picker-row">
+                                    <?= Html::textInput('__fk_display_' . $name, $selectedDisplay, [
+                                        'class' => 'preview-input relation-picker-display',
+                                        'placeholder' => $placeholder ?: 'Cari ' . $label . '...',
+                                        'required' => $required,
+                                        'readonly' => $pickerMode === 'modal_picker',
+                                        'data-form-id' => (int)$model->id,
+                                        'data-field-name' => $name,
+                                        'data-picker-mode' => $pickerMode,
+                                    ]) ?>
+                                    <?php if ($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal'): ?>
+                                        <button type="button" class="relation-picker-btn" data-relation-picker-open="<?= Html::encode($name) ?>">Pilih</button>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="relation-picker-status" data-relation-picker-status="<?= Html::encode($name) ?>">
+                                    Tekan Enter untuk mencari data.
+                                </div>
+                            <?php else: ?>
+                                <?= Html::dropDownList($name, $defaultValue, $optionsList, [
+                                    'class' => 'preview-input preview-select',
+                                    'required' => $required,
+                                    'data-fk-submit-name' => $isFk ? $name : null,
+                                ]) ?>
+                            <?php endif; ?>
                             <?php if ($isFk): ?>
                                 <div class="preview-fk-badge">
                                     <span class="material-symbols-outlined" style="font-size:12px;">link</span>
@@ -712,12 +838,188 @@ $this->title = 'Preview: ' . $formName;
     </div>
 </div>
 
+<div class="relation-picker-modal" id="relationPickerModal" aria-hidden="true">
+    <div class="relation-picker-panel">
+        <div class="relation-picker-head">
+            <strong id="relationPickerTitle">Pilih Data</strong>
+            <button type="button" class="relation-picker-btn" id="relationPickerClose">Tutup</button>
+        </div>
+        <div class="relation-picker-body">
+            <input type="text" class="preview-input" id="relationPickerSearch" placeholder="Cari data...">
+            <div id="relationPickerContent" style="margin-top:14px;"></div>
+        </div>
+        <div class="relation-picker-foot">
+            <button type="button" class="relation-picker-btn" id="relationPickerPrev">Sebelumnya</button>
+            <span id="relationPickerPageInfo" style="font-size:13px;color:#64748b;"></span>
+            <button type="button" class="relation-picker-btn" id="relationPickerNext">Berikutnya</button>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     var previewForm = document.getElementById('preview-form');
     if (!previewForm) {
         return;
     }
+
+    var pickerDataUrl = <?= Json::encode(Url::to(['relation-picker-data'])) ?>;
+    var pickerSearchUrl = <?= Json::encode(Url::to(['relation-picker-search'])) ?>;
+    var pickerState = { fieldName: '', formId: '', page: 1, hasNext: false };
+
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function setPickerStatus(fieldName, text) {
+        var status = previewForm.querySelector('[data-relation-picker-status="' + CSS.escape(fieldName) + '"]');
+        if (status) status.textContent = text || '';
+    }
+
+    function setPickerValue(fieldName, value, label) {
+        var hidden = previewForm.querySelector('[data-relation-picker-value="' + CSS.escape(fieldName) + '"]');
+        var display = previewForm.querySelector('.relation-picker-display[data-field-name="' + CSS.escape(fieldName) + '"]');
+        if (hidden) {
+            hidden.value = value || '';
+            hidden.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        if (display) display.value = label || '';
+        setPickerStatus(fieldName, value ? 'Dipilih: ' + (label || value) : '');
+    }
+
+    function buildPickerUrl(baseUrl, formId, fieldName, query, page, limit) {
+        var params = new URLSearchParams({
+            form_id: formId,
+            field_name: fieldName,
+            q: query || ''
+        });
+        if (page) params.set('page', page);
+        if (limit) params.set('limit', limit);
+        return baseUrl + (baseUrl.indexOf('?') === -1 ? '?' : '&') + params.toString();
+    }
+
+    function renderPickerRows(data) {
+        var content = document.getElementById('relationPickerContent');
+        var pageInfo = document.getElementById('relationPickerPageInfo');
+        var rows = data && Array.isArray(data.rows) ? data.rows : [];
+        pickerState.hasNext = !!(data && data.pagination && data.pagination.has_next);
+        if (pageInfo) pageInfo.textContent = 'Halaman ' + pickerState.page + ' - ' + ((data.pagination && data.pagination.total) || 0) + ' data';
+
+        if (!rows.length) {
+            content.innerHTML = '<div class="preview-alert warning" style="margin:0;">No data available<br><small>This table does not have any data yet.</small></div>';
+            return;
+        }
+
+        var keys = Object.keys(rows[0].display || {});
+        content.innerHTML = '<table class="relation-picker-table"><thead><tr>' +
+            keys.map(function(key) { return '<th>' + escapeHtml(key) + '</th>'; }).join('') +
+            '</tr></thead><tbody>' +
+            rows.map(function(row) {
+                return '<tr data-value="' + escapeHtml(row.value) + '" data-label="' + escapeHtml(row.label) + '">' +
+                    keys.map(function(key) { return '<td>' + escapeHtml(row.display[key]) + '</td>'; }).join('') +
+                '</tr>';
+            }).join('') +
+            '</tbody></table>';
+    }
+
+    function openPicker(fieldName, formId, query) {
+        pickerState = { fieldName: fieldName, formId: formId, page: 1, hasNext: false };
+        var modal = document.getElementById('relationPickerModal');
+        var search = document.getElementById('relationPickerSearch');
+        if (search) search.value = query || '';
+        if (modal) modal.classList.add('open');
+        loadPickerPage();
+    }
+
+    function closePicker() {
+        var modal = document.getElementById('relationPickerModal');
+        if (modal) modal.classList.remove('open');
+    }
+
+    function loadPickerPage() {
+        var search = document.getElementById('relationPickerSearch');
+        var query = search ? search.value : '';
+        fetch(buildPickerUrl(pickerDataUrl, pickerState.formId, pickerState.fieldName, query, pickerState.page))
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data.success) throw new Error(data.message || 'Gagal memuat data');
+                renderPickerRows(data);
+            })
+            .catch(function(error) {
+                document.getElementById('relationPickerContent').innerHTML = '<div class="preview-alert danger" style="margin:0;">' + escapeHtml(error.message) + '</div>';
+            });
+    }
+
+    previewForm.querySelectorAll('.relation-picker-display').forEach(function(input) {
+        input.addEventListener('keydown', function(event) {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            var fieldName = input.getAttribute('data-field-name');
+            var formId = input.getAttribute('data-form-id');
+            var mode = input.getAttribute('data-picker-mode');
+            var query = input.value || '';
+
+            if (mode === 'modal_picker' || mode === 'autocomplete_with_modal') {
+                openPicker(fieldName, formId, query);
+                return;
+            }
+
+            setPickerStatus(fieldName, 'Mencari data...');
+            fetch(buildPickerUrl(pickerSearchUrl, formId, fieldName, query, null, 10))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    var matches = data && Array.isArray(data.matches) ? data.matches : [];
+                    if (matches.length === 1) {
+                        setPickerValue(fieldName, matches[0].value, matches[0].label);
+                    } else if (matches.length > 1) {
+                        openPicker(fieldName, formId, query);
+                    } else {
+                        setPickerStatus(fieldName, 'Data tidak ditemukan.');
+                    }
+                })
+                .catch(function() { setPickerStatus(fieldName, 'Gagal mencari data.'); });
+        });
+    });
+
+    previewForm.querySelectorAll('[data-relation-picker-open]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            var fieldName = button.getAttribute('data-relation-picker-open');
+            var input = previewForm.querySelector('.relation-picker-display[data-field-name="' + CSS.escape(fieldName) + '"]');
+            openPicker(fieldName, input ? input.getAttribute('data-form-id') : '', input ? input.value : '');
+        });
+    });
+
+    document.getElementById('relationPickerClose')?.addEventListener('click', closePicker);
+    document.getElementById('relationPickerPrev')?.addEventListener('click', function() {
+        if (pickerState.page > 1) {
+            pickerState.page -= 1;
+            loadPickerPage();
+        }
+    });
+    document.getElementById('relationPickerNext')?.addEventListener('click', function() {
+        if (pickerState.hasNext) {
+            pickerState.page += 1;
+            loadPickerPage();
+        }
+    });
+    document.getElementById('relationPickerSearch')?.addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            pickerState.page = 1;
+            loadPickerPage();
+        }
+    });
+    document.getElementById('relationPickerContent')?.addEventListener('click', function(event) {
+        var row = event.target.closest('tr[data-value]');
+        if (!row) return;
+        setPickerValue(pickerState.fieldName, row.getAttribute('data-value'), row.getAttribute('data-label'));
+        closePicker();
+    });
 
     previewForm.addEventListener('submit', function() {
         previewForm.querySelectorAll('select[data-fk-submit-name]').forEach(function(select) {

@@ -26,9 +26,11 @@ use app\services\FormEngineService;
 use app\services\FormRenderService;
 use yii\data\ActiveDataProvider;
 use yii\db\IntegrityException;
+use yii\db\Query;
 use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 use yii\filters\VerbFilter;
 
 class MasterFormController extends Controller
@@ -559,6 +561,235 @@ class MasterFormController extends Controller
         throw new NotFoundHttpException('The requested page does not exist.');
     }
 
+    private function resolveRelationPickerField(MasterForm $model, string $fieldName): ?array
+    {
+        $target = trim($fieldName);
+        if ($target === '') {
+            return null;
+        }
+
+        $fields = [];
+        try {
+            $schema = $this->formEngineService->getResolvedFormSchema($model);
+            $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
+        } catch (\Throwable $e) {
+            $fields = [];
+        }
+        if (empty($fields)) {
+            $fields = $this->extractFieldsFromBuilderData($this->normalizeBuilderData($model));
+        }
+
+        foreach ($fields as $index => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $field = FormRenderService::normalizeFieldForRender($field, (int)$index);
+            if (!FormRenderService::isRelationField($field) && empty($field['is_foreign_key'])) {
+                continue;
+            }
+            $candidates = array_filter(array_unique([
+                (string)($field['resolved_name'] ?? ''),
+                (string)($field['resolved_column_name'] ?? ''),
+                (string)($field['name'] ?? ''),
+                (string)($field['field_name'] ?? ''),
+                (string)($field['field_key'] ?? ''),
+                (string)($field['column_name'] ?? ''),
+                (string)($field['local_column'] ?? ''),
+                (string)($field['source_column'] ?? ''),
+                (string)(is_array($field['relation_config'] ?? null) ? ($field['relation_config']['local_column'] ?? '') : ''),
+                (string)(is_array($field['relation_config'] ?? null) ? ($field['relation_config']['source_column'] ?? '') : ''),
+            ]));
+            if (in_array($target, $candidates, true)) {
+                return $field;
+            }
+        }
+
+        return null;
+    }
+
+    private function buildRelationPickerConfig(array $field): ?array
+    {
+        $relationConfig = $field['relation_config'] ?? [];
+        if (is_string($relationConfig)) {
+            $relationConfig = Json::decode($relationConfig, true);
+        }
+        if (!is_array($relationConfig)) {
+            $relationConfig = [];
+        }
+
+        $pickerConfig = $field['picker_config'] ?? [];
+        if (is_string($pickerConfig)) {
+            $pickerConfig = Json::decode($pickerConfig, true);
+        }
+        if (!is_array($pickerConfig)) {
+            $pickerConfig = [];
+        }
+
+        $tableName = trim((string)($field['fk_referenced_table'] ?? $field['source_table_name'] ?? $field['referenced_table_name'] ?? $relationConfig['referenced_table'] ?? $relationConfig['referenced_table_name'] ?? ''));
+        $valueColumn = trim((string)($field['fk_referenced_column'] ?? $field['value_column'] ?? $relationConfig['referenced_value_column'] ?? $relationConfig['value_column'] ?? $relationConfig['referenced_column'] ?? 'id'));
+        if ($tableName === '' || !preg_match('/^[A-Za-z0-9_]+$/', $tableName)) {
+            return null;
+        }
+
+        $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        if ($schema === null || !isset($schema->columns[$valueColumn])) {
+            return null;
+        }
+
+        $displayColumn = trim((string)($pickerConfig['display_column'] ?? $field['fk_display_column'] ?? $field['label_column'] ?? $relationConfig['display_column'] ?? ''));
+        $displayColumn = $this->resolvePickerDisplayColumn($schema->columns, $valueColumn, $displayColumn);
+        $searchColumns = $this->normalizePickerColumnList($pickerConfig['search_columns'] ?? [], $schema->columns, 5);
+        if (empty($searchColumns)) {
+            $searchColumns = $this->resolvePickerSearchColumns($schema->columns, $valueColumn, $displayColumn);
+        }
+        $displayColumns = $this->normalizePickerColumnList($pickerConfig['display_columns'] ?? [], $schema->columns, 8);
+        if (empty($displayColumns)) {
+            $displayColumns = $this->resolvePickerDisplayColumns($schema->columns, $valueColumn, $displayColumn);
+        }
+
+        return [
+            'main_table' => $tableName,
+            'value_column' => $valueColumn,
+            'display_column' => $displayColumn,
+            'search_columns' => $searchColumns,
+            'display_columns' => $displayColumns,
+            'page_size' => min(50, max(1, (int)($pickerConfig['page_size'] ?? 10))),
+        ];
+    }
+
+    private function queryRelationPickerRows(array $config, string $keyword, int $page, int $pageSize): array
+    {
+        $tableName = (string)$config['main_table'];
+        $valueColumn = (string)$config['value_column'];
+        $displayColumn = (string)$config['display_column'];
+        $displayColumns = array_values(array_unique(array_merge([$valueColumn, $displayColumn], $config['display_columns'] ?? [])));
+        $select = [];
+        foreach ($displayColumns as $column) {
+            if (preg_match('/^[A-Za-z0-9_]+$/', (string)$column)) {
+                $select[] = $column;
+            }
+        }
+
+        $query = (new Query())->select(array_values(array_unique($select)))->from($tableName);
+        if ($keyword !== '') {
+            $or = ['or'];
+            foreach (($config['search_columns'] ?? []) as $column) {
+                $or[] = ['like', $column, $keyword];
+            }
+            if (count($or) > 1) {
+                $query->andWhere($or);
+            }
+        }
+
+        $total = (int)(clone $query)->count('*', Yii::$app->db);
+        $rows = $query
+            ->orderBy([$displayColumn => SORT_ASC])
+            ->offset(($page - 1) * $pageSize)
+            ->limit($pageSize)
+            ->all(Yii::$app->db);
+
+        return [
+            'total' => $total,
+            'rows' => array_map(function (array $row) use ($valueColumn, $displayColumn, $displayColumns): array {
+                $display = [];
+                foreach ($displayColumns as $column) {
+                    if (array_key_exists($column, $row)) {
+                        $display[$this->humanizePickerColumn($column)] = $row[$column];
+                    }
+                }
+                return [
+                    'value' => (string)($row[$valueColumn] ?? ''),
+                    'label' => (string)($row[$displayColumn] ?? $row[$valueColumn] ?? ''),
+                    'display' => $display,
+                ];
+            }, $rows),
+        ];
+    }
+
+    private function resolvePickerDisplayColumn(array $columns, string $valueColumn, string $preferred = ''): string
+    {
+        if ($preferred !== '' && isset($columns[$preferred]) && $this->isPickerSafeColumn($preferred, $columns[$preferred])) {
+            return $preferred;
+        }
+        foreach (['name', 'nama', 'title', 'judul', 'label', 'kode', 'code', 'email'] as $candidate) {
+            if (isset($columns[$candidate]) && $this->isPickerSafeColumn($candidate, $columns[$candidate])) {
+                return $candidate;
+            }
+        }
+        foreach ($columns as $name => $column) {
+            if ($name !== $valueColumn && $this->isPickerSafeColumn((string)$name, $column)) {
+                return (string)$name;
+            }
+        }
+        return $valueColumn;
+    }
+
+    private function resolvePickerSearchColumns(array $columns, string $valueColumn, string $displayColumn): array
+    {
+        $result = [];
+        foreach (array_unique([$displayColumn, 'kode', 'code', 'nomor', 'number', 'no', 'name', 'nama', 'title', 'label', 'email', $valueColumn]) as $candidate) {
+            if (isset($columns[$candidate]) && $this->isPickerSafeColumn($candidate, $columns[$candidate])) {
+                $result[] = $candidate;
+            }
+            if (count($result) >= 5) {
+                break;
+            }
+        }
+        return $result;
+    }
+
+    private function resolvePickerDisplayColumns(array $columns, string $valueColumn, string $displayColumn): array
+    {
+        $result = [];
+        foreach (array_unique([$displayColumn, 'kode', 'code', 'name', 'nama', 'title', 'label', $valueColumn]) as $candidate) {
+            if (isset($columns[$candidate]) && $this->isPickerSafeColumn($candidate, $columns[$candidate])) {
+                $result[] = $candidate;
+            }
+            if (count($result) >= 6) {
+                break;
+            }
+        }
+        return $result;
+    }
+
+    private function normalizePickerColumnList($columns, array $schemaColumns, int $limit): array
+    {
+        if (is_string($columns)) {
+            $columns = preg_split('/\s*,\s*/', $columns, -1, PREG_SPLIT_NO_EMPTY);
+        }
+        if (!is_array($columns)) {
+            return [];
+        }
+        $result = [];
+        foreach ($columns as $column) {
+            $name = trim((string)$column);
+            if ($name !== '' && isset($schemaColumns[$name]) && $this->isPickerSafeColumn($name, $schemaColumns[$name])) {
+                $result[] = $name;
+            }
+            if (count($result) >= $limit) {
+                break;
+            }
+        }
+        return array_values(array_unique($result));
+    }
+
+    private function isPickerSafeColumn(string $name, $column): bool
+    {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $name)) {
+            return false;
+        }
+        if (preg_match('/password|token|secret|remember|auth|salt|hash/i', $name)) {
+            return false;
+        }
+        $type = strtolower((string)($column->type ?? ''));
+        return in_array($type, ['string', 'text', 'integer', 'bigint', 'smallint', 'tinyint'], true);
+    }
+
+    private function humanizePickerColumn(string $column): string
+    {
+        return ucwords(str_replace('_', ' ', $column));
+    }
+
     private function normalizeBuilderData(MasterForm $model): array
     {
         $formData = $this->filterSystemFieldsForModel($model->getFormDataArray(), $model);
@@ -1023,6 +1254,91 @@ class MasterFormController extends Controller
         Yii::info($syncDebug, 'form-render-fields');
     }
 
+    public function actionRelationPickerData($form_id = null, $field_name = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findScopedModel((int)$form_id);
+            $field = $this->resolveRelationPickerField($model, (string)$field_name);
+            if ($field === null) {
+                return ['success' => false, 'message' => 'Field relasi tidak ditemukan.'];
+            }
+
+            $config = $this->buildRelationPickerConfig($field);
+            if ($config === null) {
+                return ['success' => false, 'message' => 'Konfigurasi picker relasi belum valid.'];
+            }
+
+            $keyword = trim((string)Yii::$app->request->get('q', ''));
+            $page = max(1, (int)Yii::$app->request->get('page', 1));
+            $pageSize = min(50, max(1, (int)($config['page_size'] ?? 10)));
+            $payload = $this->queryRelationPickerRows($config, $keyword, $page, $pageSize);
+
+            return [
+                'success' => true,
+                'config' => $config,
+                'rows' => $payload['rows'],
+                'pagination' => [
+                    'page' => $page,
+                    'page_size' => $pageSize,
+                    'total' => $payload['total'],
+                    'has_next' => ($page * $pageSize) < $payload['total'],
+                ],
+            ];
+        } catch (\Throwable $e) {
+            Yii::error([
+                'relation_picker_data_error' => true,
+                'form_id' => $form_id,
+                'field_name' => $field_name,
+                'error' => $e->getMessage(),
+            ], 'relation-picker');
+            return ['success' => false, 'message' => 'Gagal memuat data relasi.'];
+        }
+    }
+
+    public function actionRelationPickerSearch($form_id = null, $field_name = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findScopedModel((int)$form_id);
+            $field = $this->resolveRelationPickerField($model, (string)$field_name);
+            if ($field === null) {
+                return ['success' => false, 'message' => 'Field relasi tidak ditemukan.', 'matches' => []];
+            }
+
+            $config = $this->buildRelationPickerConfig($field);
+            if ($config === null) {
+                return ['success' => false, 'message' => 'Konfigurasi picker relasi belum valid.', 'matches' => []];
+            }
+
+            $keyword = trim((string)Yii::$app->request->get('q', ''));
+            $limit = min(20, max(1, (int)Yii::$app->request->get('limit', 10)));
+            $payload = $this->queryRelationPickerRows($config, $keyword, 1, $limit);
+
+            return [
+                'success' => true,
+                'matches' => array_map(static function (array $row): array {
+                    return [
+                        'value' => $row['value'],
+                        'label' => $row['label'],
+                        'display_text' => $row['label'],
+                        'display' => $row['display'],
+                    ];
+                }, $payload['rows']),
+            ];
+        } catch (\Throwable $e) {
+            Yii::error([
+                'relation_picker_search_error' => true,
+                'form_id' => $form_id,
+                'field_name' => $field_name,
+                'error' => $e->getMessage(),
+            ], 'relation-picker');
+            return ['success' => false, 'message' => 'Gagal mencari data relasi.', 'matches' => []];
+        }
+    }
+
     public function beforeAction($action)
     {
         if (!parent::beforeAction($action)) {
@@ -1076,50 +1392,12 @@ class MasterFormController extends Controller
         ]);
     }
 
-    public function actionResolveAutofill($form_id = null, $trigger_field = null, $trigger_value = null)
+    public function actionView($id = null)
     {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
-        $formId = (int)($form_id ?? Yii::$app->request->get('form_id', 0));
-        $triggerField = trim((string)($trigger_field ?? Yii::$app->request->get('trigger_field', '')));
-        $triggerValue = Yii::$app->request->get('trigger_value', $trigger_value);
-        if ($formId <= 0 || $triggerField === '' || $triggerValue === null || $triggerValue === '') {
-            return ['success' => false, 'message' => 'Parameter auto fill tidak lengkap.'];
+        if ($id === null || (int)$id <= 0) {
+            Yii::$app->session->setFlash('error', 'Form tidak ditemukan. Silakan pilih form dari daftar.');
+            return $this->redirect(['index']);
         }
-
-        $model = MasterForm::findByIdScoped($formId);
-        if ($model === null) {
-            return ['success' => false, 'message' => 'Form tidak ditemukan.'];
-        }
-
-        return $this->resolveAutoFillRulesResponse($model, $triggerField, $triggerValue);
-    }
-
-    public function actionGenerateAutoBehavior($form_id = null)
-    {
-        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
-
-        $formId = (int)($form_id ?? Yii::$app->request->get('form_id', 0));
-        if ($formId <= 0) {
-            return ['success' => false, 'message' => 'Form belum tersimpan. Simpan form dulu, lalu generate auto behavior.'];
-        }
-
-        $model = MasterForm::findByIdScoped($formId);
-        if ($model === null) {
-            return ['success' => false, 'message' => 'Form tidak ditemukan.'];
-        }
-
-        $schema = $this->formEngineService->getResolvedFormSchema($model);
-        $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
-
-        return [
-            'success' => true,
-            'behavior' => (new DynamicFormBehaviorDetector())->detect($model, $fields),
-        ];
-    }
-
-    public function actionView($id)
-    {
         $model = $this->findScopedModel($id);
         if ($this->cleanSystemFieldsFromModel($model)) {
             $model->save(false, ['form_data']);
@@ -1190,8 +1468,12 @@ class MasterFormController extends Controller
         ]);
     }
     
-    public function actionUpdate($id)
+    public function actionUpdate($id = null)
     {
+        if ($id === null || (int)$id <= 0) {
+            Yii::$app->session->setFlash('error', 'Form tidak ditemukan. Silakan pilih form dari daftar.');
+            return $this->redirect(['index']);
+        }
         $model = $this->findScopedModel($id);
         if ($this->cleanSystemFieldsFromModel($model)) {
             $model->save(false, ['form_data']);
@@ -1241,8 +1523,12 @@ class MasterFormController extends Controller
         ]);
     }
 
-    public function actionDelete($id)
+    public function actionDelete($id = null)
     {
+        if ($id === null || (int)$id <= 0) {
+            Yii::$app->session->setFlash('error', 'Form tidak ditemukan. Silakan pilih form dari daftar.');
+            return $this->redirect(['index']);
+        }
         $model = $this->findScopedModel($id);
         MasterFormField::deleteAll(['form_id' => $model->id]);
         MasterFormLayout::deleteAll(['form_id' => $model->id]);
@@ -1250,8 +1536,12 @@ class MasterFormController extends Controller
         return $this->redirect(['index']);
     }
     
-    public function actionDuplicate($id)
+    public function actionDuplicate($id = null)
     {
+        if ($id === null || (int)$id <= 0) {
+            Yii::$app->session->setFlash('error', 'Form tidak ditemukan. Silakan pilih form dari daftar.');
+            return $this->redirect(['index']);
+        }
         $source = $this->findScopedModel($id);
         
         $copy = new MasterForm();
@@ -1285,8 +1575,12 @@ class MasterFormController extends Controller
         return $this->redirect(['view', 'id' => $source->id]);
     }
     
-    public function actionPreview($id)
+    public function actionPreview($id = null)
     {
+        if ($id === null || (int)$id <= 0) {
+            Yii::$app->session->setFlash('error', 'Preview form membutuhkan ID form yang valid.');
+            return $this->redirect(['index']);
+        }
         $model = $this->findScopedModel($id);
         if ($this->cleanSystemFieldsFromModel($model)) {
             $model->save(false, ['form_data']);
@@ -1304,8 +1598,16 @@ class MasterFormController extends Controller
         ]);
     }
     
-    public function actionSubmit($id)
+    public function actionSubmit($id = null)
     {
+        if ($id === null || (int)$id <= 0) {
+            if (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                return ['success' => false, 'message' => 'Submit form membutuhkan ID form yang valid.'];
+            }
+            Yii::$app->session->setFlash('error', 'Submit form membutuhkan ID form yang valid.');
+            return $this->redirect(['index']);
+        }
         $model = $this->findScopedModel($id);
         
         if (Yii::$app->request->isPost) {

@@ -1458,6 +1458,57 @@ document.addEventListener('DOMContentLoaded', function() {
         return field;
     }
 
+    function ensureRelationPickerConfig(field) {
+        if (!field || typeof field !== 'object') return {};
+        const picker = field.picker_config && typeof field.picker_config === 'object' ? field.picker_config : {};
+        const displayColumn = field.fk_display_column || field.label_column || field.dropdown_label_column || field.fk_referenced_column || field.value_column || 'id';
+        const valueColumn = field.fk_referenced_column || field.value_column || field.dropdown_value_column || 'id';
+        field.picker_mode = field.picker_mode || 'dropdown';
+        field.picker_config = Object.assign({
+            main_table: field.fk_referenced_table || field.source_table_name || '',
+            value_column: valueColumn,
+            display_column: displayColumn,
+            search_columns: displayColumn ? [displayColumn] : [],
+            display_columns: Array.from(new Set([displayColumn, valueColumn].filter(Boolean))),
+            page_size: 10
+        }, picker);
+        return field.picker_config;
+    }
+
+    window.setRelationPickerMode = function(mode) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.picker_mode = ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'].includes(mode) ? mode : 'dropdown';
+        ensureRelationPickerConfig(field);
+        normalizeFieldState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.updateRelationPickerConfig = function(key, value) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const config = ensureRelationPickerConfig(field);
+        if (key === 'search_columns' || key === 'display_columns') {
+            config[key] = String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+        } else if (key === 'page_size') {
+            config[key] = Math.max(1, Math.min(50, parseInt(value || '10', 10) || 10));
+        } else {
+            config[key] = value;
+        }
+        updateData();
+    };
+
+    window.generateRelationPickerConfig = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.picker_config = {};
+        ensureRelationPickerConfig(field);
+        renderPropsPanel(field);
+        updateData();
+    };
+
     function normalizeRelationMetadata(field) {
         if (!field || typeof field !== 'object') {
             return field;
@@ -2272,6 +2323,17 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div class="prop-group"><label class="prop-label">Referenced Value Column</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_column || field.value_column || field.dropdown_value_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
             html += '<div class="prop-group"><label class="prop-label">Display Column</label><select class="prop-select" onchange="setForeignKeyColumn(\'display\', this.value)">' + buildDropdownColumnOptions(field, field.fk_display_column || field.label_column || field.dropdown_label_column) + '</select></div>';
             html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="reloadForeignKeyOptions()">Refresh dropdown relasi</button></div>';
+            const pickerConfig = ensureRelationPickerConfig(field);
+            html += '<div class="prop-section-title" style="padding:10px 0 0;">Relation Picker</div>';
+            html += '<div class="prop-group"><label class="prop-label">Picker Mode</label><select class="prop-select" onchange="setRelationPickerMode(this.value)">';
+            ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'].forEach(mode => {
+                html += '<option value="' + mode + '"' + boolAttr('selected', (field.picker_mode || 'dropdown') === mode) + '>' + mode.replace(/_/g, ' ') + '</option>';
+            });
+            html += '</select></div>';
+            html += '<div class="prop-group"><label class="prop-label">Search Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.search_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'search_columns\', this.value)" placeholder="nama, kode, email"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Display Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.display_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'display_columns\', this.value)" placeholder="id, nama, kode"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Page Size</label><input type="number" min="1" max="50" class="prop-input" value="' + escapeAttr(pickerConfig.page_size || 10) + '" onchange="updateRelationPickerConfig(\'page_size\', this.value)"></div>';
+            html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="generateRelationPickerConfig()">Generate picker config</button></div>';
             if (field.fk_options && field.fk_options.length > 0) {
                 html += '<div class="prop-group"><label class="prop-label">Options (' + field.fk_options.length + ' items)</label><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#64748b;">';
                 field.fk_options.forEach(opt => {

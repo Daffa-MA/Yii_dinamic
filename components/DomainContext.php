@@ -15,6 +15,14 @@ class DomainContext
 
     public function rootDomain(): string
     {
+        $currentHost = $this->currentHost();
+        if ($this->isLocalHost($currentHost)) {
+            $port = (string)Yii::$app->request->getPort();
+            return $port !== '' && $port !== '80' && $port !== '443'
+                ? $currentHost . ':' . $port
+                : $currentHost;
+        }
+
         $configured = getenv('APP_ROOT_DOMAIN');
         if ($configured === false || trim($configured) === '') {
             $configured = (string)(

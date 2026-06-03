@@ -251,6 +251,8 @@ $config = [
                 'master-form/update/<id:\d+>' => 'master-form/update',
                 'master-form/delete/<id:\d+>' => 'master-form/delete',
                 'master-form/duplicate/<id:\d+>' => 'master-form/duplicate',
+                'master-form/relation-picker-data' => 'master-form/relation-picker-data',
+                'master-form/relation-picker-search' => 'master-form/relation-picker-search',
 
                 // Project routes (main landing after login)
                 'project-list' => 'project/index',
@@ -297,6 +299,8 @@ $config = [
                 'master-form/update/<id:\d+>' => 'master-form/update',
                 'master-form/delete/<id:\d+>' => 'master-form/delete',
                 'master-form/duplicate/<id:\d+>' => 'master-form/duplicate',
+                'master-form/relation-picker-data' => 'master-form/relation-picker-data',
+                'master-form/relation-picker-search' => 'master-form/relation-picker-search',
 
                 // Master Menu routes
                 'master-menu' => 'master-menu/index',

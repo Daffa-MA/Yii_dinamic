@@ -1339,6 +1339,48 @@ class MasterFormController extends Controller
         }
     }
 
+    public function actionResolveAutofill($form_id = null, $trigger_field = null, $trigger_value = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            (new ActiveDatabaseContext())->resolveAndApply();
+
+            $formId = (int)$form_id;
+            $triggerField = trim((string)$trigger_field);
+            $resolvedTriggerValue = $trigger_value !== null
+                ? $trigger_value
+                : Yii::$app->request->get('trigger_value', '');
+
+            if ($formId <= 0 || $triggerField === '' || $resolvedTriggerValue === null || trim((string)$resolvedTriggerValue) === '') {
+                return [
+                    'success' => false,
+                    'message' => 'Parameter autofill tidak lengkap.',
+                    'values' => [],
+                    'display' => ['enabled' => false, 'items' => []],
+                ];
+            }
+
+            $model = $this->findScopedModel($formId);
+            return $this->resolveAutoFillRulesResponse($model, $triggerField, $resolvedTriggerValue);
+        } catch (\Throwable $e) {
+            Yii::error([
+                'resolve_autofill_error' => true,
+                'form_id' => $form_id,
+                'trigger_field' => $trigger_field,
+                'trigger_value' => $trigger_value,
+                'error' => $e->getMessage(),
+            ], 'dynamic-autofill');
+
+            return [
+                'success' => false,
+                'message' => 'Gagal memuat data otomatis.',
+                'values' => [],
+                'display' => ['enabled' => false, 'items' => []],
+            ];
+        }
+    }
+
     public function beforeAction($action)
     {
         if (!parent::beforeAction($action)) {

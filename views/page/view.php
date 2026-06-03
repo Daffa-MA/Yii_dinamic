@@ -201,6 +201,12 @@ HTML;
 
         if ($fallbackFormId > 0) {
             try {
+                $fallbackFormModel = MasterForm::findOne($fallbackFormId);
+                try {
+                    $submissionRequestId = bin2hex(random_bytes(16));
+                } catch (\Throwable $e) {
+                    $submissionRequestId = uniqid('submit_', true);
+                }
                 $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, $fallbackFormId, [
                     '_embedded' => '1',
                     'render_context' => 'page_content',
@@ -208,6 +214,10 @@ HTML;
                     'menu_id' => $activeMenuId > 0 ? (string)$activeMenuId : '',
                     'project_id' => $activeProjectId !== null ? (string)$activeProjectId : '',
                     'workspace_role' => $workspaceRole,
+                    '_submit_request_id' => $submissionRequestId,
+                    '_datatable_target_table_id' => $fallbackFormModel && $fallbackFormModel->hasAttribute('table_id')
+                        ? (string)(int)$fallbackFormModel->table_id
+                        : '',
                 ]);
             } catch (\Throwable $e) {
                 Yii::warning('Failed to prepare custom form submission on page view: ' . $e->getMessage(), 'app');
@@ -324,6 +334,150 @@ if ($hasCustomPageSource): ?>
                 var value = String(text || '').trim();
                 return value.charAt(0) === '{' && value.indexOf('"success"') !== -1;
             }
+
+            function getIframeDocument() {
+                var iframe = document.querySelector('[data-custom-page-source-iframe]');
+                if (!iframe || !iframe.contentWindow) {
+                    return null;
+                }
+                try {
+                    return iframe.contentWindow.document || null;
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            function escapeAttr(value) {
+                return String(value || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;');
+            }
+
+            function toStringValue(value) {
+                if (value === null || value === undefined || value === '') {
+                    return '';
+                }
+                if (Array.isArray(value)) {
+                    return value.join(', ');
+                }
+                if (typeof value === 'object') {
+                    try {
+                        return JSON.stringify(value);
+                    } catch (error) {
+                        return '';
+                    }
+                }
+                return String(value);
+            }
+
+            function buildRowKey(rowData, primaryKeys) {
+                var rowKey = {};
+                (primaryKeys || []).forEach(function(key) {
+                    if (Object.prototype.hasOwnProperty.call(rowData || {}, key)) {
+                        rowKey[key] = rowData[key];
+                    }
+                });
+                return rowKey;
+            }
+
+            function buildRowHtml(columns, rowData, rowDisplayData, primaryKeys, hasActions, deleteUrl, csrfParam, csrfToken) {
+                var rowKey = buildRowKey(rowData, primaryKeys);
+                var html = '<tr data-row-key="' + escapeAttr(JSON.stringify(rowKey || {})) + '" data-row-values="' + escapeAttr(JSON.stringify(rowData || {})) + '" data-row-display-values="' + escapeAttr(JSON.stringify(rowDisplayData || {})) + '">';
+                (columns || []).forEach(function(column) {
+                    var field = String(column.field || '');
+                    var value = Object.prototype.hasOwnProperty.call(rowDisplayData || {}, field)
+                        ? rowDisplayData[field]
+                        : (Object.prototype.hasOwnProperty.call(rowData || {}, field) ? rowData[field] : '');
+                    html += '<td>' + escapeHtml(toStringValue(value)) + '</td>';
+                });
+                if (hasActions) {
+                    html += '<td><div class="dt-actions">';
+                    html += '<button type="button" class="dt-btn" data-row-action="view">View</button>';
+                    html += '<button type="button" class="dt-btn" data-row-action="edit">Edit</button>';
+                    if (deleteUrl) {
+                        html += '<form method="post" action="' + escapeAttr(deleteUrl) + '" onsubmit="return confirm(\'Delete this row?\');">' +
+                            '<input type="hidden" name="' + escapeAttr(csrfParam || '_csrf') + '" value="' + escapeAttr(csrfToken || '') + '">' +
+                            '<input type="hidden" name="row_key" value="' + escapeAttr(JSON.stringify(rowKey || {})) + '">' +
+                            '<button class="dt-btn dt-btn-danger" type="submit">Delete</button>' +
+                        '</form>';
+                    }
+                    html += '</div></td>';
+                }
+                html += '</tr>';
+                return html;
+            }
+
+            async function reloadDatatableElement(root) {
+                var reloadUrl = root ? root.getAttribute('data-reload-url') : '';
+                if (!reloadUrl) {
+                    return false;
+                }
+
+                var response = await fetch(reloadUrl, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+                var result = await response.json();
+                if (!result || !result.success) {
+                    return false;
+                }
+
+                var tbody = root.querySelector('tbody');
+                if (tbody && typeof result.tbodyHtml === 'string') {
+                    tbody.innerHTML = result.tbodyHtml;
+                }
+                var subtitle = root.querySelector('[data-datatable-subtitle]');
+                if (subtitle && result.subtitle) {
+                    subtitle.textContent = result.subtitle;
+                }
+                return true;
+            }
+
+            async function refreshDatatableInIframe(data) {
+                if (data && data.duplicate) {
+                    return false;
+                }
+                var doc = getIframeDocument();
+                if (!doc) {
+                    return false;
+                }
+
+                var targetTableId = data && data.targetTableId ? String(data.targetTableId) : '';
+                var targetTableName = data && data.targetTableName ? String(data.targetTableName) : '';
+                var roots = [];
+                doc.querySelectorAll('[data-component="datatable"], .master-datatable').forEach(function(root) {
+                    var matchesId = targetTableId !== '' && String(root.getAttribute('data-datatable-table-id') || '') === targetTableId;
+                    var matchesName = targetTableName !== '' && String(root.getAttribute('data-table') || '') === targetTableName;
+                    if (matchesId || matchesName || (targetTableId === '' && targetTableName === '')) {
+                        roots.push(root);
+                    }
+                });
+                if (!roots.length) {
+                    return false;
+                }
+
+                var refreshed = false;
+                for (var i = 0; i < roots.length; i += 1) {
+                    refreshed = await reloadDatatableElement(roots[i]) || refreshed;
+                }
+                return refreshed;
+            }
+
+            window.addEventListener('message', function(event) {
+                var data = event && event.data ? event.data : null;
+                if (!data || data.type !== 'custom-form-submit-success') {
+                    return;
+                }
+
+                showSubmitToast('success', 'Data berhasil dikirim.');
+                refreshDatatableInIframe(data).catch(function(error) {
+                    console.error(error);
+                });
+            });
 
             document.querySelectorAll('[data-custom-page-source-iframe]').forEach(function(iframe) {
                 var originalSrcdoc = iframe.getAttribute('srcdoc') || '';

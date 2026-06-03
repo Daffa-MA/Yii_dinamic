@@ -109,10 +109,12 @@ class FormRenderService
             }
             $field['inputType'] = FormSystemFieldHelper::resolveFieldInputType($field);
             if (self::isRelationField($field)) {
-                $field['inputType'] = 'select';
-                $field['type'] = 'select';
-                $field['field_type'] = 'select';
                 $field['is_foreign_key'] = true;
+                if (!self::shouldPreserveChoiceTypeForTableSource($field)) {
+                    $field['inputType'] = 'select';
+                    $field['type'] = 'select';
+                    $field['field_type'] = 'select';
+                }
             }
             if (in_array($field['inputType'], ['date', 'time', 'datetime-local'], true)) {
                 $field['type'] = $field['inputType'];
@@ -154,13 +156,16 @@ class FormRenderService
 
     public static function resolveDynamicChoiceOptions(array $field): array
     {
+        $field = self::resolvePresetChoiceOptions($field);
         $relationConfig = self::resolveRelationConfig($field);
         $isForeignKey = self::isRelationField($field);
         if ($isForeignKey) {
             $field['is_foreign_key'] = true;
-            $field['type'] = 'select';
-            $field['field_type'] = 'select';
-            $field['inputType'] = 'select';
+            if (!self::shouldPreserveChoiceTypeForTableSource($field)) {
+                $field['type'] = 'select';
+                $field['field_type'] = 'select';
+                $field['inputType'] = 'select';
+            }
         }
 
         $type = (string)($field['type'] ?? $field['field_type'] ?? '');
@@ -229,8 +234,8 @@ class FormRenderService
 
             $field['options'] = $options;
             $field['fk_options'] = $options;
-            $field['inputType'] = $isForeignKey ? 'select' : ($field['inputType'] ?? $type);
-            $field['type'] = $isForeignKey ? 'select' : ($field['type'] ?? $type);
+            $field['inputType'] = ($isForeignKey && !self::shouldPreserveChoiceTypeForTableSource($field)) ? 'select' : ($field['inputType'] ?? $type);
+            $field['type'] = ($isForeignKey && !self::shouldPreserveChoiceTypeForTableSource($field)) ? 'select' : ($field['type'] ?? $type);
             $field['dynamic_options_loaded'] = true;
             $field['value_column'] = $valueColumn;
             $field['dropdown_value_column'] = $valueColumn;
@@ -258,6 +263,46 @@ class FormRenderService
         }
 
         return $field;
+    }
+
+    private static function resolvePresetChoiceOptions(array $field): array
+    {
+        $type = (string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '');
+        $source = (string)($field['option_source'] ?? '');
+        $preset = (string)($field['option_preset'] ?? '');
+        if (($source !== 'preset' && $preset === '') || $preset !== 'calendar_months') {
+            return $field;
+        }
+        if (!in_array($type, ['select', 'radio', 'checkboxes'], true)) {
+            $field['type'] = 'checkboxes';
+            $field['field_type'] = 'checkboxes';
+            $field['inputType'] = 'checkboxes';
+        }
+
+        $field['options'] = self::calendarMonthOptions();
+        $field['dropdown_source'] = 'preset';
+        $field['option_source'] = 'preset';
+        $field['option_preset'] = 'calendar_months';
+
+        return $field;
+    }
+
+    private static function calendarMonthOptions(): array
+    {
+        return [
+            ['value' => '01', 'label' => 'Januari'],
+            ['value' => '02', 'label' => 'Februari'],
+            ['value' => '03', 'label' => 'Maret'],
+            ['value' => '04', 'label' => 'April'],
+            ['value' => '05', 'label' => 'Mei'],
+            ['value' => '06', 'label' => 'Juni'],
+            ['value' => '07', 'label' => 'Juli'],
+            ['value' => '08', 'label' => 'Agustus'],
+            ['value' => '09', 'label' => 'September'],
+            ['value' => '10', 'label' => 'Oktober'],
+            ['value' => '11', 'label' => 'November'],
+            ['value' => '12', 'label' => 'Desember'],
+        ];
     }
 
     public static function normalizeFieldForRender(array $field, int $index = 0): array
@@ -315,15 +360,26 @@ class FormRenderService
 
         if (self::isRelationField($field)) {
             $field['is_foreign_key'] = true;
-            $field['type'] = 'select';
-            $field['field_type'] = 'select';
-            $field['inputType'] = 'select';
+            if (!self::shouldPreserveChoiceTypeForTableSource($field)) {
+                $field['type'] = 'select';
+                $field['field_type'] = 'select';
+                $field['inputType'] = 'select';
+            }
             if (!empty($relationConfig)) {
                 $field['relation_config'] = $relationConfig;
             }
         }
 
         return $field;
+    }
+
+    private static function shouldPreserveChoiceTypeForTableSource(array $field): bool
+    {
+        $type = (string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '');
+        $source = (string)($field['option_source'] ?? $field['dropdown_source'] ?? '');
+
+        return in_array($type, ['radio', 'checkboxes'], true)
+            && in_array($source, ['table'], true);
     }
 
     public static function isRelationField(array $field): bool
@@ -676,6 +732,131 @@ class FormRenderService
         return !!(form && form.querySelector('input[name="_embedded"]'));
     }
 
+    function createSubmitRequestId() {
+        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+            return window.crypto.randomUUID();
+        }
+        return 'submit_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2);
+    }
+
+    function rotateSubmitRequestId(form) {
+        var tokenInput = form ? form.querySelector('input[name="_submit_request_id"]') : null;
+        if (tokenInput) {
+            tokenInput.value = createSubmitRequestId();
+        }
+    }
+
+    function getCustomFormFields() {
+        var fields = [];
+        var seen = {};
+        var controls = document.querySelectorAll('input[name], select[name], textarea[name]');
+        controls.forEach(function(control) {
+            var name = String(control.name || '').replace(/\[\]$/, '');
+            if (!name || name.charAt(0) === '_' || seen[name]) {
+                return;
+            }
+            seen[name] = true;
+            var type = (control.type || '').toLowerCase();
+            var tag = String(control.tagName || '').toLowerCase();
+            fields.push({
+                field: name,
+                name: name,
+                inputType: tag === 'select' ? 'select' : (type || tag || 'text')
+            });
+        });
+        return fields;
+    }
+
+    function collectValuesFromCustomMarkup(rootEl) {
+        var values = {};
+        var fields = getCustomFormFields();
+        fields.forEach(function(field) {
+            var fieldName = field.field || field.name || '';
+            if (!fieldName) {
+                return;
+            }
+            var inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+            if (!inputs || !inputs.length) {
+                return;
+            }
+
+            var firstInput = inputs[0];
+            var type = (firstInput.type || '').toLowerCase();
+            if (field.inputType === 'checkboxes') {
+                values[fieldName] = Array.prototype.slice.call(inputs)
+                    .filter(function(input) { return input.checked; })
+                    .map(function(input) { return String(input.value || ''); });
+                return;
+            }
+            if (field.inputType === 'radio') {
+                var selected = Array.prototype.slice.call(inputs).find(function(input) {
+                    return input.checked;
+                });
+                values[fieldName] = selected ? selected.value : '';
+                return;
+            }
+            if (field.inputType === 'boolean' || field.inputType === 'checkbox' || type === 'checkbox') {
+                values[fieldName] = firstInput.checked ? 1 : 0;
+                return;
+            }
+            values[fieldName] = firstInput.value;
+        });
+        return values;
+    }
+
+    function collectDisplayValuesFromCustomMarkup(rootEl) {
+        var values = {};
+        var fields = getCustomFormFields();
+        fields.forEach(function(field) {
+            var fieldName = field.field || field.name || '';
+            if (!fieldName) {
+                return;
+            }
+            var inputs = rootEl.querySelectorAll('[data-row-field="' + fieldName + '"], [name="' + fieldName + '"], [name="' + fieldName + '[]"]');
+            if (!inputs || !inputs.length) {
+                return;
+            }
+
+            var firstInput = inputs[0];
+            var type = (firstInput.type || '').toLowerCase();
+            if (field.inputType === 'checkboxes') {
+                values[fieldName] = Array.prototype.slice.call(inputs)
+                    .filter(function(input) { return input.checked; })
+                    .map(function(input) {
+                        var label = input && input.closest ? input.closest('label') : null;
+                        return label ? String(label.textContent || '').trim() : String(input.value || '');
+                    })
+                    .filter(function(item) {
+                        return String(item || '').trim() !== '';
+                    });
+                return;
+            }
+            if (field.inputType === 'radio') {
+                var selected = Array.prototype.slice.call(inputs).find(function(input) {
+                    return input.checked;
+                });
+                if (!selected) {
+                    values[fieldName] = '';
+                    return;
+                }
+                var selectedLabel = selected.closest ? selected.closest('label') : null;
+                values[fieldName] = selectedLabel ? String(selectedLabel.textContent || '').trim() : String(selected.value || '');
+                return;
+            }
+            if (field.inputType === 'boolean' || field.inputType === 'checkbox' || type === 'checkbox') {
+                values[fieldName] = firstInput.checked ? 1 : 0;
+                return;
+            }
+            if (firstInput.tagName === 'SELECT') {
+                var selectedOption = firstInput.options && firstInput.selectedIndex >= 0 ? firstInput.options[firstInput.selectedIndex] : null;
+                values[fieldName] = selectedOption ? String(selectedOption.textContent || selectedOption.value || '').trim() : String(firstInput.value || '');
+                return;
+            }
+            values[fieldName] = firstInput.value;
+        });
+        return values;
+    }
+
     function showCustomFormAlert(type, message) {
         var existing = document.getElementById('custom-form-submit-alert');
         if (existing) existing.remove();
@@ -744,6 +925,9 @@ class FormRenderService
     }
 
     function setSubmitting(form, submitting) {
+        if (form) {
+            form.dataset.submitting = submitting ? 'true' : 'false';
+        }
         var buttons = form.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type])');
         buttons.forEach(function(button) {
             if (submitting) {
@@ -762,7 +946,7 @@ class FormRenderService
     }
 
     function submitEmbeddedForm(form) {
-        if (!form || form.__customSubmitting) return;
+        if (!form || form.__customSubmitting || form.dataset.submitting === 'true') return;
         form.__customSubmitting = true;
         collectInto(form);
         setSubmitting(form, true);
@@ -794,6 +978,28 @@ class FormRenderService
             })
             .then(function(data) {
                 showCustomFormAlert(data && data.success ? 'success' : 'error', data && data.message ? data.message : '');
+                if (data && data.success && !data.duplicate && window.parent && window.parent !== window) {
+                    var targetTableInput = form.querySelector('input[name="_datatable_target_table_id"]');
+                    var targetTableId = targetTableInput ? parseInt(targetTableInput.value || '0', 10) : 0;
+                    var submittedData = collectValuesFromCustomMarkup(form);
+                    var submittedDisplayData = collectDisplayValuesFromCustomMarkup(form);
+                    window.parent.postMessage({
+                        type: 'custom-form-submit-success',
+                        source: 'embedded-custom-form',
+                        targetTableId: targetTableId > 0 ? targetTableId : null,
+                        targetTableName: data && data.table ? data.table : (data && data.tableName ? data.tableName : null),
+                        formId: form.getAttribute('data-form-id') ? parseInt(form.getAttribute('data-form-id'), 10) : null,
+                        submittedData: submittedData,
+                        submittedDisplayData: submittedDisplayData,
+                        insertedData: data && data.insertedData ? data.insertedData : null,
+                        insertedRowKey: data && data.insertedRowKey ? data.insertedRowKey : null,
+                        duplicate: !!(data && data.duplicate)
+                    }, '*');
+                }
+                if (data && data.success && !data.duplicate) {
+                    form.reset();
+                    rotateSubmitRequestId(form);
+                }
             })
             .catch(function(error) {
                 showCustomFormAlert('error', error && error.message ? error.message : 'Terjadi kesalahan jaringan.');
@@ -809,6 +1015,10 @@ class FormRenderService
         collectInto(form);
         if (!isEmbeddedCustomForm(form)) return;
         event.preventDefault();
+        event.stopPropagation();
+        if (typeof event.stopImmediatePropagation === 'function') {
+            event.stopImmediatePropagation();
+        }
         submitEmbeddedForm(form);
     }, true);
 

@@ -1905,7 +1905,7 @@ display: none;
                                             <div class="block-item-desc">Select one option</div>
                                         </div>
                                     </div>
-                                    <div class="block-item" draggable="true" data-type="checkbox">
+                                    <div class="block-item" draggable="true" data-type="checkboxes">
                                         <div class="block-item-icon"><span class="material-symbols-outlined" style="font-size:18px;">check_box</span></div>
                                         <div class="block-item-info">
                                             <div class="block-item-name">Checkboxes</div>
@@ -2067,6 +2067,9 @@ display: none;
                                     <div class="property-section-title">Advanced</div>
                                     <div class="property-field">
                                         <label class="property-checkbox"><input type="checkbox" id="prop-hidden"><span>Hidden</span></label>
+                                    </div>
+                                    <div class="property-field">
+                                        <label class="property-checkbox"><input type="checkbox" id="prop-save-as-rows"><span>Save each selected value as separate row</span></label>
                                     </div>
                                     <div class="property-field">
                                         <label class="property-label">CSS Class</label>
@@ -2620,6 +2623,13 @@ return html;</pre>
                     options: 'Option 1\nOption 2\nOption 3',
                     required: false
                 },
+                checkboxes: {
+                    type: 'checkboxes',
+                    label: 'Checkboxes',
+                    options: 'Option 1\nOption 2\nOption 3',
+                    required: false,
+                    saveAsMultipleRows: false
+                },
                 checkbox: {
                     type: 'checkbox',
                     label: 'Checkbox',
@@ -2932,6 +2942,7 @@ return html;</pre>
                             number: '<span class="material-symbols-outlined" style="font-size:18px;">tag</span>',
                             password: '<span class="material-symbols-outlined" style="font-size:18px;">lock</span>',
                             select: '<span class="material-symbols-outlined" style="font-size:18px;">list</span>',
+                            checkboxes: '<span class="material-symbols-outlined" style="font-size:18px;">check_box</span>',
                             checkbox: '<span class="material-symbols-outlined" style="font-size:18px;">check_box</span>',
                             radio: '<span class="material-symbols-outlined" style="font-size:18px;">radio_button_unchecked</span>',
                             date: '<span class="material-symbols-outlined" style="font-size:18px;">calendar_today</span>',
@@ -3049,6 +3060,11 @@ return html;</pre>
                     return '<div class="property-label">' + escapeHtml(block.label || 'Select') + '</div><select class="preview-select" disabled>' + opts.map(function(o) {
                         return '<option>' + escapeHtml(o.trim()) + '</option>';
                     }).join('') + '</select>';
+                case 'checkboxes':
+                    const checkboxOpts = (block.options || 'Option 1\nOption 2').split('\n');
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Checkboxes') + '</div>' + checkboxOpts.map(function(o) {
+                        return '<div class="preview-checkbox"><input type="checkbox" disabled><span>' + escapeHtml(o.trim()) + '</span></div>';
+                    }).join('');
                 case 'checkbox':
                     return '<div class="preview-checkbox"><input type="checkbox" disabled><span>' + escapeHtml(block.text || block.label || 'Checkbox') + '</span></div>';
                 case 'radio':
@@ -3437,6 +3453,7 @@ return html;</pre>
                         document.getElementById('prop-radius').value = block.radius || 'md';
                         document.getElementById('prop-align').value = block.align || 'left';
                         document.getElementById('prop-hidden').checked = block.hidden || false;
+                        document.getElementById('prop-save-as-rows').checked = !!(block.saveAsMultipleRows || block.repeatRows || block.expandRows);
                         document.getElementById('prop-class').value = block.cssClass || '';
                         document.getElementById('prop-css').value = block.customCSS || '';
                     }
@@ -3455,6 +3472,7 @@ return html;</pre>
                         if (el) el.addEventListener('change', syncProperty);
                     });
                     document.getElementById('prop-hidden').addEventListener('change', syncProperty);
+                    document.getElementById('prop-save-as-rows').addEventListener('change', syncProperty);
                     // JSON TAB HANDLER
                     document.querySelectorAll('.properties-tab').forEach(function(tab) {
                         tab.addEventListener('click', function() {
@@ -3862,6 +3880,7 @@ return html;</pre>
                         block.radius = document.getElementById('prop-radius').value;
                         block.align = document.getElementById('prop-align').value;
                         block.hidden = document.getElementById('prop-hidden').checked;
+                        block.saveAsMultipleRows = document.getElementById('prop-save-as-rows').checked;
                         block.cssClass = document.getElementById('prop-class').value;
                         block.customCSS = document.getElementById('prop-css').value;
 

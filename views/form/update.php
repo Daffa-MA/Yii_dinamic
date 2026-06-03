@@ -3005,8 +3005,12 @@ return html;</pre>
             <div class="canvas-block-preview">${preview}</div>`;
                     }
 
-        function buildPreview(block) {
-            switch (block.type) {
+                    function buildPreview(block) {
+                        const isReadonly = !!(block.readonly || block.readOnly);
+                        const readonlyAttr = isReadonly ? ' readonly aria-readonly="true"' : '';
+                        const disabledAttr = ' disabled' + (isReadonly ? ' aria-disabled="true"' : '');
+                        const textPreviewAttr = isReadonly ? readonlyAttr : ' disabled';
+                        switch (block.type) {
                 case 'container':
                     return '<div style="padding:20px;border:1px dashed var(--gray-300);border-radius:8px;">Container</div>';
                 case 'columns':
@@ -3045,16 +3049,16 @@ return html;</pre>
                     return '<div class="preview-icon-box"><div class="preview-icon-circle" style="background:' + (block.color || 'var(--primary)') + ';">' + escapeHtml(block.icon || '✨') + '</div><div>' + escapeHtml(block.label || 'Icon') + '</div></div>';
                 case 'avatar':
                     return '<div class="preview-team"><div class="preview-team-avatar"><span class="material-symbols-outlined" style="font-size:18px;">account_circle</span></div><div><div class="preview-team-name">' + escapeHtml(block.name || 'User') + '</div><div class="preview-team-role">' + escapeHtml(block.role || '') + '</div></div></div>';
-                case 'text-input':
-                    return '<div class="property-label">' + escapeHtml(block.label || 'Text') + (block.required ? ' <span style="color:var(--danger)">*</span>' : '') + '</div><input class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
+                    case 'text-input':
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Text') + (block.required ? ' <span style="color:var(--danger)">*</span>' : '') + '</div><input class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '"' + (block.defaultValue !== undefined && block.defaultValue !== null && block.defaultValue !== '' ? ' value="' + escapeHtml(block.defaultValue) + '"' : '') + textPreviewAttr + '>';
                 case 'textarea':
-                    return '<div class="property-label">' + escapeHtml(block.label || 'Textarea') + '</div><textarea class="preview-textarea" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled></textarea>';
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Textarea') + '</div><textarea class="preview-textarea" placeholder="' + escapeHtml(block.placeholder || '') + '"' + (isReadonly ? readonlyAttr : ' disabled') + '>' + escapeHtml(block.defaultValue || '') + '</textarea>';
                 case 'email':
-                    return '<div class="property-label">' + escapeHtml(block.label || 'Email') + '</div><input type="email" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Email') + '</div><input type="email" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '"' + (block.defaultValue !== undefined && block.defaultValue !== null && block.defaultValue !== '' ? ' value="' + escapeHtml(block.defaultValue) + '"' : '') + textPreviewAttr + '>';
                 case 'number':
-                    return '<div class="property-label">' + escapeHtml(block.label || 'Number') + '</div><input type="number" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '" disabled>';
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Number') + '</div><input type="number" class="preview-input" placeholder="' + escapeHtml(block.placeholder || '') + '"' + (block.defaultValue !== undefined && block.defaultValue !== null && block.defaultValue !== '' ? ' value="' + escapeHtml(block.defaultValue) + '"' : '') + textPreviewAttr + '>';
                 case 'password':
-                    return '<div class="property-label">' + escapeHtml(block.label || 'Password') + '</div><input type="password" class="preview-input" placeholder="••••••••" disabled>';
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Password') + '</div><input type="password" class="preview-input" placeholder="••••••••"' + textPreviewAttr + '>';
                 case 'select':
                     const opts = (block.options || 'Option 1\nOption 2').split('\n');
                     return '<div class="property-label">' + escapeHtml(block.label || 'Select') + '</div><select class="preview-select" disabled>' + opts.map(function(o) {
@@ -3073,7 +3077,7 @@ return html;</pre>
                         return '<div class="preview-radio"><input type="radio" disabled><span>' + escapeHtml(o.trim()) + '</span></div>';
                     }).join('');
                 case 'date':
-                    return '<div class="property-label">' + escapeHtml(block.label || 'Date') + '</div><input type="date" class="preview-date" disabled>';
+                    return '<div class="property-label">' + escapeHtml(block.label || 'Date') + '</div><input type="date" class="preview-date"' + (block.defaultValue !== undefined && block.defaultValue !== null && block.defaultValue !== '' ? ' value="' + escapeHtml(block.defaultValue) + '"' : '') + textPreviewAttr + '>';
                 case 'file':
                     return '<div class="property-label">' + escapeHtml(block.label || 'File') + '</div><div class="preview-file">📎 Click to upload or drag and drop</div>';
                 case 'hidden':
@@ -3425,6 +3429,15 @@ return html;</pre>
 
                         document.getElementById('prop-label').value = block.label || '';
                         document.getElementById('prop-desc').value = block.content || block.description || block.subtitle || block.text || '';
+                        const defaultValue = block.defaultValue ?? block.default ?? block.value ?? '';
+                        const defaultInput = document.getElementById('prop-default');
+                        if (defaultInput) {
+                            defaultInput.value = defaultValue;
+                        }
+                        const readonlyInput = document.getElementById('prop-readonly');
+                        if (readonlyInput) {
+                            readonlyInput.checked = !!(block.readonly || block.readOnly);
+                        }
 
                         if (block.type === 'button') {
                             if (urlLabel) urlLabel.textContent = 'Button URL / Route';
@@ -3463,7 +3476,7 @@ return html;</pre>
                     }
 
                     // Property input sync
-                    ['prop-label', 'prop-desc', 'prop-url', 'prop-image', 'prop-padding', 'prop-radius', 'prop-align', 'prop-class', 'prop-css'].forEach(function(id) {
+                    ['prop-label', 'prop-desc', 'prop-default', 'prop-url', 'prop-image', 'prop-padding', 'prop-radius', 'prop-align', 'prop-class', 'prop-css'].forEach(function(id) {
                         const el = document.getElementById(id);
                         if (el) el.addEventListener('input', syncProperty);
                     });
@@ -3472,6 +3485,7 @@ return html;</pre>
                         if (el) el.addEventListener('change', syncProperty);
                     });
                     document.getElementById('prop-hidden').addEventListener('change', syncProperty);
+                    document.getElementById('prop-readonly').addEventListener('change', syncProperty);
                     document.getElementById('prop-save-as-rows').addEventListener('change', syncProperty);
                     // JSON TAB HANDLER
                     document.querySelectorAll('.properties-tab').forEach(function(tab) {
@@ -3874,6 +3888,9 @@ return html;</pre>
                         if (selectedIndex < 0) return;
                         const block = blocks[selectedIndex];
                         block.label = document.getElementById('prop-label').value;
+                        block.readonly = document.getElementById('prop-readonly').checked;
+                        block.readOnly = block.readonly;
+                        block.defaultValue = document.getElementById('prop-default').value;
                         block.bgColor = document.getElementById('prop-bg-color').value;
                         block.color = document.getElementById('prop-text-color').value;
                         block.padding = document.getElementById('prop-padding').value;

@@ -130,6 +130,23 @@ $resolveOptionsFromField = static function (array $field) use ($fkConfig): array
     return $normalized;
 };
 
+$resolveFieldValue = static function (array $field): string {
+    foreach (['defaultValue', 'default', 'value', 'initialValue'] as $key) {
+        if (!array_key_exists($key, $field)) {
+            continue;
+        }
+
+        $value = $field[$key];
+        if (is_array($value) || is_object($value)) {
+            continue;
+        }
+
+        return trim((string)$value);
+    }
+
+    return '';
+};
+
 // Styles for dashboard layout
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
@@ -271,6 +288,11 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                 $fieldConstraint = (is_string($fieldName) && isset($fieldConstraints[$fieldName]) && is_array($fieldConstraints[$fieldName])) ? $fieldConstraints[$fieldName] : null;
                                 $maxLength = $fieldConstraint['maxlength'] ?? ($field['max_length'] ?? null);
                                 $maxLength = is_numeric($maxLength) && (int)$maxLength > 0 ? (int)$maxLength : null;
+                                $isReadonly = !empty($field['readonly']) || !empty($field['readOnly']);
+                                $readonlyAttr = $isReadonly ? ' readonly aria-readonly="true"' : '';
+                                $disabledAttr = $isReadonly ? ' disabled aria-disabled="true"' : '';
+                                $readonlyClass = $isReadonly ? ' opacity-75 cursor-not-allowed bg-surface-container-low' : '';
+                                $defaultValue = $resolveFieldValue($field);
                                 ?>
                                 <div>
                                     <label class="block text-sm font-medium text-on-surface mb-2"><?= Html::encode($fieldLabel) ?><?= $required ? ' <span class="text-error">*</span>' : '' ?></label>
@@ -282,7 +304,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                         $fkSelectName = '__fk_display_' . $fieldName;
                                         ?>
                                         <div class="flex items-center gap-2">
-                                            <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
+                                            <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode($defaultValue) ?>" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
                                             <?php
                                                 echo Select2::widget([
                                                     'name' => $fkSelectName,
@@ -291,7 +313,9 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                                         'placeholder' => $placeholder ?: '-- Pilih --',
                                                         'data-fk-field' => $fieldName,
                                                         'data-fk-hidden-target' => $fieldName,
-                                                        'required' => $required,
+                                                        'required' => $required && !$isReadonly,
+                                                        'disabled' => $isReadonly,
+                                                        'class' => 'w-full' . $readonlyClass,
                                                     ],
                                                 'pluginOptions' => [
                                                     'allowClear' => true,
@@ -304,24 +328,25 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                                     class="quick-add-btn px-4 py-3 rounded-xl border border-outline-variant bg-surface-container hover:bg-surface-container-high text-sm font-bold text-on-surface-variant transition-colors"
                                                     data-fk-field="<?= Html::encode($fieldName) ?>"
                                                     data-fk-label="<?= Html::encode($fieldLabel) ?>"
+                                                    <?= $isReadonly ? 'style="display:none;"' : '' ?>
                                                     title="Tambah Baru">+</button>
                                             <?php endif; ?>
                                         </div>
 
                                     <?php elseif ($field['type'] === 'text'): ?>
-                                        <input type="text" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?>>
+                                        <input type="text" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" placeholder="<?= Html::encode($placeholder) ?>" value="<?= Html::encode($defaultValue) ?>" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?><?= $readonlyAttr ?>>
 
                                     <?php elseif ($field['type'] === 'number'): ?>
-                                        <input type="number" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" <?= $options ?>>
+                                        <input type="number" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" placeholder="<?= Html::encode($placeholder) ?>" value="<?= Html::encode($defaultValue) ?>" <?= $options ?><?= $readonlyAttr ?>>
 
                                     <?php elseif ($field['type'] === 'email'): ?>
-                                        <input type="email" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="email@example.com" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?>>
+                                        <input type="email" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" placeholder="email@example.com" value="<?= Html::encode($defaultValue) ?>" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?><?= $readonlyAttr ?>>
 
                                     <?php elseif ($field['type'] === 'textarea'): ?>
-                                        <textarea name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" placeholder="<?= Html::encode($placeholder) ?>" rows="4" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?>></textarea>
+                                        <textarea name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" placeholder="<?= Html::encode($placeholder) ?>" rows="4" <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?> <?= $options ?><?= $readonlyAttr ?>><?= Html::encode($defaultValue) ?></textarea>
 
                                     <?php elseif ($field['type'] === 'date'): ?>
-                                        <input type="date" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container" <?= $options ?>>
+                                        <input type="date" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" value="<?= Html::encode($defaultValue) ?>" <?= $options ?><?= $readonlyAttr ?>>
 
                                     <?php elseif ($field['type'] === 'select'): ?>
                                         <?php
@@ -358,14 +383,19 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                             }
                                             $selectData[$value] = (string)($opt['label'] ?? $value);
                                         }
+                                        if ($isReadonly && $defaultValue !== '') {
+                                            echo Html::hiddenInput($fieldName . (!empty($field['multiple']) ? '[]' : ''), $defaultValue);
+                                        }
                                         echo Select2::widget([
                                             'name' => $fieldName . (!empty($field['multiple']) ? '[]' : ''),
+                                            'value' => $defaultValue,
                                             'data' => $selectData,
                                             'options' => [
                                                 'placeholder' => $placeholder ?: '-- Pilih --',
                                                 'multiple' => !empty($field['multiple']),
-                                                'required' => $required,
-                                                'class' => 'w-full',
+                                                'required' => $required && !$isReadonly,
+                                                'disabled' => $isReadonly,
+                                                'class' => 'w-full' . $readonlyClass,
                                             ],
                                             'pluginOptions' => [
                                                 'allowClear' => true,
@@ -376,7 +406,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
 
                                     <?php elseif ($field['type'] === 'checkbox'): ?>
                                         <label class="flex items-center gap-3 cursor-pointer">
-                                            <input type="checkbox" name="<?= Html::encode($fieldName) ?>" value="1" class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container/20" <?= $options ?>>
+                                            <input type="checkbox" name="<?= Html::encode($fieldName) ?>" value="1" class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container/20<?= $readonlyClass ?>" <?= $options ?><?= $disabledAttr ?>>
                                             <span class="text-sm font-medium"><?= Html::encode($field['text'] ?? $fieldLabel) ?></span>
                                         </label>
                                     <?php elseif ($field['type'] === 'checkboxes'): ?>
@@ -410,7 +440,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                         <div class="space-y-2">
                                             <?php foreach ($checkboxOptions as $opt): ?>
                                                 <label class="flex items-center gap-3 cursor-pointer">
-                                                    <input type="checkbox" name="<?= Html::encode($fieldName) ?>[]" value="<?= Html::encode((string)($opt['value'] ?? '')) ?>" class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container/20">
+                                                    <input type="checkbox" name="<?= Html::encode($fieldName) ?>[]" value="<?= Html::encode((string)($opt['value'] ?? '')) ?>" class="w-5 h-5 rounded border-outline-variant text-primary-container focus:ring-primary-container/20<?= $readonlyClass ?>"<?= $disabledAttr ?>>
                                                     <span class="text-sm font-medium"><?= Html::encode((string)($opt['label'] ?? '')) ?></span>
                                                 </label>
                                             <?php endforeach; ?>

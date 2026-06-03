@@ -123,6 +123,23 @@ $resolveOptionsFromField = static function (array $field) use ($fkConfig): array
     return $normalized;
 };
 
+$resolveFieldValue = static function (array $field): string {
+    foreach (['defaultValue', 'default', 'value', 'initialValue'] as $key) {
+        if (!array_key_exists($key, $field)) {
+            continue;
+        }
+
+        $value = $field[$key];
+        if (is_array($value) || is_object($value)) {
+            continue;
+        }
+
+        return trim((string)$value);
+    }
+
+    return '';
+};
+
 // Parse schema to get pages and custom design
 $schemaData = json_decode($model->schema_js, true);
 $pages = $schemaData['pages'] ?? null;
@@ -419,6 +436,11 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                     $fieldConstraint = (is_string($fieldName) && isset($fieldConstraints[$fieldName]) && is_array($fieldConstraints[$fieldName])) ? $fieldConstraints[$fieldName] : null;
                                     $maxLength = $fieldConstraint['maxlength'] ?? ($field['max_length'] ?? null);
                                     $maxLength = is_numeric($maxLength) && (int)$maxLength > 0 ? (int)$maxLength : null;
+                                    $isReadonly = !empty($field['readonly']) || !empty($field['readOnly']);
+                                    $readonlyAttr = $isReadonly ? ' readonly aria-readonly="true"' : '';
+                                    $disabledAttr = $isReadonly ? ' disabled aria-disabled="true"' : '';
+                                    $readonlyClass = $isReadonly ? ' opacity-75 cursor-not-allowed bg-slate-50' : '';
+                                    $defaultValue = $resolveFieldValue($field);
 
                                     // Width classes
                                     $widthClass = 'w-full';
@@ -540,11 +562,11 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                 $fkSelectName = '__fk_display_' . $fieldName;
                                                 ?>
                                                 <div class="flex items-center gap-2">
-                                                    <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
-                                                    <select name="<?= Html::encode($fkSelectName) ?>" <?= $options ?>
+                                                    <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode($defaultValue) ?>" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
+                                                    <select name="<?= Html::encode($fkSelectName) ?>" <?= $options ?><?= $disabledAttr ?>
                                                         data-fk-field="<?= Html::encode($fieldName) ?>"
                                                         data-fk-hidden-target="<?= Html::encode($fieldName) ?>"
-                                                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                                        class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>">
                                                         <option value=""><?= Html::encode($placeholder ?: '-- Pilih --') ?></option>
                                                         <?php foreach ($fkOptions as $fkOption): ?>
                                                             <option value="<?= Html::encode((string)($fkOption['value'] ?? '')) ?>">
@@ -556,7 +578,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                         class="quick-add-btn px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm font-bold text-gray-700"
                                                         data-fk-field="<?= Html::encode($fieldName) ?>"
                                                         data-fk-label="<?= Html::encode($fieldLabel) ?>"
-                                                        <?= empty($quickAddFields) ? 'style="display:none;"' : '' ?>
+                                                        <?= empty($quickAddFields) || $isReadonly ? 'style="display:none;"' : '' ?>
                                                         title="Tambah Baru">+</button>
                                                 </div>
 
@@ -564,32 +586,37 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                 <input type="text" name="<?= Html::encode($fieldName) ?>"
                                                     <?= $options ?>
                                                     <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                                    placeholder="<?= Html::encode($placeholder) ?>">
+                                                    value="<?= Html::encode($defaultValue) ?>"
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"<?= $readonlyAttr ?>>
 
                                             <?php elseif ($fieldType === 'textarea'): ?>
                                                 <textarea name="<?= Html::encode($fieldName) ?>" rows="4" <?= $options ?> <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
-                                                    placeholder="<?= Html::encode($placeholder) ?>"></textarea>
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none<?= $readonlyClass ?>"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"<?= $readonlyAttr ?>><?= Html::encode($defaultValue) ?></textarea>
 
                                             <?php elseif ($fieldType === 'email'): ?>
                                                 <input type="email" name="<?= Html::encode($fieldName) ?>" <?= $options ?> <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                                    placeholder="<?= Html::encode($placeholder) ?>">
+                                                    value="<?= Html::encode($defaultValue) ?>"
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"<?= $readonlyAttr ?>>
 
                                             <?php elseif ($fieldType === 'number'): ?>
                                                 <input type="number" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                                    placeholder="<?= Html::encode($placeholder) ?>">
+                                                    value="<?= Html::encode($defaultValue) ?>"
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"<?= $readonlyAttr ?>>
 
                                             <?php elseif ($fieldType === 'password'): ?>
                                                 <input type="password" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                                    placeholder="<?= Html::encode($placeholder) ?>">
+                                                    value="<?= Html::encode($defaultValue) ?>"
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"<?= $readonlyAttr ?>>
 
                                             <?php elseif ($fieldType === 'date'): ?>
                                                 <input type="date" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all">
+                                                    value="<?= Html::encode($defaultValue) ?>"
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"<?= $readonlyAttr ?>>
 
                                             <?php elseif ($fieldType === 'select'): ?>
                                                 <?php
@@ -629,13 +656,19 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                     }
                                                     $selectData[$value] = (string)($option['label'] ?? $value);
                                                 }
+                                                if ($isReadonly && $defaultValue !== '') {
+                                                    echo Html::hiddenInput($fieldName . (!empty($field['multiple']) ? '[]' : ''), $defaultValue);
+                                                }
                                                 echo Select2::widget([
                                                     'name' => $fieldName . (!empty($field['multiple']) ? '[]' : ''),
+                                                    'value' => $defaultValue,
                                                     'data' => $selectData,
                                                     'options' => [
                                                         'placeholder' => $placeholder ?: '-- Pilih --',
                                                         'multiple' => !empty($field['multiple']),
-                                                        'required' => $required,
+                                                        'required' => $required && !$isReadonly,
+                                                        'disabled' => $isReadonly,
+                                                        'class' => 'w-full' . $readonlyClass,
                                                     ],
                                                     'pluginOptions' => [
                                                         'allowClear' => true,
@@ -646,8 +679,8 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 
                                             <?php elseif ($fieldType === 'checkbox'): ?>
                                                 <label class="flex items-center gap-3 cursor-pointer group">
-                                                    <input type="checkbox" name="<?= Html::encode($fieldName) ?>" value="1" <?= $options ?>
-                                                        class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
+                                                    <input type="checkbox" name="<?= Html::encode($fieldName) ?>" value="1" <?= $options ?><?= $disabledAttr ?>
+                                                        class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all<?= $readonlyClass ?>">
                                                     <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
                                                         <?= Html::encode($field['text'] ?? $fieldLabel) ?>
                                                     </span>
@@ -687,8 +720,8 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                 <div class="space-y-2">
                                                     <?php foreach ($checkboxOptions as $option): ?>
                                                         <label class="flex items-center gap-3 cursor-pointer group">
-                                                            <input type="checkbox" name="<?= Html::encode($fieldName) ?>[]" value="<?= Html::encode((string)($option['value'] ?? '')) ?>" <?= $options ?>
-                                                                class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
+                                                            <input type="checkbox" name="<?= Html::encode($fieldName) ?>[]" value="<?= Html::encode((string)($option['value'] ?? '')) ?>" <?= $options ?><?= $disabledAttr ?>
+                                                                class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all<?= $readonlyClass ?>">
                                                             <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
                                                                 <?= Html::encode((string)($option['label'] ?? '')) ?>
                                                             </span>
@@ -711,8 +744,8 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                     foreach ($radioOptions as $option):
                                                     ?>
                                                         <label class="flex items-center gap-3 cursor-pointer group">
-                                                            <input type="radio" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode(trim($option)) ?>" <?= $options ?>
-                                                                class="w-5 h-5 border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all">
+                                                            <input type="radio" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode(trim($option)) ?>" <?= $options ?><?= $disabledAttr ?>
+                                                                class="w-5 h-5 border-gray-300 text-primary focus:ring-2 focus:ring-primary focus:ring-offset-0 transition-all<?= $readonlyClass ?>">
                                                             <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">
                                                                 <?= Html::encode(trim($option)) ?>
                                                             </span>
@@ -721,14 +754,15 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                 </div>
 
                                             <?php elseif ($fieldType === 'file'): ?>
-                                                <input type="file" name="<?= Html::encode($fieldName) ?>" <?= $options ?>
+                                                <input type="file" name="<?= Html::encode($fieldName) ?>" <?= $options ?><?= $disabledAttr ?>
                                                     accept="<?= Html::encode($field['accept'] ?? '*') ?>"
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:hover:bg-primary-dark file:cursor-pointer">
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:hover:bg-primary-dark file:cursor-pointer<?= $readonlyClass ?>">
 
                                             <?php else: ?>
                                                 <input type="text" name="<?= Html::encode($fieldName) ?>" <?= $options ?> <?= $maxLength !== null ? 'maxlength="' . (int)$maxLength . '"' : '' ?>
-                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
-                                                    placeholder="<?= Html::encode($placeholder) ?>">
+                                                    value="<?= Html::encode($defaultValue) ?>"
+                                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"
+                                                    placeholder="<?= Html::encode($placeholder) ?>"<?= $readonlyAttr ?>>
                                             <?php endif; ?>
 
                                             <?php if (!empty($field['help'])): ?>

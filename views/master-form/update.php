@@ -1263,14 +1263,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const componentItems = document.querySelectorAll('.component-item');
     
     let formFields = [];
-    let formBehavior = {
-        submit_mode: 'normal_insert',
-        multiple_row_field: '',
-        auto_fill_rules: [],
-        detail_card: { enabled: false, trigger_field: '', title: 'Detail', items: [] },
-        calculated_summary: { enabled: false, items: [] },
-        unique_validation_rules: []
-    };
     let selectedIndex = null;
     let currentDevice = 'desktop';
     let dropdownSourceTables = [];
@@ -1280,7 +1272,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const existingDataRaw = formDataInput ? formDataInput.value : '[]';
     const existingData = JSON.parse(existingDataRaw);
     if (existingData && !Array.isArray(existingData) && typeof existingData === 'object') {
-        formBehavior = Object.assign({}, formBehavior, existingData.behavior || existingData.form_behavior || {});
         formFields = Array.isArray(existingData.fields) ? JSON.parse(JSON.stringify(existingData.fields)) : [];
         formFields = formFields.map(normalizeFieldState);
         removeSystemFieldsFromState();
@@ -1345,63 +1336,6 @@ document.addEventListener('DOMContentLoaded', function() {
         return escapeHtml(value);
     }
 
-    function fieldNameOptions(selectedValue) {
-        return '<option value="">-- Pilih Field --</option>' + formFields.map(field => {
-            const name = String(field.name || field.field_name || field.field_key || '').trim();
-            if (!name) return '';
-            return '<option value="' + escapeAttr(name) + '"' + boolAttr('selected', String(selectedValue || '') === name) + '>' + escapeHtml(field.label || name) + ' (' + escapeHtml(name) + ')</option>';
-        }).join('');
-    }
-
-    function choiceFieldNameOptions(selectedValue) {
-        return '<option value="">-- Pilih Field --</option>' + formFields.filter(field => ['checkboxes', 'select'].includes(String(field.type || '').toLowerCase())).map(field => {
-            const name = String(field.name || field.field_name || field.field_key || '').trim();
-            if (!name) return '';
-            return '<option value="' + escapeAttr(name) + '"' + boolAttr('selected', String(selectedValue || '') === name) + '>' + escapeHtml(field.label || name) + ' (' + escapeHtml(name) + ')</option>';
-        }).join('');
-    }
-
-    function safeJson(value) {
-        return JSON.stringify(value || [], null, 2);
-    }
-
-    function parseJsonConfig(raw, fallback) {
-        try {
-            const parsed = JSON.parse(raw || '');
-            return parsed && typeof parsed === 'object' ? parsed : fallback;
-        } catch (e) {
-            alert('Format JSON config tidak valid.');
-            return fallback;
-        }
-    }
-
-    function renderFormBehaviorPanel() {
-        if (!propsPanel) return;
-        const detailCard = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
-        const summary = formBehavior.calculated_summary || { enabled: false, items: [] };
-        let html = '<div class="prop-header"><span class="material-symbols-outlined">settings_suggest</span><span class="block-type-badge">form behavior</span></div>';
-        html += '<div class="prop-section"><div class="prop-section-title">Form Behavior</div>';
-        html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="generateAutoBehavior()">Generate Auto Behavior</button></div>';
-        html += '<div class="prop-group"><label class="prop-label">Submit Mode</label><select class="prop-select" onchange="updateFormBehaviorProp(\'submit_mode\', this.value)">';
-        html += '<option value="normal_insert"' + boolAttr('selected', (formBehavior.submit_mode || 'normal_insert') === 'normal_insert') + '>Normal Insert</option>';
-        html += '<option value="multiple_row_insert"' + boolAttr('selected', formBehavior.submit_mode === 'multiple_row_insert') + '>Multiple Row Insert</option>';
-        html += '</select></div>';
-        html += '<div class="prop-group"><label class="prop-label">Multiple Row Field</label><select class="prop-select" onchange="updateFormBehaviorProp(\'multiple_row_field\', this.value)">' + choiceFieldNameOptions(formBehavior.multiple_row_field) + '</select></div>';
-        html += '</div>';
-        html += '<div class="prop-section"><div class="prop-section-title">Auto Fill Rules</div>';
-        html += '<div class="prop-group"><label class="prop-label">Rules JSON</label><textarea class="prop-input" style="min-height:130px;font-family:monospace;font-size:11px;" onchange="updateFormBehaviorJson(\'auto_fill_rules\', this.value)">' + escapeHtml(safeJson(formBehavior.auto_fill_rules || [])) + '</textarea></div></div>';
-        html += '<div class="prop-section"><div class="prop-section-title">Detail Card</div>';
-        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (detailCard.enabled ? 'checked' : '') + ' onchange="updateDetailCardProp(\'enabled\', this.checked)">Enable Detail Card</label></div>';
-        html += '<div class="prop-group"><label class="prop-label">Trigger Field</label><select class="prop-select" onchange="updateDetailCardProp(\'trigger_field\', this.value)">' + fieldNameOptions(detailCard.trigger_field) + '</select></div>';
-        html += '<div class="prop-group"><label class="prop-label">Title</label><input class="prop-input" value="' + escapeAttr(detailCard.title || 'Detail') + '" onchange="updateDetailCardProp(\'title\', this.value)"></div>';
-        html += '<div class="prop-group"><label class="prop-label">Items JSON</label><textarea class="prop-input" style="min-height:120px;font-family:monospace;font-size:11px;" onchange="updateDetailCardItems(this.value)">' + escapeHtml(safeJson(detailCard.items || [])) + '</textarea></div></div>';
-        html += '<div class="prop-section"><div class="prop-section-title">Calculated Summary</div>';
-        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (summary.enabled ? 'checked' : '') + ' onchange="updateSummaryProp(\'enabled\', this.checked)">Enable Summary</label></div>';
-        html += '<div class="prop-group"><label class="prop-label">Items JSON</label><textarea class="prop-input" style="min-height:150px;font-family:monospace;font-size:11px;" onchange="updateSummaryItems(this.value)">' + escapeHtml(safeJson(summary.items || [])) + '</textarea></div></div>';
-        html += '<div class="prop-section"><div class="prop-section-title">Unique Validation Rules</div>';
-        html += '<div class="prop-group"><label class="prop-label">Rules JSON</label><textarea class="prop-input" style="min-height:120px;font-family:monospace;font-size:11px;" onchange="updateFormBehaviorJson(\'unique_validation_rules\', this.value)">' + escapeHtml(safeJson(formBehavior.unique_validation_rules || [])) + '</textarea></div></div>';
-        propsPanel.innerHTML = html;
-    }
 
     function getDropdownSourceMode(field) {
         return field.dropdown_source === 'table' ? 'table' : 'manual';
@@ -1498,6 +1432,72 @@ document.addEventListener('DOMContentLoaded', function() {
         return field.picker_config;
     }
 
+    function normalizeRelationPickerColumnList(value) {
+        if (Array.isArray(value)) {
+            return value.map(item => String(item || '').trim()).filter(Boolean);
+        }
+
+        return String(value || '')
+            .split(',')
+            .map(item => item.trim())
+            .filter(Boolean);
+    }
+
+    function buildRelationPickerColumnChecklist(field, kind) {
+        const picker = ensureRelationPickerConfig(field);
+        const tableId = field.source_table_id || field.dropdown_table_id || '';
+        const columns = dropdownSourceColumnsCache[String(tableId)] || [];
+        const selected = new Set(normalizeRelationPickerColumnList(picker[kind + '_columns']));
+
+        if (!tableId) {
+            return '<div style="font-size:12px;color:#b45309;line-height:1.5;">Table relasi belum dipilih.</div>';
+        }
+
+        if (!columns.length) {
+            return '<div style="font-size:12px;color:#64748b;line-height:1.5;">Kolom table belum termuat. Simpan atau pilih table terlebih dulu.</div>';
+        }
+
+        return columns.map(column => {
+            const columnName = String(column.name || '').trim();
+            if (!columnName) {
+                return '';
+            }
+            const label = column.label || columnName;
+            const checked = selected.has(columnName);
+            const filterText = (String(label) + ' ' + columnName).toLowerCase();
+
+            return '<label class="relation-picker-column-item" data-relation-picker-column-item="' + kind + '" data-relation-picker-column-text="' + escapeAttr(filterText) + '" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;">'
+                + '<input type="checkbox" data-relation-picker-kind="' + kind + '" value="' + escapeAttr(columnName) + '" ' + (checked ? 'checked' : '') + ' style="margin-top:3px;width:16px;height:16px;">'
+                + '<span style="display:flex;flex-direction:column;gap:2px;">'
+                + '<span style="font-weight:600;color:#0f172a;">' + escapeHtml(label) + '</span>'
+                + '<span style="font-size:11px;color:#64748b;">' + escapeHtml(columnName) + '</span>'
+                + '</span>'
+                + '</label>';
+        }).filter(Boolean).join('');
+    }
+
+    function getRelationPickerChecklistContainer(kind) {
+        return document.getElementById('relation-picker-' + kind + '-columns');
+    }
+
+    window.filterRelationPickerColumnsModal = function(kind, query) {
+        const container = getRelationPickerChecklistContainer(kind);
+        if (!container) return;
+        const needle = String(query || '').trim().toLowerCase();
+        container.querySelectorAll('[data-relation-picker-column-item="' + kind + '"]').forEach(function(item) {
+            const text = String(item.getAttribute('data-relation-picker-column-text') || '').toLowerCase();
+            item.style.display = needle === '' || text.indexOf(needle) !== -1 ? 'flex' : 'none';
+        });
+    };
+
+    window.setRelationPickerColumnsSelection = function(kind, checked) {
+        const container = getRelationPickerChecklistContainer(kind);
+        if (!container) return;
+        container.querySelectorAll('[data-relation-picker-kind="' + kind + '"]').forEach(function(input) {
+            input.checked = !!checked;
+        });
+    };
+
     window.setRelationPickerMode = function(mode) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
@@ -1530,6 +1530,43 @@ document.addEventListener('DOMContentLoaded', function() {
         ensureRelationPickerConfig(field);
         renderPropsPanel(field);
         updateData();
+    };
+
+    window.openRelationPickerColumnsModal = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const modal = document.getElementById('relation-picker-columns-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+    };
+
+    window.closeRelationPickerColumnsModal = function() {
+        const modal = document.getElementById('relation-picker-columns-modal');
+        if (!modal) return;
+        modal.style.display = 'none';
+    };
+
+    window.applyRelationPickerColumnsModal = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const picker = ensureRelationPickerConfig(field);
+        const modal = document.getElementById('relation-picker-columns-modal');
+        if (!modal) return;
+
+        const searchColumns = Array.from(modal.querySelectorAll('[data-relation-picker-kind="search"]:checked')).map(function(input) {
+            return String(input.value || '').trim();
+        }).filter(Boolean);
+        const displayColumns = Array.from(modal.querySelectorAll('[data-relation-picker-kind="display"]:checked')).map(function(input) {
+            return String(input.value || '').trim();
+        }).filter(Boolean);
+        const pageSizeInput = modal.querySelector('#relation-picker-page-size');
+
+        picker.search_columns = searchColumns;
+        picker.display_columns = displayColumns;
+        picker.page_size = Math.max(1, Math.min(50, parseInt(pageSizeInput ? pageSizeInput.value : '10', 10) || 10));
+
+        updateData();
+        renderPropsPanel(field);
+        modal.style.display = 'none';
     };
 
     function normalizeRelationMetadata(field) {
@@ -2220,7 +2257,7 @@ document.addEventListener('DOMContentLoaded', function() {
             file: 'upload_file', hidden: 'visibility_off'
         };
         
-        let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span><button type="button" class="prop-option-add" style="margin-left:auto;padding:6px 10px;" onclick="selectFormBehavior()">Form Behavior</button></div>';
+        let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span></div>';
 
         html += '<div class="prop-section"><div class="prop-section-title">Label & Name</div>';
         html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + escapeAttr(field.label || '') + '" data-prop="label" onchange="updateFieldProp(\'label\', this.value)"></div>';
@@ -2356,7 +2393,51 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div class="prop-group"><label class="prop-label">Search Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.search_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'search_columns\', this.value)" placeholder="nama, kode, email"></div>';
             html += '<div class="prop-group"><label class="prop-label">Display Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.display_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'display_columns\', this.value)" placeholder="id, nama, kode"></div>';
             html += '<div class="prop-group"><label class="prop-label">Page Size</label><input type="number" min="1" max="50" class="prop-input" value="' + escapeAttr(pickerConfig.page_size || 10) + '" onchange="updateRelationPickerConfig(\'page_size\', this.value)"></div>';
+            html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="openRelationPickerColumnsModal()">Atur kolom modal</button></div>';
             html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="generateRelationPickerConfig()">Generate picker config</button></div>';
+            html += '<div id="relation-picker-columns-modal" class="relation-picker-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);align-items:center;justify-content:center;padding:24px;">';
+            html += '<div style="width:min(920px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,0.24);">';
+            html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #e2e8f0;">';
+            html += '<div>';
+            html += '<div style="font-size:18px;font-weight:700;color:#0f172a;">Relation Picker Columns</div>';
+            html += '<div style="font-size:12px;color:#64748b;">Pilih kolom yang muncul di pencarian dan kolom yang ditampilkan di modal.</div>';
+            html += '</div>';
+            html += '<button type="button" class="prop-option-remove" onclick="closeRelationPickerColumnsModal()" style="width:36px;height:36px;">×</button>';
+            html += '</div>';
+            html += '<div style="padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">';
+            html += '<div>';
+            html += '<div class="prop-section-title" style="margin-bottom:10px;">Search Columns</div>';
+            html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">';
+            html += '<input type="text" class="prop-input" placeholder="Cari kolom..." oninput="filterRelationPickerColumnsModal(\'search\', this.value)" style="flex:1;min-width:0;">';
+            html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'search\', true)">Select all</button>';
+            html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'search\', false)">Clear</button>';
+            html += '</div>';
+            html += '<div id="relation-picker-search-columns" style="display:grid;gap:10px;">' + buildRelationPickerColumnChecklist(field, 'search') + '</div>';
+            html += '</div>';
+            html += '<div>';
+            html += '<div class="prop-section-title" style="margin-bottom:10px;">Display Columns</div>';
+            html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">';
+            html += '<input type="text" class="prop-input" placeholder="Cari kolom..." oninput="filterRelationPickerColumnsModal(\'display\', this.value)" style="flex:1;min-width:0;">';
+            html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'display\', true)">Select all</button>';
+            html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'display\', false)">Clear</button>';
+            html += '</div>';
+            html += '<div id="relation-picker-display-columns" style="display:grid;gap:10px;">' + buildRelationPickerColumnChecklist(field, 'display') + '</div>';
+            html += '</div>';
+            html += '</div>';
+            html += '<div style="padding:0 22px 22px;">';
+            html += '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">';
+            html += '<div style="flex:1;">';
+            html += '<label class="prop-label">Page Size</label>';
+            html += '<input type="number" min="1" max="50" class="prop-input" id="relation-picker-page-size" value="' + escapeAttr(pickerConfig.page_size || 10) + '">';
+            html += '</div>';
+            html += '<div style="align-self:flex-end;display:flex;gap:10px;">';
+            html += '<button type="button" class="prop-option-add" onclick="closeRelationPickerColumnsModal()">Cancel</button>';
+            html += '<button type="button" class="prop-option-add" onclick="applyRelationPickerColumnsModal()">Apply Columns</button>';
+            html += '</div>';
+            html += '</div>';
+            html += '<small style="display:block;color:#64748b;line-height:1.5;">Kolom yang dipilih di sini akan dipakai oleh modal picker untuk menampilkan baris data relasi.</small>';
+            html += '</div>';
+            html += '</div>';
             if (field.fk_options && field.fk_options.length > 0) {
                 html += '<div class="prop-group"><label class="prop-label">Options (' + field.fk_options.length + ' items)</label><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#64748b;">';
                 field.fk_options.forEach(opt => {
@@ -3320,86 +3401,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (input) {
             formFields = formFields.map(normalizeFieldState);
             input.value = JSON.stringify({
-                fields: formFields,
-                behavior: formBehavior
+                fields: formFields
             });
         }
         if (removedSystemFields) {
             renderFields();
             if (selectedIndex === null && propsPanel) {
-                renderFormBehaviorPanel();
+                renderPropsPanel(null);
             }
         }
     }
-
-    window.updateFormBehaviorProp = function(propName, value) {
-        formBehavior[propName] = value;
-        renderFormBehaviorPanel();
-        updateData();
-    };
-
-    window.updateFormBehaviorJson = function(propName, rawJson) {
-        formBehavior[propName] = parseJsonConfig(rawJson, formBehavior[propName] || []);
-        renderFormBehaviorPanel();
-        updateData();
-    };
-
-    window.updateDetailCardProp = function(propName, value) {
-        formBehavior.detail_card = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
-        formBehavior.detail_card[propName] = value;
-        renderFormBehaviorPanel();
-        updateData();
-    };
-
-    window.updateDetailCardItems = function(rawJson) {
-        formBehavior.detail_card = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
-        formBehavior.detail_card.items = parseJsonConfig(rawJson, formBehavior.detail_card.items || []);
-        renderFormBehaviorPanel();
-        updateData();
-    };
-
-    window.updateSummaryProp = function(propName, value) {
-        formBehavior.calculated_summary = formBehavior.calculated_summary || { enabled: false, items: [] };
-        formBehavior.calculated_summary[propName] = value;
-        renderFormBehaviorPanel();
-        updateData();
-    };
-
-    window.updateSummaryItems = function(rawJson) {
-        formBehavior.calculated_summary = formBehavior.calculated_summary || { enabled: false, items: [] };
-        formBehavior.calculated_summary.items = parseJsonConfig(rawJson, formBehavior.calculated_summary.items || []);
-        renderFormBehaviorPanel();
-        updateData();
-    };
-
-    window.selectFormBehavior = function() {
-        selectedIndex = null;
-        renderFields();
-        renderFormBehaviorPanel();
-    };
-
-    window.generateAutoBehavior = function() {
-        const formIdInput = document.getElementById('form-id-input');
-        const formId = formIdInput ? String(formIdInput.value || '').trim() : '';
-        if (!formId) {
-            alert('Simpan form dulu, lalu buka edit form untuk generate auto behavior dari metadata.');
-            return;
-        }
-        fetch('/master-form/generate-auto-behavior?form_id=' + encodeURIComponent(formId), {
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-            .then(response => response.json())
-            .then(result => {
-                if (!result || !result.success) {
-                    alert((result && result.message) || 'Gagal generate auto behavior.');
-                    return;
-                }
-                formBehavior = Object.assign({}, formBehavior, result.behavior || {});
-                renderFormBehaviorPanel();
-                updateData();
-            })
-            .catch(() => alert('Gagal generate auto behavior.'));
-    };
 
     function removeSystemFieldsFromState() {
         const beforeCount = formFields.length;
@@ -3416,7 +3427,7 @@ document.addEventListener('DOMContentLoaded', function() {
         renderFields();
         selectField(0);  // Auto-select first field
     } else {
-        renderFormBehaviorPanel();
+        renderPropsPanel(null);
     }
     
     // Drag handlers

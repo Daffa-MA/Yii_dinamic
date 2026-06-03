@@ -35,6 +35,8 @@ $emptyStateDescription = $isWorkspaceAdmin
     ? 'Halaman ini siap digunakan tetapi belum memiliki konten. Tambahkan konten melalui Master Halaman.'
     : 'Halaman ini belum memiliki konten untuk ditampilkan. Silakan hubungi admin workspace jika halaman ini seharusnya berisi informasi.';
 
+$this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\View::POS_END]);
+
 $layoutClasses = 'grid gap-5';
 if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
     $layoutClasses = 'grid gap-5 xl:grid-cols-2';
@@ -58,6 +60,7 @@ $customSourceDoc = '';
 if ($hasCustomPageSource) {
     $injectLinkHandler = static function (string $source): string {
         $script = <<<'HTML'
+<script src="/js/dynamic-form-runtime.js"></script>
 <script>
 (function() {
     function isExternalUrl(url) {

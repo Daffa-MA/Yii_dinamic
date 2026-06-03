@@ -33,6 +33,16 @@
     var pickerDataUrl = '/master-form/relation-picker-data';
     var pickerSearchUrl = '/master-form/relation-picker-search';
     var pickerState = { fieldName: '', formId: '', page: 1, hasNext: false, form: null };
+    var isDevRuntime = /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname) || window.YII_DEBUG === true;
+
+    function devLog() {
+        if (!isDevRuntime || !window.console || !console.log) {
+            return;
+        }
+        console.log.apply(console, arguments);
+    }
+
+    devLog('Dynamic form asset loaded');
 
     function escapeHtml(value) {
         return String(value == null ? '' : value)
@@ -129,6 +139,7 @@
     }
 
     function openPicker(form, fieldName, formId, query) {
+        devLog('Opening relation picker modal', fieldName);
         pickerState = { fieldName: fieldName, formId: formId, page: 1, hasNext: false, form: form };
         var modal = ensureModal();
         var search = modal.querySelector('[data-picker-search]');
@@ -191,7 +202,9 @@
             return;
         }
         form.dataset.dynamicRuntimeBound = '1';
+        form.dataset.dynamicFormInitialized = '1';
         installStyle();
+        devLog('Initializing dynamic form', form.getAttribute('data-dynamic-form-instance') || form.id || form.getAttribute('data-form-id') || '');
 
         form.querySelectorAll('.relation-picker-display').forEach(function(input) {
             input.addEventListener('keydown', function(event) {
@@ -237,6 +250,46 @@
         });
     }
 
+    function findDynamicFormFromButton(button) {
+        if (!button || !button.closest) {
+            return null;
+        }
+        return button.closest('[data-dynamic-form-instance]') || button.closest('form.dynamic-embedded-form') || button.closest('form');
+    }
+
+    function handlePickerButtonClick(button, event) {
+        if (!button) {
+            return;
+        }
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        var form = findDynamicFormFromButton(button);
+        if (!form) {
+            if (window.console && console.error) {
+                console.error('Dynamic form instance not found for picker button');
+            }
+            return;
+        }
+
+        bindForm(form);
+        var wrapper = button.closest ? button.closest('.relation-picker-wrapper') : null;
+        var fieldName = button.getAttribute('data-relation-picker-open') || button.getAttribute('data-field-name') || button.getAttribute('data-picker-field') || (wrapper ? wrapper.getAttribute('data-field-name') : '') || '';
+        devLog('Relation picker button clicked', fieldName);
+        var input = form.querySelector('.relation-picker-display[data-field-name="' + cssEscape(fieldName) + '"]');
+        openPicker(form, fieldName, input ? (input.getAttribute('data-form-id') || '') : (form.getAttribute('data-form-id') || ''), input ? input.value : '');
+    }
+
+    document.addEventListener('click', function(event) {
+        var button = event.target && event.target.closest ? event.target.closest('.relation-picker-button, [data-relation-picker-open]') : null;
+        if (!button) {
+            return;
+        }
+        handlePickerButtonClick(button, event);
+    }, true);
+
     window.DynamicFormRuntime = {
         __assetRuntime: true,
         init: function(root) {
@@ -245,7 +298,11 @@
                 bindForm(scope);
             }
             if (scope.querySelectorAll) {
-                scope.querySelectorAll('form.dynamic-embedded-form').forEach(bindForm);
+                scope.querySelectorAll('form.dynamic-embedded-form, [data-dynamic-form-instance]').forEach(function(form) {
+                    if (form.tagName === 'FORM') {
+                        bindForm(form);
+                    }
+                });
             }
         }
     };

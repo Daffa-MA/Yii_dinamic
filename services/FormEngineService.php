@@ -242,6 +242,11 @@ class FormEngineService
         $resolvedField['source_column_name'] = $sourceColumn !== null ? (string)$sourceColumn->name : (string)($fieldData['source_column_name'] ?? '');
         $resolvedField['source_column_label'] = $sourceColumn !== null ? (string)($sourceColumn->label ?? $sourceColumn->name) : (string)($fieldData['source_column_label'] ?? '');
         $resolvedField['source_column_type'] = $sourceColumn !== null ? (string)($sourceColumn->type ?? '') : (string)($fieldData['source_column_type'] ?? '');
+        $schemaColumn = $schema !== null && isset($schema->columns[$resolvedName]) ? $schema->columns[$resolvedName] : null;
+        $resolvedField['source_column_db_type'] = $schemaColumn !== null ? (string)($schemaColumn->dbType ?? $schemaColumn->type ?? '') : (string)($fieldData['source_column_db_type'] ?? $fieldData['db_type'] ?? '');
+        $resolvedField['source_column_column_type'] = $schemaColumn !== null ? (string)($schemaColumn->dbType ?? '') : (string)($fieldData['source_column_column_type'] ?? $fieldData['column_type'] ?? '');
+        $resolvedField['source_column_data_type'] = $schemaColumn !== null ? (string)($schemaColumn->type ?? '') : (string)($fieldData['source_column_data_type'] ?? $fieldData['data_type'] ?? '');
+        $resolvedField['source_column_length'] = $schemaColumn !== null ? (int)($schemaColumn->size ?? 0) : (int)($fieldData['source_column_length'] ?? $fieldData['length'] ?? 0);
         $relationConfig = $this->resolveRelationConfig($fieldData, $sourceColumn, $resolvedName);
         $isMetadataFk = $sourceColumn !== null && $sourceColumn->hasAttribute('is_foreign_key') && (bool)$sourceColumn->getAttribute('is_foreign_key');
         $resolvedField['is_foreign_key'] = $this->isCompleteRelationConfig($relationConfig) || $isMetadataFk;

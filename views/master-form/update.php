@@ -1263,6 +1263,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const componentItems = document.querySelectorAll('.component-item');
     
     let formFields = [];
+    let formBehavior = {
+        submit_mode: 'normal_insert',
+        multiple_row_field: '',
+        auto_fill_rules: [],
+        detail_card: { enabled: false, trigger_field: '', title: 'Detail', items: [] },
+        calculated_summary: { enabled: false, items: [] },
+        unique_validation_rules: []
+    };
     let selectedIndex = null;
     let currentDevice = 'desktop';
     let dropdownSourceTables = [];
@@ -1271,7 +1279,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // **CRITICAL HYDRATION**: Load existing form data from hidden input
     const existingDataRaw = formDataInput ? formDataInput.value : '[]';
     const existingData = JSON.parse(existingDataRaw);
-    if (existingData && Array.isArray(existingData) && existingData.length > 0) {
+    if (existingData && !Array.isArray(existingData) && typeof existingData === 'object') {
+        formBehavior = Object.assign({}, formBehavior, existingData.behavior || existingData.form_behavior || {});
+        formFields = Array.isArray(existingData.fields) ? JSON.parse(JSON.stringify(existingData.fields)) : [];
+        formFields = formFields.map(normalizeFieldState);
+        removeSystemFieldsFromState();
+    } else if (existingData && Array.isArray(existingData) && existingData.length > 0) {
         formFields = JSON.parse(JSON.stringify(existingData));
         formFields = formFields.map(normalizeFieldState);
         removeSystemFieldsFromState();
@@ -1286,10 +1299,10 @@ document.addEventListener('DOMContentLoaded', function() {
         tel: { label: 'Phone', inputType: 'tel', placeholder: '+62 xxx' },
         url: { label: 'URL', inputType: 'url', placeholder: 'https://...' },
         textarea: { label: 'Textarea', inputType: 'textarea', rows: 4, placeholder: 'Masukkan teks panjang...' },
-        select: { label: 'Dropdown', inputType: 'select', options: [{value:'',label:'Pilih...'}, {value:'opt1',label:'Opsi 1'}] },
-        radio: { label: 'Radio Group', inputType: 'radio', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
+        select: { label: 'Dropdown', inputType: 'select', option_source: 'manual', dropdown_source: 'static_options', options: [{value:'',label:'Pilih...'}, {value:'opt1',label:'Opsi 1'}] },
+        radio: { label: 'Radio Group', inputType: 'radio', option_source: 'manual', dropdown_source: 'static_options', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
         checkbox: { label: 'Checkbox', inputType: 'checkbox', labelText: 'Centang ini' },
-        checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
+        checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', option_source: 'manual', dropdown_source: 'static_options', options: [{value:'opt1',label:'Opsi 1'}, {value:'opt2',label:'Opsi 2'}] },
         date: { label: 'Date', inputType: 'date' },
         time: { label: 'Time', inputType: 'time' },
         datetime: { label: 'Date Time', inputType: 'datetime-local' },
@@ -1332,8 +1345,79 @@ document.addEventListener('DOMContentLoaded', function() {
         return escapeHtml(value);
     }
 
+    function fieldNameOptions(selectedValue) {
+        return '<option value="">-- Pilih Field --</option>' + formFields.map(field => {
+            const name = String(field.name || field.field_name || field.field_key || '').trim();
+            if (!name) return '';
+            return '<option value="' + escapeAttr(name) + '"' + boolAttr('selected', String(selectedValue || '') === name) + '>' + escapeHtml(field.label || name) + ' (' + escapeHtml(name) + ')</option>';
+        }).join('');
+    }
+
+    function choiceFieldNameOptions(selectedValue) {
+        return '<option value="">-- Pilih Field --</option>' + formFields.filter(field => ['checkboxes', 'select'].includes(String(field.type || '').toLowerCase())).map(field => {
+            const name = String(field.name || field.field_name || field.field_key || '').trim();
+            if (!name) return '';
+            return '<option value="' + escapeAttr(name) + '"' + boolAttr('selected', String(selectedValue || '') === name) + '>' + escapeHtml(field.label || name) + ' (' + escapeHtml(name) + ')</option>';
+        }).join('');
+    }
+
+    function safeJson(value) {
+        return JSON.stringify(value || [], null, 2);
+    }
+
+    function parseJsonConfig(raw, fallback) {
+        try {
+            const parsed = JSON.parse(raw || '');
+            return parsed && typeof parsed === 'object' ? parsed : fallback;
+        } catch (e) {
+            alert('Format JSON config tidak valid.');
+            return fallback;
+        }
+    }
+
+    function renderFormBehaviorPanel() {
+        if (!propsPanel) return;
+        const detailCard = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
+        const summary = formBehavior.calculated_summary || { enabled: false, items: [] };
+        let html = '<div class="prop-header"><span class="material-symbols-outlined">settings_suggest</span><span class="block-type-badge">form behavior</span></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Form Behavior</div>';
+        html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="generateAutoBehavior()">Generate Auto Behavior</button></div>';
+        html += '<div class="prop-group"><label class="prop-label">Submit Mode</label><select class="prop-select" onchange="updateFormBehaviorProp(\'submit_mode\', this.value)">';
+        html += '<option value="normal_insert"' + boolAttr('selected', (formBehavior.submit_mode || 'normal_insert') === 'normal_insert') + '>Normal Insert</option>';
+        html += '<option value="multiple_row_insert"' + boolAttr('selected', formBehavior.submit_mode === 'multiple_row_insert') + '>Multiple Row Insert</option>';
+        html += '</select></div>';
+        html += '<div class="prop-group"><label class="prop-label">Multiple Row Field</label><select class="prop-select" onchange="updateFormBehaviorProp(\'multiple_row_field\', this.value)">' + choiceFieldNameOptions(formBehavior.multiple_row_field) + '</select></div>';
+        html += '</div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Auto Fill Rules</div>';
+        html += '<div class="prop-group"><label class="prop-label">Rules JSON</label><textarea class="prop-input" style="min-height:130px;font-family:monospace;font-size:11px;" onchange="updateFormBehaviorJson(\'auto_fill_rules\', this.value)">' + escapeHtml(safeJson(formBehavior.auto_fill_rules || [])) + '</textarea></div></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Detail Card</div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (detailCard.enabled ? 'checked' : '') + ' onchange="updateDetailCardProp(\'enabled\', this.checked)">Enable Detail Card</label></div>';
+        html += '<div class="prop-group"><label class="prop-label">Trigger Field</label><select class="prop-select" onchange="updateDetailCardProp(\'trigger_field\', this.value)">' + fieldNameOptions(detailCard.trigger_field) + '</select></div>';
+        html += '<div class="prop-group"><label class="prop-label">Title</label><input class="prop-input" value="' + escapeAttr(detailCard.title || 'Detail') + '" onchange="updateDetailCardProp(\'title\', this.value)"></div>';
+        html += '<div class="prop-group"><label class="prop-label">Items JSON</label><textarea class="prop-input" style="min-height:120px;font-family:monospace;font-size:11px;" onchange="updateDetailCardItems(this.value)">' + escapeHtml(safeJson(detailCard.items || [])) + '</textarea></div></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Calculated Summary</div>';
+        html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (summary.enabled ? 'checked' : '') + ' onchange="updateSummaryProp(\'enabled\', this.checked)">Enable Summary</label></div>';
+        html += '<div class="prop-group"><label class="prop-label">Items JSON</label><textarea class="prop-input" style="min-height:150px;font-family:monospace;font-size:11px;" onchange="updateSummaryItems(this.value)">' + escapeHtml(safeJson(summary.items || [])) + '</textarea></div></div>';
+        html += '<div class="prop-section"><div class="prop-section-title">Unique Validation Rules</div>';
+        html += '<div class="prop-group"><label class="prop-label">Rules JSON</label><textarea class="prop-input" style="min-height:120px;font-family:monospace;font-size:11px;" onchange="updateFormBehaviorJson(\'unique_validation_rules\', this.value)">' + escapeHtml(safeJson(formBehavior.unique_validation_rules || [])) + '</textarea></div></div>';
+        propsPanel.innerHTML = html;
+    }
+
     function getDropdownSourceMode(field) {
         return field.dropdown_source === 'table' ? 'table' : 'manual';
+    }
+
+    function getOptionSourceMode(field) {
+        if (!field || typeof field !== 'object') {
+            return 'manual';
+        }
+        if (field.option_source === 'preset' || field.option_preset) {
+            return 'preset';
+        }
+        if (field.option_source === 'table' || field.dropdown_source === 'table') {
+            return 'table';
+        }
+        return 'manual';
     }
 
     function hasResolvedRelationConfig(field) {
@@ -1500,6 +1584,26 @@ document.addEventListener('DOMContentLoaded', function() {
             return field;
         }
 
+        const columnType = normalizeColumnType(
+            field.source_column_db_type ||
+            field.source_column_column_type ||
+            field.source_column_data_type ||
+            field.column_type ||
+            field.db_type ||
+            field.data_type ||
+            field.source_column_type ||
+            field.base_type ||
+            field.type ||
+            field.inputType ||
+            ''
+        );
+        const length = parseInt(field.source_column_length || field.length || field.size || field.precision || '', 10);
+
+        if (isBooleanColumnType(columnType, length)) {
+            field.type = 'boolean';
+            field.inputType = 'boolean';
+        }
+
         if (!field.type && field.inputType) {
             field.type = field.inputType;
         }
@@ -1507,10 +1611,31 @@ document.addEventListener('DOMContentLoaded', function() {
             field.inputType = field.type;
         }
 
+        if (typeof field.type === 'string') {
+            field.type = field.type.toLowerCase();
+        }
+        if (typeof field.inputType === 'string') {
+            field.inputType = field.inputType.toLowerCase();
+        }
+        if (field.type === 'checkboxes') {
+            field.inputType = 'checkboxes';
+        }
+
         if (field.type === 'select' && isRelationField(field)) {
             field.options = Array.isArray(field.fk_options) && field.fk_options.length > 0
                 ? field.fk_options
                 : (Array.isArray(field.options) ? field.options : []);
+        }
+
+        if (['select', 'radio', 'checkboxes'].includes(field.type)) {
+            if (!field.option_source) {
+                field.option_source = getOptionSourceMode(field);
+            }
+            if (field.option_source === 'preset' && field.option_preset === 'calendar_months') {
+                field = applyOptionPreset(field, 'calendar_months');
+            } else if (field.option_source === 'manual') {
+                field.dropdown_source = field.dropdown_source === 'table' ? 'static_options' : (field.dropdown_source || 'static_options');
+            }
         }
 
         return field;
@@ -1557,6 +1682,34 @@ document.addEventListener('DOMContentLoaded', function() {
             label: opt.label ?? ('Opsi ' + (index + 1))
         }));
         return field.options;
+    }
+
+    function buildMonthOptions() {
+        return [
+            { value: '01', label: 'Januari' },
+            { value: '02', label: 'Februari' },
+            { value: '03', label: 'Maret' },
+            { value: '04', label: 'April' },
+            { value: '05', label: 'Mei' },
+            { value: '06', label: 'Juni' },
+            { value: '07', label: 'Juli' },
+            { value: '08', label: 'Agustus' },
+            { value: '09', label: 'September' },
+            { value: '10', label: 'Oktober' },
+            { value: '11', label: 'November' },
+            { value: '12', label: 'Desember' }
+        ];
+    }
+
+    function applyOptionPreset(field, preset) {
+        if (!field || preset !== 'calendar_months') {
+            return field;
+        }
+        field.option_source = 'preset';
+        field.option_preset = 'calendar_months';
+        field.dropdown_source = 'preset';
+        field.options = buildMonthOptions();
+        return field;
     }
 
     function getCurrentBuilderTableId() {
@@ -1787,6 +1940,7 @@ document.addEventListener('DOMContentLoaded', function() {
             field.label = relationLabel;
         }
 
+        field.option_source = 'table';
         field.dropdown_source = 'table';
         field.is_foreign_key = true;
         field.source_column_id = fkColumn.id;
@@ -1926,7 +2080,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 `</div>`;
         }
         
-        const type = field.type || 'text';
+        const componentType = String(field.type || field.field_type || '').toLowerCase();
+        const type = componentType === 'checkboxes'
+            ? 'checkboxes'
+            : String(field.inputType || field.type || 'text').toLowerCase();
         const placeholders = {
             text: 'Input text...',
             email: 'email@example.com',
@@ -1943,7 +2100,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const inputType = {
             text: 'text', email: 'email', password: 'password', number: 'number',
             tel: 'tel', url: 'url', textarea: 'textarea', select: 'select',
-            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkbox',
+            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkboxes',
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };
@@ -1989,6 +2146,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (type === 'checkbox') {
             return '<div class="field-preview"><label style="display:flex;align-items:center;gap:8px;color:#475569;"><input type="checkbox"' + attr('name', field.name || '') + boolAttr('checked', field.default_checked) + boolAttr('required', field.required) + boolAttr('disabled', true) + '><span>' + escapeHtml(field.labelText || field.label || 'Checkbox') + '</span></label></div>';
+        }
+
+        if (type === 'boolean') {
+            const checked = String(field.default_value || '') === '1' || String(field.default_value || '').toLowerCase() === 'true';
+            return '<div class="field-preview"><label class="form-check form-switch" style="display:flex;align-items:center;gap:8px;color:#475569;">' +
+                '<input type="checkbox" class="form-check-input" ' + boolAttr('checked', checked) + boolAttr('disabled', true) + '>' +
+                '<span>' + escapeHtml(field.label || field.labelText || 'Aktif / Nonaktif') + '</span>' +
+            '</label></div>';
         }
 
         if (type === 'file') {
@@ -2050,11 +2215,12 @@ document.addEventListener('DOMContentLoaded', function() {
             text: 'text_fields', email: 'email', password: 'lock', number: 'pin',
             tel: 'phone', url: 'link', textarea: 'notes', select: 'arrow_drop_down_circle',
             radio: 'radio_button_checked', checkbox: 'check_box', checkboxes: 'checklist',
+            boolean: 'toggle_on',
             date: 'calendar_today', time: 'schedule', datetime: 'event',
             file: 'upload_file', hidden: 'visibility_off'
         };
         
-        let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span></div>';
+        let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span><button type="button" class="prop-option-add" style="margin-left:auto;padding:6px 10px;" onclick="selectFormBehavior()">Form Behavior</button></div>';
 
         html += '<div class="prop-section"><div class="prop-section-title">Label & Name</div>';
         html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + escapeAttr(field.label || '') + '" data-prop="label" onchange="updateFieldProp(\'label\', this.value)"></div>';
@@ -2063,8 +2229,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         html += '<div class="prop-section"><div class="prop-section-title">Konfigurasi</div>';
         html += '<div class="prop-group"><label class="prop-label">Tipe Input</label><select class="prop-select" data-prop="type" onchange="updateFieldProp(\'type\', this.value)">';
-        const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'date', 'time', 'datetime', 'file', 'hidden'];
-        const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Date', 'Time', 'Date Time', 'File Upload', 'Hidden'];
+        const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'boolean', 'date', 'time', 'datetime', 'file', 'hidden'];
+        const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'Hidden'];
         types.forEach((t, i) => {
             html += '<option value="' + t + '" ' + (field.type === t ? 'selected' : '') + '>' + labels[i] + '</option>';
         });
@@ -2115,13 +2281,26 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
-        if (field.type === 'select') {
-            const sourceMode = getDropdownSourceMode(field);
-            html += '<div class="prop-section"><div class="prop-section-title">Dropdown Source</div>';
-            html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setDropdownSourceMode(this.value)">';
-            html += '<option value="manual"' + boolAttr('selected', sourceMode === 'manual') + '>Manual Options</option>';
-            html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Ambil dari Table</option>';
+        if (field.type === 'checkboxes') {
+            html += '<div class="prop-section"><div class="prop-section-title">Checkboxes</div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.saveAsMultipleRows ? 'checked' : '') + ' onchange="updateFieldProp(\'saveAsMultipleRows\', this.checked)">Save each selected value as separate row</label></div>';
+            html += '</div>';
+        }
+
+        if (['select', 'radio', 'checkboxes'].includes(field.type)) {
+            const sourceMode = getOptionSourceMode(field);
+            html += '<div class="prop-section"><div class="prop-section-title">Option Source</div>';
+            html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setOptionSourceMode(this.value)">';
+            html += '<option value="manual"' + boolAttr('selected', sourceMode === 'manual') + '>Manual</option>';
+            html += '<option value="preset"' + boolAttr('selected', sourceMode === 'preset') + '>Preset</option>';
+            html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Dari Table</option>';
             html += '</select></div>';
+            if (sourceMode === 'preset') {
+                html += '<div class="prop-group"><label class="prop-label">Preset</label><select class="prop-select" onchange="setOptionPreset(this.value)">';
+                html += '<option value="calendar_months"' + boolAttr('selected', field.option_preset === 'calendar_months') + '>Calendar Months / Bulan Kalender</option>';
+                html += '</select></div>';
+                html += '<small style="display:block;color:#64748b;line-height:1.5;">Value yang disimpan ke database: 01 sampai 12. Label hanya untuk tampilan.</small>';
+            }
             if (sourceMode === 'table') {
                 const fkPanelState = getCurrentTableForeignKeyPanelState();
                 if (!fkPanelState.tableId) {
@@ -2138,7 +2317,7 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '</div>';
         }
 
-        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key && getDropdownSourceMode(field) !== 'table') {
+        if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key && getOptionSourceMode(field) === 'manual') {
             const options = normalizeChoiceOptions(field);
             html += '<div class="prop-section"><div class="prop-section-title">Options</div>';
             html += '<div class="prop-group">';
@@ -2225,10 +2404,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (propName === 'type') {
             formFields[selectedIndex].inputType = getInputType(value);
             if (['select', 'radio', 'checkboxes'].includes(value)) {
+                if (!formFields[selectedIndex].option_source) {
+                    formFields[selectedIndex].option_source = 'manual';
+                    formFields[selectedIndex].dropdown_source = 'static_options';
+                }
                 normalizeChoiceOptions(formFields[selectedIndex]);
             }
             if (value !== 'select') {
-                formFields[selectedIndex].dropdown_source = 'static_options';
+                if (formFields[selectedIndex].option_source !== 'table') {
+                    formFields[selectedIndex].dropdown_source = 'static_options';
+                }
             }
         }
         renderFields();
@@ -2267,7 +2452,9 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setDropdownSourceMode = function(mode) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
+        field.option_source = mode === 'table' ? 'table' : 'manual';
         field.dropdown_source = mode === 'table' ? 'table' : 'static_options';
+        field.option_preset = '';
         if (mode !== 'table') {
             resetDropdownTableSourceField(field);
             normalizeChoiceOptions(field);
@@ -2287,10 +2474,62 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
+    window.setOptionSourceMode = function(mode) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.option_source = mode;
+
+        if (mode === 'preset') {
+            applyOptionPreset(field, field.option_preset || 'calendar_months');
+            normalizeFieldState(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+            return;
+        }
+
+        if (mode === 'table') {
+            field.dropdown_source = 'table';
+            field.option_preset = '';
+            field.options = [];
+            ensureCurrentTableForeignKeyColumnsLoaded().then(function() {
+                if (!field.source_column_id) {
+                    field.is_foreign_key = false;
+                }
+                normalizeFieldState(field);
+                renderFields();
+                renderPropsPanel(field);
+                updateData();
+            });
+            return;
+        }
+
+        field.option_source = 'manual';
+        field.option_preset = '';
+        field.dropdown_source = 'static_options';
+        resetDropdownTableSourceField(field);
+        normalizeChoiceOptions(field);
+        normalizeFieldState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.setOptionPreset = function(preset) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        applyOptionPreset(field, preset);
+        normalizeFieldState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
     window.setDropdownSourceForeignKey = function(columnId) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
         if (!columnId) {
+            field.option_source = 'table';
             field.dropdown_source = 'table';
             field.source_column_id = '';
             resetDropdownTableSourceField(field);
@@ -2318,6 +2557,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
         const table = dropdownSourceTables.find(item => String(item.id) === String(tableId));
+        field.option_source = 'table';
         field.dropdown_source = 'table';
         field.source_table_id = tableId ? parseInt(tableId, 10) : '';
         field.source_table_name = table ? table.name : '';
@@ -2354,6 +2594,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setDropdownSourceColumn = function(propName, value) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
+        field.option_source = 'table';
         field.dropdown_source = 'table';
         field[propName] = value;
         refreshDropdownOptionsFromTable(field).then(function() {
@@ -3078,15 +3319,87 @@ document.addEventListener('DOMContentLoaded', function() {
         const input = document.getElementById('form-data-input');
         if (input) {
             formFields = formFields.map(normalizeFieldState);
-            input.value = JSON.stringify(formFields);
+            input.value = JSON.stringify({
+                fields: formFields,
+                behavior: formBehavior
+            });
         }
         if (removedSystemFields) {
             renderFields();
             if (selectedIndex === null && propsPanel) {
-                propsPanel.innerHTML = '<div class="no-selection"><span class="material-symbols-outlined">touch_app</span><p style="font-size:14px">Pilih field untuk edit</p></div>';
+                renderFormBehaviorPanel();
             }
         }
     }
+
+    window.updateFormBehaviorProp = function(propName, value) {
+        formBehavior[propName] = value;
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateFormBehaviorJson = function(propName, rawJson) {
+        formBehavior[propName] = parseJsonConfig(rawJson, formBehavior[propName] || []);
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateDetailCardProp = function(propName, value) {
+        formBehavior.detail_card = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
+        formBehavior.detail_card[propName] = value;
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateDetailCardItems = function(rawJson) {
+        formBehavior.detail_card = formBehavior.detail_card || { enabled: false, trigger_field: '', title: 'Detail', items: [] };
+        formBehavior.detail_card.items = parseJsonConfig(rawJson, formBehavior.detail_card.items || []);
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateSummaryProp = function(propName, value) {
+        formBehavior.calculated_summary = formBehavior.calculated_summary || { enabled: false, items: [] };
+        formBehavior.calculated_summary[propName] = value;
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.updateSummaryItems = function(rawJson) {
+        formBehavior.calculated_summary = formBehavior.calculated_summary || { enabled: false, items: [] };
+        formBehavior.calculated_summary.items = parseJsonConfig(rawJson, formBehavior.calculated_summary.items || []);
+        renderFormBehaviorPanel();
+        updateData();
+    };
+
+    window.selectFormBehavior = function() {
+        selectedIndex = null;
+        renderFields();
+        renderFormBehaviorPanel();
+    };
+
+    window.generateAutoBehavior = function() {
+        const formIdInput = document.getElementById('form-id-input');
+        const formId = formIdInput ? String(formIdInput.value || '').trim() : '';
+        if (!formId) {
+            alert('Simpan form dulu, lalu buka edit form untuk generate auto behavior dari metadata.');
+            return;
+        }
+        fetch('/master-form/generate-auto-behavior?form_id=' + encodeURIComponent(formId), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => response.json())
+            .then(result => {
+                if (!result || !result.success) {
+                    alert((result && result.message) || 'Gagal generate auto behavior.');
+                    return;
+                }
+                formBehavior = Object.assign({}, formBehavior, result.behavior || {});
+                renderFormBehaviorPanel();
+                updateData();
+            })
+            .catch(() => alert('Gagal generate auto behavior.'));
+    };
 
     function removeSystemFieldsFromState() {
         const beforeCount = formFields.length;
@@ -3102,6 +3415,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (formFields && formFields.length > 0) {
         renderFields();
         selectField(0);  // Auto-select first field
+    } else {
+        renderFormBehaviorPanel();
     }
     
     // Drag handlers
@@ -3236,13 +3551,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     const colName = (col.name || '').toLowerCase();
                     
                     let fieldType = 'text';
-                    const colType = (col.base_type || col.type || '').toUpperCase();
+                    const colType = normalizeColumnType(col.db_type || col.column_type || col.data_type || col.base_type || col.type || '');
                     
                     if (isForeignKey) {
                         fieldType = 'select';
-                    } else if (colType.includes('INT') || colType.includes('DECIMAL') || colType.includes('FLOAT') || colType.includes('DOUBLE')) {
+                    } else if (isBooleanColumnType(colType, parseInt(col.length || col.max_length || '', 10))) {
+                        fieldType = 'boolean';
+                    } else if (colType.includes('int') || colType.includes('decimal') || colType.includes('float') || colType.includes('double')) {
                         fieldType = 'number';
-                    } else if (colType.includes('TEXT') || colType.includes('VARCHAR') || colType.includes('CHAR')) {
+                    } else if (colType.includes('text') || colType.includes('varchar') || colType.includes('char')) {
                         if (colName.includes('email')) fieldType = 'email';
                         else if (colName.includes('url') || colName.includes('website')) fieldType = 'url';
                         else if (colName.includes('phone') || colName.includes('telepon')) fieldType = 'tel';
@@ -3265,6 +3582,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         default_value: col.default_value || '',
                         excluded: false,
                         source_column_id: col.id,
+                        source_column_db_type: col.db_type || '',
+                        source_column_column_type: col.column_type || col.db_type || '',
+                        source_column_data_type: col.data_type || '',
+                        source_column_length: col.length || col.max_length || 0,
                         source_column_type: colType,
                         is_foreign_key: isForeignKey,
                         is_primary: isPrimaryKey,
@@ -3369,7 +3690,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const types = {
             text: 'text', email: 'email', password: 'password', number: 'number',
             tel: 'tel', url: 'url', textarea: 'textarea', select: 'select',
-            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkbox',
+            radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkboxes', boolean: 'boolean',
             date: 'date', time: 'time', datetime: 'datetime-local',
             file: 'file', hidden: 'hidden'
         };
@@ -3377,11 +3698,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function getFieldTypeFromColumnType(columnType) {
-        const normalizedType = String(columnType || '').trim().toUpperCase().match(/^[A-Z]+/)?.[0] || '';
-        if (normalizedType === 'DATE') return 'date';
-        if (normalizedType === 'TIME') return 'time';
-        if (normalizedType === 'DATETIME' || normalizedType === 'TIMESTAMP') return 'datetime';
+        const normalizedType = normalizeColumnType(columnType);
+        if (isBooleanColumnType(normalizedType)) return 'boolean';
+        if (normalizedType.startsWith('date')) return 'date';
+        if (normalizedType.startsWith('time')) return 'time';
+        if (normalizedType === 'datetime' || normalizedType === 'timestamp') return 'datetime';
         return 'text';
+    }
+
+    function normalizeColumnType(columnType) {
+        return String(columnType || '')
+            .trim()
+            .toLowerCase()
+            .replace(/\s+(unsigned|zerofill)\b/g, '')
+            .replace(/\s+/g, '');
+    }
+
+    function isBooleanColumnType(columnType, length) {
+        const normalizedType = normalizeColumnType(columnType);
+        if (['bool', 'boolean'].includes(normalizedType)) {
+            return true;
+        }
+        if (normalizedType === 'bit(1)' || normalizedType === 'tinyint(1)') {
+            return true;
+        }
+        if (normalizedType === 'tinyint' && Number(length) === 1) {
+            return true;
+        }
+        return false;
     }
 
     function isSystemField(fieldName) {

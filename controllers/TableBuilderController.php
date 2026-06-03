@@ -7,6 +7,7 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
 use yii\db\Connection;
+use yii\helpers\Url;
 use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
@@ -16,6 +17,12 @@ use app\components\ProjectAuthContext;
 use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
+use app\services\TableExistenceService;
+
+class SqlEditorExecutionException extends \RuntimeException
+{
+    public array $context = [];
+}
 
 class TableBuilderController extends Controller
 {
@@ -348,7 +355,30 @@ class TableBuilderController extends Controller
 
     private function hasPhysicalTableByName(string $tableName): bool
     {
-        return $this->getPhysicalDb()->schema->getTableSchema($tableName, true) !== null;
+        $db = $this->getPhysicalDb();
+        return $this->tableExistsInPhysicalDatabase($db, $tableName);
+    }
+
+    private function getTableExistenceService(?Connection $db = null): TableExistenceService
+    {
+        return new TableExistenceService($db ?? $this->getPhysicalDb());
+    }
+
+    private function getMetadataScope(): array
+    {
+        $scope = [];
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $scope['user_id'] = $effectiveUserId;
+        }
+        if (ProjectSchema::supportsProjectContext()) {
+            $activeProjectId = $this->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $scope['project_id'] = $activeProjectId;
+            }
+        }
+
+        return $scope;
     }
 
     private function hasPhysicalTable(DbTable $model): bool
@@ -1381,13 +1411,37 @@ class TableBuilderController extends Controller
         if ($builderMode === 'sql' && Yii::$app->request->isPost) {
             try {
                 $executionResult = $this->executeRawSchemaSql($rawSql);
-                Yii::$app->session->setFlash(
-                    'success',
-                    'SQL schema berhasil dijalankan dan sinkron ke metadata untuk: ' . implode(', ', $executionResult['tables'])
-                );
+                $responsePayload = [
+                    'success' => true,
+                    'stage' => $executionResult['current_stage'] ?? 'created_then_synced',
+                    'message' => $executionResult['message'] ?? 'Tabel berhasil dibuat dan metadata berhasil disinkronkan.',
+                    'sql_error' => null,
+                    'failed_statement' => null,
+                    'parsed_columns' => $executionResult['parsed_columns'] ?? [],
+                    'created_table_name' => $executionResult['created_table_name'] ?? null,
+                    'table_name' => $executionResult['created_table_name'] ?? null,
+                    'active_database' => $executionResult['active_database'] ?? null,
+                    'physical_table_exists' => $executionResult['physical_table_exists'] ?? null,
+                    'metadata_table_exists' => $executionResult['metadata_table_exists'] ?? null,
+                    'existed_before_execute' => $executionResult['existed_before_execute'] ?? null,
+                    'exists_after_execute' => $executionResult['exists_after_execute'] ?? null,
+                    'executed_statement_count' => $executionResult['executed_statement_count'] ?? null,
+                    'redirect_url' => Url::to(['table-builder/index']),
+                ];
+
+                if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {
+                    return $this->asJson($responsePayload);
+                }
+
+                Yii::$app->session->setFlash('success', $responsePayload['message']);
                 return $this->redirect(['index']);
             } catch (\Throwable $e) {
-                $friendlySqlError = $this->buildFriendlyTableBuilderErrorMessage($e);
+                $sqlDebug = $this->buildSqlEditorDebugPayload($e, $rawSql);
+
+                if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {
+                    return $this->asJson($sqlDebug);
+                }
+
                 return $this->render('create', [
                     'model' => $model,
                     'savedColumns' => $savedColumns,
@@ -1395,7 +1449,8 @@ class TableBuilderController extends Controller
                     'databaseInfo' => $this->getDatabaseInfo(),
                     'builderMode' => 'sql',
                     'rawSql' => $rawSql,
-                    'sqlError' => $friendlySqlError,
+                    'sqlError' => $sqlDebug['message'] ?? $this->buildFriendlyTableBuilderErrorMessage($e),
+                    'sqlDebug' => $sqlDebug,
                 ]);
             }
         }
@@ -1759,7 +1814,14 @@ class TableBuilderController extends Controller
         $model = $this->findModel($id);
 
         if ($this->syncTableCreationState($model)) {
-            Yii::$app->session->setFlash('tableBuilderWarning', 'Table already exists in database!');
+            try {
+                $this->syncImportedTable((string)$model->name);
+                $this->getPhysicalDb()->schema->refresh();
+                $this->getPhysicalDb()->schema->refreshTableSchema((string)$model->name);
+                Yii::$app->session->setFlash('tableBuilderSuccess', "Tabel '{$model->name}' sudah ada di database aktif dan metadata sudah sinkron.");
+            } catch (\Throwable $syncError) {
+                Yii::$app->session->setFlash('tableBuilderError', $this->buildFriendlyTableBuilderErrorMessage($syncError));
+            }
             return $this->redirect(['view', 'id' => $id]);
         }
 
@@ -2048,7 +2110,10 @@ class TableBuilderController extends Controller
         } elseif (in_array($type, ['ENUM', 'SET'], true)) {
             $inputType = 'select';
             $options = $this->parseEnumOptions((string)$column->getAttribute('enum_values'));
-        } elseif (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ((int)$column->length <= 1 || $column->type === 'BOOLEAN')) {
+        } elseif (
+            in_array($type, ['BOOLEAN', 'BOOL', 'BIT', 'TINYINT'], true)
+            && ((int)$column->length <= 1 || in_array($type, ['BOOLEAN', 'BOOL'], true))
+        ) {
             $inputType = 'boolean';
         } elseif (in_array($type, ['DATE'], true)) {
             $inputType = 'date';
@@ -3400,6 +3465,132 @@ class TableBuilderController extends Controller
         return $message;
     }
 
+    private function buildSqlEditorDebugPayload(\Throwable $exception, string $sql, array $context = []): array
+    {
+        if ($exception instanceof SqlEditorExecutionException) {
+            $context = array_merge($exception->context, $context);
+        }
+
+        $dbError = $this->extractDbErrorDetails($exception);
+        $failedStatement = trim((string)($context['failed_statement'] ?? $context['last_statement'] ?? ''));
+        $createdTableName = $context['created_table_name'] ?? null;
+        $tableName = $context['table_name'] ?? $createdTableName;
+        $parsedColumns = $context['parsed_columns'] ?? [];
+        $stage = (string)($context['stage'] ?? 'execution');
+        $activeDatabase = $context['active_database'] ?? null;
+        $existedBeforeExecute = $context['existed_before_execute'] ?? null;
+        $existsAfterExecute = $context['exists_after_execute'] ?? null;
+        $executedStatementCount = $context['executed_statement_count'] ?? null;
+        $currentStage = $context['current_stage'] ?? $stage;
+        $executionSource = $context['execution_source'] ?? null;
+        $physicalTableExists = $context['physical_table_exists'] ?? null;
+        $metadataTableExists = $context['metadata_table_exists'] ?? null;
+        $diagnostics = $context['diagnostics'] ?? [];
+        $suggestedFix = $context['suggested_fix'] ?? null;
+        $overrideSqlState = $context['sqlstate'] ?? null;
+        $overrideErrorCode = $context['error_code'] ?? null;
+        $overrideSqlError = $context['sql_error'] ?? null;
+
+        $message = trim((string)$exception->getMessage());
+        if ($stage === 'metadata') {
+            $message = 'SQL berhasil dijalankan di database, tetapi sinkronisasi metadata gagal: ' . ($message !== '' ? $message : 'unknown error');
+        } elseif ($message === '') {
+            $message = 'SQL gagal dijalankan.';
+        }
+
+        if (is_string($overrideSqlError) && trim($overrideSqlError) !== '') {
+            $dbError['sql_error'] = trim($overrideSqlError);
+        }
+        if (is_string($overrideSqlState) && trim($overrideSqlState) !== '') {
+            $dbError['sqlstate'] = trim($overrideSqlState);
+        }
+        if ($overrideErrorCode !== null && $overrideErrorCode !== '') {
+            $dbError['error_code'] = (string)$overrideErrorCode;
+        }
+        if ($dbError['sql_error'] !== '') {
+            $message .= ' Database error: ' . $dbError['sql_error'];
+        }
+
+        if ($suggestedFix === null) {
+            if ($metadataTableExists === true && $physicalTableExists === false) {
+                $suggestedFix = 'Metadata internal ditemukan tetapi tabel fisik tidak ada. Metadata orphans harus dibersihkan lalu CREATE TABLE dijalankan ulang.';
+            } elseif ($physicalTableExists === true) {
+                $suggestedFix = 'Tabel sudah ada di database aktif. Jika memang ingin membuat ulang, hapus tabel fisiknya terlebih dahulu.';
+            }
+        }
+
+        return [
+            'success' => false,
+            'message' => $message,
+            'sql_error' => $dbError['sql_error'],
+            'sqlstate' => $dbError['sqlstate'],
+            'error_code' => $dbError['error_code'],
+            'database_error' => $dbError['database_error'],
+            'failed_statement' => $failedStatement !== '' ? $failedStatement : null,
+            'parsed_columns' => $parsedColumns,
+            'created_table_name' => $createdTableName,
+            'table_name' => $tableName,
+            'active_database' => $activeDatabase,
+            'existed_before_execute' => $existedBeforeExecute,
+            'exists_after_execute' => $existsAfterExecute,
+            'executed_statement_count' => $executedStatementCount,
+            'current_stage' => $currentStage,
+            'execution_source' => $executionSource,
+            'physical_table_exists' => $physicalTableExists,
+            'metadata_table_exists' => $metadataTableExists,
+            'diagnostics' => $diagnostics,
+            'suggested_fix' => $suggestedFix,
+            'query_sql' => $sql,
+            'stage' => $stage,
+        ];
+    }
+
+    private function extractDbErrorDetails(\Throwable $exception): array
+    {
+        $sqlError = '';
+        $sqlState = '';
+        $errorCode = (string)$exception->getCode();
+        $databaseError = trim((string)$exception->getMessage());
+        $source = $exception;
+
+        while ($source !== null) {
+            if ($source instanceof \yii\db\Exception && is_array($source->errorInfo ?? null)) {
+                $errorInfo = $source->errorInfo;
+                $sqlState = (string)($errorInfo[0] ?? '');
+                $errorCode = (string)($errorInfo[1] ?? $errorCode);
+                $sqlError = trim((string)($errorInfo[2] ?? ''));
+                if ($sqlError === '' && $databaseError !== '') {
+                    $sqlError = $databaseError;
+                }
+                break;
+            }
+
+            if (property_exists($source, 'errorInfo') && is_array($source->errorInfo ?? null)) {
+                $errorInfo = $source->errorInfo;
+                $sqlState = (string)($errorInfo[0] ?? '');
+                $errorCode = (string)($errorInfo[1] ?? $errorCode);
+                $sqlError = trim((string)($errorInfo[2] ?? ''));
+                if ($sqlError === '' && $databaseError !== '') {
+                    $sqlError = $databaseError;
+                }
+                break;
+            }
+
+            $source = $source->getPrevious();
+        }
+
+        if ($sqlError === '') {
+            $sqlError = $databaseError;
+        }
+
+        return [
+            'sqlstate' => $sqlState !== '' ? $sqlState : null,
+            'error_code' => $errorCode !== '' ? $errorCode : null,
+            'sql_error' => $sqlError,
+            'database_error' => $databaseError !== '' ? $databaseError : $sqlError,
+        ];
+    }
+
     private function executeRawSchemaSql(string $sql): array
     {
         $sql = trim($sql);
@@ -3413,27 +3604,134 @@ class TableBuilderController extends Controller
         }
 
         $db = $this->getPhysicalDb();
+        $activeDatabase = $this->getCurrentDatabaseName($db);
+        $executionSource = $this->getSqlEditorExecutionSource();
         $tablesToSync = [];
         $createdTables = [];
+        $lastStatement = '';
+        $lastStatementIndex = -1;
+        $parsedColumns = [];
+        $metadataStarted = false;
+        $safeCreateEnabled = (string)Yii::$app->request->post('safe_create', '0') === '1';
+        $executedStatementCount = 0;
+        $primaryCreateTableName = null;
+        $primaryExistedBeforeExecute = null;
+        $primaryExistsAfterExecute = null;
+        $primaryRecoveredFrom1050 = false;
 
         try {
             foreach ($statements as $index => $statement) {
+                $lastStatement = $statement;
+                $lastStatementIndex = $index;
                 $validationError = $this->validateSchemaStatement($statement);
                 if ($validationError !== null) {
                     throw new \RuntimeException('Statement #' . ($index + 1) . ': ' . $validationError);
                 }
 
-                $db->createCommand($statement)->execute();
+                $statement = $this->maybeApplySafeCreate($statement, $safeCreateEnabled);
+                $statementTableName = $this->extractCreatedTableName($statement);
+                if ($statementTableName !== null) {
+                    $physicalExists = $this->tableExistsInPhysicalDatabase($db, $statementTableName);
+                    $metadataExists = $this->tableExistsInMetadata($statementTableName);
+                    if ($primaryCreateTableName === null) {
+                        $primaryCreateTableName = $statementTableName;
+                        $primaryExistedBeforeExecute = $physicalExists;
+                    }
+                    Yii::info([
+                        'stage' => 'sql_editor_precheck',
+                        'database' => $activeDatabase,
+                        'table_name' => $statementTableName,
+                        'physical_table_exists' => $physicalExists,
+                        'metadata_table_exists' => $metadataExists,
+                        'safe_create' => $safeCreateEnabled,
+                        'executed_statement_count' => $executedStatementCount,
+                        'execution_source' => $executionSource,
+                    ], 'table-builder-sql');
 
-                $createdTableName = $this->extractCreatedTableName($statement);
-                if ($createdTableName !== null) {
-                    $createdTables[$createdTableName] = true;
+                    if ($physicalExists) {
+                        Yii::warning([
+                            'stage' => isset($createdTables[$statementTableName])
+                                ? 'sql_editor_duplicate_create_skipped'
+                                : 'sql_editor_existing_create_skipped',
+                            'active_database' => $activeDatabase,
+                            'table_name' => $statementTableName,
+                            'physical_table_exists' => true,
+                            'metadata_table_exists' => $metadataExists,
+                            'executed_statement_count' => $executedStatementCount,
+                            'execution_source' => $executionSource,
+                        ], 'table-builder-sql');
+
+                        $tablesToSync[$statementTableName] = true;
+                        $primaryExistsAfterExecute = true;
+                        continue;
+                    }
+
+                    if ($metadataExists && !$physicalExists) {
+                        $this->cleanupOrphanMetadataByTableName($statementTableName);
+                        $this->refreshDbTableColumnsSchema();
+                    }
                 }
 
-                $tableName = $this->extractAffectedTableName($statement);
-                if ($tableName !== null) {
-                    $tablesToSync[$tableName] = true;
-                    $db->schema->refreshTableSchema($tableName);
+                Yii::info([
+                    'stage' => 'sql_editor_execute',
+                    'statement_index' => $index + 1,
+                    'statement' => $statement,
+                    'sql' => $sql,
+                    'active_database' => $activeDatabase,
+                    'execution_source' => $executionSource,
+                ], 'table-builder-sql');
+
+                $statementExecuted = false;
+                try {
+                    $db->createCommand($statement)->execute();
+                    $statementExecuted = true;
+                } catch (\Throwable $statementError) {
+                    $statementErrorDetails = $this->extractDbErrorDetails($statementError);
+                    $statementCode = (int)($statementErrorDetails['error_code'] ?? $statementError->getCode());
+                    $statementTableName = $this->extractCreatedTableName($statement);
+                    if ($statementTableName !== null && $statementCode === 1050) {
+                        $existsAfterExecute = $this->tableExistsInPhysicalDatabase($db, $statementTableName);
+                        if ($primaryCreateTableName === null) {
+                            $primaryCreateTableName = $statementTableName;
+                            $primaryExistedBeforeExecute = false;
+                        }
+                        if ($existsAfterExecute && $primaryExistedBeforeExecute !== true) {
+                            $statementExecuted = true;
+                            $primaryRecoveredFrom1050 = true;
+                            Yii::warning([
+                                'stage' => 'sql_editor_recovered_1050',
+                                'database' => $activeDatabase,
+                                'table_name' => $statementTableName,
+                                'exists_after_execute' => $existsAfterExecute,
+                                'executed_statement_count' => $executedStatementCount,
+                                'execution_source' => $executionSource,
+                                'error_code' => $statementCode,
+                                'sqlstate' => $statementErrorDetails['sqlstate'] ?? null,
+                                'error' => $statementErrorDetails['sql_error'] ?? $statementError->getMessage(),
+                            ], 'table-builder-sql');
+                        } else {
+                            throw $statementError;
+                        }
+                    } else {
+                        throw $statementError;
+                    }
+                }
+
+                if ($statementExecuted) {
+                    $executedStatementCount++;
+                }
+
+                if ($statementTableName !== null) {
+                    $createdTables[$statementTableName] = true;
+                    $primaryExistsAfterExecute = $this->tableExistsInPhysicalDatabase($db, $statementTableName);
+                    $tablesToSync[$statementTableName] = true;
+                    $db->schema->refreshTableSchema($statementTableName);
+                }
+
+                $affectedTableName = $this->extractAffectedTableName($statement);
+                if ($affectedTableName !== null) {
+                    $tablesToSync[$affectedTableName] = true;
+                    $db->schema->refreshTableSchema($affectedTableName);
                 }
             }
 
@@ -3441,16 +3739,200 @@ class TableBuilderController extends Controller
                 throw new \RuntimeException('SQL berhasil dijalankan, tetapi tidak ada table yang bisa disinkronkan.');
             }
 
+            $db->schema->refresh();
+            $metadataStarted = true;
+            $syncedTables = $this->syncImportedTables(array_keys($tablesToSync), $parsedColumns);
+            foreach (array_keys($tablesToSync) as $syncedTableName) {
+                $db->schema->refreshTableSchema($syncedTableName);
+            }
+
+            $primaryTableName = $primaryCreateTableName ?? (!empty($createdTables) ? array_key_first($createdTables) : (!empty($tablesToSync) ? array_key_first($tablesToSync) : null));
+            $primaryMetadataExistsAfterSync = $primaryTableName !== null ? $this->tableExistsInMetadata($primaryTableName) : null;
+            $primaryPhysicalExistsAfterSync = $primaryTableName !== null ? $this->tableExistsInPhysicalDatabase($db, $primaryTableName) : null;
+            $stage = $primaryExistedBeforeExecute === true
+                ? 'existing_table_synced'
+                : ($primaryRecoveredFrom1050 ? 'created_but_executor_reported_1050' : 'created_then_synced');
+
             return [
                 'statements' => $statements,
-                'tables' => $this->syncImportedTables(array_keys($tablesToSync)),
+                'tables' => $syncedTables,
+                'parsed_columns' => $parsedColumns,
+                'created_table_name' => $primaryTableName,
+                'table_name' => $primaryTableName,
+                'last_statement' => $lastStatement,
+                'active_database' => $activeDatabase,
+                'existed_before_execute' => $primaryExistedBeforeExecute,
+                'exists_after_execute' => $primaryExistsAfterExecute,
+                'physical_table_exists' => $primaryPhysicalExistsAfterSync,
+                'metadata_table_exists' => $primaryMetadataExistsAfterSync,
+                'executed_statement_count' => $executedStatementCount,
+                'current_stage' => $stage,
+                'execution_source' => $executionSource,
+                'message' => $stage === 'existing_table_synced'
+                    ? 'Tabel sudah ada, CREATE TABLE dilewati, metadata disinkronkan.'
+                    : 'Tabel berhasil dibuat dan metadata berhasil disinkronkan.',
             ];
         } catch (\Throwable $e) {
+            $stage = $metadataStarted ? 'metadata' : 'execution';
             if (!empty($createdTables)) {
-                $this->cleanupSqlEditorArtifacts(array_keys($createdTables));
+                if ($stage === 'execution') {
+                    $this->cleanupSqlEditorArtifacts(array_keys($createdTables));
+                }
             }
-            throw $e;
+            $context = [
+                'stage' => $stage,
+                'failed_statement' => $lastStatement,
+                'last_statement' => $lastStatement,
+                'created_table_name' => $primaryCreateTableName ?? (!empty($createdTables) ? array_key_first($createdTables) : null),
+                'table_name' => $primaryCreateTableName ?? (!empty($createdTables) ? array_key_first($createdTables) : ($this->extractCreatedTableName($lastStatement) ?? null)),
+                'parsed_columns' => $parsedColumns,
+                'statement_index' => $lastStatementIndex,
+                'active_database' => $activeDatabase,
+                'existed_before_execute' => $primaryExistedBeforeExecute,
+                'exists_after_execute' => $primaryExistsAfterExecute,
+                'executed_statement_count' => $executedStatementCount,
+                'execution_source' => $executionSource,
+                'current_stage' => $stage,
+            ];
+            $diagnosticsTable = !empty($createdTables) ? array_key_first($createdTables) : ($this->extractCreatedTableName($lastStatement) ?? null);
+            if ($diagnosticsTable !== null) {
+                $context['diagnostics'] = $this->collectSqlEditorTableDiagnostics($db, $diagnosticsTable);
+                $context['physical_table_exists'] = $context['diagnostics']['physical_table_exists'] ?? null;
+                $context['metadata_table_exists'] = $context['diagnostics']['metadata_table_exists'] ?? null;
+                $context['suggested_fix'] = $context['diagnostics']['suggested_fix'] ?? null;
+            }
+            $payload = $this->buildSqlEditorDebugPayload($e, $sql, $context);
+            Yii::error([
+                'stage' => $stage,
+                'sql' => $sql,
+                'failed_statement' => $lastStatement,
+                'statement_index' => $lastStatementIndex + 1,
+                'active_database' => $activeDatabase,
+                'error' => $payload,
+            ], 'table-builder-sql');
+            $runtime = new SqlEditorExecutionException($payload['message'] ?? $e->getMessage(), (int)$e->getCode(), $e);
+            $runtime->context = $context;
+            if (property_exists($e, 'errorInfo') && is_array($e->errorInfo ?? null)) {
+                $runtime->context['errorInfo'] = $e->errorInfo;
+            }
+            throw $runtime;
         }
+    }
+
+    private function getSqlEditorExecutionSource(): array
+    {
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 8);
+        foreach ($trace as $frame) {
+            $class = (string)($frame['class'] ?? '');
+            if ($class === __CLASS__) {
+                continue;
+            }
+
+            return [
+                'class' => $class !== '' ? $class : null,
+                'function' => $frame['function'] ?? null,
+                'file' => $frame['file'] ?? null,
+                'line' => $frame['line'] ?? null,
+            ];
+        }
+
+        return [
+            'class' => null,
+            'function' => null,
+            'file' => null,
+            'line' => null,
+        ];
+    }
+
+    private function getCurrentDatabaseName(Connection $db): ?string
+    {
+        return $this->getTableExistenceService($db)->getCurrentDatabaseName();
+    }
+
+    private function tableExistsInPhysicalDatabase(Connection $db, string $tableName): bool
+    {
+        return $this->getTableExistenceService($db)->physicalExists($tableName);
+    }
+
+    private function tableExistsInMetadata(string $tableName): bool
+    {
+        return $this->getTableExistenceService()->metadataExists($tableName, $this->getMetadataScope());
+    }
+
+    private function cleanupOrphanMetadataByTableName(string $tableName): void
+    {
+        $criteria = [
+            'name' => strtolower(trim($tableName)),
+        ];
+        $effectiveUserId = $this->getEffectiveUserId();
+        if ($effectiveUserId !== null) {
+            $criteria['user_id'] = $effectiveUserId;
+        }
+        if (ProjectSchema::supportsProjectContext()) {
+            $activeProjectId = $this->getActiveProjectId();
+            if ($activeProjectId !== null) {
+                $criteria['project_id'] = $activeProjectId;
+            }
+        }
+
+        $tables = DbTable::find()->where($criteria)->all();
+        foreach ($tables as $table) {
+            DbTableColumn::deleteAll(['table_id' => $table->id]);
+            $table->delete();
+        }
+    }
+
+    private function maybeApplySafeCreate(string $statement, bool $safeCreateEnabled): string
+    {
+        if (!$safeCreateEnabled) {
+            return $statement;
+        }
+
+        if (preg_match('/^\s*CREATE\s+TABLE\s+(?!IF\s+NOT\s+EXISTS\b)/i', $statement) !== 1) {
+            return $statement;
+        }
+
+        return preg_replace('/^\s*CREATE\s+TABLE\s+/i', 'CREATE TABLE IF NOT EXISTS ', $statement, 1) ?? $statement;
+    }
+
+    private function collectSqlEditorTableDiagnostics(Connection $db, string $tableName): array
+    {
+        $activeDatabase = $this->getCurrentDatabaseName($db);
+        $escaped = str_replace('`', '``', strtolower($tableName));
+        $physicalExists = $this->tableExistsInPhysicalDatabase($db, $tableName);
+        $metadataExists = $this->tableExistsInMetadata($tableName);
+        $showFullTables = [];
+        $showCreateTable = null;
+        $createTableError = null;
+
+        try {
+            $showFullTables = $db->createCommand("SHOW FULL TABLES LIKE :table_name", [':table_name' => $tableName])->queryAll();
+        } catch (\Throwable $e) {
+            $showFullTables = [['error' => $e->getMessage()]];
+        }
+
+        if ($physicalExists) {
+            try {
+                $showCreateTable = $db->createCommand("SHOW CREATE TABLE `{$escaped}`")->queryOne();
+            } catch (\Throwable $e) {
+                $createTableError = $e->getMessage();
+            }
+        }
+
+        return [
+            'active_database' => $activeDatabase,
+            'table_name' => strtolower($tableName),
+            'physical_table_exists' => $physicalExists,
+            'metadata_table_exists' => $metadataExists,
+            'show_full_tables' => $showFullTables,
+            'show_create_table' => $showCreateTable,
+            'show_create_table_error' => $createTableError,
+            'suggested_fix' => $physicalExists
+                ? 'Tabel benar-benar ada di database aktif. Hapus atau rename tabel terlebih dahulu.'
+                : ($metadataExists
+                    ? 'Metadata lama ditemukan tanpa tabel fisik. Metadata orphan harus dibersihkan lalu CREATE TABLE dijalankan ulang.'
+                    : 'Tabel fisik tidak ditemukan. Periksa koneksi database aktif dan schema cache Yii.'),
+        ];
     }
 
     private function splitSqlStatements(string $sql): array
@@ -3620,11 +4102,12 @@ class TableBuilderController extends Controller
         return null;
     }
 
-    private function syncImportedTables(array $tableNames): array
+    private function syncImportedTables(array $tableNames, array &$parsedColumns = []): array
     {
         $synced = [];
         foreach (array_values(array_unique($tableNames)) as $tableName) {
             $synced[] = $this->syncImportedTable($tableName);
+            $parsedColumns[$tableName] = $this->describeImportedTableColumns($tableName);
         }
 
         return $synced;
@@ -3679,7 +4162,8 @@ class TableBuilderController extends Controller
         foreach ($schema->columns as $columnSchema) {
             $column = $this->buildImportedColumnModel($model->id, $columnSchema, $sortOrder, $primaryKeyColumns, $uniqueColumns, $foreignKeyMap);
             if (!$column->save(false)) {
-                throw new \RuntimeException("Gagal menyimpan metadata kolom '{$column->name}' pada '{$tableName}'.");
+                $rawDbType = trim((string)($columnSchema->dbType ?? $columnSchema->type ?? 'unknown'));
+                throw new \RuntimeException("Gagal menyimpan metadata kolom '{$column->name}' ({$rawDbType}) pada '{$tableName}'.");
             }
             $sortOrder++;
         }
@@ -3688,6 +4172,75 @@ class TableBuilderController extends Controller
 
         $db->schema->refreshTableSchema($tableName);
         return $model->name;
+    }
+
+    private function describeImportedTableColumns(string $tableName): array
+    {
+        $db = $this->getPhysicalDb();
+        $databaseName = $this->getCurrentDatabaseName($db);
+        if ($databaseName === null) {
+            throw new \RuntimeException("Database aktif tidak ditemukan saat membaca metadata kolom untuk '{$tableName}'.");
+        }
+
+        $columns = (new \yii\db\Query())
+            ->select([
+                'column_name' => 'c.COLUMN_NAME',
+                'data_type' => 'c.DATA_TYPE',
+                'column_type' => 'c.COLUMN_TYPE',
+                'is_nullable' => 'c.IS_NULLABLE',
+                'column_default' => 'c.COLUMN_DEFAULT',
+                'extra' => 'c.EXTRA',
+                'comment' => 'c.COLUMN_COMMENT',
+                'ordinal_position' => 'c.ORDINAL_POSITION',
+            ])
+            ->from(['c' => 'INFORMATION_SCHEMA.COLUMNS'])
+            ->where([
+                'c.TABLE_SCHEMA' => $databaseName,
+                'c.TABLE_NAME' => strtolower($tableName),
+            ])
+            ->orderBy(['c.ORDINAL_POSITION' => SORT_ASC])
+            ->all($db);
+
+        if (empty($columns)) {
+            throw new \RuntimeException("Table '{$tableName}' tidak ditemukan setelah sinkronisasi metadata.");
+        }
+
+        $schema = $db->schema->getTableSchema($tableName, true);
+        $primaryKeyColumns = array_flip(array_map('strtolower', (array)($schema->primaryKey ?? [])));
+        $uniqueColumns = $this->getUniqueColumnsFromTable($tableName);
+        $foreignKeyMap = $this->getForeignKeyMetadataFromTable($tableName);
+        $parsed = [];
+        $sortOrder = 1;
+
+        foreach ($columns as $row) {
+            $columnName = strtolower((string)($row['column_name'] ?? ''));
+            if ($columnName === '') {
+                continue;
+            }
+
+            [$type, $length, $enumValues] = $this->inferImportedColumnType((string)($row['column_type'] ?? $row['data_type'] ?? 'TEXT'));
+            $rawDbType = trim((string)($row['column_type'] ?? ''));
+            $parsed[] = [
+                'name' => $columnName,
+                'type' => $type,
+                'length' => $length,
+                'enum_values' => $enumValues,
+                'db_type' => $rawDbType !== '' ? $rawDbType : null,
+                'column_type' => $rawDbType !== '' ? $rawDbType : null,
+                'data_type' => strtoupper(trim((string)($row['data_type'] ?? $type))),
+                'allow_null' => strtoupper(trim((string)($row['is_nullable'] ?? 'YES'))) === 'YES',
+                'default_value' => $row['column_default'] !== null ? (string)$row['column_default'] : null,
+                'auto_increment' => stripos((string)($row['extra'] ?? ''), 'auto_increment') !== false,
+                'is_primary' => isset($primaryKeyColumns[$columnName]),
+                'is_unique' => isset($uniqueColumns[$columnName]),
+                'comment' => $row['comment'] !== null ? (string)$row['comment'] : null,
+                'foreign_key' => $foreignKeyMap[$columnName] ?? null,
+                'sort_order' => $sortOrder,
+            ];
+            $sortOrder++;
+        }
+
+        return $parsed;
     }
 
     private function cleanupSqlEditorArtifacts(array $tableNames): void
@@ -3767,6 +4320,12 @@ class TableBuilderController extends Controller
     {
         $normalized = strtolower(trim($dbType));
         $normalized = preg_replace('/\s+unsigned$/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+zerofill$/i', '', $normalized) ?? $normalized;
+        $normalized = preg_replace('/\s+/', '', $normalized) ?? $normalized;
+
+        if (in_array($normalized, ['bool', 'boolean', 'bit(1)', 'tinyint(1)'], true)) {
+            return ['BOOLEAN', 1, null];
+        }
 
         if (preg_match('/^([a-z]+)\(([^)]*)\)$/i', $normalized, $matches) === 1) {
             $type = strtoupper($matches[1]);
@@ -3929,6 +4488,9 @@ class TableBuilderController extends Controller
                     'label' => $col->label ?: $col->name,
                     'type' => $col->type,
                     'base_type' => $col->type,
+                    'db_type' => $schemaColumn !== null ? (string)($schemaColumn->dbType ?? '') : $col->type,
+                    'data_type' => $schemaColumn !== null ? (string)($schemaColumn->type ?? '') : $col->type,
+                    'column_type' => $schemaColumn !== null ? (string)($schemaColumn->dbType ?? '') : $col->type,
                     'is_nullable' => (bool)$col->is_nullable,
                     'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
                     'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
@@ -3939,6 +4501,7 @@ class TableBuilderController extends Controller
                     'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-columns', $schemaColumn),
                     'default_value' => $col->default_value,
                     'max_length' => $col->length,
+                    'length' => $col->length,
                 ];
             }
             

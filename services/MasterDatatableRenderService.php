@@ -29,6 +29,42 @@ class MasterDatatableRenderService
         return $this->renderFromConfig($preset->toComponentConfig(), $options);
     }
 
+    public function renderAjaxByPresetId(int $presetId): array
+    {
+        $preset = MasterDatatable::findScoped()->andWhere(['id' => $presetId, 'is_active' => 1])->one();
+        if (!$preset instanceof MasterDatatable) {
+            return [
+                'success' => false,
+                'message' => 'Preset datatable tidak ditemukan atau sedang nonaktif.',
+            ];
+        }
+
+        $data = $this->buildRenderData($preset->toComponentConfig());
+        if ($data === null) {
+            return [
+                'success' => false,
+                'message' => 'Datatable tidak dapat dimuat.',
+            ];
+        }
+
+        return [
+            'success' => true,
+            'tableId' => (int)$data['table']->id,
+            'tableName' => (string)$data['table']->name,
+            'tbodyHtml' => $this->renderRowsHtml(
+                $data['table'],
+                $data['columns'],
+                $data['rows'],
+                $data['actions'],
+                $data['primaryKeys'],
+                $data['displayLookup'],
+                $data['colspan']
+            ),
+            'total' => (int)$data['state']['total'],
+            'subtitle' => (int)$data['state']['total'] . ' row' . ((int)$data['state']['total'] === 1 ? '' : 's') . ' from ' . (string)$data['table']->name,
+        ];
+    }
+
     public function renderFromConfig(array $config, array $options = []): string
     {
         $presetId = (int)($config['datatableId'] ?? $config['datatable_id'] ?? 0);
@@ -39,24 +75,34 @@ class MasterDatatableRenderService
             }
         }
 
+        $data = $this->buildRenderData($config);
+        if ($data === null) {
+            return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
+        }
+
+        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId);
+    }
+
+    private function buildRenderData(array $config): ?array
+    {
         $tableId = (int)($config['tableId'] ?? $config['table_id'] ?? 0);
         if ($tableId <= 0) {
-            return $this->renderNotice('No data available', 'Pilih source table untuk menampilkan datatable.');
+            return null;
         }
 
         $table = DbTable::find()->where(['id' => $tableId])->one();
         if (!$table instanceof DbTable || !$this->canUseTable($table)) {
-            return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
+            return null;
         }
 
         $tableSchema = Yii::$app->db->schema->getTableSchema($table->name, true);
         if ($tableSchema === null) {
-            return $this->renderNotice('No data available', 'Physical SQL table belum dibuat.');
+            return null;
         }
 
         $columns = $this->resolveColumns($table, $config);
         if (empty($columns)) {
-            return $this->renderNotice('No data available', 'Belum ada kolom yang dipilih untuk datatable ini.');
+            return null;
         }
 
         $searchEnabled = (bool)($config['search'] ?? $config['search_enabled'] ?? true);
@@ -92,17 +138,31 @@ class MasterDatatableRenderService
         $editForm = $this->resolveEditForm($config);
         $primaryKeys = !empty($tableSchema->primaryKey) ? array_values($tableSchema->primaryKey) : [];
         $uid = 'dt-' . $tableId . '-' . substr(md5(json_encode($config)), 0, 8);
+        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
+        $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
 
-        return $this->renderTable($uid, $table, $columns, $rows, $actions, $editMode, $editForm, $primaryKeys, [
-            'searchEnabled' => $searchEnabled,
-            'paginationEnabled' => $paginationEnabled,
-            'page' => $page,
-            'pageSize' => $pageSize,
-            'total' => $total,
-            'search' => $search,
-            'pageParam' => $pageParam,
-            'searchParam' => $searchParam,
-        ]);
+        return [
+            'uid' => $uid,
+            'table' => $table,
+            'columns' => $columns,
+            'rows' => $rows,
+            'actions' => $actions,
+            'editMode' => $editMode,
+            'editForm' => $editForm,
+            'primaryKeys' => $primaryKeys,
+            'displayLookup' => $displayLookup,
+            'colspan' => count($columns) + ($hasActions ? 1 : 0),
+            'state' => [
+                'searchEnabled' => $searchEnabled,
+                'paginationEnabled' => $paginationEnabled,
+                'page' => $page,
+                'pageSize' => $pageSize,
+                'total' => $total,
+                'search' => $search,
+                'pageParam' => $pageParam,
+                'searchParam' => $searchParam,
+            ],
+        ];
     }
 
     public function deleteRow(int $tableId, array $rowKey): bool
@@ -359,7 +419,7 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0): string
     {
         $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $colspan = count($columns) + ($hasActions ? 1 : 0);
@@ -367,11 +427,25 @@ class MasterDatatableRenderService
         $rowFields = $this->resolveRowFields($table, $columns);
         $detailFields = $this->resolveDetailFields($columns);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
+        $reloadUrl = $presetId > 0 ? Url::to(['/master-datatable/reload', 'id' => $presetId]) : '';
 
         ob_start();
         ?>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/tabler-icons.min.css">
-        <section class="master-datatable" id="<?= Html::encode($uid) ?>">
+        <section
+            class="master-datatable"
+            id="<?= Html::encode($uid) ?>"
+            data-datatable-table-id="<?= (int)$table->id ?>"
+            data-datatable-primary-keys="<?= Html::encode(Json::encode($primaryKeys)) ?>"
+            data-datatable-columns="<?= Html::encode(Json::encode($columns)) ?>"
+            data-datatable-has-actions="<?= $hasActions ? '1' : '0' ?>"
+            data-component="datatable"
+            data-table="<?= Html::encode($table->name) ?>"
+            data-reload-url="<?= Html::encode($reloadUrl) ?>"
+            data-delete-url="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>"
+            data-csrf-param="<?= Html::encode(Yii::$app->request->csrfParam) ?>"
+            data-csrf-token="<?= Html::encode(Yii::$app->request->csrfToken) ?>"
+        >
             <style>
                 #<?= Html::encode($uid) ?> { margin: 24px 0; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; overflow: hidden; box-shadow: 0 16px 36px rgba(15,23,42,.08); }
                 #<?= Html::encode($uid) ?> .dt-head { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:18px 20px; border-bottom:1px solid #e2e8f0; background:linear-gradient(180deg,#fff 0%,#f8fafc 100%); }
@@ -498,7 +572,7 @@ class MasterDatatableRenderService
             <div class="dt-head">
                 <div>
                     <h3 class="dt-title"><?= Html::encode($table->label ?: $table->name) ?></h3>
-                    <p class="dt-subtitle"><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
+                    <p class="dt-subtitle" data-datatable-subtitle><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
                 </div>
                 <?php if ($state['searchEnabled']): ?>
                     <form method="get">
@@ -522,38 +596,7 @@ class MasterDatatableRenderService
                     </tr>
                     </thead>
                     <tbody>
-                    <?php if (empty($rows)): ?>
-                        <tr><td colspan="<?= (int)$colspan ?>"><div class="dt-empty"><strong>No data available</strong>This table does not have any data yet.</div></td></tr>
-                    <?php else: ?>
-                        <?php foreach ($rows as $row): ?>
-                            <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
-                            <?php $rowDisplayValues = $this->buildRowDisplayValues($row, $columns, $displayLookup); ?>
-                            <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>" data-row-display-values="<?= Html::encode(Json::encode($rowDisplayValues)) ?>">
-                                <?php foreach ($columns as $column): ?>
-                                    <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
-                                <?php endforeach; ?>
-                                <?php if ($hasActions): ?>
-                                    <td>
-                                        <div class="dt-actions">
-                                            <?php if ($actions['view']): ?>
-                                                <button type="button" class="dt-btn" data-row-action="view">View</button>
-                                            <?php endif; ?>
-                                            <?php if ($actions['edit']): ?>
-                                                <button type="button" class="dt-btn" data-row-action="edit">Edit</button>
-                                            <?php endif; ?>
-                                            <?php if ($actions['delete']): ?>
-                                                <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>" onsubmit="return confirm('Delete this row?');">
-                                                    <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
-                                                    <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
-                                                    <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                <?php endif; ?>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                    <?= $this->renderRowsHtml($table, $columns, $rows, $actions, $primaryKeys, $displayLookup, $colspan) ?>
                     </tbody>
                 </table>
             </div>
@@ -635,11 +678,18 @@ class MasterDatatableRenderService
                     'tableId' => (int)$table->id,
                     'saveUrl' => Url::to(['/table-builder/spreadsheet-action', 'id' => $table->id]),
                     'csrfToken' => Yii::$app->request->csrfToken,
-                    'editMode' => $editMode,
-                    'editForm' => $editForm,
-                    'fields' => $rowFields,
-                    'detailFields' => $detailFields,
-                ]) ?>;
+                'editMode' => $editMode,
+                'editForm' => $editForm,
+                'fields' => $rowFields,
+                'detailFields' => $detailFields,
+                'columns' => $columns,
+                'primaryKeys' => $primaryKeys,
+                'hasActions' => $hasActions,
+                'actions' => $actions,
+                'deleteUrl' => Url::to(['/master-datatable/delete-row', 'table_id' => $table->id]),
+                'csrfParam' => Yii::$app->request->csrfParam,
+                'csrfToken' => Yii::$app->request->csrfToken,
+            ]) ?>;
                 const modal = root.querySelector('[data-row-modal]');
                 const viewMode = root.querySelector('[data-row-view-mode]');
                 const editFormEl = root.querySelector('[data-row-edit-mode]');
@@ -690,6 +740,194 @@ class MasterDatatableRenderService
                     } catch (error) {
                         return {};
                     }
+                }
+
+                function getColumnsMeta() {
+                    return Array.isArray(payload.columns) ? payload.columns : [];
+                }
+
+                function getPrimaryKeys() {
+                    return Array.isArray(payload.primaryKeys) ? payload.primaryKeys : [];
+                }
+
+                function stringifyValue(value) {
+                    if (value === null || value === undefined || value === '') {
+                        return '';
+                    }
+                    if (Array.isArray(value)) {
+                        return value.join(', ');
+                    }
+                    if (typeof value === 'object') {
+                        try {
+                            return JSON.stringify(value);
+                        } catch (error) {
+                            return '';
+                        }
+                    }
+                    return String(value);
+                }
+
+                function buildRowKeyFromData(rowData) {
+                    const rowKey = {};
+                    const keys = getPrimaryKeys();
+                    keys.forEach(function(key) {
+                        if (Object.prototype.hasOwnProperty.call(rowData || {}, key)) {
+                            rowKey[key] = rowData[key];
+                        }
+                    });
+                    return rowKey;
+                }
+
+                function buildRowDisplayDataFromMessage(data, rowData) {
+                    const displayData = {};
+                    const sourceDisplay = data && data.submittedDisplayData && typeof data.submittedDisplayData === 'object'
+                        ? data.submittedDisplayData
+                        : {};
+                    const sourceInserted = data && data.insertedData && typeof data.insertedData === 'object'
+                        ? data.insertedData
+                        : {};
+                    const sourceSubmitted = data && data.submittedData && typeof data.submittedData === 'object'
+                        ? data.submittedData
+                        : {};
+                    const columns = getColumnsMeta();
+
+                    columns.forEach(function(column) {
+                        const field = String(column.field || '');
+                        if (!field) {
+                            return;
+                        }
+
+                        if (Object.prototype.hasOwnProperty.call(sourceDisplay, field)) {
+                            displayData[field] = sourceDisplay[field];
+                            return;
+                        }
+
+                        if (Object.prototype.hasOwnProperty.call(sourceInserted, field)) {
+                            displayData[field] = sourceInserted[field];
+                            return;
+                        }
+
+                        if (Object.prototype.hasOwnProperty.call(sourceSubmitted, field)) {
+                            displayData[field] = sourceSubmitted[field];
+                            return;
+                        }
+
+                        if (Object.prototype.hasOwnProperty.call(rowData || {}, field)) {
+                            displayData[field] = rowData[field];
+                        }
+                    });
+
+                    return displayData;
+                }
+
+                function buildRowCellsHtml(rowData, rowDisplayData) {
+                    const columns = getColumnsMeta();
+                    return columns.map(function(column) {
+                        const field = String(column.field || '');
+                        const rawValue = Object.prototype.hasOwnProperty.call(rowData || {}, field) ? rowData[field] : null;
+                        const displayValue = Object.prototype.hasOwnProperty.call(rowDisplayData || {}, field) ? rowDisplayData[field] : rawValue;
+                        return '<td>' + escapeHtml(stringifyValue(displayValue)) + '</td>';
+                    }).join('');
+                }
+
+                function buildActionCellHtml(rowKey) {
+                    if (!payload.hasActions) {
+                        return '';
+                    }
+
+                    const rowKeyJson = JSON.stringify(rowKey || {});
+                    let html = '<td><div class="dt-actions">';
+                    if (payload.actions && payload.actions.view) {
+                        html += '<button type="button" class="dt-btn" data-row-action="view">View</button>';
+                    }
+                    if (payload.actions && payload.actions.edit) {
+                        html += '<button type="button" class="dt-btn" data-row-action="edit">Edit</button>';
+                    }
+                    if (payload.actions && payload.actions.delete) {
+                        html += '<form method="post" action="' + escapeHtml(payload.deleteUrl || '') + '" onsubmit="return confirm(\'Delete this row?\');">' +
+                            '<input type="hidden" name="' + escapeHtml(payload.csrfParam || '_csrf') + '" value="' + escapeHtml(payload.csrfToken || '') + '">' +
+                            '<input type="hidden" name="row_key" value="' + escapeHtml(rowKeyJson) + '">' +
+                            '<button class="dt-btn dt-btn-danger" type="submit">Delete</button>' +
+                        '</form>';
+                    }
+                    html += '</div></td>';
+                    return html;
+                }
+
+                function buildRowHtmlFromData(rowData, rowDisplayData) {
+                    const rowKey = buildRowKeyFromData(rowData);
+                    const hasRowKey = Object.keys(rowKey).length > 0;
+                    const rowKeyJson = JSON.stringify(rowKey);
+                    const rowValuesJson = JSON.stringify(rowData || {});
+                    const rowDisplayJson = JSON.stringify(rowDisplayData || {});
+                    const cells = buildRowCellsHtml(rowData, rowDisplayData);
+                    const actionCell = payload.hasActions ? buildActionCellHtml(rowKey) : '';
+                    return '<tr data-row-key="' + escapeHtml(rowKeyJson) + '" data-row-values="' + escapeHtml(rowValuesJson) + '" data-row-display-values="' + escapeHtml(rowDisplayJson) + '"' + (hasRowKey ? '' : ' data-row-generated="1"') + '>' +
+                        cells +
+                        actionCell +
+                    '</tr>';
+                }
+
+                function updateEmptyStateAfterInsert() {
+                    const emptyCell = root.querySelector('tbody tr td .dt-empty');
+                    if (!emptyCell) {
+                        return;
+                    }
+                    const emptyRow = emptyCell.closest('tr');
+                    if (emptyRow) {
+                        emptyRow.remove();
+                    }
+                }
+
+                function ensureTbody() {
+                    return root.querySelector('tbody');
+                }
+
+                function upsertRowFromSubmit(data) {
+                    if (!data || !data.success) {
+                        return false;
+                    }
+                    const targetTableId = parseInt(data.targetTableId || payload.tableId || '0', 10);
+                    if (targetTableId !== parseInt(payload.tableId, 10)) {
+                        return false;
+                    }
+
+                    const rowData = data.insertedData && typeof data.insertedData === 'object'
+                        ? data.insertedData
+                        : (data.submittedData && typeof data.submittedData === 'object' ? data.submittedData : null);
+                    if (!rowData) {
+                        return false;
+                    }
+
+                    const rowDisplayData = buildRowDisplayDataFromMessage(data, rowData);
+                    const rowKey = data.insertedRowKey && typeof data.insertedRowKey === 'object'
+                        ? data.insertedRowKey
+                        : buildRowKeyFromData(rowData);
+                    const tbody = ensureTbody();
+                    if (!tbody) {
+                        return false;
+                    }
+
+                    updateEmptyStateAfterInsert();
+
+                    const rowKeyJson = JSON.stringify(rowKey || {});
+                    if (rowKeyJson) {
+                        const existingRows = tbody.querySelectorAll('tr[data-row-key]');
+                        for (let index = 0; index < existingRows.length; index += 1) {
+                            const existingRow = existingRows[index];
+                            if ((existingRow.getAttribute('data-row-key') || '') === rowKeyJson) {
+                                existingRow.outerHTML = buildRowHtmlFromData(rowData, rowDisplayData);
+                                return true;
+                            }
+                        }
+                    }
+
+                    tbody.insertAdjacentHTML('afterbegin', buildRowHtmlFromData(rowData, rowDisplayData));
+                    return true;
+                }
+
+                function syncRowActionBindings() {
+                    return;
                 }
 
                 function openModal() {
@@ -850,8 +1088,8 @@ class MasterDatatableRenderService
                         control = '<select class="dt-row-custom-control" data-row-field="' + escapeHtml(fieldName) + '"' + (field.readonly ? ' disabled' : '') + '>' + optionHtml + '</select>';
                     } else if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
                         const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                        control = '<label class="dt-row-choice-item" style="margin:0;">' +
-                            '<input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '>' +
+                        control = '<label class="dt-row-choice-item form-check form-switch" style="margin:0;display:flex;align-items:center;gap:8px;">' +
+                            '<input type="checkbox" class="form-check-input" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '>' +
                             '<span>' + escapeHtml(label) + '</span>' +
                         '</label>';
                     } else if (field.inputType === 'radio') {
@@ -1150,7 +1388,7 @@ class MasterDatatableRenderService
 
                         if (field.inputType === 'boolean' || field.inputType === 'checkbox') {
                             const checked = String(value) === '1' || String(value).toLowerCase() === 'true' ? ' checked' : '';
-                            control = '<label class="dt-check"><input type="checkbox" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> Aktif</label>';
+                            control = '<label class="dt-check form-check form-switch" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" class="form-check-input" data-row-field="' + escapeHtml(fieldName) + '" value="1"' + checked + (field.readonly ? ' disabled' : '') + '> ' + escapeHtml(field.label || 'Aktif / Nonaktif') + '</label>';
                         } else if (field.inputType === 'select') {
                             const options = Array.isArray(field.options) && field.options.length ? field.options : [];
                             const optionHtml = ['<option value="">-- Pilih --</option>'].concat(options.map(function(option) {
@@ -1219,18 +1457,23 @@ class MasterDatatableRenderService
                     openModal();
                 }
 
-                root.querySelectorAll('[data-row-action]').forEach(function(button) {
-                    button.addEventListener('click', function() {
-                        const row = button.closest('tr');
+                syncRowActionBindings();
+
+                root.addEventListener('click', function(event) {
+                    const actionButton = event.target && event.target.closest ? event.target.closest('[data-row-action]') : null;
+                    if (actionButton && root.contains(actionButton)) {
+                        const row = actionButton.closest('tr');
                         if (!row) {
                             return;
                         }
-                        openRow(row, button.getAttribute('data-row-action') === 'edit' ? 'edit' : 'view');
-                    });
-                });
+                        openRow(row, actionButton.getAttribute('data-row-action') === 'edit' ? 'edit' : 'view');
+                        return;
+                    }
 
-                root.querySelectorAll('[data-row-modal-close]').forEach(function(button) {
-                    button.addEventListener('click', closeModal);
+                    const closeButton = event.target && event.target.closest ? event.target.closest('[data-row-modal-close]') : null;
+                    if (closeButton && root.contains(closeButton)) {
+                        closeModal();
+                    }
                 });
 
                 modal.addEventListener('click', function(event) {
@@ -1242,6 +1485,19 @@ class MasterDatatableRenderService
                 document.addEventListener('keydown', function(event) {
                     if (event.key === 'Escape' && modal.classList.contains('open')) {
                         closeModal();
+                    }
+                });
+
+                window.addEventListener('message', function(event) {
+                    const data = event && event.data ? event.data : null;
+                    if (!data || data.type !== 'custom-form-submit-success') {
+                        return;
+                    }
+                    if (parseInt(data.targetTableId || 0, 10) !== parseInt(payload.tableId, 10)) {
+                        return;
+                    }
+                    if (upsertRowFromSubmit(data)) {
+                        syncRowActionBindings();
                     }
                 });
 
@@ -1324,7 +1580,17 @@ class MasterDatatableRenderService
                         if (!data || !data.success) {
                             throw new Error((data && data.message) ? data.message : 'Gagal menyimpan data');
                         }
-                        window.location.reload();
+                        const updatedRowData = Object.assign({}, values);
+                        const rowKeyData = getRowKey(activeRow) || {};
+                        Object.keys(rowKeyData).forEach(function(key) {
+                            updatedRowData[key] = rowKeyData[key];
+                        });
+                        const updatedDisplayData = buildRowDisplayDataFromMessage(data, updatedRowData);
+                        activeRow.setAttribute('data-row-values', JSON.stringify(updatedRowData));
+                        activeRow.setAttribute('data-row-display-values', JSON.stringify(updatedDisplayData));
+                        activeRow.outerHTML = buildRowHtmlFromData(updatedRowData, updatedDisplayData);
+                        closeModal();
+                        syncRowActionBindings();
                     }).catch(function(error) {
                         alert(error && error.message ? error.message : 'Gagal menyimpan data');
                     }).finally(function() {
@@ -1337,6 +1603,47 @@ class MasterDatatableRenderService
         </section>
         <?php
         return (string)ob_get_clean();
+    }
+
+    private function renderRowsHtml(DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $displayLookup, int $colspan): string
+    {
+        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
+        ob_start();
+        ?>
+        <?php if (empty($rows)): ?>
+            <tr><td colspan="<?= (int)$colspan ?>"><div class="dt-empty"><strong>No data available</strong>This table does not have any data yet.</div></td></tr>
+        <?php else: ?>
+            <?php foreach ($rows as $row): ?>
+                <?php $rowKey = $this->buildRowKeyFromRow($row, $primaryKeys); ?>
+                <?php $rowDisplayValues = $this->buildRowDisplayValues($row, $columns, $displayLookup); ?>
+                <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>" data-row-display-values="<?= Html::encode(Json::encode($rowDisplayValues)) ?>">
+                    <?php foreach ($columns as $column): ?>
+                        <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
+                    <?php endforeach; ?>
+                    <?php if ($hasActions): ?>
+                        <td>
+                            <div class="dt-actions">
+                                <?php if ($actions['view']): ?>
+                                    <button type="button" class="dt-btn" data-row-action="view">View</button>
+                                <?php endif; ?>
+                                <?php if ($actions['edit']): ?>
+                                    <button type="button" class="dt-btn" data-row-action="edit">Edit</button>
+                                <?php endif; ?>
+                                <?php if ($actions['delete']): ?>
+                                    <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>" onsubmit="return confirm('Delete this row?');">
+                                        <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
+                                        <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
+                                        <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    <?php endif; ?>
+                </tr>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        <?php
+        return trim((string)ob_get_clean());
     }
 
     private function renderNotice(string $title, string $message): string
@@ -1483,7 +1790,7 @@ class MasterDatatableRenderService
             return 'select';
         }
 
-        if (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ($length <= 1 || $type === 'BOOLEAN')) {
+        if (in_array($type, ['BOOLEAN', 'BOOL', 'BIT', 'TINYINT'], true) && ($length <= 1 || in_array($type, ['BOOLEAN', 'BOOL'], true))) {
             return 'boolean';
         }
 

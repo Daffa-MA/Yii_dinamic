@@ -20,17 +20,17 @@ $displayValue = $displayValue === null ? '' : (string)$displayValue;
 
 if ($type === 'boolean') {
     ?>
-    <input
-        type="checkbox"
+    <select
         id="<?= Html::encode($inputId) ?>"
         class="sheet-control sheet-field"
         data-sheet-field
         data-column="<?= Html::encode($name) ?>"
         data-row-index="<?= (int)$rowIndex ?>"
-        value="1"
-        <?= $displayValue === '1' || strtolower($displayValue) === 'true' ? 'checked' : '' ?>
         <?= $readOnly ? 'disabled' : '' ?>
     >
+        <option value="1"<?= $displayValue === '1' || strtolower($displayValue) === 'true' ? ' selected' : '' ?>>Aktif</option>
+        <option value="0"<?= $displayValue === '0' || strtolower($displayValue) === 'false' || $displayValue === '' ? ' selected' : '' ?>>Nonaktif</option>
+    </select>
     <?php
     return;
 }

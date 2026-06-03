@@ -485,8 +485,17 @@ class MasterPageController extends Controller
      */
     private function findAvailableForms()
     {
+        $formSelect = ['id', 'form_name'];
+        $formSchema = MasterForm::getTableSchema();
+        foreach (['slug', 'name'] as $column) {
+            if ($formSchema !== null && isset($formSchema->columns[$column])) {
+                $formSelect[] = $column;
+            }
+        }
+
         // Use MasterForm scoped query so forms are resolved from active database + active project.
         $rows = MasterForm::findScoped()
+            ->select($formSelect)
             ->orderBy(['id' => SORT_ASC])
             ->all();
 
@@ -523,6 +532,7 @@ class MasterPageController extends Controller
     {
         MasterDatatable::ensureStructure();
         $rows = MasterDatatable::findScoped()
+            ->select(['id', 'name', 'table_id', 'columns_config', 'actions_config', 'search_enabled', 'pagination_enabled'])
             ->andWhere(['is_active' => 1])
             ->all();
 
@@ -548,7 +558,16 @@ class MasterPageController extends Controller
 
     private function findAvailableTablesForBuilder(): array
     {
-        $query = DbTable::find()->with('columns')->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
+        $tableSelect = ['id', 'name', 'label', 'user_id'];
+        $tableSchema = DbTable::getTableSchema();
+        if ($tableSchema !== null && isset($tableSchema->columns['project_id'])) {
+            $tableSelect[] = 'project_id';
+        }
+
+        $query = DbTable::find()
+            ->select($tableSelect)
+            ->with('columns')
+            ->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
         $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $query->andWhere(['project_id' => $activeProjectId]);
@@ -558,6 +577,7 @@ class MasterPageController extends Controller
         }
 
         $items = [];
+        $relatedSchemaColumnsCache = [];
         foreach ($query->all() as $table) {
             $columns = [];
             foreach ($table->columns as $column) {
@@ -571,9 +591,12 @@ class MasterPageController extends Controller
                 $relatedColumns = [];
                 if ($isForeignKey && $referencedTable !== '') {
                     try {
-                        $schema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
-                        if ($schema !== null) {
-                            foreach ($schema->columns as $schemaColumnName => $schemaColumn) {
+                        if (!array_key_exists($referencedTable, $relatedSchemaColumnsCache)) {
+                            $schema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
+                            $relatedSchemaColumnsCache[$referencedTable] = $schema !== null ? $schema->columns : [];
+                        }
+                        if (!empty($relatedSchemaColumnsCache[$referencedTable])) {
+                            foreach ($relatedSchemaColumnsCache[$referencedTable] as $schemaColumnName => $schemaColumn) {
                                 $relatedColumns[] = [
                                     'field' => (string)$schemaColumnName,
                                     'label' => (string)$schemaColumnName,

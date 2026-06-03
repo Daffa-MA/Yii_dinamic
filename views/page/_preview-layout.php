@@ -389,8 +389,10 @@ $layoutJson = Json::decode($layoutJson, true);
         function hydrateDynamicForms(root) {
             const slots = root.querySelectorAll('.dynamic-form-slot[data-form-id]');
             if (!slots.length) return;
+            window.dynamicFormPreviewFetchCache = window.dynamicFormPreviewFetchCache || {};
 
             slots.forEach((slot) => {
+                if (slot.dataset.formPreviewLoaded === '1' || slot.dataset.formPreviewLoading === '1') return;
                 const formId = slot.getAttribute('data-form-id');
                 const showTitle = slot.getAttribute('data-show-title') === '1' ? '1' : '0';
                 if (!formId) {
@@ -410,20 +412,25 @@ $layoutJson = Json::decode($layoutJson, true);
                     url += '&component_id=' + encodeURIComponent(componentId);
                 }
 
-                fetch(url, {
+                slot.dataset.formPreviewLoading = '1';
+                window.dynamicFormPreviewFetchCache[url] = window.dynamicFormPreviewFetchCache[url] || fetch(url, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
-                })
-                .then((res) => res.text())
+                }).then((res) => res.text());
+
+                window.dynamicFormPreviewFetchCache[url]
                 .then((raw) => {
                     let data = null;
                     try { data = JSON.parse(raw); } catch (e) { data = null; }
                     if (!data || !data.success) {
                         slot.innerHTML = '<div class="text-xs text-rose-700">Gagal memuat form preview.</div>';
+                        slot.dataset.formPreviewLoading = '0';
                         return;
                     }
                     slot.innerHTML = data.html || '';
+                    slot.dataset.formPreviewLoaded = '1';
+                    slot.dataset.formPreviewLoading = '0';
                     bindEmbeddedFormSubmit(slot);
                     if (window.DynamicFormRuntime && typeof window.DynamicFormRuntime.init === 'function') {
                         window.DynamicFormRuntime.init(slot);
@@ -431,6 +438,8 @@ $layoutJson = Json::decode($layoutJson, true);
                 })
                 .catch(() => {
                     slot.innerHTML = '<div class="text-xs text-rose-700">Gagal memuat form preview.</div>';
+                    slot.dataset.formPreviewLoading = '0';
+                    delete window.dynamicFormPreviewFetchCache[url];
                 });
             });
         }

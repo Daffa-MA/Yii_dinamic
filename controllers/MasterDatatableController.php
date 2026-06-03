@@ -43,7 +43,13 @@ class MasterDatatableController extends Controller
     public function actionIndex()
     {
         return $this->render('index', [
-            'models' => MasterDatatable::findScoped()->with('table')->all(),
+            'models' => MasterDatatable::findScoped()
+                ->select(['id', 'name', 'table_id', 'is_active', 'actions_config'])
+                ->with(['table' => static function ($query): void {
+                    $query->select(['id', 'name', 'label']);
+                }])
+                ->orderBy(['id' => SORT_DESC])
+                ->all(),
         ]);
     }
 
@@ -177,7 +183,19 @@ class MasterDatatableController extends Controller
 
     private function findAvailableTables(): array
     {
-        $query = DbTable::find()->with('columns')->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
+        $tableSelect = ['id', 'name', 'label', 'user_id'];
+        $dbTableSchema = DbTable::getTableSchema();
+        if ($dbTableSchema !== null && isset($dbTableSchema->columns['project_id'])) {
+            $tableSelect[] = 'project_id';
+        }
+
+        $query = DbTable::find()
+            ->select($tableSelect)
+            ->with(['columns' => static function ($query): void {
+                $query->select(['id', 'table_id', 'name', 'label', 'sort_order'])
+                    ->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC]);
+            }])
+            ->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
         $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $query->andWhere(['project_id' => $activeProjectId]);
@@ -190,7 +208,17 @@ class MasterDatatableController extends Controller
 
     private function findAvailableForms(): array
     {
-        $query = MasterForm::findScoped()->orderBy(['form_name' => SORT_ASC, 'id' => SORT_ASC]);
+        $formSelect = ['id', 'form_name', 'user_id'];
+        $formSchema = MasterForm::getTableSchema();
+        foreach (['name', 'project_id'] as $column) {
+            if ($formSchema !== null && isset($formSchema->columns[$column])) {
+                $formSelect[] = $column;
+            }
+        }
+
+        $query = MasterForm::findScoped()
+            ->select($formSelect)
+            ->orderBy(['form_name' => SORT_ASC, 'id' => SORT_ASC]);
         if (!(new CommanderAuthContext())->isSuperAdmin() && !Yii::$app->user->isGuest) {
             $query->andWhere(['user_id' => Yii::$app->user->id]);
         }

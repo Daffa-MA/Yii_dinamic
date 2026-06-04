@@ -1430,6 +1430,10 @@ class TableBuilderController extends Controller
 
         $activeProjectId = $this->getActiveProjectId();
         $databaseInfo = $this->getDatabaseInfo();
+        $tableCategory = strtolower(trim((string)Yii::$app->request->get('table_category', 'user')));
+        if (!in_array($tableCategory, ['user', 'system', 'all'], true)) {
+            $tableCategory = 'user';
+        }
         $tablesQuery = DbTable::find()
             ->with(['columns'])
             ->orderBy(['created_at' => SORT_DESC]);
@@ -1444,6 +1448,18 @@ class TableBuilderController extends Controller
         }
         if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
             $tablesQuery->andWhere(['is_created' => true]);
+        }
+        $dbTableSchema = DbTable::getTableSchema();
+        if ($dbTableSchema !== null && isset($dbTableSchema->columns['is_system'], $dbTableSchema->columns['is_visible_in_builder'])) {
+            if ($tableCategory === 'user') {
+                $tablesQuery->andWhere([
+                    'or',
+                    ['is_system' => false],
+                    ['is_visible_in_builder' => true],
+                ]);
+            } elseif ($tableCategory === 'system') {
+                $tablesQuery->andWhere(['is_system' => true]);
+            }
         }
         $tables = $tablesQuery->all();
 
@@ -1460,6 +1476,7 @@ class TableBuilderController extends Controller
         return $this->render('index', [
             'tables' => $tablesWithColumns,
             'databaseInfo' => $databaseInfo,
+            'tableCategory' => $tableCategory,
         ]);
     }
 
@@ -1586,7 +1603,10 @@ class TableBuilderController extends Controller
                     $physicalCreated = true;
                     $this->addForeignKeyConstraints($model, $columnModels);
 
-                    $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                    $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name, [
+                        'is_system' => false,
+                        'is_visible_in_builder' => true,
+                    ]);
                     $this->refreshDbTableColumnsSchema();
                     $transaction->commit();
 
@@ -1966,7 +1986,10 @@ class TableBuilderController extends Controller
                 throw new \RuntimeException("Table '{$model->name}' was not found after SQL execution.");
             }
 
-            $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+            $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name, [
+                'is_system' => false,
+                'is_visible_in_builder' => true,
+            ]);
             $this->refreshDbTableColumnsSchema();
 
             $dbName = $db->createCommand('SELECT DATABASE()')->queryScalar();
@@ -4238,7 +4261,19 @@ class TableBuilderController extends Controller
 
     private function syncImportedTable(string $tableName): string
     {
-        $model = $this->getDatabaseSchemaSyncService()->syncTable($tableName);
+        $existingMetadata = DbTable::find()->where(array_merge(['name' => strtolower(trim($tableName))], $this->getMetadataScope()))->one();
+        $hasResolvedVisibility = $existingMetadata instanceof DbTable
+            && $existingMetadata->hasAttribute('is_system')
+            && $existingMetadata->hasAttribute('is_visible_in_builder')
+            && $existingMetadata->getAttribute('is_system') !== null
+            && $existingMetadata->getAttribute('is_visible_in_builder') !== null;
+        $model = $this->getDatabaseSchemaSyncService()->syncTable(
+            $tableName,
+            $hasResolvedVisibility ? [] : [
+                'is_system' => false,
+                'is_visible_in_builder' => true,
+            ]
+        );
         $this->getPhysicalDb()->schema->refreshTableSchema((string)$model->name);
         return (string)$model->name;
     }

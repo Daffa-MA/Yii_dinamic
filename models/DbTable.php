@@ -60,6 +60,13 @@ class DbTable extends ActiveRecord
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];
 
+        if ($this->hasAttribute('is_system')) {
+            $rules[] = [['is_system'], 'boolean'];
+        }
+        if ($this->hasAttribute('is_visible_in_builder')) {
+            $rules[] = [['is_visible_in_builder'], 'boolean'];
+        }
+
         if ($requiresProject) {
             $rules[] = [['project_id'], 'exist', 'skipOnError' => true, 'targetClass' => Project::class, 'targetAttribute' => ['project_id' => 'id']];
         }
@@ -82,6 +89,8 @@ class DbTable extends ActiveRecord
             'is_created' => 'Created in Database',
             'table_status' => 'Table Status',
             'last_error_message' => 'Last Error Message',
+            'is_system' => 'System Table',
+            'is_visible_in_builder' => 'Visible in Table Builder',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];

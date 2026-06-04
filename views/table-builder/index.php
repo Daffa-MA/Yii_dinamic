@@ -7,6 +7,12 @@
 use yii\bootstrap5\Html;
 
 $this->title = 'Database Tables';
+$tableCategory = $tableCategory ?? 'user';
+$tableCategoryOptions = [
+    'user' => 'User Tables',
+    'system' => 'System Tables',
+    'all' => 'All Tables',
+];
 $this->registerJs("document.body.classList.add('dashboard-main-page');", \yii\web\View::POS_READY);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
@@ -770,7 +776,7 @@ main#main > .container > .alert {
                     </div>
                     <div>
                         <h1>Database Tables</h1>
-                        <p class="hero-text">Manage actual table definitions saved in the application. Each card shows the current metadata status, column count, and whether the physical SQL table has already been created.</p>
+                        <p class="hero-text">Manage actual table definitions saved in the application. Default view shows user tables and visible core tables; system tables stay hidden unless selected from the filter.</p>
                     </div>
                 </div>
 
@@ -796,7 +802,7 @@ main#main > .container > .alert {
                 <div class="stat-card">
                     <span class="stat-label">Tables</span>
                     <div class="stat-value"><?= $tableCount ?></div>
-                    <p class="stat-note">Saved table definitions</p>
+                    <p class="stat-note"><?= Html::encode($tableCategoryOptions[$tableCategory] ?? 'Filtered Tables') ?></p>
                 </div>
                 <div class="stat-card">
                     <span class="stat-label">Created</span>
@@ -831,6 +837,13 @@ main#main > .container > .alert {
                 <div>
                     <h2 class="panel-title">Table List</h2>
                     <p class="panel-subtitle">Only real table metadata is shown here. No dummy analytics, no placeholder cards.</p>
+                </div>
+                <div class="hero-actions">
+                    <?php foreach ($tableCategoryOptions as $categoryKey => $categoryLabel): ?>
+                        <?= Html::a($categoryLabel, ['table-builder/index', 'table_category' => $categoryKey], [
+                            'class' => 'btn-clean' . ($tableCategory === $categoryKey ? ' btn-primary-clean' : ''),
+                        ]) ?>
+                    <?php endforeach; ?>
                 </div>
             </div>
             <div class="panel-body">

@@ -11,6 +11,8 @@ use yii\db\Query;
 
 class DatabaseSchemaSyncService
 {
+    private const DB_TABLES_TABLE = 'db_tables';
+
     private Connection $physicalDb;
     private array $scope;
     private ?int $userId;
@@ -26,6 +28,7 @@ class DatabaseSchemaSyncService
 
     public function syncAllPhysicalTables(): array
     {
+        $this->ensureMetadataVisibilityColumns();
         $tableNames = $this->getPhysicalTableNames();
         $synced = [];
         foreach ($tableNames as $tableName) {
@@ -40,8 +43,9 @@ class DatabaseSchemaSyncService
         ];
     }
 
-    public function syncTable(string $tableName): DbTable
+    public function syncTable(string $tableName, array $options = []): DbTable
     {
+        $this->ensureMetadataVisibilityColumns();
         $tableName = strtolower(trim($tableName));
         if ($tableName === '') {
             throw new \RuntimeException('Nama table kosong saat sinkronisasi schema.');
@@ -55,6 +59,7 @@ class DatabaseSchemaSyncService
 
         $this->physicalDb->schema->refreshTableSchema($tableName);
         $model = $this->resolveMetadataTable($tableName);
+        $isNewMetadata = $model->isNewRecord;
         $model->name = $tableName;
         if (trim((string)$model->label) === '') {
             $model->label = $this->humanize($tableName);
@@ -77,6 +82,7 @@ class DatabaseSchemaSyncService
         if ($model->hasAttribute('last_error_message')) {
             $model->setAttribute('last_error_message', null);
         }
+        $this->applyVisibilityMetadata($model, $schema, $isNewMetadata, $options);
 
         if (!$model->save()) {
             throw new \RuntimeException("Gagal menyimpan metadata table '{$tableName}': " . implode(', ', $model->getErrorSummary(true)));
@@ -97,6 +103,85 @@ class DatabaseSchemaSyncService
         }
 
         return $model;
+    }
+
+    public function ensureMetadataVisibilityColumns(): void
+    {
+        $metadataDb = DbTable::getDb();
+        $schema = $metadataDb->schema->getTableSchema(self::DB_TABLES_TABLE, true);
+        if ($schema === null) {
+            return;
+        }
+
+        $columns = $schema->columns;
+        if (!isset($columns['is_system'])) {
+            $metadataDb->createCommand()->addColumn(
+                self::DB_TABLES_TABLE,
+                'is_system',
+                $metadataDb->schema->createColumnSchemaBuilder('boolean')->null()
+            )->execute();
+        }
+
+        if (!isset($columns['is_visible_in_builder'])) {
+            $metadataDb->createCommand()->addColumn(
+                self::DB_TABLES_TABLE,
+                'is_visible_in_builder',
+                $metadataDb->schema->createColumnSchemaBuilder('boolean')->null()
+            )->execute();
+        }
+
+        $metadataDb->schema->refresh();
+        $metadataDb->schema->refreshTableSchema(self::DB_TABLES_TABLE);
+        Yii::$app->db->schema->refreshTableSchema(self::DB_TABLES_TABLE);
+    }
+
+    private function applyVisibilityMetadata(DbTable $model, $schema, bool $isNewMetadata, array $options): void
+    {
+        $hasSystemAttribute = $model->hasAttribute('is_system');
+        $hasVisibleAttribute = $model->hasAttribute('is_visible_in_builder');
+        if (!$hasSystemAttribute && !$hasVisibleAttribute) {
+            return;
+        }
+
+        $hasExplicitSystem = array_key_exists('is_system', $options);
+        $hasExplicitVisible = array_key_exists('is_visible_in_builder', $options);
+        $currentSystem = $hasSystemAttribute ? $model->getAttribute('is_system') : null;
+        $currentVisible = $hasVisibleAttribute ? $model->getAttribute('is_visible_in_builder') : null;
+
+        if ($hasExplicitSystem && $hasSystemAttribute) {
+            $model->setAttribute('is_system', (bool)$options['is_system']);
+        }
+        if ($hasExplicitVisible && $hasVisibleAttribute) {
+            $model->setAttribute('is_visible_in_builder', (bool)$options['is_visible_in_builder']);
+        }
+
+        if ($hasExplicitSystem || $hasExplicitVisible) {
+            return;
+        }
+
+        $visibilityUnset = $currentSystem === null && $currentVisible === null;
+        if (!$isNewMetadata && !$visibilityUnset) {
+            return;
+        }
+
+        $looksLikeImportedDiscovery = $isNewMetadata || strcasecmp(trim((string)$model->description), 'Synced from physical database') === 0;
+        $looksLikeCoreUserTable = $this->looksLikeCoreUserTable($schema);
+
+        if ($hasSystemAttribute) {
+            $model->setAttribute('is_system', $looksLikeImportedDiscovery);
+        }
+        if ($hasVisibleAttribute) {
+            $model->setAttribute('is_visible_in_builder', !$looksLikeImportedDiscovery || $looksLikeCoreUserTable);
+        }
+    }
+
+    private function looksLikeCoreUserTable($schema): bool
+    {
+        $columns = array_fill_keys(array_map('strtolower', array_keys((array)($schema->columns ?? []))), true);
+        $hasIdentity = isset($columns['username']) || isset($columns['email']) || isset($columns['login']);
+        $hasCredential = isset($columns['password_hash']) || isset($columns['password']) || isset($columns['auth_key']);
+
+        return $hasIdentity && $hasCredential;
     }
 
     public function tableExists(string $tableName): bool

@@ -43,12 +43,14 @@ $updateRoute = ['table-builder/update', 'id' => $model->id];
 $viewRoute = ['table-builder/view', 'id' => $model->id];
 $executeRoute = ['table-builder/execute-sql', 'id' => $model->id];
 $previewSqlRoute = ['table-builder/preview-sql', 'id' => $model->id];
+$syncRoute = ['table-builder/sync-from-database', 'id' => $model->id];
 if ($fkDebugEnabled) {
     $indexRoute['fk_debug'] = 1;
     $updateRoute['fk_debug'] = 1;
     $viewRoute['fk_debug'] = 1;
     $executeRoute['fk_debug'] = 1;
     $previewSqlRoute['fk_debug'] = 1;
+    $syncRoute['fk_debug'] = 1;
 }
 
 $spreadsheetContext = $spreadsheetContext ?? [];
@@ -715,6 +717,12 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
             <div class="actions">
                 <?= Html::a('Back to Tables', $indexRoute, ['class' => 'btn-clean']) ?>
                 <?= Html::a('Edit Structure', $updateRoute, ['class' => 'btn-clean']) ?>
+                <?= Html::a('Sync From Database', $syncRoute, [
+                    'class' => 'btn-clean',
+                    'data' => [
+                        'method' => 'post',
+                    ],
+                ]) ?>
                 <?php if (!$model->is_created): ?>
                     <?= Html::a('Create in Database', $executeRoute, [
                         'class' => 'btn-clean btn-primary-clean',

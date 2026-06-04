@@ -121,6 +121,7 @@ class MasterDatatableRenderService
             return self::$renderDataCache[$cacheKey] = null;
         }
 
+        $table = $this->syncTableMetadataIfPhysical($table);
         $tableSchema = Yii::$app->db->schema->getTableSchema($table->name, true);
         if ($tableSchema === null) {
             return self::$renderDataCache[$cacheKey] = null;
@@ -210,6 +211,34 @@ class MasterDatatableRenderService
         }
 
         return Yii::$app->db->createCommand()->delete($table->name, $where)->execute() > 0;
+    }
+
+    private function syncTableMetadataIfPhysical(DbTable $table): DbTable
+    {
+        if (Yii::$app->db->schema->getTableSchema((string)$table->name, true) === null) {
+            return $table;
+        }
+
+        try {
+            $scope = [];
+            $projectId = (new ActiveProjectContext())->getActiveProjectId();
+            if (ProjectSchema::supportsProjectContext() && $projectId !== null && $table->hasAttribute('project_id')) {
+                $scope['project_id'] = $projectId;
+            }
+            if ($table->hasAttribute('user_id') && $table->user_id !== null) {
+                $scope['user_id'] = (int)$table->user_id;
+            }
+
+            return (new DatabaseSchemaSyncService(
+                Yii::$app->db,
+                $scope,
+                $table->hasAttribute('user_id') ? (int)$table->user_id : null,
+                $projectId
+            ))->syncTable((string)$table->name);
+        } catch (\Throwable $e) {
+            Yii::warning('Datatable metadata sync failed: ' . $e->getMessage(), 'table-builder-sync');
+            return $table;
+        }
     }
 
     private function resolveColumns(DbTable $table, array $config): array

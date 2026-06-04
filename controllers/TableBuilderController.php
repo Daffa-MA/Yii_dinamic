@@ -17,6 +17,7 @@ use app\components\ProjectAuthContext;
 use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
+use app\services\DatabaseSchemaSyncService;
 use app\services\TableExistenceService;
 
 class SqlEditorExecutionException extends \RuntimeException
@@ -30,6 +31,7 @@ class TableBuilderController extends Controller
     
     private const IDENTIFIER_PATTERN = '/^[a-z][a-z0-9_]*$/';
     private const DB_TABLE_COLUMNS_TABLE = 'db_table_columns';
+    private ?DatabaseSchemaSyncService $databaseSchemaSyncService = null;
 
     /**
      * Refresh db_table_columns schema because schema cache is enabled.
@@ -364,6 +366,20 @@ class TableBuilderController extends Controller
         return new TableExistenceService($db ?? $this->getPhysicalDb());
     }
 
+    private function getDatabaseSchemaSyncService(): DatabaseSchemaSyncService
+    {
+        if ($this->databaseSchemaSyncService === null) {
+            $this->databaseSchemaSyncService = new DatabaseSchemaSyncService(
+                $this->getPhysicalDb(),
+                $this->getMetadataScope(),
+                $this->getEffectiveUserId(),
+                $this->getActiveProjectId()
+            );
+        }
+
+        return $this->databaseSchemaSyncService;
+    }
+
     private function getMetadataScope(): array
     {
         $scope = [];
@@ -581,6 +597,12 @@ class TableBuilderController extends Controller
                     continue;
                 }
 
+                $referencedColumn = $referencedSchema->columns[$referencedColumnName];
+                if (!$this->isForeignKeyTypeCompatible($column, $referencedColumn)) {
+                    $errors[] = "Column '{$column->name}' tidak kompatibel dengan '{$referencedTableName}.{$referencedColumnName}'. Samakan tipe data dan atribut unsigned/length bila diperlukan.";
+                    continue;
+                }
+
                 if (!empty($referencedSchema->primaryKey) && in_array($referencedColumnName, $referencedSchema->primaryKey, true)) {
                     continue;
                 }
@@ -629,6 +651,45 @@ class TableBuilderController extends Controller
         }
 
         return $errors;
+    }
+
+    private function isForeignKeyTypeCompatible(DbTableColumn $column, $referencedColumn): bool
+    {
+        $localType = strtoupper(trim((string)$column->type));
+        $referencedDbType = strtoupper(trim((string)($referencedColumn->dbType ?? $referencedColumn->type ?? '')));
+        $referencedBaseType = strtoupper(trim((string)($referencedColumn->type ?? '')));
+
+        $integerTypes = ['TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT'];
+        $stringTypes = ['CHAR', 'VARCHAR'];
+
+        if (in_array($localType, $integerTypes, true)) {
+            $referencedIsInteger = false;
+            foreach ($integerTypes as $candidate) {
+                if (preg_match('/\b' . preg_quote($candidate, '/') . '\b/i', $referencedDbType) === 1 || $referencedBaseType === strtolower($candidate)) {
+                    $referencedIsInteger = true;
+                    break;
+                }
+            }
+            if (!$referencedIsInteger) {
+                return false;
+            }
+            $localUnsigned = stripos((string)$column->comment, 'unsigned') !== false;
+            $referencedUnsigned = stripos($referencedDbType, 'UNSIGNED') !== false;
+            return $localUnsigned === $referencedUnsigned || !$localUnsigned;
+        }
+
+        if (in_array($localType, $stringTypes, true)) {
+            $referencedIsString = preg_match('/\b(CHAR|VARCHAR)\b/i', $referencedDbType) === 1 || in_array(strtoupper($referencedBaseType), $stringTypes, true);
+            if (!$referencedIsString) {
+                return false;
+            }
+            if ((int)$column->length > 0 && preg_match('/\((\d+)\)/', $referencedDbType, $matches) === 1) {
+                return (int)$column->length === (int)$matches[1];
+            }
+            return true;
+        }
+
+        return stripos($referencedDbType, $localType) !== false || $referencedBaseType === strtolower($localType);
     }
 
     private function buildForeignKeyConstraintName(string $tableName, string $columnName, array &$usedConstraintNames): string
@@ -1359,6 +1420,14 @@ class TableBuilderController extends Controller
 
     public function actionIndex()
     {
+        try {
+            $this->getDatabaseSchemaSyncService()->syncAllPhysicalTables();
+            $this->refreshDbTableColumnsSchema();
+        } catch (\Throwable $syncError) {
+            Yii::warning('Auto sync from physical database failed on table index: ' . $syncError->getMessage(), 'table-builder-sync');
+            Yii::$app->session->setFlash('tableBuilderWarning', 'Sinkronisasi dari database fisik gagal: ' . $this->buildFriendlyTableBuilderErrorMessage($syncError));
+        }
+
         $activeProjectId = $this->getActiveProjectId();
         $databaseInfo = $this->getDatabaseInfo();
         $tablesQuery = DbTable::find()
@@ -1372,6 +1441,9 @@ class TableBuilderController extends Controller
         }
         if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
             $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+        }
+        if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
+            $tablesQuery->andWhere(['is_created' => true]);
         }
         $tables = $tablesQuery->all();
 
@@ -1475,46 +1547,61 @@ class TableBuilderController extends Controller
             try {
                 $this->assertForeignKeyMetadataSupport($columns);
 
-                if ($model->save()) {
-                    $this->setTableLifecycleState($model, 'pending', null);
-                    $transaction = Yii::$app->db->beginTransaction();
-
-                    try {
-                        $columnModels = $this->buildColumnModels($columns, (int)$model->id);
-
-                        if (empty($columnModels)) {
-                            throw new \RuntimeException('Please add at least one valid column before creating the table.');
-                        }
-
-                        $columnErrors = $this->collectColumnErrors($columnModels);
-                        if (!empty($columnErrors)) {
-                            throw new \RuntimeException(implode('<br>', $columnErrors));
-                        }
-
-                        $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
-                        if (!empty($foreignKeyErrors)) {
-                            throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
-                        }
-
-                        foreach ($columnModels as $column) {
-                            if (!$column->save(false)) {
-                                throw new \RuntimeException("Failed to save column '{$column->name}'.");
-                            }
-                        }
-
-                        $transaction->commit();
-                        $this->setTableLifecycleState($model, 'pending', null);
-                        Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$model->name}' definition saved successfully. Status: pending database creation.");
-
-                        return $this->redirect(['index']);
-                    } catch (\Throwable $e) {
-                        $transaction->rollBack();
-                        $this->setTableLifecycleState($model, 'incomplete', $this->buildFriendlyTableBuilderErrorMessage($e));
-                        Yii::$app->session->setFlash('tableBuilderError', $this->buildFriendlyTableBuilderErrorMessage($e));
+                $transaction = Yii::$app->db->beginTransaction();
+                $physicalCreated = false;
+                try {
+                    if (!$model->save()) {
+                        throw new \RuntimeException('Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
                     }
-                } else {
-                    // Model validation failed - show error and preserve columns
-                    Yii::$app->session->setFlash('tableBuilderError', 'Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
+
+                    if ($this->hasPhysicalTable($model)) {
+                        throw new \RuntimeException("Table '{$model->name}' sudah ada di database fisik aktif.");
+                    }
+
+                    $columnModels = $this->buildColumnModels($columns, (int)$model->id);
+
+                    if (empty($columnModels)) {
+                        throw new \RuntimeException('Please add at least one valid column before creating the table.');
+                    }
+
+                    $columnErrors = $this->collectColumnErrors($columnModels);
+                    if (!empty($columnErrors)) {
+                        throw new \RuntimeException(implode('<br>', $columnErrors));
+                    }
+
+                    $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
+                    if (!empty($foreignKeyErrors)) {
+                        throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
+                    }
+
+                    foreach ($columnModels as $column) {
+                        if (!$column->save(false)) {
+                            throw new \RuntimeException("Failed to save column '{$column->name}'.");
+                        }
+                    }
+
+                    $db = $this->getPhysicalDb();
+                    $sql = $this->buildCreateTableSql($model, $columnModels, false);
+                    $db->createCommand($sql)->execute();
+                    $physicalCreated = true;
+                    $this->addForeignKeyConstraints($model, $columnModels);
+
+                    $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                    $this->refreshDbTableColumnsSchema();
+                    $transaction->commit();
+
+                    Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$model->name}' berhasil dibuat di database fisik dan metadata berhasil disinkronkan.");
+                    return $this->redirect(['view', 'id' => $model->id]);
+                } catch (\Throwable $e) {
+                    $transaction->rollBack();
+                    if ($physicalCreated && $this->hasPhysicalTable($model)) {
+                        try {
+                            $this->getPhysicalDb()->createCommand("DROP TABLE `{$model->name}`")->execute();
+                        } catch (\Throwable $dropError) {
+                            Yii::warning('Failed dropping table after manual create failure: ' . $dropError->getMessage(), 'table-builder');
+                        }
+                    }
+                    Yii::$app->session->setFlash('tableBuilderError', $this->buildFriendlyTableBuilderErrorMessage($e));
                 }
             } catch (\yii\db\IntegrityException $e) {
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
@@ -1545,6 +1632,15 @@ class TableBuilderController extends Controller
         $this->refreshDbTableColumnsSchema();
 
         $model = $this->findModel($id);
+        if ($this->hasPhysicalTable($model)) {
+            try {
+                $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                $this->refreshDbTableColumnsSchema();
+            } catch (\Throwable $syncError) {
+                Yii::warning('Auto sync from physical database failed on table view: ' . $syncError->getMessage(), 'table-builder-sync');
+                Yii::$app->session->setFlash('tableBuilderWarning', 'Sinkronisasi dari database fisik gagal: ' . $this->buildFriendlyTableBuilderErrorMessage($syncError));
+            }
+        }
         $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
         $db = $this->getPhysicalDb();
         $tableSchema = null;
@@ -1733,60 +1829,57 @@ class TableBuilderController extends Controller
             try {
                 $this->assertForeignKeyMetadataSupport($columns);
 
-                if ($model->save()) {
-                    $transaction = Yii::$app->db->beginTransaction();
-                    $columnModels = [];
-
-                    try {
-                        $columnModels = $this->buildColumnModels($columns, (int)$model->id);
-
-                        if (empty($columnModels)) {
-                            throw new \RuntimeException('Please keep at least one valid column on the table.');
-                        }
-
-                        $columnErrors = $this->collectColumnErrors($columnModels);
-                        if (!empty($columnErrors)) {
-                            throw new \RuntimeException(implode('<br>', $columnErrors));
-                        }
-
-                        $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
-                        if (!empty($foreignKeyErrors)) {
-                            throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
-                        }
-
-                        DbTableColumn::deleteAll(['table_id' => $model->id]);
-
-                        foreach ($columnModels as $column) {
-                            if (!$column->save(false)) {
-                                throw new \RuntimeException("Failed to save column '{$column->name}'.");
-                            }
-                        }
-
-                        $transaction->commit();
-                        $this->setTableLifecycleState($model, $wasPhysicallyCreated ? 'active' : 'pending', null);
-
-                        if ($wasPhysicallyCreated) {
-                            try {
-                                $this->syncUpdatedPhysicalTable($model, $oldTableName, $columnModels);
-                                Yii::$app->session->setFlash('tableBuilderSuccess', "Table updated successfully and synced to database table '{$model->name}'.");
-                            } catch (\Throwable $syncError) {
-                                Yii::error('Failed to sync updated table to database: ' . $syncError->getMessage(), 'app');
-                                $friendlySyncError = $this->buildFriendlyTableBuilderErrorMessage($syncError);
-                                $this->setTableLifecycleState($model, 'failed', $friendlySyncError);
-                                Yii::$app->session->setFlash('tableBuilderWarning', 'Definisi table berhasil diperbarui, tetapi sinkronisasi ke tabel fisik gagal. ' . $friendlySyncError);
-                            }
-                        } else {
-                            Yii::$app->session->setFlash('tableBuilderSuccess', 'Table updated successfully.');
-                        }
-
-                        return $this->redirect(['view', 'id' => $model->id]);
-                    } catch (\Throwable $e) {
-                        $transaction->rollBack();
-                        $this->setTableLifecycleState($model, 'incomplete', $this->buildFriendlyTableBuilderErrorMessage($e));
-                        Yii::$app->session->setFlash('tableBuilderError', $this->buildFriendlyTableBuilderErrorMessage($e));
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    if (!$model->save()) {
+                        throw new \RuntimeException('Failed to save table: ' . implode(', ', $model->getErrorSummary(true)));
                     }
-                } else {
-                    Yii::$app->session->setFlash('tableBuilderError', 'Failed to save table: ' . implode(', ', $model->getErrorSummary(true)));
+
+                    $columnModels = $this->buildColumnModels($columns, (int)$model->id);
+
+                    if (empty($columnModels)) {
+                        throw new \RuntimeException('Please keep at least one valid column on the table.');
+                    }
+
+                    $columnErrors = $this->collectColumnErrors($columnModels);
+                    if (!empty($columnErrors)) {
+                        throw new \RuntimeException(implode('<br>', $columnErrors));
+                    }
+
+                    $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
+                    if (!empty($foreignKeyErrors)) {
+                        throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
+                    }
+
+                    DbTableColumn::deleteAll(['table_id' => $model->id]);
+
+                    foreach ($columnModels as $column) {
+                        if (!$column->save(false)) {
+                            throw new \RuntimeException("Failed to save column '{$column->name}'.");
+                        }
+                    }
+
+                    if ($wasPhysicallyCreated) {
+                        $this->syncUpdatedPhysicalTable($model, $oldTableName, $columnModels);
+                        $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                        $this->refreshDbTableColumnsSchema();
+                        Yii::$app->session->setFlash('tableBuilderSuccess', "Table updated successfully and synced from database table '{$model->name}'.");
+                    } else {
+                        $this->setTableLifecycleState($model, 'pending', null, false);
+                        Yii::$app->session->setFlash('tableBuilderSuccess', 'Table definition updated as pending metadata.');
+                    }
+
+                    $transaction->commit();
+                    return $this->redirect(['view', 'id' => $model->id]);
+                } catch (\Throwable $e) {
+                    $transaction->rollBack();
+                    $friendlyError = $this->buildFriendlyTableBuilderErrorMessage($e);
+                    Yii::error('Table update failed before metadata commit: ' . $e->getMessage(), 'table-builder');
+                    Yii::$app->session->setFlash('tableBuilderError', $friendlyError);
+                }
+
+                if (!$model->hasErrors()) {
+                    $model->addError('name', Yii::$app->session->getFlash('tableBuilderError', null, false) ?: 'Table update failed.');
                 }
             } catch (\yii\db\IntegrityException $e) {
                 if (strpos($e->getMessage(), 'Duplicate entry') !== false) {
@@ -1873,9 +1966,8 @@ class TableBuilderController extends Controller
                 throw new \RuntimeException("Table '{$model->name}' was not found after SQL execution.");
             }
 
-            $model->is_created = true;
-            $model->save(false, ['is_created']);
-            $this->setTableLifecycleState($model, 'active', null);
+            $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+            $this->refreshDbTableColumnsSchema();
 
             $dbName = $db->createCommand('SELECT DATABASE()')->queryScalar();
             Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$model->name}' created successfully in database '{$dbName}'.");
@@ -1900,6 +1992,25 @@ class TableBuilderController extends Controller
         
         $model->delete();
         Yii::$app->session->setFlash('tableBuilderSuccess', 'Table deleted successfully!');
+
+        return $this->redirect(['index']);
+    }
+
+    public function actionSyncFromDatabase($id = null)
+    {
+        try {
+            if ($id !== null) {
+                $model = $this->findModel((int)$id);
+                $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                Yii::$app->session->setFlash('tableBuilderSuccess', "Metadata '{$model->name}' berhasil disinkronkan dari database fisik.");
+                return $this->redirect(['view', 'id' => (int)$id]);
+            }
+
+            $result = $this->getDatabaseSchemaSyncService()->syncAllPhysicalTables();
+            Yii::$app->session->setFlash('tableBuilderSuccess', 'Sinkronisasi dari database fisik selesai. Table tersinkron: ' . (int)($result['count'] ?? 0) . '.');
+        } catch (\Throwable $e) {
+            Yii::$app->session->setFlash('tableBuilderError', $this->buildFriendlyTableBuilderErrorMessage($e));
+        }
 
         return $this->redirect(['index']);
     }
@@ -3459,7 +3570,19 @@ class TableBuilderController extends Controller
         }
 
         if (stripos($message, 'SQLSTATE') !== false || stripos($message, 'syntax error') !== false) {
-            return 'Terjadi kesalahan SQL saat memproses table. Periksa struktur kolom, foreign key, atau statement SQL Anda.';
+            $details = $this->extractDbErrorDetails($exception);
+            $parts = ['Terjadi kesalahan SQL saat memproses table.'];
+            if (($details['sqlstate'] ?? '') !== '') {
+                $parts[] = 'SQLSTATE: ' . $details['sqlstate'] . '.';
+            }
+            if (($details['error_code'] ?? '') !== '') {
+                $parts[] = 'Error code: ' . $details['error_code'] . '.';
+            }
+            if (($details['sql_error'] ?? '') !== '') {
+                $parts[] = 'Detail: ' . $details['sql_error'];
+            }
+            $parts[] = 'Periksa struktur kolom, foreign key, atau statement SQL Anda.';
+            return implode(' ', $parts);
         }
 
         return $message;
@@ -4115,63 +4238,9 @@ class TableBuilderController extends Controller
 
     private function syncImportedTable(string $tableName): string
     {
-        $db = $this->getPhysicalDb();
-        $schema = $db->schema->getTableSchema($tableName, true);
-        if ($schema === null) {
-            throw new \RuntimeException("Table '{$tableName}' tidak ditemukan setelah SQL dijalankan.");
-        }
-
-        $activeProjectId = $this->getActiveProjectId();
-        $criteria = [
-            'name' => strtolower($tableName),
-        ];
-        $effectiveUserId = $this->getEffectiveUserId();
-        if ($effectiveUserId !== null) {
-            $criteria['user_id'] = $effectiveUserId;
-        }
-        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-            $criteria['project_id'] = $activeProjectId;
-        }
-
-        $model = DbTable::findOne($criteria);
-        if ($model === null) {
-            $model = new DbTable();
-            $this->assignMetadataOwner($model);
-            $this->assignActiveProject($model);
-            $model->name = strtolower($tableName);
-            $model->label = ucwords(str_replace('_', ' ', strtolower($tableName)));
-            $model->description = 'Imported from SQL editor';
-            $model->engine = 'InnoDB';
-            $model->charset = 'utf8mb4';
-            $model->collation = 'utf8mb4_unicode_ci';
-        }
-
-        $model->is_created = true;
-        if (!$model->save()) {
-            throw new \RuntimeException("Gagal menyimpan metadata table '{$tableName}': " . implode(', ', $model->getErrorSummary(true)));
-        }
-        $this->setTableLifecycleState($model, 'active', null);
-
-        DbTableColumn::deleteAll(['table_id' => $model->id]);
-
-        $primaryKeyColumns = array_flip(array_map('strtolower', (array)($schema->primaryKey ?? [])));
-        $uniqueColumns = $this->getUniqueColumnsFromTable($tableName);
-        $foreignKeyMap = $this->getForeignKeyMetadataFromTable($tableName);
-        $sortOrder = 1;
-
-        foreach ($schema->columns as $columnSchema) {
-            $column = $this->buildImportedColumnModel($model->id, $columnSchema, $sortOrder, $primaryKeyColumns, $uniqueColumns, $foreignKeyMap);
-            if (!$column->save(false)) {
-                $rawDbType = trim((string)($columnSchema->dbType ?? $columnSchema->type ?? 'unknown'));
-                throw new \RuntimeException("Gagal menyimpan metadata kolom '{$column->name}' ({$rawDbType}) pada '{$tableName}'.");
-            }
-            $sortOrder++;
-        }
-
-        $this->setTableLifecycleState($model, 'active', null);
-
-        $db->schema->refreshTableSchema($tableName);
-        return $model->name;
+        $model = $this->getDatabaseSchemaSyncService()->syncTable($tableName);
+        $this->getPhysicalDb()->schema->refreshTableSchema((string)$model->name);
+        return (string)$model->name;
     }
 
     private function describeImportedTableColumns(string $tableName): array
@@ -4462,6 +4531,10 @@ class TableBuilderController extends Controller
                     'error' => 'Table not found for id: ' . $id
                 ]);
             }
+            if ($this->hasPhysicalTable($model)) {
+                $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                $this->refreshDbTableColumnsSchema();
+            }
             
             $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
             $tableSchema = null;
@@ -4528,6 +4601,9 @@ class TableBuilderController extends Controller
     public function actionGetTables()
     {
         try {
+            $this->getDatabaseSchemaSyncService()->syncAllPhysicalTables();
+            $this->refreshDbTableColumnsSchema();
+
             $activeProjectId = $this->getActiveProjectId();
             
             // Get table definitions from DbTable model (like table-builder index does)
@@ -4543,6 +4619,9 @@ class TableBuilderController extends Controller
                 
             if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
                 $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+            }
+            if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
+                $tablesQuery->andWhere(['is_created' => true]);
             }
             
             $tables = $tablesQuery->all();
@@ -4587,6 +4666,10 @@ class TableBuilderController extends Controller
                     'success' => false,
                     'error' => 'Table not found with id: ' . $id
                 ]);
+            }
+            if ($this->hasPhysicalTable($model)) {
+                $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                $this->refreshDbTableColumnsSchema();
             }
             
             // Get columns relation

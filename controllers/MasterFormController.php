@@ -1366,12 +1366,15 @@ class MasterFormController extends Controller
 
             $schema = $this->formEngineService->getResolvedFormSchema($model);
             $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
-            $values = $this->buildAutofillResponseValues($fields, $field, $sourceRow);
-            $display = $this->buildAutofillDisplayPayload($sourceRow, $config, $field);
+            $candidateRows = $this->buildAutofillCandidateRows($config, $sourceRow);
+            $resolution = $this->buildAutofillResponseValues($fields, $field, $candidateRows);
+            $display = $this->buildAutofillDisplayPayload($candidateRows, $config, $field);
 
             return [
                 'success' => true,
-                'values' => $values,
+                'values' => $resolution['values'],
+                'readonly_fields' => $resolution['readonly_fields'],
+                'labels' => $resolution['labels'],
                 'display' => $display,
             ];
         } catch (\Throwable $e) {
@@ -1407,25 +1410,169 @@ class MasterFormController extends Controller
     }
 
     /**
-     * @param array<int, array<string, mixed>> $fields
-     * @param array<string, mixed> $triggerField
+     * @param array<string, mixed> $config
      * @param array<string, mixed> $sourceRow
-     * @return array<string, mixed>
+     * @return array<int, array<string, mixed>>
      */
-    private function buildAutofillResponseValues(array $fields, array $triggerField, array $sourceRow): array
+    private function buildAutofillCandidateRows(array $config, array $sourceRow, int $maxDepth = 2): array
     {
-        $values = [];
-        $sourceLookup = [];
-        foreach ($sourceRow as $columnName => $value) {
-            $normalized = $this->normalizeSchemaKey((string)$columnName);
-            if ($normalized !== '' && !isset($sourceLookup[$normalized])) {
-                $sourceLookup[$normalized] = (string)$columnName;
+        $mainTable = trim((string)($config['main_table'] ?? ''));
+        $rows = [[
+            'table' => $mainTable,
+            'row' => $sourceRow,
+            'depth' => 0,
+            'display_column' => trim((string)($config['display_column'] ?? '')),
+        ]];
+
+        $queue = $rows;
+        $visited = [];
+
+        while (!empty($queue)) {
+            $entry = array_shift($queue);
+            $tableName = trim((string)($entry['table'] ?? ''));
+            $row = is_array($entry['row'] ?? null) ? $entry['row'] : [];
+            $depth = (int)($entry['depth'] ?? 0);
+            if ($tableName === '' || empty($row) || $depth >= $maxDepth) {
+                continue;
             }
-            $humanized = $this->normalizeSchemaKey($this->humanizePickerColumn((string)$columnName));
-            if ($humanized !== '' && !isset($sourceLookup[$humanized])) {
-                $sourceLookup[$humanized] = (string)$columnName;
+
+            foreach ($this->findForeignKeyColumnsForTable($tableName) as $fk) {
+                $localColumn = trim((string)($fk['local_column'] ?? ''));
+                $referencedTable = trim((string)($fk['referenced_table'] ?? ''));
+                $referencedColumn = trim((string)($fk['referenced_column'] ?? 'id'));
+                if ($localColumn === '' || $referencedTable === '' || !array_key_exists($localColumn, $row)) {
+                    continue;
+                }
+
+                $fkValue = $row[$localColumn];
+                if ($fkValue === null || $fkValue === '') {
+                    continue;
+                }
+
+                $visitKey = strtolower($referencedTable . '|' . $referencedColumn . '|' . (string)$fkValue);
+                if (isset($visited[$visitKey])) {
+                    continue;
+                }
+                $visited[$visitKey] = true;
+
+                $referencedRow = $this->loadReferencedAutofillRow($referencedTable, $referencedColumn, $fkValue);
+                if ($referencedRow === null) {
+                    continue;
+                }
+
+                $displayColumn = $this->resolveAutofillDisplayColumnForTable($referencedTable, $referencedColumn);
+                $next = [
+                    'table' => $referencedTable,
+                    'row' => $referencedRow,
+                    'depth' => $depth + 1,
+                    'via_column' => $localColumn,
+                    'display_column' => $displayColumn,
+                ];
+                $rows[] = $next;
+                $queue[] = $next;
             }
         }
+
+        return $rows;
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function findForeignKeyColumnsForTable(string $tableName): array
+    {
+        $tableName = trim($tableName);
+        if ($tableName === '') {
+            return [];
+        }
+
+        $table = DbTable::find()->where(['name' => $tableName])->one();
+        if ($table === null) {
+            return [];
+        }
+
+        $columns = DbTableColumn::find()
+            ->where(['table_id' => (int)$table->id, 'is_foreign_key' => true])
+            ->all();
+
+        $result = [];
+        foreach ($columns as $column) {
+            $localColumn = trim((string)($column->name ?? ''));
+            $referencedTable = $column->hasAttribute('referenced_table_name') ? trim((string)$column->getAttribute('referenced_table_name')) : '';
+            $referencedColumn = $column->hasAttribute('referenced_column_name') ? trim((string)$column->getAttribute('referenced_column_name')) : '';
+            if ($localColumn === '' || $referencedTable === '') {
+                continue;
+            }
+            $result[] = [
+                'local_column' => $localColumn,
+                'referenced_table' => $referencedTable,
+                'referenced_column' => $referencedColumn !== '' ? $referencedColumn : 'id',
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, mixed>|null
+     */
+    private function loadReferencedAutofillRow(string $tableName, string $valueColumn, $value): ?array
+    {
+        $tableName = trim($tableName);
+        $valueColumn = trim($valueColumn) !== '' ? trim($valueColumn) : 'id';
+        if ($tableName === '' || $valueColumn === '') {
+            return null;
+        }
+
+        try {
+            $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+            if ($schema === null || !isset($schema->columns[$valueColumn])) {
+                return null;
+            }
+
+            $row = (new Query())
+                ->from($tableName)
+                ->where([$valueColumn => $value])
+                ->limit(1)
+                ->one(Yii::$app->db);
+
+            return is_array($row) ? $row : null;
+        } catch (\Throwable $e) {
+            Yii::warning([
+                'autofill_reference_load_error' => true,
+                'table' => $tableName,
+                'column' => $valueColumn,
+                'error' => $e->getMessage(),
+            ], 'relation-picker');
+            return null;
+        }
+    }
+
+    private function resolveAutofillDisplayColumnForTable(string $tableName, string $valueColumn = 'id'): string
+    {
+        try {
+            $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+            if ($schema === null || empty($schema->columns)) {
+                return $valueColumn;
+            }
+
+            return $this->resolvePickerDisplayColumn($schema->columns, $valueColumn, '');
+        } catch (\Throwable $e) {
+            return $valueColumn;
+        }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $candidateRows
+     * @return array<string, mixed>
+     */
+    private function buildAutofillResponseValues(array $fields, array $triggerField, array $candidateRows): array
+    {
+        $values = [];
+        $readonlyFields = [];
+        $labels = [];
+        $candidates = $this->buildAutofillColumnCandidates($candidateRows);
 
         $triggerCandidates = array_filter(array_unique([
             (string)($triggerField['resolved_name'] ?? ''),
@@ -1488,19 +1635,25 @@ class MasterFormController extends Controller
                 $candidateColumns[] = (string)$fieldMeta['source_field'];
             }
 
-            $matchedColumn = $this->matchSourceColumnForAutofill($candidateColumns, $sourceRow, $sourceLookup);
-            if ($matchedColumn === null && in_array($fieldBehavior, ['readonly', 'display_only', 'display-only'], true)) {
-                $matchedColumn = $this->matchSourceColumnForAutofill(array_keys($sourceRow), $sourceRow, $sourceLookup);
+            $matched = $this->matchSourceColumnForAutofill($candidateColumns, $candidates);
+            if ($matched === null && in_array($fieldBehavior, ['readonly', 'display_only', 'display-only'], true)) {
+                $matched = $this->matchSourceColumnForAutofill([$fieldName], $candidates);
             }
 
-            if ($matchedColumn === null) {
+            if ($matched === null) {
                 continue;
             }
 
-            $values[$fieldName] = $sourceRow[$matchedColumn];
+            $values[$fieldName] = $matched['value'];
+            $readonlyFields[] = $fieldName;
+            $labels[$fieldName] = $matched['label'];
         }
 
-        return $values;
+        return [
+            'values' => $values,
+            'readonly_fields' => array_values(array_unique($readonlyFields)),
+            'labels' => $labels,
+        ];
     }
 
     /**
@@ -1542,44 +1695,199 @@ class MasterFormController extends Controller
     }
 
     /**
-     * @param array<int, string> $candidateColumns
-     * @param array<string, mixed> $sourceRow
-     * @param array<string, string> $sourceLookup
+     * @param array<int, array<string, mixed>> $candidateRows
+     * @return array<int, array<string, mixed>>
      */
-    private function matchSourceColumnForAutofill(array $candidateColumns, array $sourceRow, array $sourceLookup): ?string
+    private function buildAutofillColumnCandidates(array $candidateRows): array
     {
-        foreach (array_values(array_unique(array_filter(array_map('trim', $candidateColumns)))) as $candidate) {
-            if (isset($sourceRow[$candidate])) {
-                return $candidate;
-            }
+        $candidates = [];
+        foreach ($candidateRows as $rowEntry) {
+            $row = is_array($rowEntry['row'] ?? null) ? $rowEntry['row'] : [];
+            $tableName = trim((string)($rowEntry['table'] ?? ''));
+            $depth = (int)($rowEntry['depth'] ?? 0);
+            foreach ($row as $columnName => $value) {
+                $columnName = (string)$columnName;
+                if ($value === null || $value === '' || $this->isSensitiveOrAuditColumn($columnName)) {
+                    continue;
+                }
 
-            $normalized = $this->normalizeSchemaKey($candidate);
-            if ($normalized !== '' && isset($sourceLookup[$normalized])) {
-                return $sourceLookup[$normalized];
+                $candidates[] = [
+                    'table' => $tableName,
+                    'column' => $columnName,
+                    'normalized' => $this->normalizeAutofillMatchKey($columnName),
+                    'raw_normalized' => $this->normalizeSchemaKey($columnName),
+                    'value' => $value,
+                    'label' => is_scalar($value) ? (string)$value : Json::encode($value),
+                    'depth' => $depth,
+                ];
             }
         }
 
-        return null;
+        return $candidates;
     }
 
     /**
-     * @param array<string, mixed> $sourceRow
+     * @param array<int, string> $candidateColumns
+     * @param array<int, array<string, mixed>> $sourceCandidates
+     * @return array<string, mixed>|null
+     */
+    private function matchSourceColumnForAutofill(array $candidateColumns, array $sourceCandidates): ?array
+    {
+        $needles = array_values(array_unique(array_filter(array_map(
+            static fn($value): string => trim((string)$value),
+            $candidateColumns
+        ))));
+        if (empty($needles) || empty($sourceCandidates)) {
+            return null;
+        }
+
+        $matches = [];
+        foreach ($needles as $needleIndex => $needle) {
+            $needleRaw = $this->normalizeSchemaKey($needle);
+            $needleNormalized = $this->normalizeAutofillMatchKey($needle);
+            if ($needleRaw === '' && $needleNormalized === '') {
+                continue;
+            }
+
+            foreach ($sourceCandidates as $source) {
+                $sourceRaw = (string)($source['raw_normalized'] ?? '');
+                $sourceNormalized = (string)($source['normalized'] ?? '');
+                if ($sourceRaw === '' && $sourceNormalized === '') {
+                    continue;
+                }
+
+                $score = 0;
+                if ($needleRaw !== '' && $needleRaw === $sourceRaw) {
+                    $score = 100;
+                } elseif ($needleNormalized !== '' && $needleNormalized === $sourceNormalized) {
+                    $score = 90;
+                } elseif ($this->isSafeContainsAutofillMatch($needleNormalized, $sourceNormalized)) {
+                    $score = 70;
+                } elseif ($this->isSafeContainsAutofillMatch($needleRaw, $sourceRaw)) {
+                    $score = 65;
+                }
+
+                if ($score <= 0) {
+                    continue;
+                }
+
+                $score -= ((int)($source['depth'] ?? 0) * 5);
+                $score -= ($needleIndex * 2);
+                $matches[] = ['score' => $score, 'source' => $source];
+            }
+        }
+
+        if (empty($matches)) {
+            return null;
+        }
+
+        usort($matches, static fn(array $a, array $b): int => (int)$b['score'] <=> (int)$a['score']);
+        $bestScore = (int)$matches[0]['score'];
+        $top = array_values(array_filter($matches, static fn(array $match): bool => (int)$match['score'] === $bestScore));
+        $uniqueTopKeys = [];
+        foreach ($top as $match) {
+            $source = $match['source'];
+            $uniqueTopKeys[(string)($source['table'] ?? '') . '.' . (string)($source['column'] ?? '')] = true;
+        }
+
+        if (count($uniqueTopKeys) > 1) {
+            Yii::warning([
+                'autofill_ambiguous_match' => true,
+                'requested_columns' => $candidateColumns,
+                'matched_columns' => array_keys($uniqueTopKeys),
+            ], 'relation-picker');
+            return null;
+        }
+
+        return $matches[0]['source'];
+    }
+
+    private function normalizeAutofillMatchKey(string $key): string
+    {
+        $normalized = $this->normalizeSchemaKey($key);
+        $normalized = preg_replace('/(^|_)id_/', '$1', $normalized) ?? $normalized;
+        $normalized = preg_replace('/(^|_)(fk|ref)_/', '$1', $normalized) ?? $normalized;
+        $normalized = preg_replace('/_id$/', '', $normalized) ?? $normalized;
+        return trim($normalized, '_');
+    }
+
+    private function isSafeContainsAutofillMatch(string $left, string $right): bool
+    {
+        $left = trim($left, '_');
+        $right = trim($right, '_');
+        if ($left === '' || $right === '' || $left === $right) {
+            return false;
+        }
+
+        $short = strlen($left) <= strlen($right) ? $left : $right;
+        $long = $short === $left ? $right : $left;
+        if (strlen($short) < 4) {
+            return false;
+        }
+
+        return str_contains('_' . $long . '_', '_' . $short . '_')
+            || str_starts_with($long, $short . '_')
+            || str_ends_with($long, '_' . $short);
+    }
+
+    private function isSensitiveOrAuditColumn(string $columnName): bool
+    {
+        $normalized = $this->normalizeSchemaKey($columnName);
+        if ($normalized === '') {
+            return true;
+        }
+
+        foreach ([
+            'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by',
+            'password', 'passwd', 'token', 'secret', 'auth_key', 'api_key', 'remember_token',
+        ] as $blocked) {
+            if ($normalized === $blocked || str_contains($normalized, $blocked)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $candidateRows
      * @param array<string, mixed> $config
      * @param array<string, mixed> $triggerField
      * @return array<string, mixed>
      */
-    private function buildAutofillDisplayPayload(array $sourceRow, array $config, array $triggerField = []): array
+    private function buildAutofillDisplayPayload(array $candidateRows, array $config, array $triggerField = []): array
     {
         $items = [];
-        foreach ($sourceRow as $columnName => $value) {
-            if ($value === null || $value === '') {
+        $ranked = [];
+        foreach ($candidateRows as $rowEntry) {
+            $row = is_array($rowEntry['row'] ?? null) ? $rowEntry['row'] : [];
+            $depth = (int)($rowEntry['depth'] ?? 0);
+            foreach ($row as $columnName => $value) {
+                $columnName = (string)$columnName;
+                if ($value === null || $value === '' || !$this->isUserFacingDetailColumn($columnName)) {
+                    continue;
+                }
+
+                $ranked[] = [
+                    'score' => $this->scoreDetailColumn($columnName) - ($depth * 5),
+                    'label' => $this->humanizePickerColumn($columnName),
+                    'value' => is_scalar($value) ? (string)$value : Json::encode($value),
+                ];
+            }
+        }
+
+        usort($ranked, static fn(array $a, array $b): int => (int)$b['score'] <=> (int)$a['score']);
+        $seenLabels = [];
+        foreach ($ranked as $item) {
+            $labelKey = strtolower((string)$item['label']);
+            if (isset($seenLabels[$labelKey])) {
                 continue;
             }
-
-            $items[] = [
-                'label' => $this->humanizePickerColumn((string)$columnName),
-                'value' => is_scalar($value) ? (string)$value : Json::encode($value),
-            ];
+            $seenLabels[$labelKey] = true;
+            $items[] = ['label' => $item['label'], 'value' => $item['value']];
+            if (count($items) >= 8) {
+                break;
+            }
         }
 
         $title = trim((string)($triggerField['label'] ?? $triggerField['field_label'] ?? $config['display_column'] ?? $config['main_table'] ?? 'Detail'));
@@ -1588,6 +1896,42 @@ class MasterFormController extends Controller
             'detail_title' => $title !== '' ? $title : 'Detail',
             'items' => $items,
         ];
+    }
+
+    private function isUserFacingDetailColumn(string $columnName): bool
+    {
+        $normalized = $this->normalizeSchemaKey($columnName);
+        if ($normalized === 'id' || str_ends_with($normalized, '_id')) {
+            return false;
+        }
+
+        return !$this->isSensitiveOrAuditColumn($columnName);
+    }
+
+    private function scoreDetailColumn(string $columnName): int
+    {
+        $normalized = $this->normalizeSchemaKey($columnName);
+        foreach ([
+            'kode' => 100,
+            'code' => 100,
+            'nomor' => 95,
+            'no' => 95,
+            'number' => 95,
+            'nama' => 90,
+            'name' => 90,
+            'title' => 85,
+            'label' => 85,
+            'kelas' => 80,
+            'class' => 80,
+            'grade' => 80,
+            'status' => 75,
+        ] as $token => $score) {
+            if ($normalized === $token || str_contains('_' . $normalized . '_', '_' . $token . '_')) {
+                return $score;
+            }
+        }
+
+        return 20;
     }
 
     public function beforeAction($action)

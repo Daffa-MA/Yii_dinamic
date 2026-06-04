@@ -173,6 +173,19 @@
         var isMultiple = !!control.multiple || /\[\]$/.test(String(control.name || ''));
 
         if (tagName === 'select') {
+            if (!isArray(normalizedValue)) {
+                var normalizedStringValue = String(normalizedValue);
+                var hasOption = Array.prototype.some.call(control.options || [], function(option) {
+                    return option.value === normalizedStringValue;
+                });
+                if (!hasOption && normalizedStringValue !== '') {
+                    var option = document.createElement('option');
+                    option.value = normalizedStringValue;
+                    option.textContent = opts.displayLabel ? String(opts.displayLabel) : normalizedStringValue;
+                    control.appendChild(option);
+                }
+            }
+
             if (isArray(normalizedValue)) {
                 Array.prototype.forEach.call(control.options || [], function(option) {
                     option.selected = normalizedValue.indexOf(option.value) !== -1;
@@ -257,10 +270,36 @@
         container.hidden = false;
     }
 
-    function applyAutofillValues(form, triggerField, values, display) {
+    function ensureReadonlySelectMirror(control, fieldName, value) {
+        if (!control || String(control.tagName || '').toLowerCase() !== 'select') {
+            return;
+        }
+
+        var mirrorName = control.name || fieldName;
+        var mirror = control.form ? control.form.querySelector('input[type="hidden"][data-autofill-mirror-for="' + cssEscape(mirrorName) + '"]') : null;
+        if (!mirror) {
+            mirror = document.createElement('input');
+            mirror.type = 'hidden';
+            mirror.name = mirrorName;
+            mirror.setAttribute('data-autofill-mirror-for', mirrorName);
+            control.insertAdjacentElement('afterend', mirror);
+        }
+        mirror.value = isArray(value) ? value.join(',') : String(value == null ? '' : value);
+    }
+
+    function applyAutofillValues(form, triggerField, values, display, readonlyFields, labels) {
         if (!form || !values) {
             return;
         }
+
+        var readonlyLookup = {};
+        if (isArray(readonlyFields)) {
+            readonlyFields.forEach(function(fieldName) {
+                readonlyLookup[String(fieldName)] = true;
+            });
+        }
+
+        var labelLookup = labels && typeof labels === 'object' ? labels : {};
 
         Object.keys(values).forEach(function(fieldName) {
             var value = values[fieldName];
@@ -280,26 +319,16 @@
                 }
 
                 var behavior = String(control.getAttribute('data-field-behavior') || '').toLowerCase();
-                var lockControl = behavior === 'readonly' || behavior === 'display_only';
+                var lockControl = !!readonlyLookup[fieldName] || behavior === 'readonly' || behavior === 'display_only' || behavior === 'display-only';
                 setControlValue(control, value, {
                     dispatchEvents: true,
                     markReadonly: lockControl,
-                    fromAutofill: true
+                    fromAutofill: true,
+                    displayLabel: labelLookup[fieldName]
                 });
 
                 if (lockControl) {
-                    if (String(control.tagName || '').toLowerCase() === 'select') {
-                        var mirrorName = control.name || fieldName;
-                        var mirror = control.form ? control.form.querySelector('input[type="hidden"][data-autofill-mirror-for="' + cssEscape(mirrorName) + '"]') : null;
-                        if (!mirror) {
-                            mirror = document.createElement('input');
-                            mirror.type = 'hidden';
-                            mirror.name = mirrorName;
-                            mirror.setAttribute('data-autofill-mirror-for', mirrorName);
-                            control.insertAdjacentElement('afterend', mirror);
-                        }
-                        mirror.value = isArray(value) ? value.join(',') : String(value == null ? '' : value);
-                    }
+                    ensureReadonlySelectMirror(control, fieldName, value);
                 }
             });
         });
@@ -333,7 +362,14 @@
                     throw new Error((data && data.message) || 'Data relasi tidak ditemukan.');
                 }
 
-                applyAutofillValues(form, triggerField, data.values || {}, data.display || null);
+                applyAutofillValues(
+                    form,
+                    triggerField,
+                    data.values || {},
+                    data.display || null,
+                    data.readonly_fields || [],
+                    data.labels || data.display_labels || {}
+                );
             })
             .catch(function(error) {
                 var message = error && error.message ? error.message : 'Data relasi tidak ditemukan.';

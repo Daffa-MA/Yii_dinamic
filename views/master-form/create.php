@@ -1405,6 +1405,7 @@ document.addEventListener('DOMContentLoaded', function() {
             display_column: displayColumn,
             search_columns: displayColumn ? [displayColumn] : [],
             display_columns: Array.from(new Set([displayColumn, valueColumn].filter(Boolean))),
+            search_target: 'display_only',
             page_size: 10
         }, picker);
         return field.picker_config;
@@ -1493,6 +1494,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const config = ensureRelationPickerConfig(field);
         if (key === 'search_columns' || key === 'display_columns') {
             config[key] = String(value || '').split(',').map(item => item.trim()).filter(Boolean);
+            config.search_target = 'custom';
+        } else if (key === 'search_target') {
+            const displayColumn = String(field.picker_config && field.picker_config.display_column ? field.picker_config.display_column : field.fk_display_column || field.label_column || field.dropdown_label_column || field.fk_referenced_column || field.value_column || 'id').trim();
+            const valueColumn = String(field.picker_config && field.picker_config.value_column ? field.picker_config.value_column : field.fk_referenced_column || field.value_column || field.dropdown_value_column || 'id').trim();
+            config.search_target = value || 'custom';
+            if (config.search_target === 'value_only') {
+                config.search_columns = valueColumn ? [valueColumn] : [];
+            } else if (config.search_target === 'display_only') {
+                config.search_columns = displayColumn ? [displayColumn] : [];
+            } else if (config.search_target === 'value_and_display') {
+                config.search_columns = Array.from(new Set([valueColumn, displayColumn].filter(Boolean)));
+            }
         } else if (key === 'page_size') {
             config[key] = Math.max(1, Math.min(50, parseInt(value || '10', 10) || 10));
         } else {
@@ -1541,6 +1554,7 @@ document.addEventListener('DOMContentLoaded', function() {
         picker.search_columns = searchColumns;
         picker.display_columns = displayColumns;
         picker.page_size = Math.max(1, Math.min(50, parseInt(pageSizeInput ? pageSizeInput.value : '10', 10) || 10));
+        picker.search_target = 'custom';
 
         updateData();
         renderPropsPanel(field);
@@ -2367,6 +2381,12 @@ document.addEventListener('DOMContentLoaded', function() {
             ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'].forEach(mode => {
                 html += '<option value="' + mode + '"' + boolAttr('selected', (field.picker_mode || 'dropdown') === mode) + '>' + mode.replace(/_/g, ' ') + '</option>';
             });
+            html += '</select></div>';
+            html += '<div class="prop-group"><label class="prop-label">Search Target</label><select class="prop-select" onchange="updateRelationPickerConfig(\'search_target\', this.value)">';
+            html += '<option value="display_only"' + boolAttr('selected', (pickerConfig.search_target || 'display_only') === 'display_only') + '>Display column / label</option>';
+            html += '<option value="value_only"' + boolAttr('selected', (pickerConfig.search_target || '') === 'value_only') + '>Value column / ID</option>';
+            html += '<option value="value_and_display"' + boolAttr('selected', (pickerConfig.search_target || '') === 'value_and_display') + '>Value + display</option>';
+            html += '<option value="custom"' + boolAttr('selected', (pickerConfig.search_target || '') === 'custom') + '>Custom columns</option>';
             html += '</select></div>';
             html += '<div class="prop-group"><label class="prop-label">Search Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.search_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'search_columns\', this.value)" placeholder="nama, kode, email"></div>';
             html += '<div class="prop-group"><label class="prop-label">Display Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.display_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'display_columns\', this.value)" placeholder="id, nama, kode"></div>';

@@ -1512,6 +1512,7 @@ document.addEventListener('DOMContentLoaded', function() {
             config[key] = value;
         }
         updateData();
+        renderPropsPanel(field);
     };
 
     window.generateRelationPickerConfig = function() {
@@ -2388,7 +2389,13 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<option value="value_and_display"' + boolAttr('selected', (pickerConfig.search_target || '') === 'value_and_display') + '>Value + display</option>';
             html += '<option value="custom"' + boolAttr('selected', (pickerConfig.search_target || '') === 'custom') + '>Custom columns</option>';
             html += '</select></div>';
-            html += '<div class="prop-group"><label class="prop-label">Search Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.search_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'search_columns\', this.value)" placeholder="nama, kode, email"></div>';
+            html += '<div class="prop-group"><label class="prop-label">Quick Search Preset</label><div style="display:flex;flex-wrap:wrap;gap:8px;">';
+            html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'display_only\')">Display</button>';
+            html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'value_only\')">ID / Value</button>';
+            html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'value_and_display\')">Keduanya</button>';
+            html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'custom\')">Custom</button>';
+            html += '</div></div>';
+            html += '<div class="prop-group" style="' + ((pickerConfig.search_target || 'display_only') === 'custom' ? '' : 'display:none;') + '"><label class="prop-label">Search Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.search_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'search_columns\', this.value)" placeholder="nama, kode, email"></div>';
             html += '<div class="prop-group"><label class="prop-label">Display Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.display_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'display_columns\', this.value)" placeholder="id, nama, kode"></div>';
             html += '<div class="prop-group"><label class="prop-label">Page Size</label><input type="number" min="1" max="50" class="prop-input" value="' + escapeAttr(pickerConfig.page_size || 10) + '" onchange="updateRelationPickerConfig(\'page_size\', this.value)"></div>';
             html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="openRelationPickerColumnsModal()">Atur kolom modal</button></div>';

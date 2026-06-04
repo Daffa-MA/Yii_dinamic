@@ -110,7 +110,9 @@ class FormEngineService
     {
         $formData = FormSystemFieldHelper::filterBuilderData($form->getFormDataArray());
         $fields = isset($formData['fields']) && is_array($formData['fields']) ? $formData['fields'] : (is_array($formData) ? $formData : []);
-        $fields = array_values(array_filter($fields, fn($field) => is_array($field) && !$this->isSystemFieldForForm($field, $form)));
+        $fields = array_values(array_filter($fields, function ($field) use ($form) {
+            return is_array($field) && !$this->isSystemFieldForForm($field, $form);
+        }));
         $targetTable = $this->resolveTargetTable($form);
         $targetSchema = $targetTable !== null ? Yii::$app->db->schema->getTableSchema((string)$targetTable->name, true) : null;
         if (empty($fields)) {
@@ -303,7 +305,9 @@ class FormEngineService
                 'referenced_column_name' => $referencedColumn,
                 'value_column' => $referencedColumn,
                 'display_column' => $displayColumn,
-            ]), static fn($value): bool => $value !== null && $value !== '');
+            ]), static function ($value): bool {
+                return $value !== null && $value !== '';
+            });
         }
 
         return $resolvedField;
@@ -439,7 +443,9 @@ class FormEngineService
             'value_column' => $referencedValueColumn,
             'display_column' => $displayColumn,
             'display_column_name' => $displayColumn,
-        ], static fn($value): bool => $value !== null && $value !== '');
+        ], static function ($value): bool {
+            return $value !== null && $value !== '';
+        });
 
         if ($this->isCompleteRelationConfig($metadataConfig)) {
             return $this->normalizeRelationConfig(array_merge($relationConfig, $metadataConfig), $localColumn);
@@ -476,7 +482,9 @@ class FormEngineService
             'value_column' => $referencedValueColumn,
             'display_column' => $displayColumn,
             'display_column_name' => $displayColumn,
-        ]), static fn($value): bool => $value !== null && $value !== '');
+        ]), static function ($value): bool {
+            return $value !== null && $value !== '';
+        });
     }
 
     private function resolveCanonicalFieldLabel(array $fieldData, string $fieldName, ?DbTableColumn $sourceColumn = null): string

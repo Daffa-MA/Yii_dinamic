@@ -319,12 +319,6 @@ if ($model->isNewRecord && empty($model->type)) {
         ])->dropDownList($formList, [
             'class' => 'w-full rounded-xl border border-slate-200 px-4 py-3.5 text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10',
         ])->label('Pilih Formulir', ['class' => 'mb-1.5 block text-sm font-semibold text-slate-700']) ?>
-        
-        <!-- Debug: Show current form_id value and field name -->
-        <div class="mt-2 text-xs text-slate-500">Debug: form_id = "<?= $model->form_id ?? 'null' ?>", type = "<?= $model->type ?? 'null' ?>", POST name = "MasterMenu[form_id]"</div>
-        
-        <!-- Also add a visible hidden input to ensure form_id is sent -->
-        <?= Html::hiddenInput('MasterMenu[form_id_debug]', $model->form_id, ['id' => 'form-id-debug']) ?>
     </div>
 
     <!-- Route Field - Only for Route type -->
@@ -640,11 +634,6 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Guard against null elements
         if (!pageContainer || !routeContainer || !formContainer) {
-            console.error('Menu form containers not found:', {
-                pageContainer: !!pageContainer,
-                routeContainer: !!routeContainer,
-                formContainer: !!formContainer
-            });
             return;
         }
         
@@ -664,7 +653,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (pageSelect) pageSelect.value = '';
             if (formSelect) formSelect.value = '';
         } else if (type === 'form') {
-            console.log('Switching to Form type - showing form container');
             pageContainer.classList.add('menu-hidden');
             routeContainer.classList.add('menu-hidden');
             formContainer.classList.remove('menu-hidden');
@@ -778,19 +766,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const formSelectElement = formIdField ? formIdField : document.querySelector('#form-field-wrapper select');
             const formValue = formSelectElement ? formSelectElement.value : '';
             
-            console.log('[MenuType] Submit check - type:', type);
-            console.log('[MenuType] form_id element:', formSelectElement ? 'FOUND' : 'NOT FOUND');
-            console.log('[MenuType] form_id value at submit:', formValue);
-            
-            // List all form inputs
-            const allInputs = Array.from(document.querySelectorAll('form input, form select')).map(i => i.name + '=' + i.value);
-            console.log('[MenuType] All form inputs:', allInputs.slice(0, 10));
-            
             if (type === 'form') {
                 if (!formValue) {
                     e.preventDefault();
                     showFieldError(formSelectElement, 'Pilih formulir untuk tipe Form');
-                    console.error('[MenuType] Form validation failed - no form selected');
                 }
             }
         });
@@ -805,64 +784,35 @@ $this->registerJs($script);
 <script>
 // Standalone menu type handler - runs immediately
 (function() {
-    console.log('[MenuType] Script loaded, waiting for DOM...');
-    
     function initMenuTypeHandler() {
         var typeSelect = document.getElementById('menu-type-select');
         var pageContainer = document.getElementById('page-field-container');
         var routeContainer = document.getElementById('route-field-container');
         var formContainer = document.getElementById('form-field-container');
         
-        console.log('[MenuType] Elements found:', {
-            typeSelect: !!typeSelect,
-            pageContainer: !!pageContainer,
-            routeContainer: !!routeContainer,
-            formContainer: !!formContainer
-        });
-        
         if (!typeSelect || !pageContainer || !routeContainer || !formContainer) {
-            console.error('[MenuType] Required elements not found');
             return;
         }
         
         function updateFields() {
             var type = typeSelect.value;
-            console.log('[MenuType] Type changed to:', type);
             
-            // Hide all containers first using menu-hidden class
             pageContainer.classList.add('menu-hidden');
             routeContainer.classList.add('menu-hidden');
             formContainer.classList.add('menu-hidden');
             
-            // Show relevant container based on type
             if (type === 'page') {
                 pageContainer.classList.remove('menu-hidden');
-                console.log('[MenuType] Showing page field');
             } else if (type === 'route' || type === 'button') {
                 routeContainer.classList.remove('menu-hidden');
-                console.log('[MenuType] Showing route field');
             } else if (type === 'form') {
                 formContainer.classList.remove('menu-hidden');
-                console.log('[MenuType] Showing FORM field - Pilih Formulir');
-            } else {
-                console.log('[MenuType] No field container for type:', type);
             }
-            
-            // Debug: show all containers state
-            console.log('[MenuType] Container states:', {
-                page: !pageContainer.classList.contains('menu-hidden'),
-                route: !routeContainer.classList.contains('menu-hidden'),
-                form: !formContainer.classList.contains('menu-hidden')
-            });
         }
         
-        // Attach event listener
         typeSelect.addEventListener('change', updateFields);
-        console.log('[MenuType] Event listener attached');
         
-        // Initial call to sync UI with current value
         updateFields();
-        console.log('[MenuType] Initial updateFields called');
     }
     
     // Run on DOM ready

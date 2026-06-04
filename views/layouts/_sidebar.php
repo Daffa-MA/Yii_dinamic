@@ -1028,7 +1028,6 @@ $logoAsset = $workspaceSettings->getWorkspaceLogoAsset();
 $logoImageUrl = (string)($logoAsset['url'] ?? '');
 $hasLogoImage = $logoImageUrl !== '';
 
-// Debug: Log color values
 Yii::info('Sidebar Text Color: ' . $sidebarTextColor, 'sidebar-debug');
 Yii::info('Sidebar Text Muted: ' . $sidebarTextMuted, 'sidebar-debug');
 Yii::info('CSS Vars sidebar-text-color: ' . ($cssVars['sidebar-text-color'] ?? 'NOT SET'), 'sidebar-debug');
@@ -1036,15 +1035,6 @@ Yii::info('CSS Vars sidebar-text-muted: ' . ($cssVars['sidebar-text-muted'] ?? '
 Yii::info('Is Minimal Sidebar: ' . ($isMinimalSidebar ? 'YES' : 'NO'), 'sidebar-debug');
 Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
 ?>
-
-<!-- Debug Info: Text Colors -->
-<!-- sidebarTextColor: <?= Html::encode($sidebarTextColor) ?> -->
-<!-- sidebarTextMuted: <?= Html::encode($sidebarTextMuted) ?> -->
-<!-- cssVars sidebar-text-color: <?= Html::encode($cssVars['sidebar-text-color'] ?? 'NOT SET') ?> -->
-<!-- cssVars sidebar-text-muted: <?= Html::encode($cssVars['sidebar-text-muted'] ?? 'NOT SET') ?> -->
-<!-- isMinimalSidebar: <?= $isMinimalSidebar ? 'YES' : 'NO' ?> -->
-<!-- Current Route: <?= Html::encode($currentRoute) ?> -->
-<!-- CACHE BUSTER: v2.0 - <?= date('Y-m-d H:i:s') ?> -->
 
 <aside class="app-sidebar" style="background: linear-gradient(180deg, <?= Html::encode($sidebarBgStart) ?> 0%, <?= Html::encode($sidebarBgEnd) ?> 100%); border-color: <?= Html::encode($sidebarBorderColor) ?>; color: <?= Html::encode($sidebarTextColor) ?>;">
     <button type="button" class="app-sidebar-toggle" data-sidebar-toggle aria-label="Tutup sidebar" aria-expanded="true" title="Tutup sidebar">

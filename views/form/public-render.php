@@ -93,7 +93,9 @@ $resolveOptionsFromField = static function (array $field) use ($fkConfig): array
     $options = $field['fk_options'] ?? $field['options'] ?? [];
     if (is_string($options)) {
         $options = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', $options) ?: []));
-        return array_map(static fn(string $opt): array => ['value' => $opt, 'label' => $opt], $options);
+        return array_map(static function (string $opt): array {
+            return ['value' => $opt, 'label' => $opt];
+        }, $options);
     }
     if (!is_array($options)) {
         return [];
@@ -1065,7 +1067,6 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         currentUser = user;
         if (user) {
             // User is signed in
-            console.log('✅ User logged in:', user.email);
             setAuthView(true);
 
             // Inject user data into form
@@ -1075,7 +1076,6 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
 
         } else {
             // No user is signed in
-            console.log('🔒 No user logged in, showing login panel');
             setAuthView(false);
         }
     });
@@ -1244,9 +1244,6 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                 alert('Form belum diisi. Isi minimal satu field sebelum submit.');
                 return;
             }
-
-            console.log('🚀 Form submit triggered!');
-            console.log('📤 Submitting to:', form.action);
 
             // Disable button to prevent double submission
             submitBtn.disabled = true;

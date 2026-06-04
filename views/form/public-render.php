@@ -14,6 +14,7 @@ use app\services\FormRenderService;
 
 $this->title = $model->name;
 $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\View::POS_END]);
 $this->registerJs("document.body.style.minHeight = '100vh';", \yii\web\View::POS_READY);
 $fkConfig = isset($fkConfig) && is_array($fkConfig) ? $fkConfig : [];
 $fieldConstraints = isset($fieldConstraints) && is_array($fieldConstraints) ? $fieldConstraints : [];
@@ -406,7 +407,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                     <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Silakan hubungi admin workspace jika form ini seharusnya sudah berisi field.</p>
                 </div>
             <?php else: ?>
-                <form method="post" action="<?= Url::to(['form/submit', 'id' => $model->id]) ?>" class="<?= !$hasCustomDesign ? 'space-y-6' : '' ?>" enctype="multipart/form-data" id="multi-page-form">
+                <form method="post" action="<?= Url::to(['form/submit', 'id' => $model->id]) ?>" class="<?= !$hasCustomDesign ? 'space-y-6' : '' ?>" enctype="multipart/form-data" id="multi-page-form" data-form-id="<?= (int)$model->id ?>">
                     <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->csrfToken ?>">
 
                     <!-- Page Content Container -->
@@ -562,10 +563,12 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                 $fkSelectName = '__fk_display_' . $fieldName;
                                                 ?>
                                                 <div class="flex items-center gap-2">
-                                                    <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode($defaultValue) ?>" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
+                                                    <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode($defaultValue) ?>" data-fk-hidden-input="<?= Html::encode($fieldName) ?>" data-relation-picker-value="<?= Html::encode($fieldName) ?>" data-form-id="<?= (int)$model->id ?>" class="relation-picker-value">
                                                     <select name="<?= Html::encode($fkSelectName) ?>" <?= $options ?><?= $disabledAttr ?>
                                                         data-fk-field="<?= Html::encode($fieldName) ?>"
                                                         data-fk-hidden-target="<?= Html::encode($fieldName) ?>"
+                                                        data-form-id="<?= (int)$model->id ?>"
+                                                        data-picker-mode="dropdown"
                                                         class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>">
                                                         <option value=""><?= Html::encode($placeholder ?: '-- Pilih --') ?></option>
                                                         <?php foreach ($fkOptions as $fkOption): ?>
@@ -1033,7 +1036,19 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
         if (!targetName) return;
         const hiddenInput = select.form.querySelector('input[data-fk-hidden-input="' + targetName + '"]');
         if (!hiddenInput) return;
-        hiddenInput.value = select.value || '';
+        const nextValue = select.value || '';
+        const changed = hiddenInput.value !== nextValue;
+        hiddenInput.value = nextValue;
+        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+        if (changed) {
+            hiddenInput.dispatchEvent(new CustomEvent('relation-picker:selected', {
+                bubbles: true,
+                detail: {
+                    value: nextValue,
+                    label: select.options && select.selectedIndex >= 0 ? (select.options[select.selectedIndex] ? select.options[select.selectedIndex].textContent : nextValue) : nextValue
+                }
+            }));
+        }
     }
 
     function setAuthView(isLoggedIn) {
@@ -1172,12 +1187,13 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                         return;
                     }
 
-                    await refreshFkOptions(fieldName);
-                    const targetSelect = document.querySelector('select[data-fk-field="' + fieldName + '"]');
-                    if (targetSelect && result.option && result.option.value !== undefined) {
-                        targetSelect.value = String(result.option.value);
-                    }
-                    closeQuickAddModal();
+                        await refreshFkOptions(fieldName);
+                        const targetSelect = document.querySelector('select[data-fk-field="' + fieldName + '"]');
+                        if (targetSelect && result.option && result.option.value !== undefined) {
+                            targetSelect.value = String(result.option.value);
+                            targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                        }
+                        closeQuickAddModal();
                 } catch (error) {
                     alert('Gagal menambah data baru.');
                 }

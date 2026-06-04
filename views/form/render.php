@@ -151,6 +151,7 @@ $resolveFieldValue = static function (array $field): string {
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@600;700;800&amp;display=swap');
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap');
 $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\View::POS_END]);
 ?>
 
 <script>
@@ -254,6 +255,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                             'action' => ['form/submit', 'id' => $model->id],
                             'method' => 'post',
                             'options' => array_filter([
+                                'data-form-id' => (int)$model->id,
                                 'target' => $embedded ? '_top' : null,
                             ]),
                         ]); ?>
@@ -304,7 +306,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                         $fkSelectName = '__fk_display_' . $fieldName;
                                         ?>
                                         <div class="flex items-center gap-2">
-                                            <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode($defaultValue) ?>" data-fk-hidden-input="<?= Html::encode($fieldName) ?>">
+                                            <input type="hidden" name="<?= Html::encode($fieldName) ?>" value="<?= Html::encode($defaultValue) ?>" data-fk-hidden-input="<?= Html::encode($fieldName) ?>" data-relation-picker-value="<?= Html::encode($fieldName) ?>" data-form-id="<?= (int)$model->id ?>" class="relation-picker-value">
                                             <?php
                                                 echo Select2::widget([
                                                     'name' => $fkSelectName,
@@ -313,6 +315,8 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                                                         'placeholder' => $placeholder ?: '-- Pilih --',
                                                         'data-fk-field' => $fieldName,
                                                         'data-fk-hidden-target' => $fieldName,
+                                                        'data-form-id' => (int)$model->id,
+                                                        'data-picker-mode' => 'dropdown',
                                                         'required' => $required && !$isReadonly,
                                                         'disabled' => $isReadonly,
                                                         'class' => 'w-full' . $readonlyClass,
@@ -589,7 +593,19 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
             if (!targetName) return;
             const hiddenInput = select.form.querySelector('input[data-fk-hidden-input="' + targetName + '"]');
             if (!hiddenInput) return;
-            hiddenInput.value = select.value || '';
+            const nextValue = select.value || '';
+            const changed = hiddenInput.value !== nextValue;
+            hiddenInput.value = nextValue;
+            hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            if (changed) {
+                hiddenInput.dispatchEvent(new CustomEvent('relation-picker:selected', {
+                    bubbles: true,
+                    detail: {
+                        value: nextValue,
+                        label: select.options && select.selectedIndex >= 0 ? (select.options[select.selectedIndex] ? select.options[select.selectedIndex].textContent : nextValue) : nextValue
+                    }
+                }));
+            }
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -670,6 +686,7 @@ $this->registerJsFile('https://cdn.tailwindcss.com', ['position' => \yii\web\Vie
                         const targetSelect = document.querySelector('select[data-fk-field="' + fieldName + '"]');
                         if (targetSelect && result.option && result.option.value !== undefined) {
                             targetSelect.value = String(result.option.value);
+                            targetSelect.dispatchEvent(new Event('change', { bubbles: true }));
                         }
                         closeQuickAddModal();
                     } catch (error) {

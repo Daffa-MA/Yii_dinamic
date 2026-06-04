@@ -110,7 +110,9 @@ if ($targetTable !== null) {
         $existingFieldNames[strtolower($columnName)] = true;
     }
 }
-$rawPreviewFields = array_values(array_filter($fields, static fn($field) => is_array($field)));
+$rawPreviewFields = array_values(array_filter($fields, static function ($field): bool {
+    return is_array($field);
+}));
 $previewFieldDebug = [];
 $fields = [];
 foreach (FormSystemFieldHelper::filterFields($rawPreviewFields) as $index => $field) {

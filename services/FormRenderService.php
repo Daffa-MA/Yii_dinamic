@@ -266,7 +266,9 @@ class FormRenderService
                 'value_column' => $valueColumn,
                 'display_column' => $labelColumn,
                 'display_column_name' => $labelColumn,
-            ]), static fn($value): bool => $value !== null && $value !== '');
+            ]), static function ($value): bool {
+                return $value !== null && $value !== '';
+            });
         } catch (\Throwable $e) {
             Yii::warning('Failed to resolve dynamic dropdown options: ' . $e->getMessage(), 'form-render');
         }
@@ -431,7 +433,9 @@ class FormRenderService
             $field['column_name'] ?? null,
             $field['field_key'] ?? null,
         ]));
-        $nonFallback = array_values(array_filter($candidates, static fn(string $v): bool => $v !== '' && !self::looksLikeFallbackFieldName($v)));
+        $nonFallback = array_values(array_filter($candidates, static function (string $v): bool {
+            return $v !== '' && !self::looksLikeFallbackFieldName($v);
+        }));
         if (!empty($nonFallback)) {
             return $nonFallback[0];
         }
@@ -620,7 +624,9 @@ class FormRenderService
             'value_column' => $referencedValueColumn,
             'display_column' => $displayColumn,
             'display_column_name' => $displayColumn,
-        ], static fn($value): bool => $value !== null && $value !== '');
+        ], static function ($value): bool {
+            return $value !== null && $value !== '';
+        });
     }
 
     private static function isCompleteRelationConfig(array $config): bool
@@ -651,7 +657,9 @@ class FormRenderService
             'value_column' => $referencedValueColumn,
             'display_column' => $displayColumn,
             'display_column_name' => $displayColumn,
-        ]), static fn($value): bool => $value !== null && $value !== '');
+        ]), static function ($value): bool {
+            return $value !== null && $value !== '';
+        });
     }
 
     public static function prepareCustomFormSubmission(string $html, int $formId, array $hiddenInputs = []): string
@@ -1105,14 +1113,18 @@ HTML;
         foreach ($fields as $index => $field) {
             $fieldNames[] = (string)($field['name'] ?? self::fieldTokenName($field, $index));
         }
-        $fieldNames = array_values(array_filter($fieldNames, static fn(string $name): bool => $name !== ''));
+        $fieldNames = array_values(array_filter($fieldNames, static function (string $name): bool {
+            return $name !== '';
+        }));
         if (empty($fieldNames)) {
             return $source;
         }
 
         preg_match_all('/\bname\s*=\s*([\'"])(.*?)\1/i', $source, $nameMatches);
         $existingNames = $nameMatches[2] ?? [];
-        $missingNames = array_filter($fieldNames, static fn(string $name): bool => !in_array($name, $existingNames, true));
+        $missingNames = array_filter($fieldNames, static function (string $name) use ($existingNames): bool {
+            return !in_array($name, $existingNames, true);
+        });
         if (empty($missingNames)) {
             return $source;
         }

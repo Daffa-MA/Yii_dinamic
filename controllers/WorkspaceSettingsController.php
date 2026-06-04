@@ -419,14 +419,24 @@ class WorkspaceSettingsController extends Controller
         }
 
         if ($type === 'system_builder') {
-            $route = match ($key) {
-                'master_menu' => 'master-menu/index',
-                'master_page' => 'master-page/index',
-                'master_form' => 'master-form/index',
-                'master_table' => 'table-builder/index',
-                'workspace_settings' => 'settings/workspace',
-                default => null,
-            };
+            $route = null;
+            switch ($key) {
+                case 'master_menu':
+                    $route = 'master-menu/index';
+                    break;
+                case 'master_page':
+                    $route = 'master-page/index';
+                    break;
+                case 'master_form':
+                    $route = 'master-form/index';
+                    break;
+                case 'master_table':
+                    $route = 'table-builder/index';
+                    break;
+                case 'workspace_settings':
+                    $route = 'settings/workspace';
+                    break;
+            }
 
             if ($route !== null) {
                 return $permissionService->canAccessRoute($route);

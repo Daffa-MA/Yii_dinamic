@@ -640,9 +640,19 @@ class MasterFormController extends Controller
 
         $displayColumn = trim((string)($pickerConfig['display_column'] ?? $field['fk_display_column'] ?? $field['label_column'] ?? $relationConfig['display_column'] ?? ''));
         $displayColumn = $this->resolvePickerDisplayColumn($schema->columns, $valueColumn, $displayColumn);
-        $searchColumns = $this->normalizePickerColumnList($pickerConfig['search_columns'] ?? [], $schema->columns, 5);
-        if (empty($searchColumns)) {
-            $searchColumns = $this->resolvePickerSearchColumns($schema->columns, $valueColumn, $displayColumn);
+        $searchTarget = strtolower(trim((string)($pickerConfig['search_target'] ?? '')));
+        $searchColumns = [];
+        if ($searchTarget === 'value_only') {
+            $searchColumns = $this->normalizePickerColumnList([$valueColumn], $schema->columns, 5);
+        } elseif ($searchTarget === 'display_only') {
+            $searchColumns = $this->normalizePickerColumnList([$displayColumn], $schema->columns, 5);
+        } elseif ($searchTarget === 'value_and_display') {
+            $searchColumns = $this->normalizePickerColumnList([$valueColumn, $displayColumn], $schema->columns, 5);
+        } else {
+            $searchColumns = $this->normalizePickerColumnList($pickerConfig['search_columns'] ?? [], $schema->columns, 5);
+            if (empty($searchColumns)) {
+                $searchColumns = $this->resolvePickerSearchColumns($schema->columns, $valueColumn, $displayColumn);
+            }
         }
         $displayColumns = $this->normalizePickerColumnList($pickerConfig['display_columns'] ?? [], $schema->columns, 8);
         if (empty($displayColumns)) {
@@ -653,6 +663,7 @@ class MasterFormController extends Controller
             'main_table' => $tableName,
             'value_column' => $valueColumn,
             'display_column' => $displayColumn,
+            'search_target' => $searchTarget !== '' ? $searchTarget : 'custom',
             'search_columns' => $searchColumns,
             'display_columns' => $displayColumns,
             'page_size' => min(50, max(1, (int)($pickerConfig['page_size'] ?? 10))),

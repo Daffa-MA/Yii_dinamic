@@ -252,6 +252,57 @@
         }).join('') + '</div>';
     }
 
+    function normalizeDetailText(value) {
+        return String(value == null ? '' : value).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
+    function isBlockedDetailLabel(label) {
+        var normalized = normalizeDetailText(label);
+        if (!normalized) {
+            return true;
+        }
+
+        if (normalized === 'id' || /(^|_)id(_|$)/.test(normalized) || /_id$/.test(normalized)) {
+            return true;
+        }
+
+        return /(^|_)(created_at|updated_at|deleted_at|created_by|updated_by|password|token|secret|auth_key|api_key)(_|$)/.test(normalized);
+    }
+
+    function filterDetailItems(items) {
+        if (!isArray(items)) {
+            return [];
+        }
+
+        var seen = {};
+        return items.filter(function(item) {
+            if (!item) {
+                return false;
+            }
+
+            var label = item.label !== undefined ? item.label : '';
+            var value = item.value !== undefined ? item.value : '';
+            var normalizedLabel = normalizeDetailText(label);
+            var normalizedValue = normalizeDetailText(value);
+            if (isBlockedDetailLabel(label) || isBlockedDetailLabel(value)) {
+                return false;
+            }
+            if (normalizedLabel === 'raw_fk_id' || normalizedLabel === 'fk_id' || normalizedLabel === 'foreign_key_id') {
+                return false;
+            }
+            if (!normalizedLabel && !normalizedValue) {
+                return false;
+            }
+
+            var key = normalizedLabel + '|' + normalizedValue;
+            if (seen[key]) {
+                return false;
+            }
+            seen[key] = true;
+            return true;
+        });
+    }
+
     function renderPickerDetailCard(form, fieldName, display) {
         var container = ensurePickerDetailContainer(form, fieldName);
         if (!container) {
@@ -265,7 +316,12 @@
         }
 
         var title = display.detail_title || display.title || 'Detail';
-        var items = isArray(display.items) ? display.items : [];
+        var items = filterDetailItems(display.items || []);
+        if (items.length === 0) {
+            container.hidden = true;
+            container.innerHTML = '';
+            return;
+        }
         container.innerHTML = '<div class="relation-picker-detail-title">' + escapeHtml(title) + '</div>' + renderDetailItems(items);
         container.hidden = false;
     }

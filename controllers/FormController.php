@@ -1439,7 +1439,7 @@ class FormController extends Controller
             return false;
         }
 
-        $submissionRows = $this->buildDirectSubmissionRows($insertData, $repeatFieldNames);
+        $submissionRows = $this->buildDirectSubmissionRows($insertData, $repeatFieldNames, $form);
         foreach ($submissionRows as $rowPayload) {
             $targetDb->createCommand()->insert($table->name, $rowPayload)->execute();
         }
@@ -1551,7 +1551,7 @@ class FormController extends Controller
      * @param array<int, string> $repeatFieldNames
      * @return array<int, array<string, mixed>>
      */
-    private function buildDirectSubmissionRows(array $insertData, array $repeatFieldNames): array
+    private function buildDirectSubmissionRows(array $insertData, array $repeatFieldNames, ?Form $form = null): array
     {
         $repeatFieldName = '';
         $repeatValues = [];
@@ -1573,6 +1573,35 @@ class FormController extends Controller
                 $repeatFieldName = $fieldName;
                 $repeatValues = $values;
                 break;
+            }
+        }
+
+        if ($repeatFieldName === '' && $form !== null) {
+            $mappingDebug = [];
+            $schema = $this->normalizeFormSchemaFields($this->getFilteredBlocks($form), $form, $mappingDebug);
+            foreach ($schema as $index => $field) {
+                if (!is_array($field) || !$this->shouldExpandSubmissionField($field)) {
+                    continue;
+                }
+
+                $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
+                if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
+                    continue;
+                }
+
+                $candidateValue = $insertData[$fieldName];
+                if (is_array($candidateValue)) {
+                    $repeatValues = $this->normalizeSubmittedArrayValues($candidateValue);
+                } elseif (is_string($candidateValue) && str_contains($candidateValue, ',')) {
+                    $repeatValues = $this->normalizeSubmittedArrayValues(explode(',', $candidateValue));
+                } elseif ($candidateValue !== null && $candidateValue !== '') {
+                    $repeatValues = $this->normalizeSubmittedArrayValues([$candidateValue]);
+                }
+
+                if (!empty($repeatValues)) {
+                    $repeatFieldName = $fieldName;
+                    break;
+                }
             }
         }
 

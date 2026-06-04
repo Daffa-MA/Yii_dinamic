@@ -1882,9 +1882,14 @@ class MasterFormController extends Controller
                     continue;
                 }
 
+                $label = $this->humanizePickerColumn($columnName);
+                if ($this->isBlockedDetailLabel($label)) {
+                    continue;
+                }
+
                 $ranked[] = [
                     'score' => $this->scoreDetailColumn($columnName) - ($depth * 5),
-                    'label' => $this->humanizePickerColumn($columnName),
+                    'label' => $label,
                     'value' => is_scalar($value) ? (string)$value : Json::encode($value),
                 ];
             }
@@ -1948,6 +1953,29 @@ class MasterFormController extends Controller
         }
 
         return 20;
+    }
+
+    private function isBlockedDetailLabel(string $label): bool
+    {
+        $normalized = $this->normalizeSchemaKey($label);
+        if ($normalized === '') {
+            return true;
+        }
+
+        if ($normalized === 'id' || str_ends_with($normalized, '_id') || str_contains($normalized, '_id_')) {
+            return true;
+        }
+
+        foreach ([
+            'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by',
+            'password', 'token', 'secret', 'auth_key', 'api_key', 'remember_token',
+        ] as $blocked) {
+            if ($normalized === $blocked || str_contains($normalized, $blocked)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function beforeAction($action)
@@ -2390,7 +2418,11 @@ class MasterFormController extends Controller
                         $insertData[$fieldName] = implode(',', $values);
                     }
                 } elseif ($postedValue !== null && $postedValue !== '') {
-                    $insertData[$fieldName] = $postedValue;
+                    if ($repeatableField && is_string($postedValue) && str_contains($postedValue, ',')) {
+                        $insertData[$fieldName] = $this->normalizeSubmittedArrayValues(explode(',', $postedValue));
+                    } else {
+                        $insertData[$fieldName] = $postedValue;
+                    }
                 }
 
                 $fieldMappingDebug[] = [
@@ -2981,13 +3013,23 @@ class MasterFormController extends Controller
                 if ($fieldName === '') {
                     $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, null, 0);
                 }
-                if ($fieldName === '' || !array_key_exists($fieldName, $insertData) || !is_array($insertData[$fieldName])) {
+                if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
                     continue;
                 }
 
-                $repeatFieldName = $fieldName;
-                $repeatValues = $this->normalizeSubmittedArrayValues($insertData[$fieldName]);
-                break;
+                $candidateValue = $insertData[$fieldName];
+                if (is_array($candidateValue)) {
+                    $repeatValues = $this->normalizeSubmittedArrayValues($candidateValue);
+                } elseif (is_string($candidateValue) && str_contains($candidateValue, ',')) {
+                    $repeatValues = $this->normalizeSubmittedArrayValues(explode(',', $candidateValue));
+                } elseif ($candidateValue !== null && $candidateValue !== '') {
+                    $repeatValues = $this->normalizeSubmittedArrayValues([$candidateValue]);
+                }
+
+                if (!empty($repeatValues)) {
+                    $repeatFieldName = $fieldName;
+                    break;
+                }
             }
         }
 

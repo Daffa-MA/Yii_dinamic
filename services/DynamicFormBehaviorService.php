@@ -216,69 +216,33 @@ class DynamicFormBehaviorService
     public function buildSubmissionRows(array $insertData, array $behavior, array $repeatFieldNames, array $fields = []): array
     {
         $submitMode = strtolower(trim((string)($behavior['submit_mode'] ?? '')));
-        $hasRepeatField = !empty($repeatFieldNames);
+        $configuredRepeatField = trim((string)($behavior['multiple_row_field'] ?? ''));
+        $hasRepeatField = !empty($repeatFieldNames) || $configuredRepeatField !== '';
         $isMultipleRowInsert = $hasRepeatField || in_array($submitMode, ['multiple_row_insert', 'multiple-row-insert'], true);
         if (!$isMultipleRowInsert) {
             return [$this->collapseNonRepeatArrays($insertData, [])];
         }
 
-        $repeatFieldName = null;
-        $repeatValues = [];
-
-        $preferredField = trim((string)($behavior['multiple_row_field'] ?? ''));
-        $candidates = array_values(array_unique(array_filter(array_merge(
-            $preferredField !== '' ? [$preferredField] : [],
-            $repeatFieldNames
-        ))));
-
-        foreach ($candidates as $candidateFieldName) {
-            if ($candidateFieldName === '' || !array_key_exists($candidateFieldName, $insertData)) {
-                continue;
-            }
-
-            $values = $this->normalizeMultipleRowValues($insertData[$candidateFieldName]);
-            if (!empty($values)) {
-                $repeatFieldName = $candidateFieldName;
-                $repeatValues = $values;
-                break;
-            }
-        }
-
+        $repeatFieldName = $this->resolveMultipleRowFieldName($insertData, $behavior, $repeatFieldNames, $fields);
         if ($repeatFieldName === null) {
-            foreach ($fields as $fieldIndex => $field) {
-                if (!is_array($field) || !$this->fieldHasMultipleRowMarker($field)) {
-                    continue;
-                }
-
-                $fieldName = $this->resolveFieldIdentity($field, (int)$fieldIndex);
-                if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
-                    continue;
-                }
-
-                $values = $this->normalizeMultipleRowValues($insertData[$fieldName]);
-                if (!empty($values)) {
-                    $repeatFieldName = $fieldName;
-                    $repeatValues = $values;
-                    break;
-                }
-            }
+            return [$this->collapseNonRepeatArrays($insertData, $repeatFieldNames)];
         }
 
-        if ($repeatFieldName === null || empty($repeatValues)) {
+        $repeatValues = $this->normalizeMultipleRowValues($insertData[$repeatFieldName]);
+        if (empty($repeatValues)) {
             return [$this->collapseNonRepeatArrays($insertData, $repeatFieldNames)];
+        }
+
+        if (count($repeatValues) === 1) {
+            $insertData[$repeatFieldName] = $repeatValues[0];
+            return [$this->normalizeSubmissionRow($insertData, $repeatFieldNames, $repeatFieldName)];
         }
 
         $rows = [];
         foreach ($repeatValues as $repeatValue) {
-            $row = [];
-            foreach ($insertData as $columnName => $value) {
-                if ($columnName === $repeatFieldName) {
-                    $row[$columnName] = $repeatValue;
-                    continue;
-                }
-                $row[$columnName] = $this->scalarizeInsertValue($value, in_array($columnName, $repeatFieldNames, true));
-            }
-            $rows[] = $row;
+            $row = $insertData;
+            $row[$repeatFieldName] = $repeatValue;
+            $rows[] = $this->normalizeSubmissionRow($row, $repeatFieldNames, $repeatFieldName);
         }
 
         return $rows;
@@ -647,6 +611,94 @@ class DynamicFormBehaviorService
         }
 
         return $singleRow;
+    }
+
+    /**
+     * @param array<string, mixed> $insertData
+     * @param array{submit_mode?: string, multiple_row_field?: string, repeat_field_names?: array<int, string>} $behavior
+     * @param array<int, string> $repeatFieldNames
+     * @param array<int, array<string, mixed>> $fields
+     * @return string|null
+     */
+    private function resolveMultipleRowFieldName(array $insertData, array $behavior, array $repeatFieldNames, array $fields = []): ?string
+    {
+        $preferredField = trim((string)($behavior['multiple_row_field'] ?? ''));
+        $candidates = array_values(array_unique(array_filter(array_merge(
+            $preferredField !== '' ? [$preferredField] : [],
+            $repeatFieldNames
+        ))));
+
+        foreach ($candidates as $candidateFieldName) {
+            if ($candidateFieldName === '' || !array_key_exists($candidateFieldName, $insertData)) {
+                continue;
+            }
+
+            if ($this->normalizeMultipleRowValues($insertData[$candidateFieldName]) !== []) {
+                return $candidateFieldName;
+            }
+        }
+
+        foreach ($fields as $fieldIndex => $field) {
+            if (!is_array($field) || !$this->fieldHasMultipleRowMarker($field)) {
+                continue;
+            }
+
+            $fieldName = $this->resolveFieldIdentity($field, (int)$fieldIndex);
+            if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
+                continue;
+            }
+
+            if ($this->normalizeMultipleRowValues($insertData[$fieldName]) !== []) {
+                return $fieldName;
+            }
+        }
+
+        if (in_array(strtolower(trim((string)($behavior['submit_mode'] ?? ''))), ['multiple_row_insert', 'multiple-row-insert'], true)) {
+            foreach ($insertData as $columnName => $value) {
+                if ($columnName === '' || !is_array($value) && !is_string($value) && !is_scalar($value)) {
+                    continue;
+                }
+
+                $values = $this->normalizeMultipleRowValues($value);
+                if (count($values) > 1) {
+                    return (string)$columnName;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<int, string> $repeatFieldNames
+     * @param string|null $repeatFieldName
+     * @return array<string, mixed>
+     */
+    private function normalizeSubmissionRow(array $row, array $repeatFieldNames, ?string $repeatFieldName): array
+    {
+        $normalized = [];
+        foreach ($row as $columnName => $value) {
+            $isRepeatField = ($repeatFieldName !== null && $columnName === $repeatFieldName) || in_array($columnName, $repeatFieldNames, true);
+            if ($isRepeatField) {
+                if (is_array($value)) {
+                    $values = $this->normalizeMultipleRowValues($value);
+                    $normalized[$columnName] = $values[0] ?? '';
+                    continue;
+                }
+                $values = $this->normalizeMultipleRowValues($value);
+                if (!empty($values)) {
+                    $normalized[$columnName] = $values[0];
+                    continue;
+                }
+                $normalized[$columnName] = is_scalar($value) ? trim((string)$value) : '';
+                continue;
+            }
+
+            $normalized[$columnName] = $this->scalarizeInsertValue($value, false);
+        }
+
+        return $normalized;
     }
 
     /**

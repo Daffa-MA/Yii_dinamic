@@ -181,6 +181,7 @@ if ($model->table_id) {
 }
 
 $this->title = 'Preview: ' . $formName;
+$this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HEAD]);
 ?>
 
 <style>
@@ -620,7 +621,7 @@ $this->title = 'Preview: ' . $formName;
             <?php else: ?>
                 <!-- Default Form Builder Mode: Render form fields -->
                 <?php if (!empty($fields)): ?>
-                <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', ['id' => 'preview-form']) ?>
+                <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', ['id' => 'preview-form', 'data-form-id' => (int)$model->id]) ?>
                 <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->getCsrfToken() ?>">
                 
                 <?php foreach ($fields as $field): ?>
@@ -726,17 +727,12 @@ $this->title = 'Preview: ' . $formName;
                                 $pickerMode = 'dropdown';
                             }
                             $selectedDisplay = $defaultValue !== '' && isset($optionsList[(string)$defaultValue]) ? $optionsList[(string)$defaultValue] : '';
-                            $pickerConfig = is_array($field['picker_config'] ?? null) ? $field['picker_config'] : [];
-                            $searchColumns = array_values(array_filter(array_map('trim', (array)($pickerConfig['search_columns'] ?? []))));
-                            $displayColumns = array_values(array_filter(array_map('trim', (array)($pickerConfig['display_columns'] ?? []))));
-                            $searchSummary = $searchColumns !== [] ? Html::encode(implode(', ', array_slice($searchColumns, 0, 4))) : Html::encode($pickerMode === 'autocomplete_with_modal' ? 'Mengikuti pengaturan modal' : 'Tidak disetel');
-                            $displaySummary = $displayColumns !== [] ? Html::encode(implode(', ', array_slice($displayColumns, 0, 4))) : Html::encode($pickerMode === 'autocomplete_with_modal' ? 'Mengikuti pengaturan modal' : 'Tidak disetel');
-                            $pageSize = max(1, min(50, (int)($pickerConfig['page_size'] ?? 10)));
                             ?>
                             <?php if ($isFk && $pickerMode !== 'dropdown'): ?>
                                 <?= Html::hiddenInput($name, $defaultValue, [
                                     'class' => 'relation-picker-value',
                                     'data-relation-picker-value' => $name,
+                                    'data-form-id' => (int)$model->id,
                                 ]) ?>
                                 <div class="relation-picker-row">
                                     <?= Html::textInput('__fk_display_' . $name, $selectedDisplay, [
@@ -755,11 +751,7 @@ $this->title = 'Preview: ' . $formName;
                                 <div class="relation-picker-status" data-relation-picker-status="<?= Html::encode($name) ?>">
                                     Tekan Enter untuk mencari data.
                                 </div>
-                                <div class="relation-picker-config-summary" style="margin-top:8px;padding:8px 10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;font-size:12px;color:#475569;line-height:1.5;">
-                                    <div><strong>Search columns:</strong> <?= $searchSummary ?></div>
-                                    <div><strong>Display columns:</strong> <?= $displaySummary ?></div>
-                                    <div><strong>Page size:</strong> <?= $pageSize ?></div>
-                                </div>
+                                <div class="relation-picker-detail" data-relation-picker-detail="<?= Html::encode($name) ?>" hidden></div>
                             <?php else: ?>
                                 <?= Html::dropDownList($name, $defaultValue, $optionsList, [
                                     'class' => 'preview-input preview-select',
@@ -878,6 +870,10 @@ $this->title = 'Preview: ' . $formName;
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    if (window.DynamicFormRuntime && window.DynamicFormRuntime.__assetRuntime) {
+        return;
+    }
+
     var previewForm = document.getElementById('preview-form');
     if (!previewForm) {
         return;

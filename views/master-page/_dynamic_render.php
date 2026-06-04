@@ -266,14 +266,7 @@ window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
     }
 
     function setPickerModalSummary(modal, meta) {
-        if (!modal) return;
-        var summary = modal.querySelector('[data-picker-summary]');
-        if (!summary) return;
-        var searchText = meta.searchColumns.length ? meta.searchColumns.slice(0, 4).join(', ') : 'Tidak disetel';
-        var displayText = meta.displayColumns.length ? meta.displayColumns.slice(0, 4).join(', ') : 'Tidak disetel';
-        summary.innerHTML = '<div><strong>Search columns:</strong> ' + escapeHtml(searchText) + '</div>' +
-            '<div><strong>Display columns:</strong> ' + escapeHtml(displayText) + '</div>' +
-            '<div><strong>Page size:</strong> ' + escapeHtml(String(meta.pageSize || 10)) + '</div>';
+        return;
     }
 
     function ensureModal() {
@@ -283,14 +276,13 @@ window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
         modal = document.createElement('div');
         modal.id = 'dynamicRelationPickerModal';
         modal.className = 'relation-picker-modal';
-        modal.innerHTML = `
+                modal.innerHTML = `
             <div class="relation-picker-panel">
                 <div class="relation-picker-head">
                     <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;width:100%;">
                         <strong>Pilih Data</strong>
                         <button type="button" class="relation-picker-btn" data-picker-close>Tutup</button>
                     </div>
-                    <div data-picker-summary style="font-size:12px;color:#64748b;line-height:1.45;display:grid;gap:2px;margin-top:8px;"></div>
                 </div>
                 <div class="relation-picker-body">
                     <input type="text" class="relation-picker-search" data-picker-search placeholder="Cari data...">

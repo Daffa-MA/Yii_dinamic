@@ -12,6 +12,7 @@ $layoutJson = Json::decode($layoutJson, true);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preview Halaman</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/dynamic-form-runtime.js"></script>
     <style>
         .relation-picker-wrapper { width:100%; }
         .relation-picker-input-group,
@@ -163,15 +164,7 @@ $layoutJson = Json::decode($layoutJson, true);
             }
 
             function setPickerModalSummary(modal, meta) {
-                if (!modal) return;
-                const summary = modal.querySelector('[data-picker-summary]');
-                if (!summary) return;
-                const searchText = meta.searchColumns.length ? meta.searchColumns.slice(0, 4).join(', ') : 'Tidak disetel';
-                const displayText = meta.displayColumns.length ? meta.displayColumns.slice(0, 4).join(', ') : 'Tidak disetel';
-                summary.innerHTML =
-                    '<div><strong>Search columns:</strong> ' + escapeHtml(searchText) + '</div>' +
-                    '<div><strong>Display columns:</strong> ' + escapeHtml(displayText) + '</div>' +
-                    '<div><strong>Page size:</strong> ' + escapeHtml(String(meta.pageSize || 10)) + '</div>';
+                return;
             }
 
             function ensureModal() {
@@ -188,7 +181,6 @@ $layoutJson = Json::decode($layoutJson, true);
                                 <strong>Pilih Data</strong>
                                 <button type="button" class="relation-picker-btn" data-picker-close>Tutup</button>
                             </div>
-                            <div data-picker-summary style="font-size:12px;color:#64748b;line-height:1.45;display:grid;gap:2px;margin-top:8px;"></div>
                         </div>
                         <div class="relation-picker-body">
                             <input type="text" class="relation-picker-search" data-picker-search placeholder="Cari data...">
@@ -379,6 +371,15 @@ $layoutJson = Json::decode($layoutJson, true);
         })();
 
         document.addEventListener("DOMContentLoaded", function() {
+            if (window.DynamicFormRuntime && window.DynamicFormRuntime.__assetRuntime) {
+                const container = document.getElementById("preview-content");
+                if (container && window.pageState) {
+                    container.innerHTML = window.pageState.map(renderBlock).join("");
+                    hydrateDynamicForms(container);
+                }
+                return;
+            }
+
             const container = document.getElementById("preview-content");
             if (container && window.pageState) {
                 container.innerHTML = window.pageState.map(renderBlock).join("");

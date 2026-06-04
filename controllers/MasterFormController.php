@@ -1338,6 +1338,258 @@ class MasterFormController extends Controller
         }
     }
 
+    public function actionResolveAutofill($form_id = null, $trigger_field = null, $trigger_value = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findScopedModel((int)$form_id);
+            $field = $this->resolveRelationPickerField($model, (string)$trigger_field);
+            if ($field === null) {
+                return ['success' => false, 'message' => 'Field relasi tidak ditemukan.', 'values' => new \stdClass(), 'display' => ['enabled' => false, 'items' => []]];
+            }
+
+            $config = $this->buildRelationPickerConfig($field);
+            if ($config === null) {
+                return ['success' => false, 'message' => 'Konfigurasi relasi belum valid.', 'values' => new \stdClass(), 'display' => ['enabled' => false, 'items' => []]];
+            }
+
+            $triggerValue = trim((string)$trigger_value);
+            if ($triggerValue === '') {
+                return ['success' => true, 'values' => new \stdClass(), 'display' => ['enabled' => false, 'items' => []]];
+            }
+
+            $sourceRow = $this->loadRelationPickerSourceRow($config, $triggerValue);
+            if ($sourceRow === null) {
+                return ['success' => false, 'message' => 'Data relasi tidak ditemukan.', 'values' => new \stdClass(), 'display' => ['enabled' => false, 'items' => []]];
+            }
+
+            $schema = $this->formEngineService->getResolvedFormSchema($model);
+            $fields = is_array($schema['fields'] ?? null) ? $schema['fields'] : [];
+            $values = $this->buildAutofillResponseValues($fields, $field, $sourceRow);
+            $display = $this->buildAutofillDisplayPayload($sourceRow, $config, $field);
+
+            return [
+                'success' => true,
+                'values' => $values,
+                'display' => $display,
+            ];
+        } catch (\Throwable $e) {
+            Yii::error([
+                'resolve_autofill_error' => true,
+                'form_id' => $form_id,
+                'trigger_field' => $trigger_field,
+                'error' => $e->getMessage(),
+            ], 'relation-picker');
+            return ['success' => false, 'message' => 'Gagal memuat auto-fill.', 'values' => new \stdClass(), 'display' => ['enabled' => false, 'items' => []]];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>|null
+     */
+    private function loadRelationPickerSourceRow(array $config, string $triggerValue): ?array
+    {
+        $tableName = trim((string)($config['main_table'] ?? ''));
+        $valueColumn = trim((string)($config['value_column'] ?? 'id'));
+        if ($tableName === '' || $valueColumn === '') {
+            return null;
+        }
+
+        $query = (new Query())
+            ->from($tableName)
+            ->where([$valueColumn => $triggerValue])
+            ->limit(1);
+
+        $row = $query->one(Yii::$app->db);
+        return is_array($row) ? $row : null;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $fields
+     * @param array<string, mixed> $triggerField
+     * @param array<string, mixed> $sourceRow
+     * @return array<string, mixed>
+     */
+    private function buildAutofillResponseValues(array $fields, array $triggerField, array $sourceRow): array
+    {
+        $values = [];
+        $sourceLookup = [];
+        foreach ($sourceRow as $columnName => $value) {
+            $normalized = $this->normalizeSchemaKey((string)$columnName);
+            if ($normalized !== '' && !isset($sourceLookup[$normalized])) {
+                $sourceLookup[$normalized] = (string)$columnName;
+            }
+            $humanized = $this->normalizeSchemaKey($this->humanizePickerColumn((string)$columnName));
+            if ($humanized !== '' && !isset($sourceLookup[$humanized])) {
+                $sourceLookup[$humanized] = (string)$columnName;
+            }
+        }
+
+        $triggerCandidates = array_filter(array_unique([
+            (string)($triggerField['resolved_name'] ?? ''),
+            (string)($triggerField['resolved_column_name'] ?? ''),
+            (string)($triggerField['name'] ?? ''),
+            (string)($triggerField['field_name'] ?? ''),
+            (string)($triggerField['field_key'] ?? ''),
+            (string)($triggerField['column_name'] ?? ''),
+        ]));
+
+        foreach ($fields as $index => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $field = FormRenderService::normalizeFieldForRender($field, (int)$index);
+            $fieldName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+            if ($fieldName === '') {
+                continue;
+            }
+
+            if (in_array($fieldName, $triggerCandidates, true)) {
+                continue;
+            }
+
+            $candidateColumns = [];
+            foreach ([
+                $fieldName,
+                (string)($field['auto_fill_source_column'] ?? ''),
+                (string)($field['autofill_source_column'] ?? ''),
+                (string)($field['auto_fill_from'] ?? ''),
+                (string)($field['autofill_from'] ?? ''),
+                (string)($field['source_column'] ?? ''),
+                (string)($field['source_column_name'] ?? ''),
+                (string)($field['local_column'] ?? ''),
+                (string)($field['display_column'] ?? ''),
+                (string)($field['value_column'] ?? ''),
+                (string)($field['label_column'] ?? ''),
+                (string)($field['field_label'] ?? ''),
+                (string)($field['label'] ?? ''),
+            ] as $candidate) {
+                $candidate = trim((string)$candidate);
+                if ($candidate !== '') {
+                    $candidateColumns[] = $candidate;
+                }
+            }
+
+            $fieldBehavior = strtolower(trim((string)($field['field_behavior'] ?? $field['behavior'] ?? '')));
+            $fieldMeta = $this->extractAutofillFieldConfig($field);
+            if (!empty($fieldMeta['source_column'])) {
+                $candidateColumns[] = (string)$fieldMeta['source_column'];
+            }
+            if (!empty($fieldMeta['display_column'])) {
+                $candidateColumns[] = (string)$fieldMeta['display_column'];
+            }
+            if (!empty($fieldMeta['value_column'])) {
+                $candidateColumns[] = (string)$fieldMeta['value_column'];
+            }
+            if (!empty($fieldMeta['source_field'])) {
+                $candidateColumns[] = (string)$fieldMeta['source_field'];
+            }
+
+            $matchedColumn = $this->matchSourceColumnForAutofill($candidateColumns, $sourceRow, $sourceLookup);
+            if ($matchedColumn === null && in_array($fieldBehavior, ['readonly', 'display_only', 'display-only'], true)) {
+                $matchedColumn = $this->matchSourceColumnForAutofill(array_keys($sourceRow), $sourceRow, $sourceLookup);
+            }
+
+            if ($matchedColumn === null) {
+                continue;
+            }
+
+            $values[$fieldName] = $sourceRow[$matchedColumn];
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @return array<string, mixed>
+     */
+    private function extractAutofillFieldConfig(array $field): array
+    {
+        foreach (['auto_fill_rules', 'autofill_rules', 'auto_fill', 'autofill'] as $key) {
+            $value = $field[$key] ?? null;
+            if (is_array($value)) {
+                if ($this->isListArray($value)) {
+                    foreach ($value as $rule) {
+                        if (!is_array($rule)) {
+                            continue;
+                        }
+                        $candidate = array_filter([
+                            'source_column' => $rule['source_column'] ?? $rule['source'] ?? $rule['from'] ?? $rule['column'] ?? null,
+                            'display_column' => $rule['display_column'] ?? $rule['display'] ?? null,
+                            'value_column' => $rule['value_column'] ?? $rule['value'] ?? null,
+                            'source_field' => $rule['source_field'] ?? $rule['field'] ?? null,
+                        ], static fn($value): bool => $value !== null && $value !== '');
+                        if (!empty($candidate)) {
+                            return $candidate;
+                        }
+                    }
+                }
+
+                return array_filter([
+                    'source_column' => $value['source_column'] ?? $value['source'] ?? $value['from'] ?? $value['column'] ?? null,
+                    'display_column' => $value['display_column'] ?? $value['display'] ?? null,
+                    'value_column' => $value['value_column'] ?? $value['value'] ?? null,
+                    'source_field' => $value['source_field'] ?? $value['field'] ?? null,
+                ], static fn($item): bool => $item !== null && $item !== '');
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<int, string> $candidateColumns
+     * @param array<string, mixed> $sourceRow
+     * @param array<string, string> $sourceLookup
+     */
+    private function matchSourceColumnForAutofill(array $candidateColumns, array $sourceRow, array $sourceLookup): ?string
+    {
+        foreach (array_values(array_unique(array_filter(array_map('trim', $candidateColumns)))) as $candidate) {
+            if (isset($sourceRow[$candidate])) {
+                return $candidate;
+            }
+
+            $normalized = $this->normalizeSchemaKey($candidate);
+            if ($normalized !== '' && isset($sourceLookup[$normalized])) {
+                return $sourceLookup[$normalized];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $sourceRow
+     * @param array<string, mixed> $config
+     * @param array<string, mixed> $triggerField
+     * @return array<string, mixed>
+     */
+    private function buildAutofillDisplayPayload(array $sourceRow, array $config, array $triggerField = []): array
+    {
+        $items = [];
+        foreach ($sourceRow as $columnName => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $items[] = [
+                'label' => $this->humanizePickerColumn((string)$columnName),
+                'value' => is_scalar($value) ? (string)$value : Json::encode($value),
+            ];
+        }
+
+        $title = trim((string)($triggerField['label'] ?? $triggerField['field_label'] ?? $config['display_column'] ?? $config['main_table'] ?? 'Detail'));
+        return [
+            'enabled' => !empty($items),
+            'detail_title' => $title !== '' ? $title : 'Detail',
+            'items' => $items,
+        ];
+    }
+
     public function beforeAction($action)
     {
         if (!parent::beforeAction($action)) {

@@ -239,17 +239,26 @@
 
     function renderDetailItems(items) {
         if (!isArray(items) || items.length === 0) {
-            return '<div style="font-size:13px;color:#64748b;">Data detail tidak tersedia.</div>';
+            return '';
         }
 
         return '<div class="relation-picker-detail-grid">' + items.map(function(item) {
             var label = item && item.label !== undefined ? item.label : '';
             var value = item && item.value !== undefined ? item.value : '';
+            if (typeof value === 'object' && value !== null) {
+                devDebug('Skipped raw detail value for field', label);
+                return '';
+            }
+            var valueText = String(value == null ? '' : value);
+            if (/^\s*[\[{]/.test(valueText)) {
+                devDebug('Skipped JSON-like detail value for field', label);
+                return '';
+            }
             return '<div style="display:flex;gap:10px;justify-content:space-between;align-items:flex-start;">' +
                 '<div style="font-weight:600;">' + escapeHtml(label) + '</div>' +
-                '<div style="text-align:right;word-break:break-word;">' + escapeHtml(value) + '</div>' +
+                '<div style="text-align:right;word-break:break-word;">' + escapeHtml(valueText) + '</div>' +
             '</div>';
-        }).join('') + '</div>';
+        }).filter(function(html) { return html !== ''; }).join('') + '</div>';
     }
 
     function normalizeDetailText(value) {
@@ -320,8 +329,10 @@
         if (items.length === 0) {
             container.hidden = true;
             container.innerHTML = '';
+            devDebug('Detail card hidden: no configured detail_card items', fieldName, display);
             return;
         }
+        devDebug('Detail card rendered from config', fieldName, { title: title, items: items });
         container.innerHTML = '<div class="relation-picker-detail-title">' + escapeHtml(title) + '</div>' + renderDetailItems(items);
         container.hidden = false;
     }
@@ -417,6 +428,13 @@
                 if (!data || !data.success) {
                     throw new Error((data && data.message) || 'Data relasi tidak ditemukan.');
                 }
+
+                devDebug('Autofill resolved', {
+                    triggerField: triggerField,
+                    triggerValue: triggerValue,
+                    display: data.display || null,
+                    values: data.values || {}
+                });
 
                 applyAutofillValues(
                     form,

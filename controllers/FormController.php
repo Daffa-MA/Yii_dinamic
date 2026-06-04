@@ -27,11 +27,35 @@ use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
 use app\helpers\FormSystemFieldHelper;
+use app\services\DynamicFormBehaviorService;
 
 class FormController extends Controller
 {
     /** @var RelationMapper|null */
     private $relationMapper;
+
+    private ?DynamicFormBehaviorService $dynamicFormBehaviorService = null;
+
+    private function getDynamicFormBehaviorService(): DynamicFormBehaviorService
+    {
+        if ($this->dynamicFormBehaviorService === null) {
+            $this->dynamicFormBehaviorService = new DynamicFormBehaviorService();
+        }
+
+        return $this->dynamicFormBehaviorService;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function resolveFormBehaviorConfig(Form $form): array
+    {
+        $schemaColumn = Form::getSchemaStorageColumn();
+        $schemaJs = $form->hasAttribute($schemaColumn) ? (string)$form->getAttribute($schemaColumn) : '';
+        $decoded = json_decode($schemaJs, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
 
     private function getActiveProjectId(): ?int
     {
@@ -1383,7 +1407,18 @@ class FormController extends Controller
             $dataLookup[$this->normalizeInputKey($key)] = $value;
         }
 
-        $repeatFieldNames = $this->resolveDirectSubmitRepeatFieldNames($form);
+        $mappingDebug = [];
+        $schemaFields = $this->normalizeFormSchemaFields($this->getFilteredBlocks($form), $form, $mappingDebug);
+        $behaviorService = $this->getDynamicFormBehaviorService();
+        $formBehavior = $behaviorService->resolveDynamicBehavior($schemaFields, $this->resolveFormBehaviorConfig($form));
+        $repeatFieldNames = $behaviorService->resolveRepeatFieldNames(
+            $schemaFields,
+            $formBehavior,
+            function (array $field, int $index): string {
+                return $this->resolveSchemaFieldName($field, $index);
+            }
+        );
+
         $insertData = [];
         foreach ($columns as $column) {
             $columnName = (string)($column['name'] ?? '');
@@ -1418,10 +1453,14 @@ class FormController extends Controller
                 }
 
                 $rawValue = $dataLookup[$candidateKey];
-                if (in_array($columnName, $repeatFieldNames, true) && is_array($rawValue)) {
-                    $insertData[$columnName] = $this->normalizeSubmittedArrayValues($rawValue);
+                $isRepeatField = in_array($columnName, $repeatFieldNames, true);
+                if ($isRepeatField) {
+                    $insertData[$columnName] = $behaviorService->coerceInsertFieldValue($rawValue, true);
                 } else {
-                    $insertData[$columnName] = $this->castValueForTableColumn($rawValue, $column);
+                    $insertData[$columnName] = $behaviorService->coerceInsertFieldValue(
+                        $this->castValueForTableColumn($rawValue, $column),
+                        false
+                    );
                 }
                 break;
             }
@@ -1439,244 +1478,29 @@ class FormController extends Controller
             return false;
         }
 
-        $submissionRows = $this->buildDirectSubmissionRows($insertData, $repeatFieldNames, $form);
+        $submissionRows = $behaviorService->buildSubmissionRows(
+            $insertData,
+            $formBehavior,
+            $repeatFieldNames,
+            $schemaFields
+        );
         foreach ($submissionRows as $rowPayload) {
             $targetDb->createCommand()->insert($table->name, $rowPayload)->execute();
         }
 
-        $multipleRowDebug = $this->buildMultipleRowSubmitDebug($repeatFieldNames, $insertData, $submissionRows);
+        $multipleRowDebug = $behaviorService->buildMultipleRowSubmitDebug($formBehavior, $insertData, $submissionRows);
+        $behaviorService->logMultipleRowSubmit(
+            'FormController::persistSubmissionToCustomTable',
+            (int)$form->id,
+            $formBehavior,
+            $multipleRowDebug
+        );
         $debugContext['submit_mode'] = $multipleRowDebug['submit_mode'];
         $debugContext['multiple_row_field'] = $multipleRowDebug['multiple_row_field'];
         $debugContext['selected_values'] = $multipleRowDebug['selected_values'];
         $debugContext['insert_count'] = $multipleRowDebug['insert_count'];
         $debugContext['insert_result'] = count($submissionRows) > 1 ? 'success_multiple_rows' : 'success';
         return true;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function resolveDirectSubmitRepeatFieldNames(Form $form): array
-    {
-        $mappingDebug = [];
-        $schema = $this->normalizeFormSchemaFields($this->getFilteredBlocks($form), $form, $mappingDebug);
-        $fieldNames = [];
-        foreach ($schema as $index => $field) {
-            if (!is_array($field) || !$this->shouldExpandSubmissionField($field)) {
-                continue;
-            }
-
-            $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
-            if ($fieldName !== '') {
-                $fieldNames[] = $fieldName;
-            }
-        }
-
-        return array_values(array_unique($fieldNames));
-    }
-
-    private function shouldExpandSubmissionField(array $field): bool
-    {
-        foreach (array_merge([
-            $field['multiple_row_field'] ?? null,
-            $field['multipleRowField'] ?? null,
-            $field['is_multiple_row_field'] ?? null,
-            $field['isMultipleRowField'] ?? null,
-            $field['save_as_multiple_rows'] ?? null,
-            $field['saveAsMultipleRows'] ?? null,
-            $field['repeat_rows'] ?? null,
-            $field['repeatRows'] ?? null,
-            $field['expand_rows'] ?? null,
-            $field['expandRows'] ?? null,
-            $field['repeat_on_multiple'] ?? null,
-            $field['repeatOnMultiple'] ?? null,
-            $field['multi_row'] ?? null,
-            $field['multiRow'] ?? null,
-            $field['submit_mode'] ?? null,
-            $field['submitMode'] ?? null,
-            $field['behavior'] ?? null,
-            $field['field_behavior'] ?? null,
-        ], $this->extractSubmitBehaviorCandidates($field)) as $candidate) {
-            if (is_bool($candidate) && $candidate) {
-                return true;
-            }
-            if (is_int($candidate) && $candidate === 1) {
-                return true;
-            }
-            if (is_string($candidate)) {
-                $normalized = strtolower(trim($candidate));
-                if (in_array($normalized, ['1', 'true', 'yes', 'on', 'multiple_row_insert', 'multiple-row-insert'], true)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param array<string, mixed> $field
-     * @return array<int, mixed>
-     */
-    private function extractSubmitBehaviorCandidates(array $field): array
-    {
-        $candidates = [];
-        foreach (['field_config', 'fieldConfig', 'field_settings', 'fieldSettings', 'settings', 'config', 'behavior_config', 'behaviorConfig', 'dynamic_behavior', 'dynamicBehavior', 'detected_behavior', 'detectedBehavior'] as $key) {
-            $config = $field[$key] ?? null;
-            if (is_string($config) && trim($config) !== '') {
-                $decoded = json_decode($config, true);
-                $config = is_array($decoded) ? $decoded : [];
-            }
-            if (!is_array($config)) {
-                continue;
-            }
-
-            foreach ([
-                'multiple_row_field', 'multipleRowField', 'is_multiple_row_field', 'isMultipleRowField',
-                'save_as_multiple_rows', 'saveAsMultipleRows', 'repeat_rows', 'repeatRows',
-                'expand_rows', 'expandRows', 'repeat_on_multiple', 'repeatOnMultiple',
-                'multi_row', 'multiRow', 'submit_mode', 'submitMode', 'behavior', 'field_behavior',
-            ] as $candidateKey) {
-                if (array_key_exists($candidateKey, $config)) {
-                    $candidates[] = $config[$candidateKey];
-                }
-            }
-        }
-
-        return $candidates;
-    }
-
-    /**
-     * @param array<string, mixed> $insertData
-     * @param array<int, string> $repeatFieldNames
-     * @return array<int, array<string, mixed>>
-     */
-    private function buildDirectSubmissionRows(array $insertData, array $repeatFieldNames, ?Form $form = null): array
-    {
-        $repeatFieldName = '';
-        $repeatValues = [];
-        foreach ($repeatFieldNames as $fieldName) {
-            if (!array_key_exists($fieldName, $insertData)) {
-                continue;
-            }
-
-            $value = $insertData[$fieldName];
-            if (is_array($value)) {
-                $values = $this->normalizeSubmittedArrayValues($value);
-            } elseif (is_string($value) && str_contains($value, ',')) {
-                $values = $this->normalizeSubmittedArrayValues(explode(',', $value));
-            } else {
-                $values = $this->normalizeSubmittedArrayValues([$value]);
-            }
-
-            if (!empty($values)) {
-                $repeatFieldName = $fieldName;
-                $repeatValues = $values;
-                break;
-            }
-        }
-
-        if ($repeatFieldName === '' && $form !== null) {
-            $mappingDebug = [];
-            $schema = $this->normalizeFormSchemaFields($this->getFilteredBlocks($form), $form, $mappingDebug);
-            foreach ($schema as $index => $field) {
-                if (!is_array($field) || !$this->shouldExpandSubmissionField($field)) {
-                    continue;
-                }
-
-                $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
-                if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
-                    continue;
-                }
-
-                $candidateValue = $insertData[$fieldName];
-                if (is_array($candidateValue)) {
-                    $repeatValues = $this->normalizeSubmittedArrayValues($candidateValue);
-                } elseif (is_string($candidateValue) && str_contains($candidateValue, ',')) {
-                    $repeatValues = $this->normalizeSubmittedArrayValues(explode(',', $candidateValue));
-                } elseif ($candidateValue !== null && $candidateValue !== '') {
-                    $repeatValues = $this->normalizeSubmittedArrayValues([$candidateValue]);
-                }
-
-                if (!empty($repeatValues)) {
-                    $repeatFieldName = $fieldName;
-                    break;
-                }
-            }
-        }
-
-        if ($repeatFieldName === '' || empty($repeatValues)) {
-            $row = [];
-            foreach ($insertData as $columnName => $value) {
-                $row[$columnName] = $value;
-            }
-            return [$row];
-        }
-
-        $rows = [];
-        foreach ($repeatValues as $repeatValue) {
-            $row = [];
-            foreach ($insertData as $columnName => $value) {
-                if ($columnName === $repeatFieldName) {
-                    $row[$columnName] = $repeatValue;
-                } else {
-                    $row[$columnName] = $value;
-                }
-            }
-            $rows[] = $row;
-        }
-
-        return $rows;
-    }
-
-    private function normalizeSubmittedArrayValues(array $values): array
-    {
-        return array_values(array_filter(array_map(static function ($value): string {
-            if (is_bool($value)) {
-                return $value ? '1' : '0';
-            }
-            if (is_scalar($value)) {
-                return trim((string)$value);
-            }
-            return '';
-        }, $values), static function (string $value): bool {
-            return $value !== '';
-        }));
-    }
-
-    /**
-     * @param array<int, string> $repeatFieldNames
-     * @param array<string, mixed> $insertData
-     * @param array<int, array<string, mixed>> $submissionRows
-     * @return array<string, mixed>
-     */
-    private function buildMultipleRowSubmitDebug(array $repeatFieldNames, array $insertData, array $submissionRows): array
-    {
-        $multipleRowField = '';
-        $selectedValues = [];
-        foreach ($repeatFieldNames as $fieldName) {
-            if (!array_key_exists($fieldName, $insertData)) {
-                continue;
-            }
-
-            $multipleRowField = $fieldName;
-            $value = $insertData[$fieldName];
-            if (is_array($value)) {
-                $selectedValues = $this->normalizeSubmittedArrayValues($value);
-            } elseif (is_string($value) && str_contains($value, ',')) {
-                $selectedValues = $this->normalizeSubmittedArrayValues(explode(',', $value));
-            } elseif ($value !== null && $value !== '') {
-                $selectedValues = $this->normalizeSubmittedArrayValues([$value]);
-            }
-            break;
-        }
-
-        return [
-            'submit_mode' => $multipleRowField !== '' ? 'multiple_row_insert' : 'single_row',
-            'multiple_row_field' => $multipleRowField,
-            'selected_values' => $selectedValues,
-            'insert_count' => count($submissionRows),
-        ];
     }
 
     /**

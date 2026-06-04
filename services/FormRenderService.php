@@ -727,21 +727,60 @@ class FormRenderService
 
     function collectInto(form) {
         if (!form || form.tagName !== 'FORM') return;
+        Array.prototype.forEach.call(form.querySelectorAll('[data-collected-control="1"]'), function(node) {
+            node.remove();
+        });
+
+        var externalCheckboxGroups = {};
         var controls = document.querySelectorAll('input[name], select[name], textarea[name]');
         controls.forEach(function(control) {
             if (control.form === form || control.disabled || !control.name) return;
             if ((control.type === 'checkbox' || control.type === 'radio') && !control.checked) return;
             if (control.name.charAt(0) === '_' && control.type === 'hidden') return;
+
+            var controlName = control.name;
+            var isCheckboxGroup = control.type === 'checkbox' && /\[\]$/.test(controlName);
+            if (isCheckboxGroup) {
+                if (!externalCheckboxGroups[controlName]) {
+                    externalCheckboxGroups[controlName] = [];
+                }
+                externalCheckboxGroups[controlName].push(control);
+                return;
+            }
+
             var alreadyPresent = false;
             Array.prototype.forEach.call(form.elements, function(existing) {
-                if (existing.name === control.name) alreadyPresent = true;
+                if (existing.name === controlName) alreadyPresent = true;
             });
             if (alreadyPresent) return;
+
             var hidden = document.createElement('input');
             hidden.type = 'hidden';
-            hidden.name = control.name;
+            hidden.name = controlName;
             hidden.value = control.value;
+            hidden.setAttribute('data-collected-control', '1');
             form.appendChild(hidden);
+        });
+
+        Object.keys(externalCheckboxGroups).forEach(function(groupName) {
+            var hasGroupInForm = false;
+            Array.prototype.forEach.call(form.elements, function(existing) {
+                if (existing.name === groupName) {
+                    hasGroupInForm = true;
+                }
+            });
+            if (hasGroupInForm) {
+                return;
+            }
+
+            externalCheckboxGroups[groupName].forEach(function(control) {
+                var hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.name = groupName;
+                hidden.value = control.value;
+                hidden.setAttribute('data-collected-control', '1');
+                form.appendChild(hidden);
+            });
         });
     }
 

@@ -217,13 +217,13 @@ class DynamicFormBehaviorService
     {
         $submitMode = strtolower(trim((string)($behavior['submit_mode'] ?? '')));
         $configuredRepeatField = trim((string)($behavior['multiple_row_field'] ?? ''));
-        $hasRepeatField = !empty($repeatFieldNames) || $configuredRepeatField !== '';
+        $repeatFieldName = $this->resolveMultipleRowFieldName($insertData, $behavior, $repeatFieldNames, $fields);
+        $hasRepeatField = !empty($repeatFieldNames) || $configuredRepeatField !== '' || $repeatFieldName !== null;
         $isMultipleRowInsert = $hasRepeatField || in_array($submitMode, ['multiple_row_insert', 'multiple-row-insert'], true);
         if (!$isMultipleRowInsert) {
             return [$this->collapseNonRepeatArrays($insertData, [])];
         }
 
-        $repeatFieldName = $this->resolveMultipleRowFieldName($insertData, $behavior, $repeatFieldNames, $fields);
         if ($repeatFieldName === null) {
             return [$this->collapseNonRepeatArrays($insertData, $repeatFieldNames)];
         }
@@ -635,6 +635,23 @@ class DynamicFormBehaviorService
 
             if ($this->normalizeMultipleRowValues($insertData[$candidateFieldName]) !== []) {
                 return $candidateFieldName;
+            }
+        }
+
+        foreach ($fields as $fieldIndex => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $fieldName = $this->resolveFieldIdentity($field, (int)$fieldIndex);
+            if ($fieldName === '' || !array_key_exists($fieldName, $insertData)) {
+                continue;
+            }
+
+            if ($this->fieldHasMultipleRowMarker($field) || $this->isMultiValueInputField($field)) {
+                if ($this->normalizeMultipleRowValues($insertData[$fieldName]) !== []) {
+                    return $fieldName;
+                }
             }
         }
 

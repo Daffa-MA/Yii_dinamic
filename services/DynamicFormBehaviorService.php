@@ -215,7 +215,9 @@ class DynamicFormBehaviorService
      */
     public function buildSubmissionRows(array $insertData, array $behavior, array $repeatFieldNames, array $fields = []): array
     {
-        $isMultipleRowInsert = ($behavior['submit_mode'] ?? '') === 'multiple_row_insert' && !empty($repeatFieldNames);
+        $submitMode = strtolower(trim((string)($behavior['submit_mode'] ?? '')));
+        $hasRepeatField = !empty($repeatFieldNames);
+        $isMultipleRowInsert = $hasRepeatField || in_array($submitMode, ['multiple_row_insert', 'multiple-row-insert'], true);
         if (!$isMultipleRowInsert) {
             return [$this->collapseNonRepeatArrays($insertData, [])];
         }

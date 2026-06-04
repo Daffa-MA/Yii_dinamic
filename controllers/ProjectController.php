@@ -28,6 +28,7 @@ use app\components\ProjectAuthContext;
 use app\components\ProjectSchema;
 use app\components\ProjectOpenDebugLogger;
 use app\components\SessionCookieDebugLogger;
+use app\services\DatabaseSchemaSyncService;
 use app\components\DatabaseSchemaInitializer;
 use yii\helpers\Url;
 
@@ -236,6 +237,8 @@ class ProjectController extends Controller
             'name' => 'users',
         ]);
 
+        (new DatabaseSchemaSyncService(Yii::$app->db))->ensureMetadataVisibilityColumns();
+
         if ($table === null) {
             $table = new DbTable();
             $table->user_id = (int)$project->user_id;
@@ -249,6 +252,12 @@ class ProjectController extends Controller
             $table->charset = 'utf8mb4';
             $table->collation = 'utf8mb4_unicode_ci';
             $table->is_created = 1;
+            if ($table->hasAttribute('is_system')) {
+                $table->setAttribute('is_system', true);
+            }
+            if ($table->hasAttribute('is_visible_in_builder')) {
+                $table->setAttribute('is_visible_in_builder', true);
+            }
 
             if (!$table->save()) {
                 Yii::warning('Failed to create default users metadata: ' . implode(', ', $table->getErrorSummary(true)), 'app');
@@ -256,7 +265,16 @@ class ProjectController extends Controller
             }
         } else {
             $table->is_created = 1;
-            $table->save(false, ['is_created']);
+            $attributes = ['is_created'];
+            if ($table->hasAttribute('is_system')) {
+                $table->setAttribute('is_system', true);
+                $attributes[] = 'is_system';
+            }
+            if ($table->hasAttribute('is_visible_in_builder')) {
+                $table->setAttribute('is_visible_in_builder', true);
+                $attributes[] = 'is_visible_in_builder';
+            }
+            $table->save(false, array_values(array_unique($attributes)));
         }
 
         $defaultColumns = [

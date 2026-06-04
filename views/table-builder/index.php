@@ -781,6 +781,13 @@ main#main > .container > .alert {
                             'encode' => false,
                         ]) ?>
                     <?php endif; ?>
+                    <?= Html::a('<span class="material-symbols-outlined text-[18px]">sync</span> Sync From Database', ['table-builder/sync-from-database'], [
+                        'class' => 'btn-clean',
+                        'encode' => false,
+                        'data' => [
+                            'method' => 'post',
+                        ],
+                    ]) ?>
                     <?= Html::a('Create Table', ['table-builder/create'], ['class' => 'btn-clean btn-primary-clean']) ?>
                 </div>
             </div>

@@ -204,7 +204,39 @@ class FormEngineService
             return self::$targetTableCache[$cacheKey] = null;
         }
 
-        return self::$targetTableCache[$cacheKey] = DbTable::findOne(['id' => $tableId]);
+        $table = DbTable::findOne(['id' => $tableId]);
+        if ($table instanceof DbTable) {
+            $table = $this->syncTableMetadataIfPhysical($table);
+        }
+
+        return self::$targetTableCache[$cacheKey] = $table;
+    }
+
+    private function syncTableMetadataIfPhysical(DbTable $table): DbTable
+    {
+        try {
+            if (Yii::$app->db->schema->getTableSchema((string)$table->name, true) === null) {
+                return $table;
+            }
+
+            $scope = [];
+            if ($table->hasAttribute('project_id') && $table->project_id !== null) {
+                $scope['project_id'] = (int)$table->project_id;
+            }
+            if ($table->hasAttribute('user_id') && $table->user_id !== null) {
+                $scope['user_id'] = (int)$table->user_id;
+            }
+
+            return (new DatabaseSchemaSyncService(
+                Yii::$app->db,
+                $scope,
+                $table->hasAttribute('user_id') ? (int)$table->user_id : null,
+                $table->hasAttribute('project_id') ? (int)$table->project_id : null
+            ))->syncTable((string)$table->name);
+        } catch (\Throwable $e) {
+            Yii::warning('Form target table metadata sync failed: ' . $e->getMessage(), 'database-schema-sync');
+            return $table;
+        }
     }
 
     /**

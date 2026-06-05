@@ -878,8 +878,8 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                         <h3>Guidance</h3>
                         <p>Mode ini menerima statement schema yang aman. Query berbahaya tetap diblokir di server.</p>
                         <ul>
-                            <li><strong>Supported</strong>: CREATE TABLE, ALTER TABLE, ADD COLUMN</li>
-                            <li><strong>Blocked</strong>: DROP DATABASE, TRUNCATE, DELETE massal, dan statement destructive lain</li>
+                            <li><strong>Supported</strong>: CREATE TABLE, ALTER TABLE, ADD/MODIFY/CHANGE/DROP COLUMN, CREATE INDEX, DROP INDEX, ADD CONSTRAINT FOREIGN KEY</li>
+                            <li><strong>Blocked</strong>: DROP DATABASE, TRUNCATE, DELETE, UPDATE, GRANT, REVOKE, EXECUTE, CALL, LOAD DATA</li>
                             <li>Setelah dijalankan, table akan masuk ke metadata table builder otomatis</li>
                         </ul>
                         <?php if (!empty($sqlError)) : ?>

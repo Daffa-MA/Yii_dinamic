@@ -1314,6 +1314,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return escapeHtml(value);
     }
 
+    function cssEscape(value) {
+        return window.CSS && CSS.escape ? CSS.escape(value) : String(value || '').replace(/"/g, '\\"');
+    }
+
 
     function getDropdownSourceMode(field) {
         return field.dropdown_source === 'table' ? 'table' : 'manual';
@@ -1405,9 +1409,13 @@ document.addEventListener('DOMContentLoaded', function() {
             display_column: displayColumn,
             search_columns: displayColumn ? [displayColumn] : [],
             display_columns: Array.from(new Set([displayColumn, valueColumn].filter(Boolean))),
+            picker_fk_display_columns: {},
             search_target: 'display_only',
             page_size: 10
         }, picker);
+        if (!field.picker_config.picker_fk_display_columns || typeof field.picker_config.picker_fk_display_columns !== 'object' || Array.isArray(field.picker_config.picker_fk_display_columns)) {
+            field.picker_config.picker_fk_display_columns = {};
+        }
         return field.picker_config;
     }
 
@@ -1420,6 +1428,90 @@ document.addEventListener('DOMContentLoaded', function() {
             .split(',')
             .map(item => item.trim())
             .filter(Boolean);
+    }
+
+    function isSensitivePickerDisplayColumn(columnName) {
+        return /password|token|secret|remember|auth|salt|hash|api_key/i.test(String(columnName || ''));
+    }
+
+    function isSafePickerDisplayColumnMeta(column) {
+        const columnName = String(column && column.name ? column.name : '').trim();
+        if (!columnName || isSensitivePickerDisplayColumn(columnName)) {
+            return false;
+        }
+        return true;
+    }
+
+    function findRelationPickerColumnMeta(field, columnName) {
+        const tableId = field.source_table_id || field.dropdown_table_id || '';
+        const columns = dropdownSourceColumnsCache[String(tableId)] || [];
+        return columns.find(column => String(column.name || '') === String(columnName || '')) || null;
+    }
+
+    function findDropdownTableIdByName(tableName) {
+        const table = findDropdownTableByName(tableName);
+        return table ? String(table.id || '') : '';
+    }
+
+    function getReferencedColumnsSync(tableName) {
+        const tableId = findDropdownTableIdByName(tableName);
+        return tableId ? (dropdownSourceColumnsCache[String(tableId)] || []) : [];
+    }
+
+    function autoDetectRelationDisplayColumn(columns, valueColumn) {
+        const normalizedValue = String(valueColumn || '').toLowerCase();
+        const priorities = ['nama', 'name', 'title', 'label', 'kode', 'code', 'tier', 'kategori', 'status'];
+        for (const candidate of priorities) {
+            const match = columns.find(column => {
+                const name = String(column.name || '').toLowerCase();
+                return name === candidate && name !== normalizedValue && isSafePickerDisplayColumnMeta(column);
+            });
+            if (match) {
+                return match.name;
+            }
+        }
+        return '';
+    }
+
+    function buildReferencedDisplayColumnOptions(tableName, selectedColumn) {
+        const columns = getReferencedColumnsSync(tableName);
+        let html = '<option value="">Pilih display column...</option>';
+        columns.filter(isSafePickerDisplayColumnMeta).forEach(column => {
+            const columnName = String(column.name || '').trim();
+            html += '<option value="' + escapeAttr(columnName) + '"' + boolAttr('selected', String(selectedColumn || '') === columnName) + '>' + escapeHtml((column.label || columnName) + ' (' + columnName + ')') + '</option>';
+        });
+        return html;
+    }
+
+    function buildRelationPickerFkDisplayEditor(field, columnName, columnMeta) {
+        const picker = ensureRelationPickerConfig(field);
+        const mapping = picker.picker_fk_display_columns[columnName] || {};
+        const referencedTable = String(columnMeta.referenced_table_name || columnMeta.referenced_table || '').trim();
+        const referencedColumn = String(columnMeta.referenced_column_name || columnMeta.referenced_column || '').trim();
+        const mode = mapping.mode === 'relation_display' ? 'relation_display' : 'raw_id';
+        const displayColumn = String(mapping.display_column || '').trim();
+        const options = buildReferencedDisplayColumnOptions(referencedTable, displayColumn);
+        const hasReferencedColumns = getReferencedColumnsSync(referencedTable).length > 0;
+
+        return '<div style="margin-top:10px;padding:10px;border:1px dashed #cbd5e1;border-radius:10px;background:#f8fafc;">'
+            + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;">'
+            + '<span style="font-size:11px;font-weight:700;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 8px;">FK</span>'
+            + '<span style="font-size:11px;color:#64748b;">' + escapeHtml(referencedTable + '.' + referencedColumn) + '</span>'
+            + '</div>'
+            + '<label class="prop-label">Display Mode</label>'
+            + '<select class="prop-select" data-picker-fk-mode="' + escapeAttr(columnName) + '" onchange="toggleRelationPickerFkDisplayMode(\'' + escapeAttr(columnName) + '\', this.value)">'
+            + '<option value="raw_id"' + boolAttr('selected', mode === 'raw_id') + '>Raw ID</option>'
+            + '<option value="relation_display"' + boolAttr('selected', mode === 'relation_display') + '>Display dari Relasi</option>'
+            + '</select>'
+            + '<div data-picker-fk-relation-panel="' + escapeAttr(columnName) + '" style="' + (mode === 'relation_display' ? '' : 'display:none;') + 'margin-top:10px;">'
+            + '<label class="prop-label">Referenced Table</label>'
+            + '<input type="text" class="prop-input" value="' + escapeAttr(referencedTable) + '" data-picker-fk-ref-table="' + escapeAttr(columnName) + '" readonly style="background:#eef2f7;">'
+            + '<label class="prop-label" style="margin-top:8px;">Display Column</label>'
+            + (hasReferencedColumns
+                ? '<select class="prop-select" data-picker-fk-display-column="' + escapeAttr(columnName) + '">' + options + '</select>'
+                : '<div style="font-size:12px;color:#b45309;line-height:1.5;">Kolom table relasi belum termuat.</div>')
+            + '</div>'
+            + '</div>';
     }
 
     function buildRelationPickerColumnChecklist(field, kind) {
@@ -1444,14 +1536,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const label = column.label || columnName;
             const checked = selected.has(columnName);
             const filterText = (String(label) + ' ' + columnName).toLowerCase();
+            const isFkDisplayColumn = kind === 'display' && !!column.is_foreign_key && String(column.referenced_table_name || column.referenced_table || '').trim() !== '';
 
-            return '<label class="relation-picker-column-item" data-relation-picker-column-item="' + kind + '" data-relation-picker-column-text="' + escapeAttr(filterText) + '" style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;">'
+            return '<div class="relation-picker-column-item" data-relation-picker-column-item="' + kind + '" data-relation-picker-column-text="' + escapeAttr(filterText) + '" style="padding:10px 12px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;">'
+                + '<label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">'
                 + '<input type="checkbox" data-relation-picker-kind="' + kind + '" value="' + escapeAttr(columnName) + '" ' + (checked ? 'checked' : '') + ' style="margin-top:3px;width:16px;height:16px;">'
-                + '<span style="display:flex;flex-direction:column;gap:2px;">'
-                + '<span style="font-weight:600;color:#0f172a;">' + escapeHtml(label) + '</span>'
+                + '<span style="display:flex;flex-direction:column;gap:2px;min-width:0;">'
+                + '<span style="font-weight:600;color:#0f172a;">' + escapeHtml(label) + (isFkDisplayColumn ? ' <span style="font-size:10px;color:#92400e;background:#fef3c7;border-radius:999px;padding:2px 6px;">FK</span>' : '') + '</span>'
                 + '<span style="font-size:11px;color:#64748b;">' + escapeHtml(columnName) + '</span>'
                 + '</span>'
-                + '</label>';
+                + '</label>'
+                + (isFkDisplayColumn ? buildRelationPickerFkDisplayEditor(field, columnName, column) : '')
+                + '</div>';
         }).filter(Boolean).join('');
     }
 
@@ -1476,6 +1572,72 @@ document.addEventListener('DOMContentLoaded', function() {
             input.checked = !!checked;
         });
     };
+
+    window.toggleRelationPickerFkDisplayMode = function(columnName, mode) {
+        const panel = document.querySelector('[data-picker-fk-relation-panel="' + cssEscape(columnName) + '"]');
+        if (panel) {
+            panel.style.display = mode === 'relation_display' ? '' : 'none';
+        }
+    };
+
+    function collectRelationPickerFkDisplayColumns(modal, field, displayColumns) {
+        const picker = ensureRelationPickerConfig(field);
+        const mapping = {};
+        displayColumns.forEach(function(columnName) {
+            const columnMeta = findRelationPickerColumnMeta(field, columnName);
+            if (!columnMeta || !columnMeta.is_foreign_key) {
+                return;
+            }
+            const referencedTable = String(columnMeta.referenced_table_name || columnMeta.referenced_table || '').trim();
+            const referencedColumn = String(columnMeta.referenced_column_name || columnMeta.referenced_column || '').trim();
+            const modeInput = modal.querySelector('[data-picker-fk-mode="' + cssEscape(columnName) + '"]');
+            const displayInput = modal.querySelector('[data-picker-fk-display-column="' + cssEscape(columnName) + '"]');
+            const mode = modeInput && modeInput.value === 'relation_display' ? 'relation_display' : 'raw_id';
+            const displayColumn = displayInput ? String(displayInput.value || '').trim() : '';
+            mapping[columnName] = {
+                mode: mode,
+                referenced_table: referencedTable,
+                referenced_column: referencedColumn,
+                display_column: mode === 'relation_display' ? displayColumn : ''
+            };
+        });
+        picker.picker_fk_display_columns = mapping;
+        return mapping;
+    }
+
+    function ensureRelationPickerReferencedColumnsLoaded(field) {
+        const tableId = field.source_table_id || field.dropdown_table_id || '';
+        const columns = dropdownSourceColumnsCache[String(tableId)] || [];
+        const promises = columns.filter(column => !!column && !!column.is_foreign_key)
+            .map(column => String(column.referenced_table_name || column.referenced_table || '').trim())
+            .filter(Boolean)
+            .map(function(tableName) {
+                const referencedTableId = findDropdownTableIdByName(tableName);
+                return referencedTableId ? ensureDropdownSourceColumnsLoaded(referencedTableId) : Promise.resolve([]);
+            });
+        return Promise.all(promises);
+    }
+
+    function buildAutoRelationPickerFkDisplayColumns(field, displayColumns) {
+        const mapping = {};
+        displayColumns.forEach(function(columnName) {
+            const columnMeta = findRelationPickerColumnMeta(field, columnName);
+            if (!columnMeta || !columnMeta.is_foreign_key) {
+                return;
+            }
+            const referencedTable = String(columnMeta.referenced_table_name || columnMeta.referenced_table || '').trim();
+            const referencedColumn = String(columnMeta.referenced_column_name || columnMeta.referenced_column || '').trim();
+            const referencedColumns = getReferencedColumnsSync(referencedTable);
+            const detectedDisplayColumn = autoDetectRelationDisplayColumn(referencedColumns, referencedColumn);
+            mapping[columnName] = {
+                mode: detectedDisplayColumn ? 'relation_display' : 'raw_id',
+                referenced_table: referencedTable,
+                referenced_column: referencedColumn,
+                display_column: detectedDisplayColumn || ''
+            };
+        });
+        return mapping;
+    }
 
     window.setRelationPickerMode = function(mode) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
@@ -1519,16 +1681,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
         field.picker_config = {};
-        ensureRelationPickerConfig(field);
-        renderPropsPanel(field);
-        updateData();
+        ensureRelationTableContext(field).then(function() {
+            const picker = ensureRelationPickerConfig(field);
+            return ensureRelationPickerReferencedColumnsLoaded(field).then(function() {
+                picker.picker_fk_display_columns = buildAutoRelationPickerFkDisplayColumns(field, normalizeRelationPickerColumnList(picker.display_columns));
+                renderPropsPanel(field);
+                updateData();
+            });
+        });
     };
 
     window.openRelationPickerColumnsModal = function() {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const modal = document.getElementById('relation-picker-columns-modal');
         if (!modal) return;
-        modal.style.display = 'flex';
+        const field = formFields[selectedIndex];
+        ensureRelationTableContext(field).then(function() {
+            return ensureRelationPickerReferencedColumnsLoaded(field);
+        }).then(function() {
+            if (selectedIndex === null || formFields[selectedIndex] !== field) return;
+            renderPropsPanel(field);
+            const refreshedModal = document.getElementById('relation-picker-columns-modal');
+            if (refreshedModal) {
+                refreshedModal.style.display = 'flex';
+            }
+        });
     };
 
     window.closeRelationPickerColumnsModal = function() {
@@ -1554,6 +1731,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         picker.search_columns = searchColumns;
         picker.display_columns = displayColumns;
+        collectRelationPickerFkDisplayColumns(modal, field, displayColumns);
         picker.page_size = Math.max(1, Math.min(50, parseInt(pageSizeInput ? pageSizeInput.value : '10', 10) || 10));
         picker.search_target = 'custom';
 
@@ -2404,8 +2582,8 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div style="width:min(920px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,0.24);">';
             html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #e2e8f0;">';
             html += '<div>';
-            html += '<div style="font-size:18px;font-weight:700;color:#0f172a;">Relation Picker Columns</div>';
-            html += '<div style="font-size:12px;color:#64748b;">Pilih kolom yang muncul di pencarian dan kolom yang ditampilkan di modal.</div>';
+            html += '<div style="font-size:18px;font-weight:700;color:#0f172a;">Relation Picker Columns & Modal FK Display</div>';
+            html += '<div style="font-size:12px;color:#64748b;">Pilih kolom modal dan atur kolom FK agar tampil sebagai raw ID atau display dari relasi.</div>';
             html += '</div>';
             html += '<button type="button" class="prop-option-remove" onclick="closeRelationPickerColumnsModal()" style="width:36px;height:36px;">&times;</button>';
             html += '</div>';
@@ -2420,7 +2598,7 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div id="relation-picker-search-columns" style="display:grid;gap:10px;">' + buildRelationPickerColumnChecklist(field, 'search') + '</div>';
             html += '</div>';
             html += '<div>';
-            html += '<div class="prop-section-title" style="margin-bottom:10px;">Display Columns</div>';
+            html += '<div class="prop-section-title" style="margin-bottom:10px;">Display Columns / Modal FK Display</div>';
             html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">';
             html += '<input type="text" class="prop-input" placeholder="Cari kolom..." oninput="filterRelationPickerColumnsModal(\'display\', this.value)" style="flex:1;min-width:0;">';
             html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'display\', true)">Select all</button>';

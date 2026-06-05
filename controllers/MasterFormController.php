@@ -658,6 +658,11 @@ class MasterFormController extends Controller
         if (empty($displayColumns)) {
             $displayColumns = $this->resolvePickerDisplayColumns($schema->columns, $valueColumn, $displayColumn);
         }
+        $fkDisplayColumns = $this->normalizePickerFkDisplayColumns(
+            $pickerConfig['picker_fk_display_columns'] ?? [],
+            $tableName,
+            $schema->columns
+        );
 
         return [
             'main_table' => $tableName,
@@ -666,6 +671,7 @@ class MasterFormController extends Controller
             'search_target' => $searchTarget !== '' ? $searchTarget : 'custom',
             'search_columns' => $searchColumns,
             'display_columns' => $displayColumns,
+            'picker_fk_display_columns' => $fkDisplayColumns,
             'page_size' => min(50, max(1, (int)($pickerConfig['page_size'] ?? 10))),
         ];
     }
@@ -676,18 +682,50 @@ class MasterFormController extends Controller
         $valueColumn = (string)$config['value_column'];
         $displayColumn = (string)$config['display_column'];
         $displayColumns = array_values(array_unique(array_merge([$valueColumn, $displayColumn], $config['display_columns'] ?? [])));
+        $db = Yii::$app->db;
+        $mainAlias = 'rp';
         $select = [];
         foreach ($displayColumns as $column) {
             if (preg_match('/^[A-Za-z0-9_]+$/', (string)$column)) {
-                $select[] = $column;
+                $select['main__' . $column] = $mainAlias . '.' . $column;
             }
         }
 
-        $query = (new Query())->select(array_values(array_unique($select)))->from($tableName);
+        $fkDisplayColumns = is_array($config['picker_fk_display_columns'] ?? null) ? $config['picker_fk_display_columns'] : [];
+        $joinDisplayAliases = [];
+        $joinIndex = 0;
+        $query = (new Query())->from([$mainAlias => $tableName]);
+        foreach ($displayColumns as $column) {
+            $mapping = is_string($column) && isset($fkDisplayColumns[$column]) && is_array($fkDisplayColumns[$column])
+                ? $fkDisplayColumns[$column]
+                : null;
+            if ($mapping === null || ($mapping['mode'] ?? 'raw_id') !== 'relation_display') {
+                continue;
+            }
+
+            $refTable = (string)($mapping['referenced_table'] ?? '');
+            $refColumn = (string)($mapping['referenced_column'] ?? '');
+            $display = (string)($mapping['display_column'] ?? '');
+            if (!$this->isSafeIdentifier($refTable) || !$this->isSafeIdentifier($refColumn) || !$this->isSafeIdentifier($display)) {
+                continue;
+            }
+
+            $joinAlias = 'rpfk' . $joinIndex++;
+            $joinDisplayAliases[$column] = 'fk__' . $column;
+            $select['fk__' . $column] = $joinAlias . '.' . $display;
+            $query->leftJoin(
+                [$joinAlias => $refTable],
+                $db->quoteColumnName($joinAlias . '.' . $refColumn) . ' = ' . $db->quoteColumnName($mainAlias . '.' . $column)
+            );
+        }
+
+        $query->select($select);
         if ($keyword !== '') {
             $or = ['or'];
             foreach (($config['search_columns'] ?? []) as $column) {
-                $or[] = ['like', $column, $keyword];
+                if (preg_match('/^[A-Za-z0-9_]+$/', (string)$column)) {
+                    $or[] = ['like', $mainAlias . '.' . $column, $keyword];
+                }
             }
             if (count($or) > 1) {
                 $query->andWhere($or);
@@ -696,27 +734,166 @@ class MasterFormController extends Controller
 
         $total = (int)(clone $query)->count('*', Yii::$app->db);
         $rows = $query
-            ->orderBy([$displayColumn => SORT_ASC])
+            ->orderBy([$mainAlias . '.' . $displayColumn => SORT_ASC])
             ->offset(($page - 1) * $pageSize)
             ->limit($pageSize)
             ->all(Yii::$app->db);
 
         return [
             'total' => $total,
-            'rows' => array_map(function (array $row) use ($valueColumn, $displayColumn, $displayColumns): array {
+            'rows' => array_map(function (array $row) use ($valueColumn, $displayColumn, $displayColumns, $joinDisplayAliases): array {
                 $display = [];
                 foreach ($displayColumns as $column) {
-                    if (array_key_exists($column, $row)) {
-                        $display[$this->humanizePickerColumn($column)] = $row[$column];
+                    $mainKey = 'main__' . $column;
+                    $displayKey = $joinDisplayAliases[$column] ?? null;
+                    if ($displayKey !== null && array_key_exists($displayKey, $row)) {
+                        $display[$this->humanizePickerColumn($column)] = $row[$displayKey];
+                    } elseif (array_key_exists($mainKey, $row)) {
+                        $display[$this->humanizePickerColumn($column)] = $row[$mainKey];
                     }
                 }
+                $labelKey = $joinDisplayAliases[$displayColumn] ?? ('main__' . $displayColumn);
                 return [
-                    'value' => (string)($row[$valueColumn] ?? ''),
-                    'label' => (string)($row[$displayColumn] ?? $row[$valueColumn] ?? ''),
+                    'value' => (string)($row['main__' . $valueColumn] ?? ''),
+                    'label' => (string)($row[$labelKey] ?? $row['main__' . $displayColumn] ?? $row['main__' . $valueColumn] ?? ''),
                     'display' => $display,
                 ];
             }, $rows),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $schemaColumns
+     * @return array<string, array<string, string>>
+     */
+    private function normalizePickerFkDisplayColumns($mapping, string $tableName, array $schemaColumns): array
+    {
+        if (is_string($mapping)) {
+            $mapping = Json::decode($mapping, true);
+        }
+        if (!is_array($mapping)) {
+            return [];
+        }
+
+        $fkMetadata = $this->resolvePickerFkMetadata($tableName);
+        $result = [];
+        foreach ($mapping as $column => $config) {
+            $column = trim((string)$column);
+            if (!$this->isSafeIdentifier($column) || !isset($schemaColumns[$column]) || !isset($fkMetadata[$column])) {
+                continue;
+            }
+            if (!is_array($config)) {
+                $config = [];
+            }
+
+            $metadata = $fkMetadata[$column];
+            $mode = (string)($config['mode'] ?? 'raw_id');
+            if ($mode !== 'relation_display') {
+                $result[$column] = [
+                    'mode' => 'raw_id',
+                    'referenced_table' => $metadata['referenced_table'],
+                    'referenced_column' => $metadata['referenced_column'],
+                    'display_column' => '',
+                ];
+                continue;
+            }
+
+            $requestedTable = trim((string)($config['referenced_table'] ?? ''));
+            $requestedColumn = trim((string)($config['referenced_column'] ?? ''));
+            if ($requestedTable !== '' && strcasecmp($requestedTable, $metadata['referenced_table']) !== 0) {
+                continue;
+            }
+            if ($requestedColumn !== '' && strcasecmp($requestedColumn, $metadata['referenced_column']) !== 0) {
+                continue;
+            }
+
+            $displayColumn = trim((string)($config['display_column'] ?? ''));
+            $referencedSchema = Yii::$app->db->schema->getTableSchema($metadata['referenced_table'], true);
+            if ($referencedSchema === null || !isset($referencedSchema->columns[$displayColumn])) {
+                $result[$column] = [
+                    'mode' => 'raw_id',
+                    'referenced_table' => $metadata['referenced_table'],
+                    'referenced_column' => $metadata['referenced_column'],
+                    'display_column' => '',
+                ];
+                continue;
+            }
+            if (!$this->isPickerSafeColumn($displayColumn, $referencedSchema->columns[$displayColumn])) {
+                continue;
+            }
+
+            $result[$column] = [
+                'mode' => 'relation_display',
+                'referenced_table' => $metadata['referenced_table'],
+                'referenced_column' => $metadata['referenced_column'],
+                'display_column' => $displayColumn,
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, array{referenced_table: string, referenced_column: string}>
+     */
+    private function resolvePickerFkMetadata(string $tableName): array
+    {
+        $tableName = trim($tableName);
+        if (!$this->isSafeIdentifier($tableName)) {
+            return [];
+        }
+
+        $result = [];
+        $metadataTable = DbTable::find()->where(['name' => $tableName])->one();
+        if ($metadataTable !== null) {
+            $columns = $metadataTable->getColumns()->all();
+            foreach ($columns as $column) {
+                if (!$column instanceof DbTableColumn || !$column->hasAttribute('is_foreign_key') || !(bool)$column->getAttribute('is_foreign_key')) {
+                    continue;
+                }
+
+                $name = trim((string)$column->name);
+                $refTable = trim((string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : ''));
+                $refColumn = trim((string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : ''));
+                if ($this->isSafeIdentifier($name) && $this->isSafeIdentifier($refTable) && $this->isSafeIdentifier($refColumn)) {
+                    $result[$name] = [
+                        'referenced_table' => $refTable,
+                        'referenced_column' => $refColumn,
+                    ];
+                }
+            }
+        }
+
+        if (!empty($result)) {
+            return $result;
+        }
+
+        $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
+        if ($schema === null || empty($schema->foreignKeys)) {
+            return [];
+        }
+
+        foreach ($schema->foreignKeys as $foreignKey) {
+            if (!is_array($foreignKey) || empty($foreignKey[0])) {
+                continue;
+            }
+            $refTable = trim((string)$foreignKey[0]);
+            foreach ($foreignKey as $column => $refColumn) {
+                if (is_int($column)) {
+                    continue;
+                }
+                $column = trim((string)$column);
+                $refColumn = trim((string)$refColumn);
+                if ($this->isSafeIdentifier($column) && $this->isSafeIdentifier($refTable) && $this->isSafeIdentifier($refColumn)) {
+                    $result[$column] = [
+                        'referenced_table' => $refTable,
+                        'referenced_column' => $refColumn,
+                    ];
+                }
+            }
+        }
+
+        return $result;
     }
 
     private function resolvePickerDisplayColumn(array $columns, string $valueColumn, string $preferred = ''): string
@@ -786,9 +963,14 @@ class MasterFormController extends Controller
         return array_values(array_unique($result));
     }
 
+    private function isSafeIdentifier(string $name): bool
+    {
+        return preg_match('/^[A-Za-z0-9_]+$/', $name) === 1;
+    }
+
     private function isPickerSafeColumn(string $name, $column): bool
     {
-        if (!preg_match('/^[A-Za-z0-9_]+$/', $name)) {
+        if (!$this->isSafeIdentifier($name)) {
             return false;
         }
         if (preg_match('/password|token|secret|remember|auth|salt|hash/i', $name)) {

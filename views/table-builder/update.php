@@ -15,4 +15,8 @@ echo $this->render('create', [
     'pageHeading' => 'Update Database Table',
     'heroText' => 'Update the stored table metadata and column structure here. Changes are saved back into the application database first, then can be applied again to the physical SQL table when needed.',
     'submitLabel' => 'Save Changes',
+    'builderMode' => $builderMode ?? 'manual',
+    'rawSql' => $rawSql ?? '',
+    'sqlError' => $sqlError ?? null,
+    'sqlDebug' => $sqlDebug ?? null,
 ]);

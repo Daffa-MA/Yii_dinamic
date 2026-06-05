@@ -67,6 +67,9 @@ class TableBuilderController extends Controller
         if (!ProjectSchema::supportsProjectContext()) {
             return null;
         }
+        if (!Yii::$app->has('session')) {
+            return null;
+        }
 
         $resolvedProjectId = $projectId ?? $this->getActiveProjectId();
         if ($resolvedProjectId === null) {
@@ -83,13 +86,15 @@ class TableBuilderController extends Controller
             return (int)$workspaceUser->id;
         }
 
-        if (!Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
+        if (Yii::$app->has('user') && !Yii::$app->user->isGuest && Yii::$app->user->id !== null) {
             return (int)Yii::$app->user->id;
         }
 
-        $commanderUser = (new CommanderAuthContext())->getUser();
-        if ($commanderUser !== null && $commanderUser->id !== null) {
-            return (int)$commanderUser->id;
+        if (Yii::$app->has('session')) {
+            $commanderUser = (new CommanderAuthContext())->getUser();
+            if ($commanderUser !== null && $commanderUser->id !== null) {
+                return (int)$commanderUser->id;
+            }
         }
 
         return null;
@@ -305,6 +310,9 @@ class TableBuilderController extends Controller
     private function getActiveProjectId(): ?int
     {
         if (!ProjectSchema::supportsProjectContext()) {
+            return null;
+        }
+        if (!Yii::$app->has('session')) {
             return null;
         }
 
@@ -798,11 +806,12 @@ class TableBuilderController extends Controller
             }
             $isAutoIncrement = $this->isAutoIncrementColumn($col);
             $nullable = ($col->is_primary || $isAutoIncrement) ? 'NOT NULL' : ($col->is_nullable ? 'NULL' : 'NOT NULL');
-            $default = ($isAutoIncrement || $col->default_value === null) ? '' : 'DEFAULT ' . $db->quoteValue($col->default_value);
+            $default = $this->buildColumnDefaultSql($col);
             $comment = $col->comment ? 'COMMENT ' . $db->quoteValue($col->comment) : '';
             $autoIncrementSql = $isAutoIncrement ? 'AUTO_INCREMENT' : '';
+            $onUpdateSql = $this->buildColumnOnUpdateSql($col);
 
-            $def = "`{$col->name}` {$type} {$nullable} {$default} {$autoIncrementSql} {$comment}";
+            $def = "`{$col->name}` {$type} {$nullable} {$default} {$onUpdateSql} {$autoIncrementSql} {$comment}";
             $columnDefs[] = trim($def);
 
             if ($col->is_primary) {
@@ -835,6 +844,69 @@ class TableBuilderController extends Controller
         }
 
         return "CREATE TABLE `{$model->name}` (\n    " . implode(",\n    ", $columnDefs) . "\n) ENGINE={$model->engine} DEFAULT CHARSET={$model->charset} COLLATE={$model->collation}";
+    }
+
+    private function buildColumnDefaultSql(DbTableColumn $column): string
+    {
+        if ($this->isAutoIncrementColumn($column)) {
+            return '';
+        }
+
+        $name = strtolower((string)$column->name);
+        $type = strtoupper((string)$column->type);
+        $defaultValue = $this->normalizeColumnDefaultValue($column->default_value, $type);
+
+        if ($name === 'created_at' && in_array($type, ['TIMESTAMP', 'DATETIME'], true) && $defaultValue === null) {
+            return 'DEFAULT CURRENT_TIMESTAMP';
+        }
+
+        if ($name === 'updated_at' && in_array($type, ['TIMESTAMP', 'DATETIME'], true) && $defaultValue === null) {
+            return 'DEFAULT NULL';
+        }
+
+        if ($defaultValue === null) {
+            return '';
+        }
+
+        if ($this->isCurrentTimestampDefault($defaultValue)) {
+            return 'DEFAULT CURRENT_TIMESTAMP';
+        }
+
+        if (strtoupper($defaultValue) === 'NULL') {
+            return 'DEFAULT NULL';
+        }
+
+        return 'DEFAULT ' . $this->getPhysicalDb()->quoteValue($defaultValue);
+    }
+
+    private function buildColumnOnUpdateSql(DbTableColumn $column): string
+    {
+        $name = strtolower((string)$column->name);
+        $type = strtoupper((string)$column->type);
+        if ($name === 'updated_at' && in_array($type, ['TIMESTAMP', 'DATETIME'], true)) {
+            return 'ON UPDATE CURRENT_TIMESTAMP';
+        }
+
+        return '';
+    }
+
+    private function normalizeColumnDefaultValue($value, string $type): ?string
+    {
+        $value = trim((string)($value ?? ''));
+        if ($value === '') {
+            return null;
+        }
+
+        if ($this->isCurrentTimestampDefault($value)) {
+            return in_array(strtoupper($type), ['DATETIME', 'TIMESTAMP'], true) ? 'CURRENT_TIMESTAMP' : null;
+        }
+
+        return $value;
+    }
+
+    private function isCurrentTimestampDefault(string $value): bool
+    {
+        return preg_match('/^CURRENT_TIMESTAMP(?:\(\))?$/i', trim($value)) === 1;
     }
 
     /**
@@ -1184,9 +1256,14 @@ class TableBuilderController extends Controller
                 }
             }
 
-            $column->default_value = $colData['default_value'] !== '' ? (string)$colData['default_value'] : null;
-            $column->comment = $colData['comment'] !== '' ? (string)$colData['comment'] : null;
+            $column->default_value = $this->normalizeColumnDefaultValue($colData['default_value'] ?? null, strtoupper((string)$column->type));
+            $rawComment = trim((string)($colData['comment'] ?? ''));
+            $column->comment = $rawComment !== '' ? $rawComment : null;
             $column->sort_order = $index;
+            $defaultError = $this->validateColumnDefaultForMysql($column);
+            if ($defaultError !== null) {
+                $column->addError('default_value', $defaultError);
+            }
 
             if ($this->isAutoIncrementColumn($column)) {
                 $type = strtoupper((string)$column->type);
@@ -1221,6 +1298,37 @@ class TableBuilderController extends Controller
         ]);
 
         return $columnModels;
+    }
+
+    private function validateColumnDefaultForMysql(DbTableColumn $column): ?string
+    {
+        $type = strtoupper((string)$column->type);
+        $defaultValue = $column->default_value;
+        if ($defaultValue === null || $defaultValue === '') {
+            return null;
+        }
+
+        if ($this->isCurrentTimestampDefault((string)$defaultValue)) {
+            return in_array($type, ['DATETIME', 'TIMESTAMP'], true)
+                ? null
+                : 'CURRENT_TIMESTAMP hanya valid untuk kolom DATETIME atau TIMESTAMP.';
+        }
+
+        if ($type === 'DATE' && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)$defaultValue) !== 1 && strtoupper((string)$defaultValue) !== 'NULL') {
+            return 'Default DATE harus berformat YYYY-MM-DD atau dikosongkan.';
+        }
+
+        if (in_array($type, ['DATETIME', 'TIMESTAMP'], true)) {
+            $value = (string)$defaultValue;
+            if (strtoupper($value) === 'NULL') {
+                return null;
+            }
+            if (preg_match('/^\d{4}-\d{2}-\d{2}(?: \d{2}:\d{2}:\d{2})?$/', $value) !== 1) {
+                return 'Default DATETIME/TIMESTAMP harus CURRENT_TIMESTAMP, NULL, atau format YYYY-MM-DD HH:MM:SS.';
+            }
+        }
+
+        return null;
     }
 
     private function collectColumnErrors(array $columnModels): array
@@ -1571,10 +1679,6 @@ class TableBuilderController extends Controller
                         throw new \RuntimeException('Please fix the errors below: ' . implode(', ', $model->getErrorSummary(true)));
                     }
 
-                    if ($this->hasPhysicalTable($model)) {
-                        throw new \RuntimeException("Table '{$model->name}' sudah ada di database fisik aktif.");
-                    }
-
                     $columnModels = $this->buildColumnModels($columns, (int)$model->id);
 
                     if (empty($columnModels)) {
@@ -1589,6 +1693,18 @@ class TableBuilderController extends Controller
                     $foreignKeyErrors = $this->validateForeignKeyReferences($columnModels, $model);
                     if (!empty($foreignKeyErrors)) {
                         throw new \RuntimeException(implode('<br>', $foreignKeyErrors));
+                    }
+
+                    if ($this->hasPhysicalTable($model)) {
+                        $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name, [
+                            'is_system' => false,
+                            'is_visible_in_builder' => true,
+                        ]);
+                        $this->refreshDbTableColumnsSchema();
+                        $transaction->commit();
+
+                        Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$model->name}' sudah ada di database fisik dan metadata berhasil disinkronkan.");
+                        return $this->redirect(['view', 'id' => $model->id]);
                     }
 
                     foreach ($columnModels as $column) {
@@ -1827,6 +1943,30 @@ class TableBuilderController extends Controller
             ];
         }, $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all());
         $foreignKeyReferenceMap = $this->getForeignKeyReferenceMap();
+        $builderMode = trim((string)Yii::$app->request->post('builder_mode', 'manual'));
+        $rawSql = trim((string)Yii::$app->request->post('raw_sql', ''));
+        $sqlError = null;
+        $sqlDebug = null;
+
+        if ($builderMode === 'sql' && Yii::$app->request->isPost) {
+            try {
+                $executionResult = $this->executeRawSchemaSql($rawSql);
+                $tableName = $executionResult['table_name'] ?? $executionResult['created_table_name'] ?? (string)$model->name;
+                if ($tableName !== '') {
+                    $synced = DbTable::find()->where(array_merge(['name' => strtolower((string)$tableName)], $this->getMetadataScope()))->one();
+                    if ($synced instanceof DbTable) {
+                        $model = $synced;
+                    }
+                }
+
+                Yii::$app->session->setFlash('tableBuilderSuccess', $executionResult['message'] ?? 'SQL berhasil dijalankan dan metadata berhasil disinkronkan.');
+                return $this->redirect(['view', 'id' => (int)$model->id]);
+            } catch (\Throwable $e) {
+                $sqlDebug = $this->buildSqlEditorDebugPayload($e, $rawSql);
+                $sqlError = $sqlDebug['message'] ?? $this->buildFriendlyTableBuilderErrorMessage($e);
+                Yii::$app->session->setFlash('tableBuilderError', $sqlError);
+            }
+        }
 
         if ($model->load(Yii::$app->request->post())) {
             $effectiveUserId = $this->getEffectiveUserId();
@@ -1917,6 +2057,10 @@ class TableBuilderController extends Controller
             'savedColumns' => $savedColumns,
             'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
             'databaseInfo' => $this->getDatabaseInfo(),
+            'builderMode' => $builderMode !== '' ? $builderMode : 'manual',
+            'rawSql' => $rawSql,
+            'sqlError' => $sqlError,
+            'sqlDebug' => $sqlDebug,
         ]);
     }
 
@@ -3758,7 +3902,7 @@ class TableBuilderController extends Controller
         $lastStatementIndex = -1;
         $parsedColumns = [];
         $metadataStarted = false;
-        $safeCreateEnabled = (string)Yii::$app->request->post('safe_create', '0') === '1';
+        $safeCreateEnabled = (string)$this->getRequestPostValue('safe_create', '0') === '1';
         $executedStatementCount = 0;
         $primaryCreateTableName = null;
         $primaryExistedBeforeExecute = null;
@@ -3990,6 +4134,16 @@ class TableBuilderController extends Controller
         ];
     }
 
+    private function getRequestPostValue(string $name, $default = null)
+    {
+        $request = Yii::$app->request ?? null;
+        if ($request !== null && method_exists($request, 'post')) {
+            return $request->post($name, $default);
+        }
+
+        return $default;
+    }
+
     private function getCurrentDatabaseName(Connection $db): ?string
     {
         return $this->getTableExistenceService($db)->getCurrentDatabaseName();
@@ -4193,6 +4347,7 @@ class TableBuilderController extends Controller
             '/^\s*ALTER\s+DATABASE\b/',
             '/^\s*GRANT\b/',
             '/^\s*REVOKE\b/',
+            '/^\s*EXECUTE\b/',
             '/^\s*CALL\b/',
             '/^\s*LOAD\s+DATA\b/',
             '/^\s*HANDLER\b/',
@@ -4214,16 +4369,18 @@ class TableBuilderController extends Controller
         }
 
         if (preg_match('/^\s*ALTER\s+TABLE\b/i', $normalized) === 1) {
-            if (preg_match('/\bDROP\s+(COLUMN|INDEX|KEY)\b/i', $normalized) === 1) {
-                return 'ALTER TABLE dengan DROP diblokir.';
-            }
-            if (preg_match('/\bDROP\s+PRIMARY\s+KEY\b/i', $normalized) === 1) {
-                return 'ALTER TABLE dengan DROP PRIMARY KEY diblokir.';
-            }
             return null;
         }
 
-        return 'hanya CREATE TABLE dan ALTER TABLE yang diperbolehkan.';
+        if (preg_match('/^\s*CREATE\s+(?:UNIQUE\s+|FULLTEXT\s+|SPATIAL\s+)?INDEX\b/i', $normalized) === 1) {
+            return null;
+        }
+
+        if (preg_match('/^\s*DROP\s+INDEX\b/i', $normalized) === 1) {
+            return null;
+        }
+
+        return 'hanya CREATE TABLE, ALTER TABLE, CREATE INDEX, dan DROP INDEX yang diperbolehkan.';
     }
 
     private function extractAffectedTableName(string $statement): ?string
@@ -4233,6 +4390,14 @@ class TableBuilderController extends Controller
         }
 
         if (preg_match('/^\s*ALTER\s+TABLE\s+`?([a-zA-Z0-9_]+)`?/i', $statement, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        if (preg_match('/^\s*CREATE\s+(?:UNIQUE\s+|FULLTEXT\s+|SPATIAL\s+)?INDEX\s+`?[a-zA-Z0-9_]+`?\s+ON\s+`?([a-zA-Z0-9_]+)`?/i', $statement, $matches) === 1) {
+            return strtolower($matches[1]);
+        }
+
+        if (preg_match('/^\s*DROP\s+INDEX\s+`?[a-zA-Z0-9_]+`?\s+ON\s+`?([a-zA-Z0-9_]+)`?/i', $statement, $matches) === 1) {
             return strtolower($matches[1]);
         }
 
@@ -4333,7 +4498,7 @@ class TableBuilderController extends Controller
                 'column_type' => $rawDbType !== '' ? $rawDbType : null,
                 'data_type' => strtoupper(trim((string)($row['data_type'] ?? $type))),
                 'allow_null' => strtoupper(trim((string)($row['is_nullable'] ?? 'YES'))) === 'YES',
-                'default_value' => $row['column_default'] !== null ? (string)$row['column_default'] : null,
+                'default_value' => $this->normalizeSchemaDefaultValue($row['column_default'] ?? null),
                 'auto_increment' => stripos((string)($row['extra'] ?? ''), 'auto_increment') !== false,
                 'is_primary' => isset($primaryKeyColumns[$columnName]),
                 'is_unique' => isset($uniqueColumns[$columnName]),
@@ -4400,7 +4565,7 @@ class TableBuilderController extends Controller
             $column->setAttribute('is_auto_increment', (bool)($columnSchema->autoIncrement ?? false));
         }
 
-        $column->default_value = $columnSchema->defaultValue !== null ? (string)$columnSchema->defaultValue : null;
+        $column->default_value = $this->normalizeSchemaDefaultValue($columnSchema->defaultValue);
         $column->comment = $columnSchema->comment !== null ? (string)$columnSchema->comment : null;
         $column->sort_order = $sortOrder;
 
@@ -4418,6 +4583,24 @@ class TableBuilderController extends Controller
         }
 
         return $column;
+    }
+
+    private function normalizeSchemaDefaultValue($defaultValue): ?string
+    {
+        if ($defaultValue === null) {
+            return null;
+        }
+
+        $value = trim((string)$defaultValue);
+        if ($value === '') {
+            return null;
+        }
+
+        if ($this->isCurrentTimestampDefault($value)) {
+            return 'CURRENT_TIMESTAMP';
+        }
+
+        return $value;
     }
 
     private function inferImportedColumnType(string $dbType): array

@@ -164,14 +164,11 @@ class DatabaseSchemaSyncService
             return;
         }
 
-        $looksLikeImportedDiscovery = $isNewMetadata || strcasecmp(trim((string)$model->description), 'Synced from physical database') === 0;
-        $looksLikeCoreUserTable = $this->looksLikeCoreUserTable($schema);
-
         if ($hasSystemAttribute) {
-            $model->setAttribute('is_system', $looksLikeImportedDiscovery);
+            $model->setAttribute('is_system', false);
         }
         if ($hasVisibleAttribute) {
-            $model->setAttribute('is_visible_in_builder', !$looksLikeImportedDiscovery || $looksLikeCoreUserTable);
+            $model->setAttribute('is_visible_in_builder', true);
         }
     }
 
@@ -323,7 +320,7 @@ class DatabaseSchemaSyncService
         $column->is_nullable = (bool)($columnSchema->allowNull ?? true);
         $column->is_primary = isset($primaryKeyColumns[$column->name]);
         $column->is_unique = isset($uniqueColumns[$column->name]) || $column->is_primary;
-        $column->default_value = $columnSchema->defaultValue !== null ? (string)$columnSchema->defaultValue : null;
+        $column->default_value = $this->normalizeSchemaDefaultValue($columnSchema->defaultValue);
         $column->comment = $columnSchema->comment !== null ? (string)$columnSchema->comment : null;
         $column->sort_order = $sortOrder;
 
@@ -343,6 +340,24 @@ class DatabaseSchemaSyncService
         }
 
         return $column;
+    }
+
+    private function normalizeSchemaDefaultValue($defaultValue): ?string
+    {
+        if ($defaultValue === null) {
+            return null;
+        }
+
+        $value = trim((string)$defaultValue);
+        if ($value === '') {
+            return null;
+        }
+
+        if (preg_match('/^CURRENT_TIMESTAMP(?:\(\))?$/i', $value) === 1) {
+            return 'CURRENT_TIMESTAMP';
+        }
+
+        return $value;
     }
 
     private function inferColumnType(string $dbType): array

@@ -6,6 +6,7 @@ use Yii;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
+use yii\web\Response;
 use yii\db\Connection;
 use yii\helpers\Url;
 use app\models\DbTable;
@@ -1837,6 +1838,119 @@ class TableBuilderController extends Controller
             'databaseInfo' => $this->getDatabaseInfo(),
             'spreadsheetContext' => $spreadsheetContext,
         ]);
+    }
+
+    public function actionExport($id, $format = 'csv')
+    {
+        $model = $this->findModel($id);
+        if (!$this->syncTableCreationState($model, false)) {
+            throw new NotFoundHttpException('Table ini belum dibuat di database.');
+        }
+
+        $db = $this->getPhysicalDb();
+        $tableSchema = $db->schema->getTableSchema($model->name, true);
+        if ($tableSchema === null) {
+            throw new NotFoundHttpException('Schema tabel fisik tidak ditemukan.');
+        }
+
+        $columns = array_keys($tableSchema->columns);
+        $rows = $this->loadExportRows((string)$model->name, $tableSchema->primaryKey);
+        $format = strtolower(trim((string)$format));
+        $title = (string)($model->label ?: $model->name);
+
+        if ($format === 'pdf' || $format === 'print') {
+            Yii::$app->response->format = Response::FORMAT_HTML;
+            Yii::$app->response->content = $this->renderTablePrintExport($title, $columns, $rows);
+            return Yii::$app->response;
+        }
+
+        $filename = preg_replace('/[^a-z0-9_\-]+/i', '-', (string)$model->name) . '-' . date('Ymd-His') . '.csv';
+        $lines = [];
+        $lines[] = $this->csvLine($columns);
+        foreach ($rows as $row) {
+            $lines[] = $this->csvLine(array_map(static function ($column) use ($row) {
+                return $row[$column] ?? '';
+            }, $columns));
+        }
+
+        return Yii::$app->response->sendContentAsFile("\xEF\xBB\xBF" . implode("\r\n", $lines), $filename, [
+            'mimeType' => 'text/csv; charset=UTF-8',
+            'inline' => false,
+        ]);
+    }
+
+    private function loadExportRows(string $tableName, array $primaryKeys): array
+    {
+        $db = $this->getPhysicalDb();
+        $escapedTableName = str_replace('`', '``', $tableName);
+        $sql = "SELECT * FROM `{$escapedTableName}`";
+        if (!empty($primaryKeys)) {
+            $escapedOrderColumn = str_replace('`', '``', (string)$primaryKeys[0]);
+            $sql .= " ORDER BY `{$escapedOrderColumn}` DESC";
+        }
+        $sql .= ' LIMIT 10000';
+
+        return $db->createCommand($sql)->queryAll();
+    }
+
+    private function csvLine(array $values): string
+    {
+        return implode(',', array_map(static function ($value) {
+            $value = str_replace('"', '""', (string)$value);
+            return '"' . $value . '"';
+        }, $values));
+    }
+
+    private function renderTablePrintExport(string $title, array $columns, array $rows): string
+    {
+        ob_start();
+        ?>
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
+            <style>
+                body { margin: 32px; font-family: Arial, sans-serif; color: #0f172a; }
+                h1 { margin: 0 0 6px; font-size: 24px; }
+                .meta { margin-bottom: 18px; color: #64748b; font-size: 13px; }
+                table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                th, td { border: 1px solid #dbe3ef; padding: 8px; text-align: left; vertical-align: top; }
+                th { background: #f1f5f9; font-weight: 700; }
+                @media print { button { display: none; } body { margin: 18px; } }
+            </style>
+        </head>
+        <body>
+            <button type="button" onclick="window.print()" style="float:right;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;cursor:pointer;">Print / Save PDF</button>
+            <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
+            <div class="meta">Exported at <?= htmlspecialchars(date('Y-m-d H:i:s'), ENT_QUOTES, 'UTF-8') ?>. Total rows: <?= count($rows) ?></div>
+            <table>
+                <thead>
+                    <tr>
+                        <?php foreach ($columns as $column): ?>
+                            <th><?= htmlspecialchars((string)$column, ENT_QUOTES, 'UTF-8') ?></th>
+                        <?php endforeach; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (empty($rows)): ?>
+                        <tr><td colspan="<?= max(1, count($columns)) ?>">No data available.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($rows as $row): ?>
+                            <tr>
+                                <?php foreach ($columns as $column): ?>
+                                    <td><?= nl2br(htmlspecialchars((string)($row[$column] ?? ''), ENT_QUOTES, 'UTF-8')) ?></td>
+                                <?php endforeach; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </body>
+        </html>
+        <?php
+        return (string)ob_get_clean();
     }
 
     public function actionSpreadsheetAction()

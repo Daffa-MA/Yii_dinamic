@@ -44,6 +44,8 @@ $viewRoute = ['table-builder/view', 'id' => $model->id];
 $executeRoute = ['table-builder/execute-sql', 'id' => $model->id];
 $previewSqlRoute = ['table-builder/preview-sql', 'id' => $model->id];
 $syncRoute = ['table-builder/sync-from-database', 'id' => $model->id];
+$exportCsvRoute = ['table-builder/export', 'id' => $model->id, 'format' => 'csv'];
+$exportPrintRoute = ['table-builder/export', 'id' => $model->id, 'format' => 'print'];
 if ($fkDebugEnabled) {
     $indexRoute['fk_debug'] = 1;
     $updateRoute['fk_debug'] = 1;
@@ -51,6 +53,8 @@ if ($fkDebugEnabled) {
     $executeRoute['fk_debug'] = 1;
     $previewSqlRoute['fk_debug'] = 1;
     $syncRoute['fk_debug'] = 1;
+    $exportCsvRoute['fk_debug'] = 1;
+    $exportPrintRoute['fk_debug'] = 1;
 }
 
 $spreadsheetContext = $spreadsheetContext ?? [];
@@ -733,6 +737,8 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
                     ]) ?>
                 <?php else: ?>
                     <?= Html::a('Refresh Data', $viewRoute, ['class' => 'btn-clean']) ?>
+                    <?= Html::a('Export CSV', $exportCsvRoute, ['class' => 'btn-clean']) ?>
+                    <?= Html::a('Print/PDF', $exportPrintRoute, ['class' => 'btn-clean', 'target' => '_blank']) ?>
                 <?php endif; ?>
             </div>
         </div>

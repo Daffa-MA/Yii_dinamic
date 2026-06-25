@@ -55,6 +55,13 @@ class FormSystemFieldHelper
         if (in_array($componentType, ['select', 'radio', 'checkboxes'], true)) {
             return $componentType;
         }
+        if ($componentType === 'gps_camera') {
+            return 'gps_camera';
+        }
+        $explicitComponentType = strtolower(trim((string)($field['component_type'] ?? $field['componentType'] ?? '')));
+        if ($explicitComponentType === 'gps_camera') {
+            return 'gps_camera';
+        }
 
         if (self::isBooleanColumn($field)) {
             return 'boolean';

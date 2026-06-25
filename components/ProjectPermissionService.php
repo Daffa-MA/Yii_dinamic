@@ -756,6 +756,8 @@ class ProjectPermissionService
             'master-datatable.update' => 'master_datatable',
             'master-datatable.delete' => 'master_datatable',
             'master-datatable.delete-row' => 'master_datatable',
+            'master-datatable.approve-row' => 'master_datatable',
+            'master-datatable.export' => 'master_datatable',
             'table-builder.index' => 'master_table',
             'table-builder.create' => 'master_table',
             'table-builder.view' => 'master_table',

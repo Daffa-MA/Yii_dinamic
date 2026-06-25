@@ -24,27 +24,48 @@ class MasterDatatable extends ActiveRecord
     public static function ensureStructure(): void
     {
         $db = static::getDb();
-        if ($db->schema->getTableSchema(static::tableName(), true) !== null) {
+        if ($db->schema->getTableSchema(static::tableName(), true) === null) {
+            $db->createCommand()->createTable(static::tableName(), [
+                'id' => $db->schema->createColumnSchemaBuilder('pk'),
+                'user_id' => $db->schema->createColumnSchemaBuilder('integer')->notNull(),
+                'project_id' => $db->schema->createColumnSchemaBuilder('integer')->null(),
+                'name' => $db->schema->createColumnSchemaBuilder('string', 160)->notNull(),
+                'table_id' => $db->schema->createColumnSchemaBuilder('integer')->notNull(),
+                'columns_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+                'actions_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+                'filters_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+                'stats_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+                'workflow_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+                'search_enabled' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
+                'pagination_enabled' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
+                'is_active' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
+                'created_at' => $db->schema->createColumnSchemaBuilder('datetime')->null(),
+                'updated_at' => $db->schema->createColumnSchemaBuilder('datetime')->null(),
+            ])->execute();
+
+            $db->createCommand()->createIndex('idx-master_datatable-project', static::tableName(), ['project_id'])->execute();
+            $db->createCommand()->createIndex('idx-master_datatable-table', static::tableName(), ['table_id'])->execute();
+            $db->schema->refreshTableSchema(static::tableName());
+        }
+
+        $schema = $db->schema->getTableSchema(static::tableName(), true);
+        if ($schema === null) {
             return;
         }
 
-        $db->createCommand()->createTable(static::tableName(), [
-            'id' => $db->schema->createColumnSchemaBuilder('pk'),
-            'user_id' => $db->schema->createColumnSchemaBuilder('integer')->notNull(),
-            'project_id' => $db->schema->createColumnSchemaBuilder('integer')->null(),
-            'name' => $db->schema->createColumnSchemaBuilder('string', 160)->notNull(),
-            'table_id' => $db->schema->createColumnSchemaBuilder('integer')->notNull(),
-            'columns_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
-            'actions_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
-            'search_enabled' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
-            'pagination_enabled' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
-            'is_active' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(1),
-            'created_at' => $db->schema->createColumnSchemaBuilder('datetime')->null(),
-            'updated_at' => $db->schema->createColumnSchemaBuilder('datetime')->null(),
-        ])->execute();
+        $columnsToAdd = [
+            'filters_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+            'stats_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+            'workflow_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+        ];
 
-        $db->createCommand()->createIndex('idx-master_datatable-project', static::tableName(), ['project_id'])->execute();
-        $db->createCommand()->createIndex('idx-master_datatable-table', static::tableName(), ['table_id'])->execute();
+        foreach ($columnsToAdd as $column => $definition) {
+            if (!isset($schema->columns[$column])) {
+                $db->createCommand()->addColumn(static::tableName(), $column, $definition)->execute();
+                $db->schema->refreshTableSchema(static::tableName());
+                $schema = $db->schema->getTableSchema(static::tableName(), true);
+            }
+        }
     }
 
     public function rules(): array
@@ -52,7 +73,7 @@ class MasterDatatable extends ActiveRecord
         return [
             [['user_id', 'name', 'table_id'], 'required'],
             [['user_id', 'project_id', 'table_id', 'search_enabled', 'pagination_enabled', 'is_active'], 'integer'],
-            [['columns_config', 'actions_config'], 'string'],
+            [['columns_config', 'actions_config', 'filters_config', 'stats_config', 'workflow_config'], 'string'],
             [['name'], 'string', 'max' => 160],
         ];
     }
@@ -108,6 +129,24 @@ class MasterDatatable extends ActiveRecord
         ], $decoded);
     }
 
+    public function getFiltersConfigArray(): array
+    {
+        $decoded = json_decode((string)$this->filters_config, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public function getStatsConfigArray(): array
+    {
+        $decoded = json_decode((string)$this->stats_config, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    public function getWorkflowConfigArray(): array
+    {
+        $decoded = json_decode((string)$this->workflow_config, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
     public function toComponentConfig(): array
     {
         return [
@@ -115,6 +154,9 @@ class MasterDatatable extends ActiveRecord
             'tableId' => (int)$this->table_id,
             'columns' => $this->getColumnsConfigArray(),
             'actions' => $this->getActionsConfigArray(),
+            'filters' => $this->getFiltersConfigArray(),
+            'stats' => $this->getStatsConfigArray(),
+            'workflow' => $this->getWorkflowConfigArray(),
             'search' => (bool)$this->search_enabled,
             'pagination' => (bool)$this->pagination_enabled,
         ];

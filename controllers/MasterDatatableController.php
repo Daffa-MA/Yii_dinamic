@@ -28,6 +28,7 @@ class MasterDatatableController extends Controller
                 'actions' => [
                     'delete' => ['post'],
                     'delete-row' => ['post'],
+                    'approve-row' => ['post'],
                 ],
             ],
         ];
@@ -101,6 +102,22 @@ class MasterDatatableController extends Controller
         return $this->redirect(Yii::$app->request->referrer ?: ['/dashboard']);
     }
 
+    public function actionApproveRow($id)
+    {
+        $model = $this->findModel((int)$id);
+        $rowKey = json_decode((string)Yii::$app->request->post('row_key', '{}'), true);
+        $rowKey = is_array($rowKey) ? $rowKey : [];
+        $approved = (new MasterDatatableRenderService())->approveRow($model, $rowKey);
+        Yii::$app->session->setFlash($approved ? 'success' : 'error', $approved ? 'Data berhasil diproses.' : 'Data gagal diproses.');
+        return $this->redirect(Yii::$app->request->referrer ?: ['index']);
+    }
+
+    public function actionExport($id, $format = 'csv')
+    {
+        $model = $this->findModel((int)$id);
+        return (new MasterDatatableRenderService())->exportPreset($model, (string)$format);
+    }
+
     public function actionReload($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -130,6 +147,8 @@ class MasterDatatableController extends Controller
         $model->pagination_enabled = !empty($post['pagination_enabled']) ? 1 : 0;
         $model->is_active = !empty($post['is_active']) ? 1 : 0;
         $model->columns_config = $this->normalizeColumnsConfig($post['columns'] ?? []);
+        $model->filters_config = $this->normalizeListConfig($post['filters'] ?? [], ['field', 'label']);
+        $model->stats_config = $this->normalizeListConfig($post['stats'] ?? [], ['field', 'label']);
         $editMode = strtolower(trim((string)($post['actions']['edit_mode'] ?? 'custom')));
         if (!in_array($editMode, ['custom', 'default'], true)) {
             $editMode = 'custom';
@@ -145,6 +164,13 @@ class MasterDatatableController extends Controller
             'edit_mode' => $editMode,
             'edit_form_id' => $editFormId > 0 ? $editFormId : '',
         ]);
+        $model->workflow_config = json_encode([
+            'approval_enabled' => !empty($post['workflow']['approval_enabled']),
+            'status_field' => trim((string)($post['workflow']['status_field'] ?? '')),
+            'approved_value' => trim((string)($post['workflow']['approved_value'] ?? 'approved')),
+            'pending_value' => trim((string)($post['workflow']['pending_value'] ?? 'pending')),
+            'button_label' => trim((string)($post['workflow']['button_label'] ?? 'Approve')) ?: 'Approve',
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
         return $model->save();
     }
@@ -179,6 +205,37 @@ class MasterDatatableController extends Controller
             }
         }
         return json_encode($result);
+    }
+
+    private function normalizeListConfig($items, array $requiredKeys): string
+    {
+        $result = [];
+        if (!is_array($items)) {
+            return '[]';
+        }
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            if (empty($item['enabled']) && empty($item['visible'])) {
+                continue;
+            }
+
+            $normalized = [];
+            foreach ($requiredKeys as $key) {
+                $normalized[$key] = trim((string)($item[$key] ?? ''));
+            }
+            if (($normalized['field'] ?? '') === '') {
+                continue;
+            }
+            if (($normalized['label'] ?? '') === '') {
+                $normalized['label'] = $normalized['field'];
+            }
+            $result[] = $normalized;
+        }
+
+        return json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     private function findAvailableTables(): array

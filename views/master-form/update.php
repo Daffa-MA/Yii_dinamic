@@ -1271,6 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentDevice = 'desktop';
     let dropdownSourceTables = [];
     const dropdownSourceColumnsCache = {};
+    let gpsCameraMetadataLoadToken = 0;
     
     // **CRITICAL HYDRATION**: Load existing form data from hidden input
     const existingDataRaw = formDataInput ? formDataInput.value : '[]';
@@ -2254,6 +2255,37 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(() => []);
     }
 
+    function ensureGpsCameraMetadataLoaded(field) {
+        field = normalizeGpsCameraBindingState(field);
+        const currentToken = ++gpsCameraMetadataLoadToken;
+        return ensureDropdownSourceTablesLoaded().then(function() {
+            if (currentToken !== gpsCameraMetadataLoadToken) {
+                return [];
+            }
+
+            const bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings : [];
+            const tableIds = Array.from(new Set(bindings.map(function(binding) {
+                return String(binding && binding.target_table_id ? binding.target_table_id : '');
+            }).filter(Boolean)));
+            if (tableIds.length === 0 && field.target_table_id) {
+                tableIds.push(String(field.target_table_id));
+            }
+
+            return Promise.all(tableIds.map(function(tableId) {
+                return ensureDropdownSourceColumnsLoaded(tableId);
+            }));
+        }).then(function() {
+            if (currentToken !== gpsCameraMetadataLoadToken) {
+                return;
+            }
+            if (selectedIndex !== null && formFields[selectedIndex] === field) {
+                renderPropsPanel(formFields[selectedIndex]);
+            }
+        }).catch(function() {
+            return [];
+        });
+    }
+
     function ensureCurrentTableForeignKeyColumnsLoaded() {
         const tableId = getCurrentBuilderTableId();
         if (!tableId) {
@@ -2821,6 +2853,10 @@ document.addEventListener('DOMContentLoaded', function() {
         html += '</div>';
         
         propsPanel.innerHTML = html;
+
+        if (field.type === 'gps_camera') {
+            ensureGpsCameraMetadataLoaded(field);
+        }
 
         if (field.type === 'select' && field.is_foreign_key) {
             const tableId = field.source_table_id || field.dropdown_table_id || '';

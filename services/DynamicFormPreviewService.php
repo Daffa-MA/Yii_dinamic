@@ -286,7 +286,7 @@ class DynamicFormPreviewService
                 $fieldHtml .= '<div style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
                 continue;
             }
-            if ($type === 'gps_camera') {
+            if (FormRenderService::isGpsCameraField($field)) {
                 $fieldHtml .= FormRenderService::renderGpsCameraField($field, $interactive);
                 continue;
             }

@@ -972,6 +972,12 @@ HTML;
         return $html;
     }
 
+    public static function isGpsCameraField(array $field): bool
+    {
+        $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? $field['component_type'] ?? '')));
+        return $type === 'gps_camera';
+    }
+
     public static function attachAjaxSubmitHandler(string $html): string
     {
         return self::appendCustomFormSubmitCollectorScript($html);

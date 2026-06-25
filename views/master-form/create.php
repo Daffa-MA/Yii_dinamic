@@ -1093,6 +1093,10 @@ body.dashboard-main-page {
             <span class="material-symbols-outlined">upload_file</span>
             <span>File Upload</span>
         </div>
+        <div class="component-item" draggable="true" data-field-type="gps_camera">
+            <span class="material-symbols-outlined">photo_camera</span>
+            <span>GPS Camera</span>
+        </div>
         <div class="component-item" draggable="true" data-field-type="hidden">
             <span class="material-symbols-outlined">visibility_off</span>
             <span>Hidden</span>
@@ -1276,6 +1280,7 @@ document.addEventListener('DOMContentLoaded', function() {
         time: { label: 'Time', inputType: 'time' },
         datetime: { label: 'Date Time', inputType: 'datetime-local' },
         file: { label: 'File Upload', inputType: 'file' },
+        gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', auto_capture_gps: true, auto_capture_timestamp: true, preview_image: true },
         hidden: { label: 'Hidden', inputType: 'hidden' }
     };
     
@@ -1285,6 +1290,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tel: 'phone', url: 'link', textarea: 'notes', select: 'arrow_drop_down_circle',
         radio: 'radio_button_checked', checkbox: 'check_box', checkboxes: 'checklist',
         date: 'calendar_today', time: 'schedule', datetime: 'event',
+        gps_camera: 'photo_camera',
         file: 'upload_file', hidden: 'visibility_off'
     };
     
@@ -1985,6 +1991,42 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
+    function buildGpsCameraTableOptions(selectedTableId) {
+        let html = '<option value="">Pilih table...</option>';
+        dropdownSourceTables.forEach(table => {
+            const tableId = String(table.id || '');
+            const tableLabel = String(table.label || table.name || 'Table');
+            html += '<option value="' + escapeAttr(tableId) + '"' + boolAttr('selected', String(selectedTableId || '') === tableId) + '>' + escapeHtml(tableLabel + ' (' + (table.name || tableId) + ')') + '</option>';
+        });
+        return html;
+    }
+
+    function buildGpsCameraColumnOptions(field, selectedColumnId) {
+        const tableId = String(field.target_table_id || '');
+        if (!tableId) {
+            return '<option value="">Pilih table terlebih dulu</option>';
+        }
+        const columns = dropdownSourceColumnsCache[tableId] || [];
+        if (columns.length === 0) {
+            return '<option value="">Memuat kolom...</option>';
+        }
+        let html = '<option value="">Pilih column...</option>';
+        columns.forEach(column => {
+            const columnId = String(column.id || '');
+            const columnLabel = String(column.label || column.name || 'Column');
+            html += '<option value="' + escapeAttr(columnId) + '"' + boolAttr('selected', String(selectedColumnId || '') === columnId) + '>' + escapeHtml(columnLabel + ' (' + (column.name || columnId) + ')') + '</option>';
+        });
+        return html;
+    }
+
+    function findDropdownTableById(tableId) {
+        const normalized = String(tableId || '').trim();
+        if (!normalized) {
+            return null;
+        }
+        return dropdownSourceTables.find(table => String(table.id || '') === normalized) || null;
+    }
+
     function findDropdownTableByName(tableName) {
         const normalized = String(tableName || '').trim().toLowerCase();
         if (!normalized) {
@@ -2364,6 +2406,16 @@ document.addEventListener('DOMContentLoaded', function() {
             '</label></div>';
         }
 
+        if (type === 'gps_camera') {
+            return '<div class="field-preview" style="display:flex;flex-direction:column;gap:10px;">' +
+                '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                '<button type="button" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;">Ambil Foto</button>' +
+                '<span style="font-size:12px;color:#64748b;">' + escapeHtml(field.target_table_name || field.target_column_name || 'GPS Camera') + '</span>' +
+                '</div>' +
+                '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;">Foto + metadata lokasi dan waktu</div>' +
+                '</div>';
+        }
+
         if (type === 'file') {
             return '<div class="field-preview"><input type="file"' + attr('name', field.name || '') + attr('accept', field.accept) + boolAttr('multiple', field.multiple) + boolAttr('required', field.required) + boolAttr('disabled', true) + '></div>';
         }
@@ -2425,6 +2477,7 @@ document.addEventListener('DOMContentLoaded', function() {
             radio: 'radio_button_checked', checkbox: 'check_box', checkboxes: 'checklist',
             boolean: 'toggle_on',
             date: 'calendar_today', time: 'schedule', datetime: 'event',
+            gps_camera: 'photo_camera',
             file: 'upload_file', hidden: 'visibility_off'
         };
         
@@ -2437,8 +2490,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         html += '<div class="prop-section"><div class="prop-section-title">Konfigurasi</div>';
         html += '<div class="prop-group"><label class="prop-label">Tipe Input</label><select class="prop-select" data-prop="type" onchange="updateFieldProp(\'type\', this.value)">';
-        const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'boolean', 'date', 'time', 'datetime', 'file', 'hidden'];
-        const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'Hidden'];
+        const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'boolean', 'date', 'time', 'datetime', 'file', 'gps_camera', 'hidden'];
+        const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'GPS Camera', 'Hidden'];
         types.forEach((t, i) => {
             html += '<option value="' + t + '" ' + (field.type === t ? 'selected' : '') + '>' + labels[i] + '</option>';
         });
@@ -2479,6 +2532,18 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<div class="prop-section"><div class="prop-section-title">File Upload</div>';
             html += '<div class="prop-group"><label class="prop-label">Accept</label><input type="text" class="prop-input" value="' + escapeAttr(field.accept || '') + '" placeholder=".jpg,.png,application/pdf" onchange="updateFieldProp(\'accept\', this.value)"></div>';
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.multiple ? 'checked' : '') + ' onchange="updateFieldProp(\'multiple\', this.checked)">Allow Multiple Files</label></div>';
+            html += '</div>';
+        }
+
+        if (field.type === 'gps_camera') {
+            html += '<div class="prop-section"><div class="prop-section-title">Binding</div>';
+            html += '<div class="prop-group"><label class="prop-label">Target Table</label><select class="prop-select" onchange="setGpsCameraTargetTable(this.value)">' + buildGpsCameraTableOptions(field.target_table_id) + '</select></div>';
+            html += '<div class="prop-group"><label class="prop-label">Target Column</label><select class="prop-select" onchange="setGpsCameraTargetColumn(this.value)">' + buildGpsCameraColumnOptions(field, field.target_column_id) + '</select></div>';
+            html += '</div>';
+            html += '<div class="prop-section"><div class="prop-section-title">Capture</div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.auto_capture_gps !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'auto_capture_gps\', this.checked)">Auto Capture GPS</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.auto_capture_timestamp !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'auto_capture_timestamp\', this.checked)">Auto Capture Timestamp</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.preview_image !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'preview_image\', this.checked)">Preview Image</label></div>';
             html += '</div>';
         }
 
@@ -2658,6 +2723,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+
+        if (field.type === 'gps_camera') {
+            ensureDropdownSourceTablesLoaded().then(function() {
+                if (selectedIndex === null || formFields[selectedIndex] !== field) return;
+                const tableId = field.target_table_id || '';
+                if (tableId && !dropdownSourceColumnsCache[String(tableId)]) {
+                    ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+                        if (selectedIndex !== null && formFields[selectedIndex] === field) {
+                            renderPropsPanel(field);
+                        }
+                    });
+                }
+            });
+        }
     }
     
     // Update Field Property
@@ -2669,7 +2748,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'type', 'readonly', 'disabled', 'required', 'excluded',
             'default_checked', 'saveAsMultipleRows', 'option_source',
             'option_preset', 'source_column_id', 'source_table_id',
-            'label_column', 'value_column', 'picker_mode'
+            'label_column', 'value_column', 'picker_mode',
+            'target_table_id', 'target_column_id', 'auto_capture_gps',
+            'auto_capture_timestamp', 'preview_image'
         ]);
         if (propName === 'type') {
             formFields[selectedIndex].inputType = getInputType(value);
@@ -2679,6 +2760,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     formFields[selectedIndex].dropdown_source = 'static_options';
                 }
                 normalizeChoiceOptions(formFields[selectedIndex]);
+            } else if (value === 'gps_camera') {
+                formFields[selectedIndex].auto_capture_gps = formFields[selectedIndex].auto_capture_gps !== false;
+                formFields[selectedIndex].auto_capture_timestamp = formFields[selectedIndex].auto_capture_timestamp !== false;
+                formFields[selectedIndex].preview_image = formFields[selectedIndex].preview_image !== false;
             }
             if (value !== 'select') {
                 if (formFields[selectedIndex].option_source !== 'table') {
@@ -2861,6 +2946,43 @@ document.addEventListener('DOMContentLoaded', function() {
             renderPropsPanel(field);
             updateData();
         });
+    };
+
+    window.setGpsCameraTargetTable = function(tableId) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const table = findDropdownTableById(tableId);
+        field.target_table_id = tableId ? String(tableId) : '';
+        field.target_table_name = table ? String(table.name || table.label || '') : '';
+        field.target_column_id = '';
+        field.target_column_name = '';
+        if (!tableId) {
+            normalizeFieldState(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+            return;
+        }
+        ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+            normalizeFieldState(field);
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
+        });
+    };
+
+    window.setGpsCameraTargetColumn = function(columnId) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const tableId = String(field.target_table_id || '');
+        const columns = dropdownSourceColumnsCache[tableId] || [];
+        const column = columns.find(item => String(item.id || '') === String(columnId)) || null;
+        field.target_column_id = columnId ? String(columnId) : '';
+        field.target_column_name = column ? String(column.name || column.label || '') : '';
+        normalizeFieldState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
     };
 
     window.setDropdownSourceColumn = function(propName, value) {
@@ -3086,6 +3208,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="date" name="{name}" class="field-input" />\n</div>',
                 css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                 js: ''
+            },
+            gps_camera: {
+                html: '<div class="field-wrapper gps-camera-field" data-gps-camera-component="1">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" value="" data-gps-camera-payload />\n  <input type="file" name="__gps_camera_file_{name}" accept="image/*" capture="environment" class="gps-camera-file" hidden />\n  <div class="gps-camera-box">\n    <button type="button" class="gps-camera-trigger">Ambil Foto</button>\n    <button type="button" class="gps-camera-clear">Reset</button>\n    <span class="gps-camera-status">Foto dan GPS akan disiapkan otomatis.</span>\n  </div>\n  <img class="gps-camera-preview" alt="Preview foto" hidden />\n</div>',
+                css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.gps-camera-box {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 10px;\n  align-items: center;\n  padding: 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 12px;\n  background: #f8fafc;\n}\n.gps-camera-trigger,\n.gps-camera-clear {\n  padding: 10px 14px;\n  border-radius: 10px;\n  border: 1px solid #cbd5e1;\n  background: #fff;\n  font-weight: 700;\n}\n.gps-camera-trigger {\n  background: #4f46e5;\n  border-color: #4f46e5;\n  color: #fff;\n}\n.gps-camera-preview {\n  display: block;\n  max-width: 100%;\n  margin-top: 10px;\n  border-radius: 12px;\n}\n.gps-camera-status {\n  font-size: 12px;\n  color: #64748b;\n}',
+                js: '(function(){if(window.__gpsCameraComponentBinder)return;window.__gpsCameraComponentBinder=true;function setPayload(wrapper,payload){var input=wrapper.querySelector(\"[data-gps-camera-payload]\");if(input){input.value=JSON.stringify(payload||{});}var status=wrapper.querySelector(\".gps-camera-status\");if(status){var text=[];if(payload.photo_name)text.push(payload.photo_name);if(payload.latitude||payload.longitude)text.push((payload.latitude||\"-\") + \", \" + (payload.longitude||\"-\"));status.textContent=text.join(\" | \")||\"Foto dan GPS akan disiapkan otomatis.\";}}function setPreview(wrapper,src){var preview=wrapper.querySelector(\".gps-camera-preview\");if(!preview)return;if(src){preview.src=src;preview.hidden=false;}else{preview.removeAttribute(\"src\");preview.hidden=true;}}function fileToDataUrl(file){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||\"\"));};reader.onerror=function(){reject(reader.error||new Error(\"read_error\"));};reader.readAsDataURL(file);});}function captureGps(){if(!navigator.geolocation){return Promise.resolve({});}return new Promise(function(resolve){navigator.geolocation.getCurrentPosition(function(position){resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,gps_accuracy:position.coords.accuracy});},function(){resolve({});},{enableHighAccuracy:true,maximumAge:0,timeout:10000});});}async function handleFile(wrapper,file){if(!file){setPayload(wrapper,{});setPreview(wrapper,\"\");return;}var imageSrc=\"\";try{imageSrc=await fileToDataUrl(file);}catch(e){}var gps=await captureGps();setPayload(wrapper,{photo_name:file.name||\"\",photo_mime:file.type||\"\",photo_size:file.size||0,photo_data:imageSrc,latitude:gps.latitude||\"\",longitude:gps.longitude||\"\",gps_accuracy:gps.gps_accuracy||\"\",captured_date:\"\",captured_time:\"\",captured_at_server:\"\"});if(imageSrc){setPreview(wrapper,imageSrc);}}document.addEventListener(\"click\",function(event){var trigger=event.target.closest(\".gps-camera-trigger\");if(trigger){var wrapper=trigger.closest(\".gps-camera-field\");var input=wrapper&&wrapper.querySelector(\".gps-camera-file\");if(input){input.click();}event.preventDefault();return;}var clearBtn=event.target.closest(\".gps-camera-clear\");if(clearBtn){var clearWrapper=clearBtn.closest(\".gps-camera-field\");if(clearWrapper){var input=clearWrapper.querySelector(\".gps-camera-file\");if(input)input.value=\"\";setPayload(clearWrapper,{});setPreview(clearWrapper,\"\");}event.preventDefault();}});document.addEventListener(\"change\",function(event){var input=event.target.closest(\".gps-camera-file\");if(!input)return;var wrapper=input.closest(\".gps-camera-field\");if(!wrapper)return;handleFile(wrapper,input.files&&input.files[0]?input.files[0]:null);});})();'
             },
             file: {
                 html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div class="file-upload">\n    <input type="file" name="{name}" class="field-input" />\n    <span class="file-hint">Klik atau drag file ke sini</span>\n  </div>\n</div>',
@@ -3578,6 +3705,15 @@ document.addEventListener('DOMContentLoaded', function() {
             ...(cfg.options ? { options: [...cfg.options] } : {}),
             rows: cfg.rows || props.rows
         };
+        if (type === 'gps_camera') {
+            field.auto_capture_gps = props.auto_capture_gps !== undefined ? props.auto_capture_gps : true;
+            field.auto_capture_timestamp = props.auto_capture_timestamp !== undefined ? props.auto_capture_timestamp : true;
+            field.preview_image = props.preview_image !== undefined ? props.preview_image : true;
+            field.target_table_id = props.target_table_id || '';
+            field.target_table_name = props.target_table_name || '';
+            field.target_column_id = props.target_column_id || '';
+            field.target_column_name = props.target_column_name || '';
+        }
         normalizeFieldState(field);
         
         formFields.push(field);
@@ -3884,7 +4020,7 @@ document.addEventListener('DOMContentLoaded', function() {
             tel: 'tel', url: 'url', textarea: 'textarea', select: 'select',
             radio: 'radio', checkbox: 'checkbox', checkboxes: 'checkboxes', boolean: 'boolean',
             date: 'date', time: 'time', datetime: 'datetime-local',
-            file: 'file', hidden: 'hidden'
+            file: 'file', gps_camera: 'gps_camera', hidden: 'hidden'
         };
         return types[fieldType] || 'text';
     }

@@ -9,9 +9,11 @@ use yii\db\IntegrityException;
 use yii\db\Query;
 use yii\helpers\Url;
 use yii\helpers\HtmlPurifier;
+use yii\helpers\FileHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
+use yii\web\UploadedFile;
 use app\models\Form;
 use app\models\FormSubmission;
 use app\models\PublishedForm;
@@ -24,6 +26,7 @@ use app\components\FormFlowDebugLogger;
 use app\components\ProjectAuthContext;
 use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
+use app\components\WorkspaceMediaStorage;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
 use app\helpers\FormSystemFieldHelper;
@@ -183,7 +186,7 @@ class FormController extends Controller
             return $schemaJs;
         }
 
-        $filterBlocks = function($blocks) use ($hiddenNames) {
+        $filterBlocks = function ($blocks) use ($hiddenNames) {
             if (!is_array($blocks)) return $blocks;
             $filtered = [];
             foreach ($blocks as $block) {
@@ -413,32 +416,36 @@ class FormController extends Controller
         $schemaLookup = $this->buildSchemaColumnLookup($tableSchema);
         $identityCandidates = [];
         $labelCandidates = [];
-        foreach ([
-            $field['name'] ?? null,
-            $field['field_name'] ?? null,
-            $field['field_key'] ?? null,
-            $field['column_name'] ?? null,
-            $field['original_column'] ?? null,
-            $field['local_column'] ?? null,
-            $field['source_column'] ?? null,
-            $field['source_column_name'] ?? null,
-            $field['relation_target_column'] ?? null,
-            $field['relation_value_column'] ?? null,
-        ] as $candidate) {
+        foreach (
+            [
+                $field['name'] ?? null,
+                $field['field_name'] ?? null,
+                $field['field_key'] ?? null,
+                $field['column_name'] ?? null,
+                $field['original_column'] ?? null,
+                $field['local_column'] ?? null,
+                $field['source_column'] ?? null,
+                $field['source_column_name'] ?? null,
+                $field['relation_target_column'] ?? null,
+                $field['relation_value_column'] ?? null,
+            ] as $candidate
+        ) {
             if (is_string($candidate) && trim($candidate) !== '') {
                 $identityCandidates[] = trim($candidate);
             }
         }
 
         $relationConfig = $this->extractRelationConfig($field);
-        foreach ([
-            $relationConfig['local_column'] ?? null,
-            $relationConfig['source_column'] ?? null,
-            $relationConfig['column_name'] ?? null,
-            $relationConfig['original_column'] ?? null,
-            $relationConfig['field_name'] ?? null,
-            $relationConfig['field_key'] ?? null,
-        ] as $candidate) {
+        foreach (
+            [
+                $relationConfig['local_column'] ?? null,
+                $relationConfig['source_column'] ?? null,
+                $relationConfig['column_name'] ?? null,
+                $relationConfig['original_column'] ?? null,
+                $relationConfig['field_name'] ?? null,
+                $relationConfig['field_key'] ?? null,
+            ] as $candidate
+        ) {
             if (is_string($candidate) && trim($candidate) !== '') {
                 $identityCandidates[] = trim($candidate);
             }
@@ -448,11 +455,13 @@ class FormController extends Controller
             array_unshift($identityCandidates, (string)$sourceColumn->name);
         }
 
-        foreach ([
-            $field['label'] ?? null,
-            $field['field_label'] ?? null,
-            $field['labelText'] ?? null,
-        ] as $candidate) {
+        foreach (
+            [
+                $field['label'] ?? null,
+                $field['field_label'] ?? null,
+                $field['labelText'] ?? null,
+            ] as $candidate
+        ) {
             if (is_string($candidate) && trim($candidate) !== '') {
                 $labelCandidates[] = trim($candidate);
             }
@@ -515,10 +524,12 @@ class FormController extends Controller
                 $aliases[] = preg_replace('/_id$/', '', $this->normalizeInputKey($columnName)) ?: '';
             }
 
-            foreach ([
-                $column->label ?? null,
-                $column->comment ?? null,
-            ] as $aliasValue) {
+            foreach (
+                [
+                    $column->label ?? null,
+                    $column->comment ?? null,
+                ] as $aliasValue
+            ) {
                 if (is_string($aliasValue) && trim($aliasValue) !== '') {
                     $aliases[] = trim($aliasValue);
                     $aliases[] = $this->normalizeInputKey(trim($aliasValue));
@@ -900,7 +911,7 @@ class FormController extends Controller
 
         // Capture uploaded file names so custom drag-drop file inputs are still recorded.
         foreach ($_FILES as $key => $fileMeta) {
-            if (!is_string($key) || in_array($key, $reservedKeys, true) || array_key_exists($key, $data) || SystemFieldService::isSystemFieldData(['name' => $key])) {
+            if (!is_string($key) || str_starts_with($key, '__gps_camera_file_') || in_array($key, $reservedKeys, true) || array_key_exists($key, $data) || SystemFieldService::isSystemFieldData(['name' => $key])) {
                 continue;
             }
 
@@ -913,13 +924,178 @@ class FormController extends Controller
         return $data;
     }
 
+    /**
+     * Normalize and persist GPS Camera payloads after base field mapping.
+     */
+    private function applyGpsCameraFieldUploads(Form $form, array $schema, array $data): array
+    {
+        $storage = new WorkspaceMediaStorage();
+        $timezone = new \DateTimeZone(Yii::$app->timeZone ?: 'Asia/Jakarta');
+        $now = new \DateTimeImmutable('now', $timezone);
+
+        foreach ($schema as $index => $field) {
+            if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
+            $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '')));
+            if ($type !== 'gps_camera') {
+                continue;
+            }
+
+            $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $payload = $this->normalizeGpsCameraPayload($data[$fieldName] ?? []);
+            $autoGps = !array_key_exists('auto_capture_gps', $field) || !empty($field['auto_capture_gps']) || (string)($field['auto_capture_gps'] ?? '') === '1';
+            $autoTimestamp = !array_key_exists('auto_capture_timestamp', $field) || !empty($field['auto_capture_timestamp']) || (string)($field['auto_capture_timestamp'] ?? '') === '1';
+            $uploadInputName = $this->resolveGpsCameraUploadInputName($fieldName);
+            $uploadedFile = UploadedFile::getInstanceByName($uploadInputName);
+
+            if ($uploadedFile !== null && $uploadedFile->error === UPLOAD_ERR_OK) {
+                $stored = $storage->storeUploadedFile($uploadedFile, 'gps-' . preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName), 'forms/gps-camera/' . (int)$form->id . '/');
+                if (!empty($stored['success'])) {
+                    $payload['photo_path'] = (string)($stored['relative_path'] ?? '');
+                    $payload['photo_url'] = (string)($stored['url'] ?? '');
+                    $payload['photo_name'] = (string)$uploadedFile->name;
+                    $payload['photo_mime'] = (string)$uploadedFile->type;
+                    $payload['photo_size'] = (string)$uploadedFile->size;
+                }
+            } elseif (!empty($payload['photo_data']) && is_string($payload['photo_data'])) {
+                $stored = $this->storeGpsCameraBase64Image($storage, $fieldName, (string)$payload['photo_data'], $form);
+                if ($stored !== null) {
+                    $payload['photo_path'] = (string)($stored['relative_path'] ?? '');
+                    $payload['photo_url'] = (string)($stored['url'] ?? '');
+                    if (!empty($stored['photo_name'])) {
+                        $payload['photo_name'] = (string)$stored['photo_name'];
+                    }
+                    if (!empty($stored['photo_mime'])) {
+                        $payload['photo_mime'] = (string)$stored['photo_mime'];
+                    }
+                    if (!empty($stored['photo_size'])) {
+                        $payload['photo_size'] = (string)$stored['photo_size'];
+                    }
+                }
+            }
+
+            if ($autoGps && !empty($payload['latitude']) && !empty($payload['longitude'])) {
+                $payload['latitude'] = (string)$payload['latitude'];
+                $payload['longitude'] = (string)$payload['longitude'];
+                if (isset($payload['gps_accuracy'])) {
+                    $payload['gps_accuracy'] = (string)$payload['gps_accuracy'];
+                }
+            }
+
+            if ($autoTimestamp) {
+                $payload['captured_date'] = $now->format('Y-m-d');
+                $payload['captured_time'] = $now->format('H:i:s');
+                $payload['captured_at_server'] = $now->format(DATE_ATOM);
+            }
+
+            $payload['field_name'] = $fieldName;
+            unset($payload['photo_data']);
+            $data[$fieldName] = json_encode(array_filter($payload, static function ($value): bool {
+                return $value !== null && $value !== '';
+            }), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return $data;
+    }
+
+    private function resolveGpsCameraUploadInputName(string $fieldName): string
+    {
+        $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName);
+        return '__gps_camera_file_' . ($safeName !== '' ? $safeName : 'gps_camera');
+    }
+
+    /**
+     * @param mixed $value
+     * @return array<string, mixed>
+     */
+    private function normalizeGpsCameraPayload($value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (!is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function storeGpsCameraBase64Image(WorkspaceMediaStorage $storage, string $fieldName, string $dataUrl, Form $form): ?array
+    {
+        if (!preg_match('/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i', trim($dataUrl), $matches)) {
+            return null;
+        }
+
+        $mimeType = strtolower(trim((string)$matches[1]));
+        $binary = base64_decode((string)$matches[2], true);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $extension = 'jpg';
+        if (str_contains($mimeType, 'png')) {
+            $extension = 'png';
+        } elseif (str_contains($mimeType, 'webp')) {
+            $extension = 'webp';
+        } elseif (str_contains($mimeType, 'gif')) {
+            $extension = 'gif';
+        }
+
+        $safeField = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName);
+        $relativeDir = 'forms/gps-camera/' . (int)$form->id . '/';
+        $fileName = 'gps-' . ($safeField !== '' ? $safeField : 'camera') . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $relativePath = $relativeDir . $fileName;
+        $storagePath = $storage->storagePath($relativePath);
+        $publicPath = $storage->publicPath($relativePath);
+
+        FileHelper::createDirectory(dirname($storagePath));
+        FileHelper::createDirectory(dirname($publicPath));
+        if (file_put_contents($storagePath, $binary) === false) {
+            return null;
+        }
+        if ($publicPath !== $storagePath) {
+            @copy($storagePath, $publicPath);
+        }
+
+        return [
+            'relative_path' => $relativePath,
+            'url' => $storage->publicUrl($relativePath),
+            'photo_name' => $safeField !== '' ? $safeField . '.' . $extension : 'gps-camera.' . $extension,
+            'photo_mime' => $mimeType,
+            'photo_size' => strlen($binary),
+        ];
+    }
+
     private function isInteractiveSubmissionField(array $field): bool
     {
         $type = strtolower(trim((string)($field['type'] ?? 'text-input')));
         $nonInputTypes = [
-            'container', 'columns', 'grid', 'section',
-            'heading', 'text', 'richtext', 'divider', 'spacer',
-            'image', 'video', 'alert', 'button', 'submit', 'hidden',
+            'container',
+            'columns',
+            'grid',
+            'section',
+            'heading',
+            'text',
+            'richtext',
+            'divider',
+            'spacer',
+            'image',
+            'video',
+            'alert',
+            'button',
+            'submit',
+            'hidden',
         ];
 
         return !in_array($type, $nonInputTypes, true);
@@ -1077,8 +1253,18 @@ class FormController extends Controller
     {
         $type = strtoupper(trim((string)($column['type'] ?? '')));
         return in_array($type, [
-            'CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT',
-            'BINARY', 'VARBINARY', 'TINYBLOB', 'BLOB', 'MEDIUMBLOB', 'LONGBLOB',
+            'CHAR',
+            'VARCHAR',
+            'TINYTEXT',
+            'TEXT',
+            'MEDIUMTEXT',
+            'LONGTEXT',
+            'BINARY',
+            'VARBINARY',
+            'TINYBLOB',
+            'BLOB',
+            'MEDIUMBLOB',
+            'LONGBLOB',
         ], true);
     }
 
@@ -1113,12 +1299,14 @@ class FormController extends Controller
                     'source' => 'table_metadata',
                 ];
 
-                foreach (array_unique([
-                    $fieldName,
-                    $this->normalizeInputKey($fieldName),
-                    $this->normalizeInputKey($label),
-                    $this->stripForeignKeySuffix($fieldName),
-                ]) as $key) {
+                foreach (
+                    array_unique([
+                        $fieldName,
+                        $this->normalizeInputKey($fieldName),
+                        $this->normalizeInputKey($label),
+                        $this->stripForeignKeySuffix($fieldName),
+                    ]) as $key
+                ) {
                     if ($key === '') {
                         continue;
                     }
@@ -1561,11 +1749,28 @@ class FormController extends Controller
             'URI.DisableResources' => false,
             'Attr.EnableID' => false,
             'HTML.Allowed' => implode(',', [
-                'div', 'span', 'p', 'br', 'hr',
-                'strong', 'b', 'em', 'i', 'u',
-                'ul', 'ol', 'li',
-                'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-                'blockquote', 'code', 'pre',
+                'div',
+                'span',
+                'p',
+                'br',
+                'hr',
+                'strong',
+                'b',
+                'em',
+                'i',
+                'u',
+                'ul',
+                'ol',
+                'li',
+                'h1',
+                'h2',
+                'h3',
+                'h4',
+                'h5',
+                'h6',
+                'blockquote',
+                'code',
+                'pre',
                 'a[href|title|target|rel]',
                 'img[src|alt|title|width|height]',
             ]),
@@ -1805,7 +2010,7 @@ class FormController extends Controller
             $pagesData = Yii::$app->request->post('form_pages');
             $postedFormData = Yii::$app->request->post($model->formName(), []);
             $rawSchema = isset($postedFormData['schema_js']) ? (string)$postedFormData['schema_js'] : (string)$model->schema_js;
-            
+
             // DEBUG: Log what we received
             if (YII_DEBUG && $pagesData) {
                 Yii::info('=== FORM SUBMIT DEBUG ===', 'app');
@@ -1815,9 +2020,9 @@ class FormController extends Controller
                     Yii::info('Custom Design received: ' . json_encode($decoded['customDesign'] ?? 'NOT SET'), 'app');
                 }
             }
-            
+
             $model->schema_js = $this->normalizeBuilderSchema($pagesData, $rawSchema);
-            
+
             if ($model->save()) {
                 $shouldPublish = (bool) Yii::$app->request->post('publish_now', false);
 
@@ -1879,7 +2084,7 @@ class FormController extends Controller
             if ($model->name === '') {
                 $model->name = 'Untitled Page ' . $model->id;
             }
-            
+
             // Handle multi-page form and custom design data
             $pagesData = Yii::$app->request->post('form_pages');
             $postedFormData = Yii::$app->request->post($model->formName(), []);
@@ -2147,6 +2352,7 @@ class FormController extends Controller
             }
 
             $data = $this->mergeAdditionalPostedInputs($data);
+            $data = $this->applyGpsCameraFieldUploads($model, $schema, $data);
             $normalizedPayloadDebug = [
                 'target_table' => ($targetTableForDebug = $this->findTargetTableForForm($model)) !== null ? (string)$targetTableForDebug->name : '',
                 'schema_columns' => array_map(static function ($field): string {
@@ -2203,7 +2409,7 @@ class FormController extends Controller
                 $identity = Yii::$app->user->identity;
                 $data['_user_id'] = $identity->getId();
                 $data['_user_name'] = $identity->username;
-                
+
                 // User model might not have email field (it doesn't in current schema)
                 if (property_exists($identity, 'email') && isset($identity->email)) {
                     $data['_user_email'] = $identity->email;
@@ -2263,7 +2469,7 @@ class FormController extends Controller
                     $submission = new FormSubmission();
                     $submission->setAttribute('form_id', (int)$id);
                     $submission->setAttribute('user_id', $this->getEffectiveUserId());
-                    
+
                     if ($submission->hasAttribute('firebase_uid')) {
                         $submission->setAttribute('firebase_uid', (string)Yii::$app->request->post('firebase_uid'));
                     }
@@ -2273,7 +2479,7 @@ class FormController extends Controller
                     if ($submission->hasAttribute('firebase_name')) {
                         $submission->setAttribute('firebase_name', (string)Yii::$app->request->post('user_name'));
                     }
-                    
+
                     $submission->setAttribute('data_json', json_encode($data, JSON_UNESCAPED_UNICODE));
 
                     if (!$submission->save()) {
@@ -2697,12 +2903,12 @@ class FormController extends Controller
                     Yii::info('Decoded form_pages: ' . json_encode($decoded), 'app');
 
                     $form->schema_js = $this->normalizeBuilderSchema($pagesData, (string)$form->schema_js);
-                    
+
                     if (!$form->save()) {
                         Yii::error('Failed to save form with custom design: ' . print_r($form->errors, true), 'app');
                         return ['success' => false, 'message' => 'Failed to save form design: ' . implode(', ', $form->getFirstErrors())];
                     }
-                    
+
                     Yii::info('✅ Form saved successfully with custom design', 'app');
                 }
             }
@@ -2789,7 +2995,7 @@ class FormController extends Controller
     {
         $metadataDb = Yii::$app->db;
         $activeProjectId = $projectId ?? $this->getActiveProjectId();
-        
+
         if ($activeProjectId === null) {
             return $metadataDb;
         }

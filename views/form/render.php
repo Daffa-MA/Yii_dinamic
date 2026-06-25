@@ -259,6 +259,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\Vie
                             'options' => array_filter([
                                 'data-form-id' => (int)$model->id,
                                 'target' => $embedded ? '_top' : null,
+                                'enctype' => 'multipart/form-data',
                             ]),
                         ]); ?>
                         <?php if ($embedded && $returnUrl !== ''): ?>
@@ -353,6 +354,9 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\Vie
 
                                     <?php elseif ($field['type'] === 'date'): ?>
                                         <input type="date" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" value="<?= Html::encode($defaultValue) ?>" <?= $options ?><?= $readonlyAttr ?>>
+
+                                    <?php elseif ($field['type'] === 'gps_camera'): ?>
+                                        <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
 
                                     <?php elseif ($field['type'] === 'select'): ?>
                                         <?php

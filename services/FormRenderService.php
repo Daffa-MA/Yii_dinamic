@@ -16,6 +16,7 @@ class FormRenderService
 {
     /** @var array<string, array<int, array<string, string>>> */
     private static array $dynamicChoiceOptionsCache = [];
+    private static bool $gpsCameraScriptInjected = false;
 
     public function hasCustomCodePayload(array $renderPayload, ?MasterForm $form = null): bool
     {
@@ -698,6 +699,277 @@ class FormRenderService
         }, $html) ?? $html;
 
         return self::appendCustomFormSubmitCollectorScript($prepared);
+    }
+
+    public static function renderGpsCameraField(array $field, bool $interactive = true, bool $includeLabel = true): string
+    {
+        $field = self::normalizeFieldForRender($field);
+        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? 'gps_camera'));
+        $name = $name !== '' ? $name : 'gps_camera';
+        $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '_', $name) ?: 'gps_camera';
+        $label = trim((string)($field['label'] ?? $field['field_label'] ?? 'GPS Camera'));
+        $label = $label !== '' ? $label : 'GPS Camera';
+        $required = !empty($field['required']);
+        $readonly = !empty($field['readonly']) || !empty($field['readOnly']);
+        $hidden = !empty($field['hidden']) || !empty($field['excluded']);
+        $previewImage = !array_key_exists('preview_image', $field) || !empty($field['preview_image']) || (string)($field['preview_image'] ?? '') === '1';
+        $autoGps = !array_key_exists('auto_capture_gps', $field) || !empty($field['auto_capture_gps']) || (string)($field['auto_capture_gps'] ?? '') === '1';
+        $autoTimestamp = !array_key_exists('auto_capture_timestamp', $field) || !empty($field['auto_capture_timestamp']) || (string)($field['auto_capture_timestamp'] ?? '') === '1';
+        $targetTable = trim((string)($field['target_table_name'] ?? ''));
+        $targetColumn = trim((string)($field['target_column_name'] ?? ''));
+        $defaultPayload = json_decode(trim((string)($field['default_value'] ?? '')), true);
+        $defaultPayload = is_array($defaultPayload) ? $defaultPayload : [];
+        $initialPreview = trim((string)($defaultPayload['photo_url'] ?? $defaultPayload['photo_path'] ?? ''));
+        $initialPayload = array_filter([
+            'field_name' => $name,
+            'photo_path' => (string)($defaultPayload['photo_path'] ?? ''),
+            'photo_url' => (string)($defaultPayload['photo_url'] ?? ''),
+            'latitude' => (string)($defaultPayload['latitude'] ?? ''),
+            'longitude' => (string)($defaultPayload['longitude'] ?? ''),
+            'gps_accuracy' => (string)($defaultPayload['gps_accuracy'] ?? ''),
+            'captured_date' => (string)($defaultPayload['captured_date'] ?? ''),
+            'captured_time' => (string)($defaultPayload['captured_time'] ?? ''),
+            'photo_name' => (string)($defaultPayload['photo_name'] ?? ''),
+            'photo_mime' => (string)($defaultPayload['photo_mime'] ?? ''),
+            'photo_size' => (string)($defaultPayload['photo_size'] ?? ''),
+            'captured_at_server' => (string)($defaultPayload['captured_at_server'] ?? ''),
+        ], static fn($value) => $value !== null && $value !== '');
+        $hiddenPayload = !empty($defaultPayload) && !empty($initialPayload)
+            ? json_encode($initialPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            : '';
+
+        $wrapperStyle = $hidden ? 'display:none;' : '';
+        $controlsDisabled = ($readonly || !$interactive) ? ' disabled aria-disabled="true"' : '';
+        $requiredAttr = ($required && $interactive && !$readonly) ? ' required' : '';
+        $buttonStyle = ($readonly || !$interactive) ? 'opacity:.55;cursor:not-allowed;' : '';
+        $previewStyle = $previewImage ? '' : 'display:none;';
+
+        $html = '<div class="gps-camera-field" data-gps-camera-component="1" data-field-name="' . Html::encode($name) . '" data-auto-gps="' . ($autoGps ? '1' : '0') . '" data-auto-timestamp="' . ($autoTimestamp ? '1' : '0') . '" data-preview-image="' . ($previewImage ? '1' : '0') . '" style="' . $wrapperStyle . 'margin-bottom:14px;">'
+            . ($includeLabel ? '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;font-weight:600;">' . Html::encode($label) . ($required ? ' <span style="color:#dc2626;">*</span>' : '') . '</label>' : '')
+            . '<input type="hidden" name="' . Html::encode($name) . '" value="' . Html::encode($hiddenPayload ?: '{}') . '" data-gps-camera-payload="1">'
+            . '<input type="file" name="__gps_camera_file_' . Html::encode($safeName) . '" accept="image/*" capture="environment" data-gps-camera-file="1" style="display:none;"' . $controlsDisabled . $requiredAttr . '>'
+            . '<div style="display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;">'
+            . '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+            . '<button type="button" data-gps-camera-trigger="1" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;' . $buttonStyle . '"' . $controlsDisabled . '>Ambil Foto</button>'
+            . '<button type="button" data-gps-camera-clear="1" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-weight:700;cursor:pointer;' . $buttonStyle . '"' . $controlsDisabled . '>Reset</button>'
+            . '<span data-gps-camera-status="1" style="font-size:12px;color:#64748b;">' . Html::encode($targetTable !== '' || $targetColumn !== '' ? trim($targetTable . ' ' . $targetColumn) : 'Foto dan GPS akan disiapkan otomatis.') . '</span>'
+            . '</div>'
+            . '<div data-gps-camera-preview-wrap="1" style="' . $previewStyle . 'display:flex;flex-direction:column;gap:8px;">'
+            . '<img data-gps-camera-preview="1" src="' . Html::encode($initialPreview) . '" alt="Preview foto" style="' . ($initialPreview !== '' ? '' : 'display:none;') . 'max-width:100%;border-radius:12px;border:1px solid #e2e8f0;background:#fff;object-fit:cover;">'
+            . '<div data-gps-camera-meta="1" style="font-size:12px;color:#475569;line-height:1.6;"></div>'
+            . '</div>'
+            . '</div>'
+            . '</div>';
+
+        if (!self::$gpsCameraScriptInjected) {
+            self::$gpsCameraScriptInjected = true;
+            $html .= <<<'HTML'
+<script>
+(function(){
+    if (window.__gpsCameraBinderInstalled) {
+        return;
+    }
+    window.__gpsCameraBinderInstalled = true;
+
+    function hasPayloadData(payload) {
+        if (!payload) {
+            return false;
+        }
+        return Object.keys(payload).some(function(key) {
+            var value = payload[key];
+            return value !== null && value !== undefined && String(value).trim() !== '';
+        });
+    }
+
+    function encodePayload(payload) {
+        try {
+            return JSON.stringify(payload || {});
+        } catch (e) {
+            return '{}';
+        }
+    }
+
+    function setPreview(wrapper, src) {
+        var image = wrapper.querySelector('[data-gps-camera-preview]');
+        if (!image) {
+            return;
+        }
+        if (src) {
+            image.src = src;
+            image.style.display = 'block';
+            return;
+        }
+        image.removeAttribute('src');
+        image.style.display = 'none';
+    }
+
+    function setMeta(wrapper, payload) {
+        var node = wrapper.querySelector('[data-gps-camera-meta]');
+        if (!node) {
+            return;
+        }
+        var rows = [];
+        if (payload.photo_name) rows.push('Nama file: ' + payload.photo_name);
+        if (payload.latitude || payload.longitude) rows.push('Lokasi: ' + (payload.latitude || '-') + ', ' + (payload.longitude || '-'));
+        if (payload.gps_accuracy) rows.push('Akurasi: ' + payload.gps_accuracy + ' m');
+        if (payload.captured_date || payload.captured_time) rows.push('Waktu server: ' + (payload.captured_date || '-') + (payload.captured_time ? ' ' + payload.captured_time : ''));
+        node.innerHTML = rows.map(function(row){ return '<div>' + String(row).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'; }).join('');
+    }
+
+    function applyPayload(wrapper, payload) {
+        var input = wrapper.querySelector('[data-gps-camera-payload]');
+        if (input) {
+            input.value = hasPayloadData(payload) ? encodePayload(payload) : '';
+        }
+        setMeta(wrapper, payload || {});
+    }
+
+    function fileToDataUrl(file) {
+        return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(String(reader.result || '')); };
+            reader.onerror = function() { reject(reader.error || new Error('file_read_error')); };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function captureGps(wrapper) {
+        if (wrapper.getAttribute('data-auto-gps') === '0' || !navigator.geolocation) {
+            return Promise.resolve({});
+        }
+        return new Promise(function(resolve) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                resolve({
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    gps_accuracy: position.coords.accuracy
+                });
+            }, function() {
+                resolve({});
+            }, {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 10000
+            });
+        });
+    }
+
+    function resetWrapper(wrapper) {
+        var fileInput = wrapper.querySelector('[data-gps-camera-file]');
+        if (fileInput) {
+            fileInput.value = '';
+        }
+        applyPayload(wrapper, {});
+        setPreview(wrapper, '');
+        var status = wrapper.querySelector('[data-gps-camera-status]');
+        if (status) {
+            status.textContent = 'Foto belum dipilih.';
+        }
+    }
+
+    async function handleFile(wrapper, file) {
+        var status = wrapper.querySelector('[data-gps-camera-status]');
+        if (!file) {
+            resetWrapper(wrapper);
+            return;
+        }
+
+        if (status) {
+            status.textContent = 'Memproses foto dan GPS...';
+        }
+
+        var previewImage = wrapper.getAttribute('data-preview-image') !== '0';
+        var imageSrc = '';
+        try {
+            imageSrc = await fileToDataUrl(file);
+        } catch (e) {
+            imageSrc = '';
+        }
+
+        var gps = await captureGps(wrapper);
+        var payload = {
+            photo_name: file.name || '',
+            photo_mime: file.type || '',
+            photo_size: file.size || 0,
+            photo_data: imageSrc,
+            latitude: gps.latitude || '',
+            longitude: gps.longitude || '',
+            gps_accuracy: gps.gps_accuracy || '',
+            captured_date: '',
+            captured_time: '',
+            captured_at_server: ''
+        };
+
+        applyPayload(wrapper, payload);
+        if (previewImage && imageSrc) {
+            setPreview(wrapper, imageSrc);
+        }
+        if (status) {
+            status.textContent = 'Foto dan GPS siap disimpan.';
+        }
+    }
+
+    document.addEventListener('click', function(event) {
+        var trigger = event.target.closest('[data-gps-camera-trigger]');
+        if (trigger) {
+            event.preventDefault();
+            var wrapper = trigger.closest('[data-gps-camera-component]');
+            var fileInput = wrapper ? wrapper.querySelector('[data-gps-camera-file]') : null;
+            if (fileInput && !fileInput.disabled) {
+                fileInput.click();
+            }
+            return;
+        }
+
+        var clearButton = event.target.closest('[data-gps-camera-clear]');
+        if (clearButton) {
+            event.preventDefault();
+            var clearWrapper = clearButton.closest('[data-gps-camera-component]');
+            if (clearWrapper && !clearButton.disabled) {
+                resetWrapper(clearWrapper);
+            }
+        }
+    });
+
+    document.addEventListener('change', function(event) {
+        var fileInput = event.target.closest('[data-gps-camera-file]');
+        if (!fileInput) {
+            return;
+        }
+        var wrapper = fileInput.closest('[data-gps-camera-component]');
+        if (!wrapper) {
+            return;
+        }
+        var file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+        handleFile(wrapper, file).catch(function() {
+            var status = wrapper.querySelector('[data-gps-camera-status]');
+            if (status) {
+                status.textContent = 'Gagal memproses foto.';
+            }
+        });
+    });
+
+    document.querySelectorAll('[data-gps-camera-component]').forEach(function(wrapper) {
+        var payloadInput = wrapper.querySelector('[data-gps-camera-payload]');
+        var payload = {};
+        if (payloadInput && payloadInput.value) {
+            try {
+                payload = JSON.parse(payloadInput.value) || {};
+            } catch (e) {
+                payload = {};
+            }
+        }
+        if (payload.photo_url || payload.photo_path) {
+            setPreview(wrapper, payload.photo_url || payload.photo_path);
+        }
+        setMeta(wrapper, payload);
+    });
+})();
+</script>
+HTML;
+        }
+
+        return $html;
     }
 
     public static function attachAjaxSubmitHandler(string $html): string

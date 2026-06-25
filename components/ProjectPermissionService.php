@@ -761,6 +761,7 @@ class ProjectPermissionService
             'table-builder.index' => 'master_table',
             'table-builder.create' => 'master_table',
             'table-builder.view' => 'master_table',
+            'table-builder.export' => 'master_table',
             'table-builder.update' => 'master_table',
             'table-builder.delete' => 'master_table',
             'settings.workspace' => 'workspace_settings',

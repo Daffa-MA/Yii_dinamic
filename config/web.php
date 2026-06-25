@@ -229,6 +229,7 @@ $config = [
                 'tables/dropdown-options/<table_id:\d+>' => 'table-builder/dropdown-options',
                 'tables/foreign-key-options/<columnId:\d+>' => 'table-builder/get-foreign-key-options',
                 'tables/view/<id:\d+>' => 'table-builder/view',
+                'tables/export/<id:\d+>' => 'table-builder/export',
                 'tables/update/<id:\d+>' => 'table-builder/update',
                 'tables/execute/<id:\d+>' => 'table-builder/execute-sql',
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',

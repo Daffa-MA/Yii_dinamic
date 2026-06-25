@@ -2257,8 +2257,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function ensureGpsCameraMetadataLoaded(field) {
         field = normalizeGpsCameraBindingState(field);
+        if (!field || typeof field !== 'object') {
+            return Promise.resolve([]);
+        }
+        if (field.__gps_camera_metadata_loaded) {
+            return Promise.resolve([]);
+        }
+        if (field.__gps_camera_metadata_loading) {
+            return field.__gps_camera_metadata_loading;
+        }
+
         const currentToken = ++gpsCameraMetadataLoadToken;
-        return ensureDropdownSourceTablesLoaded().then(function() {
+        field.__gps_camera_metadata_loading = ensureDropdownSourceTablesLoaded().then(function() {
             if (currentToken !== gpsCameraMetadataLoadToken) {
                 return [];
             }
@@ -2278,12 +2288,17 @@ document.addEventListener('DOMContentLoaded', function() {
             if (currentToken !== gpsCameraMetadataLoadToken) {
                 return;
             }
+            field.__gps_camera_metadata_loaded = true;
+            field.__gps_camera_metadata_loading = null;
             if (selectedIndex !== null && formFields[selectedIndex] === field) {
                 renderPropsPanel(formFields[selectedIndex]);
             }
         }).catch(function() {
+            field.__gps_camera_metadata_loading = null;
             return [];
         });
+
+        return field.__gps_camera_metadata_loading;
     }
 
     function ensureCurrentTableForeignKeyColumnsLoaded() {

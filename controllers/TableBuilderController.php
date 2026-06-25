@@ -4933,47 +4933,88 @@ class TableBuilderController extends Controller
     public function actionGetTables()
     {
         try {
-            $this->getDatabaseSchemaSyncService()->syncAllPhysicalTables();
-            $this->refreshDbTableColumnsSchema();
-
+            $cache = Yii::$app->has('cache', true) ? Yii::$app->cache : null;
             $activeProjectId = $this->getActiveProjectId();
-            
-            // Get table definitions from DbTable model (like table-builder index does)
-            $tablesQuery = DbTable::find()
-                ->orderBy(['created_at' => SORT_DESC]);
+            $effectiveUserId = $this->isCommanderSuperAdmin() ? null : $this->getEffectiveUserId();
+            $forceRefresh = (string)Yii::$app->request->get('refresh', '0') === '1';
+            $cacheKey = implode(':', [
+                'table-builder',
+                'get-tables',
+                $activeProjectId !== null ? (string)$activeProjectId : 'global',
+                $effectiveUserId !== null ? (string)$effectiveUserId : 'all-users',
+                (string)Yii::$app->db->dsn,
+                $forceRefresh ? 'refresh' : 'cached',
+            ]);
 
-            if (!$this->isCommanderSuperAdmin()) {
-                $effectiveUserId = $this->getEffectiveUserId();
-                if ($effectiveUserId !== null) {
-                    $tablesQuery->where(['user_id' => $effectiveUserId]);
+            if ($cache !== null) {
+                $payload = $cache->getOrSet($cacheKey, function () use ($activeProjectId, $effectiveUserId) {
+                    $this->refreshDbTableColumnsSchema();
+
+                    $tablesQuery = DbTable::find()
+                        ->orderBy(['created_at' => SORT_DESC]);
+
+                    if ($effectiveUserId !== null) {
+                        $tablesQuery->where(['user_id' => $effectiveUserId]);
+                    }
+                    if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+                        $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+                    }
+                    if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
+                        $tablesQuery->andWhere(['is_created' => true]);
+                    }
+
+                    $tableList = [];
+                    foreach ($tablesQuery->all() as $table) {
+                        $this->syncTableCreationState($table);
+                        $tableList[] = [
+                            'id' => $table->id,
+                            'name' => $table->name,
+                            'label' => $table->label ?: $table->name,
+                        ];
+                    }
+
+                    return [
+                        'success' => true,
+                        'tables' => $tableList,
+                        'source' => 'db_table_metadata',
+                        'count' => count($tableList),
+                    ];
+                }, 120);
+            } else {
+                $this->refreshDbTableColumnsSchema();
+
+                $tablesQuery = DbTable::find()
+                    ->orderBy(['created_at' => SORT_DESC]);
+                if (!$this->isCommanderSuperAdmin()) {
+                    $effectiveUserId = $this->getEffectiveUserId();
+                    if ($effectiveUserId !== null) {
+                        $tablesQuery->where(['user_id' => $effectiveUserId]);
+                    }
                 }
-            }
-                
-            if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-                $tablesQuery->andWhere(['project_id' => $activeProjectId]);
-            }
-            if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
-                $tablesQuery->andWhere(['is_created' => true]);
-            }
-            
-            $tables = $tablesQuery->all();
-            
-            $tableList = [];
-            foreach ($tables as $table) {
-                $this->syncTableCreationState($table);
-                $tableList[] = [
-                    'id' => $table->id,
-                    'name' => $table->name,
-                    'label' => $table->label ?: $table->name,
+                if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
+                    $tablesQuery->andWhere(['project_id' => $activeProjectId]);
+                }
+                if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
+                    $tablesQuery->andWhere(['is_created' => true]);
+                }
+                $tableList = [];
+                foreach ($tablesQuery->all() as $table) {
+                    $this->syncTableCreationState($table);
+                    $tableList[] = [
+                        'id' => $table->id,
+                        'name' => $table->name,
+                        'label' => $table->label ?: $table->name,
+                    ];
+                }
+                $payload = [
+                    'success' => true,
+                    'tables' => $tableList,
+                    'source' => 'db_table_metadata',
+                    'count' => count($tableList),
                 ];
             }
-            
-            return $this->asJson([
-                'success' => true,
-                'tables' => $tableList,
-                'source' => 'db_table_metadata',
-                'count' => count($tableList)
-            ]);
+
+            return $this->asJson($payload);
             
         } catch (\Throwable $e) {
             return $this->asJson([
@@ -4989,9 +5030,6 @@ class TableBuilderController extends Controller
     public function actionGetTableColumns($id)
     {
         try {
-            $this->refreshDbTableColumnsSchema();
-            
-            // Find the table by ID
             $model = DbTable::findOne((int)$id);
             if ($model === null) {
                 return $this->asJson([
@@ -4999,58 +5037,128 @@ class TableBuilderController extends Controller
                     'error' => 'Table not found with id: ' . $id
                 ]);
             }
-            if ($this->hasPhysicalTable($model)) {
-                $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
-                $this->refreshDbTableColumnsSchema();
-            }
-            
-            // Get columns relation
-            $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
-            $tableSchema = null;
-            try {
-                $tableSchema = $this->getPhysicalDb()->schema->getTableSchema($model->name, true);
-            } catch (\Throwable $schemaError) {
-                $tableSchema = null;
-            }
-            
-            $columnData = [];
-            $debugColumns = [];
-            foreach ($columns as $col) {
-                $schemaColumn = $tableSchema !== null ? ($tableSchema->columns[$col->name] ?? null) : null;
-                SystemFieldService::debugDecision($col, 'table-builder/get-table-columns', $schemaColumn);
-                $debugColumns[] = SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn);
+            $cache = Yii::$app->has('cache', true) ? Yii::$app->cache : null;
+            $forceRefresh = (string)Yii::$app->request->get('refresh', '0') === '1';
+            $cacheKey = implode(':', [
+                'table-builder',
+                'get-table-columns',
+                (int)$model->id,
+                (string)($model->updated_at ?? ''),
+                (string)Yii::$app->db->dsn,
+                $forceRefresh ? 'refresh' : 'cached',
+            ]);
 
-                if (SystemFieldService::shouldHideFromForm($col, $schemaColumn)) {
-                    continue;
+            if ($cache !== null) {
+                $payload = $cache->getOrSet($cacheKey, function () use ($model) {
+                    $this->refreshDbTableColumnsSchema();
+                    if ((string)Yii::$app->request->get('refresh', '0') === '1' && $this->hasPhysicalTable($model)) {
+                        $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                        $this->refreshDbTableColumnsSchema();
+                    }
+
+                    $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+                    $tableSchema = null;
+                    try {
+                        $tableSchema = $this->getPhysicalDb()->schema->getTableSchema($model->name, true);
+                    } catch (\Throwable $schemaError) {
+                        $tableSchema = null;
+                    }
+
+                    $columnData = [];
+                    $debugColumns = [];
+                    foreach ($columns as $col) {
+                        $schemaColumn = $tableSchema !== null ? ($tableSchema->columns[$col->name] ?? null) : null;
+                        SystemFieldService::debugDecision($col, 'table-builder/get-table-columns', $schemaColumn);
+                        $debugColumns[] = SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn);
+
+                        if (SystemFieldService::shouldHideFromForm($col, $schemaColumn)) {
+                            continue;
+                        }
+
+                        $isFk = $col->hasAttribute('is_foreign_key') ? (bool)$col->getAttribute('is_foreign_key') : false;
+                        $columnData[] = [
+                            'id' => $col->id,
+                            'name' => $col->name,
+                            'label' => $col->label ?: $col->name,
+                            'type' => $col->type,
+                            'base_type' => preg_match('/^(\w+)/', $col->type ?? '', $m) ? $m[1] : ($col->type ?? 'text'),
+                            'is_nullable' => (bool)$col->is_nullable,
+                            'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
+                            'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
+                            'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
+                            'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
+                            'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn),
+                            'referenced_table_name' => $isFk ? $col->getAttribute('referenced_table_name') : null,
+                            'referenced_column_name' => $isFk ? $col->getAttribute('referenced_column_name') : null,
+                            'default_value' => $col->default_value,
+                        ];
+                    }
+
+                    return [
+                        'success' => true,
+                        'table_id' => $model->id,
+                        'table_name' => $model->name,
+                        'table_label' => $model->label ?: $model->name,
+                        'columns' => $columnData,
+                        'system_field_debug' => $debugColumns,
+                    ];
+                }, 120);
+            } else {
+                $this->refreshDbTableColumnsSchema();
+                if ((string)Yii::$app->request->get('refresh', '0') === '1' && $this->hasPhysicalTable($model)) {
+                    $model = $this->getDatabaseSchemaSyncService()->syncTable((string)$model->name);
+                    $this->refreshDbTableColumnsSchema();
                 }
 
-                $isFk = $col->hasAttribute('is_foreign_key') ? (bool)$col->getAttribute('is_foreign_key') : false;
-                $columnData[] = [
-                    'id' => $col->id,
-                    'name' => $col->name,
-                    'label' => $col->label ?: $col->name,
-                    'type' => $col->type,
-                    'base_type' => preg_match('/^(\w+)/', $col->type ?? '', $m) ? $m[1] : ($col->type ?? 'text'),
-                    'is_nullable' => (bool)$col->is_nullable,
-                    'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
-                    'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
-                    'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
-                    'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
-                    'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn),
-                    'referenced_table_name' => $isFk ? $col->getAttribute('referenced_table_name') : null,
-                    'referenced_column_name' => $isFk ? $col->getAttribute('referenced_column_name') : null,
-                    'default_value' => $col->default_value,
+                $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+                $tableSchema = null;
+                try {
+                    $tableSchema = $this->getPhysicalDb()->schema->getTableSchema($model->name, true);
+                } catch (\Throwable $schemaError) {
+                    $tableSchema = null;
+                }
+
+                $columnData = [];
+                $debugColumns = [];
+                foreach ($columns as $col) {
+                    $schemaColumn = $tableSchema !== null ? ($tableSchema->columns[$col->name] ?? null) : null;
+                    SystemFieldService::debugDecision($col, 'table-builder/get-table-columns', $schemaColumn);
+                    $debugColumns[] = SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn);
+
+                    if (SystemFieldService::shouldHideFromForm($col, $schemaColumn)) {
+                        continue;
+                    }
+
+                    $isFk = $col->hasAttribute('is_foreign_key') ? (bool)$col->getAttribute('is_foreign_key') : false;
+                    $columnData[] = [
+                        'id' => $col->id,
+                        'name' => $col->name,
+                        'label' => $col->label ?: $col->name,
+                        'type' => $col->type,
+                        'base_type' => preg_match('/^(\w+)/', $col->type ?? '', $m) ? $m[1] : ($col->type ?? 'text'),
+                        'is_nullable' => (bool)$col->is_nullable,
+                        'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
+                        'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
+                        'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
+                        'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
+                        'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-table-columns', $schemaColumn),
+                        'referenced_table_name' => $isFk ? $col->getAttribute('referenced_table_name') : null,
+                        'referenced_column_name' => $isFk ? $col->getAttribute('referenced_column_name') : null,
+                        'default_value' => $col->default_value,
+                    ];
+                }
+
+                $payload = [
+                    'success' => true,
+                    'table_id' => $model->id,
+                    'table_name' => $model->name,
+                    'table_label' => $model->label ?: $model->name,
+                    'columns' => $columnData,
+                    'system_field_debug' => $debugColumns,
                 ];
             }
-            
-            return $this->asJson([
-                'success' => true,
-                'table_id' => $model->id,
-                'table_name' => $model->name,
-                'table_label' => $model->label ?: $model->name,
-                'columns' => $columnData,
-                'system_field_debug' => $debugColumns,
-            ]);
+
+            return $this->asJson($payload);
         } catch (\Throwable $e) {
             return $this->asJson([
                 'success' => false,

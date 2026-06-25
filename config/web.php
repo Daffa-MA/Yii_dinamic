@@ -240,6 +240,8 @@ $config = [
                 'master-datatable/update/<id:\d+>' => 'master-datatable/update',
                 'master-datatable/delete/<id:\d+>' => 'master-datatable/delete',
                 'master-datatable/reload/<id:\d+>' => 'master-datatable/reload',
+                'master-datatable/export/<id:\d+>' => 'master-datatable/export',
+                'master-datatable/approve-row/<id:\d+>' => 'master-datatable/approve-row',
                 'master-datatable/delete-row/<table_id:\d+>' => 'master-datatable/delete-row',
 
                 // Master Form routes
@@ -253,6 +255,7 @@ $config = [
                 'master-form/duplicate/<id:\d+>' => 'master-form/duplicate',
                 'master-form/relation-picker-data' => 'master-form/relation-picker-data',
                 'master-form/relation-picker-search' => 'master-form/relation-picker-search',
+                'master-form/resolve-autofill' => 'master-form/resolve-autofill',
 
                 // Project routes (main landing after login)
                 'project-list' => 'project/index',
@@ -301,6 +304,7 @@ $config = [
                 'master-form/duplicate/<id:\d+>' => 'master-form/duplicate',
                 'master-form/relation-picker-data' => 'master-form/relation-picker-data',
                 'master-form/relation-picker-search' => 'master-form/relation-picker-search',
+                'master-form/resolve-autofill' => 'master-form/resolve-autofill',
 
                 // Master Menu routes
                 'master-menu' => 'master-menu/index',

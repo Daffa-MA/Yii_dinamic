@@ -16,6 +16,7 @@ use yii\db\Query;
 use yii\helpers\Html;
 use yii\helpers\Json;
 use yii\helpers\Url;
+use yii\web\Response;
 
 class MasterDatatableRenderService
 {
@@ -63,7 +64,9 @@ class MasterDatatableRenderService
                 $data['actions'],
                 $data['primaryKeys'],
                 $data['displayLookup'],
-                $data['colspan']
+                $data['colspan'],
+                (int)$preset->id,
+                $data['workflow']
             ),
             'total' => (int)$data['state']['total'],
             'subtitle' => (int)$data['state']['total'] . ' row' . ((int)$data['state']['total'] === 1 ? '' : 's') . ' from ' . (string)$data['table']->name,
@@ -86,7 +89,7 @@ class MasterDatatableRenderService
             return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
         }
 
-        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId);
+        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId, $data['filters'], $data['stats'], $data['workflow']);
     }
 
     private function buildRenderData(array $config): ?array
@@ -98,12 +101,16 @@ class MasterDatatableRenderService
             'tableId' => $tableId,
             'columns' => $config['columns'] ?? [],
             'actions' => $config['actions'] ?? [],
+            'filters' => $config['filters'] ?? [],
+            'stats' => $config['stats'] ?? [],
+            'workflow' => $config['workflow'] ?? [],
             'editFormId' => $config['editFormId'] ?? $config['edit_form_id'] ?? null,
             'search' => $config['search'] ?? $config['search_enabled'] ?? true,
             'pagination' => $config['pagination'] ?? $config['pagination_enabled'] ?? true,
             'pageSize' => $config['pageSize'] ?? $config['page_size'] ?? 10,
             'page' => Yii::$app->request->get($pageParam, 1),
             'searchQuery' => Yii::$app->request->get($searchParam, ''),
+            'filterQuery' => Yii::$app->request->get(),
             'projectId' => (new ActiveProjectContext())->getActiveProjectId(),
             'userId' => Yii::$app->user->isGuest ? 0 : (int)Yii::$app->user->id,
             'dsn' => (string)Yii::$app->db->dsn,
@@ -138,6 +145,9 @@ class MasterDatatableRenderService
         $page = max(1, (int)Yii::$app->request->get($pageParam, 1));
         $search = trim((string)Yii::$app->request->get($searchParam, ''));
         $fields = array_column($columns, 'field');
+        $filters = $this->resolveFilters($table, $config);
+        $statsConfig = $this->resolveStatsConfig($table, $config);
+        $workflow = $this->resolveWorkflowConfig($table, $config);
 
         $query = (new Query())->from($table->name);
         if ($searchEnabled && $search !== '') {
@@ -149,12 +159,24 @@ class MasterDatatableRenderService
                 $query->andWhere($or);
             }
         }
+        foreach ($filters as $index => $filter) {
+            $field = (string)$filter['field'];
+            $param = 'dt_filter_' . $tableId . '_' . $field;
+            $value = trim((string)Yii::$app->request->get($param, ''));
+            $filters[$index]['param'] = $param;
+            $filters[$index]['value'] = $value;
+            if ($value !== '') {
+                $query->andWhere([$field => $value]);
+            }
+            $filters[$index]['options'] = $this->buildFilterOptions($table, $field);
+        }
 
         $total = (int)(clone $query)->count('*', Yii::$app->db);
+        $stats = $this->buildStats($query, $statsConfig);
         if ($paginationEnabled) {
             $query->limit($pageSize)->offset(($page - 1) * $pageSize);
         } else {
-            $query->limit(500);
+            $query->limit(max(1, min(5000, (int)($config['pageSize'] ?? $config['page_size'] ?? 500))));
         }
 
         $rows = $query->all(Yii::$app->db);
@@ -177,6 +199,9 @@ class MasterDatatableRenderService
             'primaryKeys' => $primaryKeys,
             'displayLookup' => $displayLookup,
             'colspan' => count($columns) + ($hasActions ? 1 : 0),
+            'filters' => $filters,
+            'stats' => $stats,
+            'workflow' => $workflow,
             'state' => [
                 'searchEnabled' => $searchEnabled,
                 'paginationEnabled' => $paginationEnabled,
@@ -188,6 +213,188 @@ class MasterDatatableRenderService
                 'searchParam' => $searchParam,
             ],
         ];
+    }
+
+    private function resolveFilters(DbTable $table, array $config): array
+    {
+        $metadataMap = [];
+        foreach ($table->getColumns()->all() as $column) {
+            $metadataMap[(string)$column->name] = $column;
+        }
+
+        $filters = [];
+        foreach ((array)($config['filters'] ?? $config['filters_config'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $field = trim((string)($item['field'] ?? ''));
+            if ($field === '' || !isset($metadataMap[$field])) {
+                continue;
+            }
+            $filters[] = [
+                'field' => $field,
+                'label' => trim((string)($item['label'] ?? '')) ?: ($metadataMap[$field]->label ?: $field),
+                'param' => '',
+                'value' => '',
+                'options' => [],
+            ];
+        }
+
+        return $filters;
+    }
+
+    private function resolveStatsConfig(DbTable $table, array $config): array
+    {
+        $metadataMap = [];
+        foreach ($table->getColumns()->all() as $column) {
+            $metadataMap[(string)$column->name] = $column;
+        }
+
+        $stats = [];
+        foreach ((array)($config['stats'] ?? $config['stats_config'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $field = trim((string)($item['field'] ?? ''));
+            if ($field === '' || !isset($metadataMap[$field])) {
+                continue;
+            }
+            $stats[] = [
+                'field' => $field,
+                'label' => trim((string)($item['label'] ?? '')) ?: ($metadataMap[$field]->label ?: $field),
+            ];
+        }
+
+        return $stats;
+    }
+
+    private function resolveWorkflowConfig(DbTable $table, array $config): array
+    {
+        $workflow = is_array($config['workflow'] ?? null) ? $config['workflow'] : [];
+        $enabled = !empty($workflow['approval_enabled']) || !empty($workflow['enabled']);
+        $statusField = trim((string)($workflow['status_field'] ?? ''));
+        $schema = Yii::$app->db->schema->getTableSchema((string)$table->name, true);
+        if (!$enabled || $statusField === '' || $schema === null || !isset($schema->columns[$statusField])) {
+            return ['approval_enabled' => false];
+        }
+
+        return [
+            'approval_enabled' => true,
+            'status_field' => $statusField,
+            'approved_value' => trim((string)($workflow['approved_value'] ?? 'approved')),
+            'pending_value' => trim((string)($workflow['pending_value'] ?? 'pending')),
+            'button_label' => trim((string)($workflow['button_label'] ?? 'Approve')) ?: 'Approve',
+        ];
+    }
+
+    private function buildFilterOptions(DbTable $table, string $field): array
+    {
+        try {
+            $rows = (new Query())
+                ->from((string)$table->name)
+                ->select([$field])
+                ->distinct()
+                ->orderBy([$field => SORT_ASC])
+                ->limit(300)
+                ->column(Yii::$app->db);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed loading datatable filter options: ' . $e->getMessage(), 'master-datatable');
+            return [];
+        }
+
+        $options = [];
+        $displayLookup = $this->buildFilterDisplayLookup($table, $field, $rows);
+        foreach ($rows as $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $options[] = [
+                'value' => (string)$value,
+                'label' => $displayLookup[(string)$value] ?? $this->formatValue($value),
+            ];
+        }
+
+        return $options;
+    }
+
+    private function buildFilterDisplayLookup(DbTable $table, string $field, array $values): array
+    {
+        $metadataColumn = DbTableColumn::find()
+            ->where(['table_id' => (int)$table->id, 'name' => $field])
+            ->one();
+        if (!$metadataColumn instanceof DbTableColumn || !SystemFieldService::isForeignKey($metadataColumn)) {
+            return [];
+        }
+
+        $referencedTable = trim((string)($metadataColumn->hasAttribute('referenced_table_name') ? $metadataColumn->getAttribute('referenced_table_name') : ''));
+        $referencedColumn = trim((string)($metadataColumn->hasAttribute('referenced_column_name') ? $metadataColumn->getAttribute('referenced_column_name') : 'id'));
+        if ($referencedTable === '') {
+            return [];
+        }
+
+        $schema = Yii::$app->db->schema->getTableSchema($referencedTable, true);
+        if ($schema === null) {
+            return [];
+        }
+        if ($referencedColumn === '' || !isset($schema->columns[$referencedColumn])) {
+            $referencedColumn = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
+        }
+        $displayColumn = $this->guessForeignKeyLabelColumn($schema, $referencedColumn);
+
+        try {
+            $rows = (new Query())
+                ->from($referencedTable)
+                ->select(array_values(array_unique([$referencedColumn, $displayColumn])))
+                ->where([$referencedColumn => array_values(array_filter($values, static function ($value): bool {
+                    return $value !== null && $value !== '';
+                }))])
+                ->all(Yii::$app->db);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed loading datatable FK filter labels: ' . $e->getMessage(), 'master-datatable');
+            return [];
+        }
+
+        $lookup = [];
+        foreach ($rows as $row) {
+            $key = isset($row[$referencedColumn]) ? (string)$row[$referencedColumn] : '';
+            if ($key === '') {
+                continue;
+            }
+            $lookup[$key] = $this->formatValue($row[$displayColumn] ?? $key);
+        }
+
+        return $lookup;
+    }
+
+    private function buildStats(Query $filteredQuery, array $statsConfig): array
+    {
+        $stats = [];
+        foreach ($statsConfig as $item) {
+            $field = (string)($item['field'] ?? '');
+            if ($field === '') {
+                continue;
+            }
+
+            try {
+                $rows = (clone $filteredQuery)
+                    ->select([$field, 'total' => new \yii\db\Expression('COUNT(*)')])
+                    ->groupBy($field)
+                    ->orderBy(['total' => SORT_DESC])
+                    ->limit(8)
+                    ->all(Yii::$app->db);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed building datatable stats: ' . $e->getMessage(), 'master-datatable');
+                continue;
+            }
+
+            $stats[] = [
+                'field' => $field,
+                'label' => (string)($item['label'] ?? $field),
+                'rows' => $rows,
+            ];
+        }
+
+        return $stats;
     }
 
     public function deleteRow(int $tableId, array $rowKey): bool
@@ -211,6 +418,86 @@ class MasterDatatableRenderService
         }
 
         return Yii::$app->db->createCommand()->delete($table->name, $where)->execute() > 0;
+    }
+
+    public function approveRow(MasterDatatable $preset, array $rowKey): bool
+    {
+        $config = $preset->toComponentConfig();
+        $table = DbTable::find()->where(['id' => (int)$preset->table_id])->one();
+        if (!$table instanceof DbTable || !$this->canUseTable($table)) {
+            return false;
+        }
+
+        $workflow = $this->resolveWorkflowConfig($table, $config);
+        if (empty($workflow['approval_enabled'])) {
+            return false;
+        }
+
+        $schema = Yii::$app->db->schema->getTableSchema((string)$table->name, true);
+        if ($schema === null || empty($schema->primaryKey)) {
+            return false;
+        }
+
+        $where = [];
+        foreach ($schema->primaryKey as $key) {
+            if (!array_key_exists($key, $rowKey)) {
+                return false;
+            }
+            $where[$key] = $rowKey[$key];
+        }
+
+        $permission = new ProjectPermissionService();
+        if (!$permission->canAccessRoute('table-builder/update', (new ActiveProjectContext())->getActiveProjectId())) {
+            return false;
+        }
+
+        return Yii::$app->db->createCommand()
+            ->update((string)$table->name, [(string)$workflow['status_field'] => (string)$workflow['approved_value']], $where)
+            ->execute() > 0;
+    }
+
+    public function exportPreset(MasterDatatable $preset, string $format = 'csv'): Response
+    {
+        $format = strtolower(trim($format));
+        $config = $preset->toComponentConfig();
+        $config['pagination'] = false;
+        $config['page_size'] = 5000;
+        $data = $this->buildRenderData($config);
+        if ($data === null) {
+            Yii::$app->response->statusCode = 404;
+            return Yii::$app->response;
+        }
+
+        $filename = preg_replace('/[^a-z0-9_-]+/i', '-', (string)$preset->name) ?: 'datatable';
+        if ($format === 'pdf' || $format === 'print') {
+            Yii::$app->response->format = Response::FORMAT_HTML;
+            Yii::$app->response->content = $this->renderPrintableExport($data, (string)$preset->name);
+            return Yii::$app->response;
+        }
+
+        $lines = [];
+        $lines[] = array_map(static fn(array $column): string => (string)($column['label'] ?? $column['field'] ?? ''), $data['columns']);
+        foreach ($data['rows'] as $row) {
+            $line = [];
+            foreach ($data['columns'] as $column) {
+                $line[] = $this->formatDisplayValue($row, $column, $data['displayLookup']);
+            }
+            $lines[] = $line;
+        }
+
+        $handle = fopen('php://temp', 'r+');
+        foreach ($lines as $line) {
+            fputcsv($handle, $line);
+        }
+        rewind($handle);
+        $csv = stream_get_contents($handle);
+        fclose($handle);
+
+        Yii::$app->response->format = Response::FORMAT_RAW;
+        Yii::$app->response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+        Yii::$app->response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '.csv"');
+        Yii::$app->response->content = "\xEF\xBB\xBF" . (string)$csv;
+        return Yii::$app->response;
     }
 
     private function syncTableMetadataIfPhysical(DbTable $table): DbTable
@@ -472,15 +759,18 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0, array $filters = [], array $stats = [], array $workflow = []): string
     {
-        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
+        $hasWorkflowAction = !empty($workflow['approval_enabled']) && !empty($primaryKeys);
+        $hasActions = (in_array(true, $actions, true) || $hasWorkflowAction) && !empty($primaryKeys);
         $colspan = count($columns) + ($hasActions ? 1 : 0);
         $totalPages = max(1, (int)ceil(($state['total'] ?: 0) / $state['pageSize']));
         $rowFields = $this->resolveRowFields($table, $columns);
         $detailFields = $this->resolveDetailFields($columns);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
         $reloadUrl = $presetId > 0 ? Url::to(['/master-datatable/reload', 'id' => $presetId]) : '';
+        $exportCsvUrl = $presetId > 0 ? Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => 'csv'] + Yii::$app->request->get()) : '';
+        $exportPrintUrl = $presetId > 0 ? Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => 'print'] + Yii::$app->request->get()) : '';
 
         ob_start();
         ?>
@@ -505,6 +795,14 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-title { margin:0; font-size:17px; font-weight:800; color:#0f172a; }
                 #<?= Html::encode($uid) ?> .dt-subtitle { margin:4px 0 0; font-size:12px; color:#64748b; }
                 #<?= Html::encode($uid) ?> .dt-search { min-width:260px; border:1px solid #cbd5e1; border-radius:12px; padding:10px 12px; font-size:13px; color:#0f172a; }
+                #<?= Html::encode($uid) ?> .dt-tools { display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:flex-end; }
+                #<?= Html::encode($uid) ?> .dt-filters { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); padding:14px 20px; border-bottom:1px solid #e2e8f0; background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-filter label { display:block; margin-bottom:5px; color:#64748b; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+                #<?= Html::encode($uid) ?> .dt-filter select { width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:9px 10px; color:#0f172a; background:#fff; }
+                #<?= Html::encode($uid) ?> .dt-stats { display:grid; gap:10px; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); padding:14px 20px; border-bottom:1px solid #e2e8f0; background:#f8fafc; }
+                #<?= Html::encode($uid) ?> .dt-stat { border:1px solid #e2e8f0; border-radius:14px; background:#fff; padding:12px; }
+                #<?= Html::encode($uid) ?> .dt-stat-title { margin:0 0 8px; color:#475569; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
+                #<?= Html::encode($uid) ?> .dt-stat-row { display:flex; justify-content:space-between; gap:10px; color:#0f172a; font-size:13px; padding:4px 0; border-top:1px solid #f1f5f9; }
                 #<?= Html::encode($uid) ?> .dt-wrap { overflow-x:auto; }
                 #<?= Html::encode($uid) ?> table { width:100%; border-collapse:collapse; }
                 #<?= Html::encode($uid) ?> th { padding:13px 16px; background:#f8fafc; color:#475569; text-align:left; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
@@ -627,8 +925,13 @@ class MasterDatatableRenderService
                     <h3 class="dt-title"><?= Html::encode($table->label ?: $table->name) ?></h3>
                     <p class="dt-subtitle" data-datatable-subtitle><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
                 </div>
-                <?php if ($state['searchEnabled']): ?>
-                    <form method="get">
+                <div class="dt-tools">
+                    <?php if ($presetId > 0): ?>
+                        <a class="dt-btn" href="<?= Html::encode($exportCsvUrl) ?>">Export CSV</a>
+                        <a class="dt-btn" href="<?= Html::encode($exportPrintUrl) ?>" target="_blank">Print/PDF</a>
+                    <?php endif; ?>
+                    <?php if ($state['searchEnabled']): ?>
+                    <form method="get" class="dt-search-form">
                         <?php foreach (Yii::$app->request->get() as $key => $value): ?>
                             <?php if ($key !== $state['searchParam'] && $key !== $state['pageParam']): ?>
                                 <input type="hidden" name="<?= Html::encode($key) ?>" value="<?= Html::encode((string)$value) ?>">
@@ -636,8 +939,45 @@ class MasterDatatableRenderService
                         <?php endforeach; ?>
                         <input class="dt-search" type="search" name="<?= Html::encode($state['searchParam']) ?>" value="<?= Html::encode($state['search']) ?>" placeholder="Search...">
                     </form>
-                <?php endif; ?>
+                    <?php endif; ?>
+                </div>
             </div>
+            <?php if (!empty($filters)): ?>
+                <form class="dt-filters" method="get">
+                    <?php foreach (Yii::$app->request->get() as $key => $value): ?>
+                        <?php $filterPrefix = 'dt_filter_' . (int)$table->id . '_'; ?>
+                        <?php if (strncmp((string)$key, $filterPrefix, strlen($filterPrefix)) !== 0 && $key !== $state['pageParam']): ?>
+                            <input type="hidden" name="<?= Html::encode((string)$key) ?>" value="<?= Html::encode((string)$value) ?>">
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                    <?php foreach ($filters as $filter): ?>
+                        <div class="dt-filter">
+                            <label><?= Html::encode((string)$filter['label']) ?></label>
+                            <select name="<?= Html::encode((string)$filter['param']) ?>" onchange="this.form.submit()">
+                                <option value="">Semua</option>
+                                <?php foreach ((array)$filter['options'] as $option): ?>
+                                    <option value="<?= Html::encode((string)$option['value']) ?>" <?= (string)$filter['value'] === (string)$option['value'] ? 'selected' : '' ?>><?= Html::encode((string)$option['label']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    <?php endforeach; ?>
+                </form>
+            <?php endif; ?>
+            <?php if (!empty($stats)): ?>
+                <div class="dt-stats">
+                    <?php foreach ($stats as $stat): ?>
+                        <div class="dt-stat">
+                            <p class="dt-stat-title"><?= Html::encode((string)$stat['label']) ?></p>
+                            <?php foreach ((array)$stat['rows'] as $row): ?>
+                                <div class="dt-stat-row">
+                                    <span><?= Html::encode($this->formatValue($row[$stat['field']] ?? '-')) ?></span>
+                                    <strong><?= (int)($row['total'] ?? 0) ?></strong>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
             <div class="dt-wrap">
                 <table>
                     <thead>
@@ -649,7 +989,7 @@ class MasterDatatableRenderService
                     </tr>
                     </thead>
                     <tbody>
-                    <?= $this->renderRowsHtml($table, $columns, $rows, $actions, $primaryKeys, $displayLookup, $colspan) ?>
+                    <?= $this->renderRowsHtml($table, $columns, $rows, $actions, $primaryKeys, $displayLookup, $colspan, $presetId, $workflow) ?>
                     </tbody>
                 </table>
             </div>
@@ -1658,9 +1998,10 @@ class MasterDatatableRenderService
         return (string)ob_get_clean();
     }
 
-    private function renderRowsHtml(DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $displayLookup, int $colspan): string
+    private function renderRowsHtml(DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $displayLookup, int $colspan, int $presetId = 0, array $workflow = []): string
     {
-        $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
+        $hasWorkflowAction = !empty($workflow['approval_enabled']) && $presetId > 0;
+        $hasActions = (in_array(true, $actions, true) || $hasWorkflowAction) && !empty($primaryKeys);
         ob_start();
         ?>
         <?php if (empty($rows)): ?>
@@ -1689,6 +2030,13 @@ class MasterDatatableRenderService
                                         <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
                                     </form>
                                 <?php endif; ?>
+                                <?php if ($hasWorkflowAction && (string)($row[$workflow['status_field']] ?? '') !== (string)$workflow['approved_value']): ?>
+                                    <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/approve-row', 'id' => $presetId])) ?>" onsubmit="return confirm('Proses data ini?');">
+                                        <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
+                                        <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
+                                        <button class="dt-btn" type="submit"><?= Html::encode((string)$workflow['button_label']) ?></button>
+                                    </form>
+                                <?php endif; ?>
                             </div>
                         </td>
                     <?php endif; ?>
@@ -1706,6 +2054,56 @@ class MasterDatatableRenderService
             . '</strong>'
             . Html::encode($message)
             . '</div>';
+    }
+
+    private function renderPrintableExport(array $data, string $title): string
+    {
+        ob_start();
+        ?>
+        <!doctype html>
+        <html lang="id">
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title><?= Html::encode($title) ?></title>
+            <style>
+                body { margin: 32px; font-family: Arial, sans-serif; color: #0f172a; }
+                h1 { margin: 0 0 6px; font-size: 24px; }
+                p { margin: 0 0 20px; color: #64748b; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { border: 1px solid #dbe3ef; padding: 8px 10px; font-size: 12px; text-align: left; vertical-align: top; }
+                th { background: #f8fafc; text-transform: uppercase; letter-spacing: .04em; }
+                .print-actions { margin-bottom: 18px; }
+                .print-actions button { border: 1px solid #cbd5e1; background: #fff; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+                @media print { .print-actions { display: none; } body { margin: 12mm; } }
+            </style>
+        </head>
+        <body>
+            <div class="print-actions"><button type="button" onclick="window.print()">Print / Save PDF</button></div>
+            <h1><?= Html::encode($title) ?></h1>
+            <p><?= (int)($data['state']['total'] ?? count($data['rows'] ?? [])) ?> data</p>
+            <table>
+                <thead>
+                    <tr>
+                        <?php foreach ($data['columns'] as $column): ?>
+                            <th><?= Html::encode((string)($column['label'] ?? $column['field'] ?? '')) ?></th>
+                        <?php endforeach; ?>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($data['rows'] as $row): ?>
+                        <tr>
+                            <?php foreach ($data['columns'] as $column): ?>
+                                <td><?= Html::encode($this->formatDisplayValue($row, $column, $data['displayLookup'])) ?></td>
+                            <?php endforeach; ?>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </body>
+        </html>
+        <?php
+        return (string)ob_get_clean();
     }
 
     private function formatValue($value): string

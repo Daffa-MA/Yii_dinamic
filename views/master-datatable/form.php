@@ -9,6 +9,9 @@ use yii\helpers\Html;
 $this->title = $model->isNewRecord ? 'Create Master Datatable' : 'Edit Master Datatable';
 $columnsConfig = $model->getColumnsConfigArray();
 $actionsConfig = $model->getActionsConfigArray();
+$filtersConfig = $model->getFiltersConfigArray();
+$statsConfig = $model->getStatsConfigArray();
+$workflowConfig = $model->getWorkflowConfigArray();
 $selectedTableId = (int)$model->table_id;
 $forms = $forms ?? [];
 ?>
@@ -69,6 +72,69 @@ $forms = $forms ?? [];
             </div>
         </div>
 
+        <div class="mb-5 rounded-2xl border border-slate-200">
+            <div class="border-b border-slate-200 px-4 py-3">
+                <h2 class="m-0 text-sm font-bold text-slate-900">Filters & Statistics</h2>
+                <p class="m-0 mt-1 text-xs text-slate-500">Pilih field yang bisa difilter dan field yang akan dihitung sebagai statistik/grouping.</p>
+            </div>
+            <div class="grid gap-4 p-4 md:grid-cols-2">
+                <div>
+                    <h3 class="mb-3 text-sm font-bold text-slate-700">Filters</h3>
+                    <div class="space-y-2">
+                        <?php foreach ($tables as $table): ?>
+                            <?php foreach ($table->columns as $column): ?>
+                                <?php
+                                $existing = null;
+                                foreach ($filtersConfig as $item) {
+                                    if (($item['field'] ?? '') === $column->name) {
+                                        $existing = $item;
+                                        break;
+                                    }
+                                }
+                                $isSelectedTable = (int)$table->id === $selectedTableId;
+                                ?>
+                                <div class="column-row rounded-xl border border-slate-100 p-3" data-table-id="<?= (int)$table->id ?>" style="<?= $isSelectedTable ? '' : 'display:none;' ?>">
+                                    <label class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                        <input type="hidden" name="MasterDatatable[filters][<?= Html::encode($column->name) ?>][field]" value="<?= Html::encode($column->name) ?>" <?= $isSelectedTable ? '' : 'disabled' ?>>
+                                        <input type="checkbox" name="MasterDatatable[filters][<?= Html::encode($column->name) ?>][enabled]" value="1" <?= $existing ? 'checked' : '' ?> <?= $isSelectedTable ? '' : 'disabled' ?>>
+                                        <?= Html::encode($column->name) ?>
+                                    </label>
+                                    <input class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" name="MasterDatatable[filters][<?= Html::encode($column->name) ?>][label]" value="<?= Html::encode($existing['label'] ?? ($column->label ?: $column->name)) ?>" placeholder="Filter label" <?= $isSelectedTable ? '' : 'disabled' ?>>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="mb-3 text-sm font-bold text-slate-700">Statistics</h3>
+                    <div class="space-y-2">
+                        <?php foreach ($tables as $table): ?>
+                            <?php foreach ($table->columns as $column): ?>
+                                <?php
+                                $existing = null;
+                                foreach ($statsConfig as $item) {
+                                    if (($item['field'] ?? '') === $column->name) {
+                                        $existing = $item;
+                                        break;
+                                    }
+                                }
+                                $isSelectedTable = (int)$table->id === $selectedTableId;
+                                ?>
+                                <div class="column-row rounded-xl border border-slate-100 p-3" data-table-id="<?= (int)$table->id ?>" style="<?= $isSelectedTable ? '' : 'display:none;' ?>">
+                                    <label class="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                        <input type="hidden" name="MasterDatatable[stats][<?= Html::encode($column->name) ?>][field]" value="<?= Html::encode($column->name) ?>" <?= $isSelectedTable ? '' : 'disabled' ?>>
+                                        <input type="checkbox" name="MasterDatatable[stats][<?= Html::encode($column->name) ?>][enabled]" value="1" <?= $existing ? 'checked' : '' ?> <?= $isSelectedTable ? '' : 'disabled' ?>>
+                                        <?= Html::encode($column->name) ?>
+                                    </label>
+                                    <input class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" name="MasterDatatable[stats][<?= Html::encode($column->name) ?>][label]" value="<?= Html::encode($existing['label'] ?? ($column->label ?: $column->name)) ?>" placeholder="Statistic label" <?= $isSelectedTable ? '' : 'disabled' ?>>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="mb-6 grid gap-3 md:grid-cols-5">
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[search_enabled]" value="1" <?= $model->isNewRecord || $model->search_enabled ? 'checked' : '' ?>> Search</label>
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[pagination_enabled]" value="1" <?= $model->isNewRecord || $model->pagination_enabled ? 'checked' : '' ?>> Pagination</label>
@@ -95,6 +161,20 @@ $forms = $forms ?? [];
         <label class="mb-6 block rounded-xl border border-slate-200 p-3 text-sm font-semibold">
             <input type="checkbox" name="MasterDatatable[is_active]" value="1" <?= $model->isNewRecord || $model->is_active ? 'checked' : '' ?>> Active
         </label>
+
+        <div class="mb-6 rounded-2xl border border-slate-200 p-4">
+            <h2 class="m-0 text-sm font-bold text-slate-900">Workflow Approval</h2>
+            <p class="mt-1 text-xs text-slate-500">Aktifkan untuk proses persetujuan generic berbasis field status pada source table.</p>
+            <div class="mt-4 grid gap-3 md:grid-cols-5">
+                <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold">
+                    <input type="checkbox" name="MasterDatatable[workflow][approval_enabled]" value="1" <?= !empty($workflowConfig['approval_enabled']) ? 'checked' : '' ?>> Approval
+                </label>
+                <input class="rounded-xl border border-slate-300 px-3 py-2 text-sm" name="MasterDatatable[workflow][status_field]" value="<?= Html::encode($workflowConfig['status_field'] ?? '') ?>" placeholder="status field">
+                <input class="rounded-xl border border-slate-300 px-3 py-2 text-sm" name="MasterDatatable[workflow][pending_value]" value="<?= Html::encode($workflowConfig['pending_value'] ?? 'pending') ?>" placeholder="pending value">
+                <input class="rounded-xl border border-slate-300 px-3 py-2 text-sm" name="MasterDatatable[workflow][approved_value]" value="<?= Html::encode($workflowConfig['approved_value'] ?? 'approved') ?>" placeholder="approved value">
+                <input class="rounded-xl border border-slate-300 px-3 py-2 text-sm" name="MasterDatatable[workflow][button_label]" value="<?= Html::encode($workflowConfig['button_label'] ?? 'Approve') ?>" placeholder="button label">
+            </div>
+        </div>
 
         <div class="flex gap-3">
             <button class="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white" type="submit">Save Datatable</button>

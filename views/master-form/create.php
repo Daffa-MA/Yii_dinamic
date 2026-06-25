@@ -1280,7 +1280,7 @@ document.addEventListener('DOMContentLoaded', function() {
         time: { label: 'Time', inputType: 'time' },
         datetime: { label: 'Date Time', inputType: 'datetime-local' },
         file: { label: 'File Upload', inputType: 'file' },
-        gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', auto_capture_gps: true, auto_capture_timestamp: true, preview_image: true },
+        gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', auto_capture_gps: true, auto_capture_timestamp: true, preview_image: true, gps_camera_bindings: [] },
         hidden: { label: 'Hidden', inputType: 'hidden' }
     };
     
@@ -1852,6 +1852,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
+        if (field.type === 'gps_camera' || Array.isArray(field.gps_camera_bindings)) {
+            field = normalizeGpsCameraBindingState(field);
+        }
+
         return field;
     }
 
@@ -2017,6 +2021,112 @@ document.addEventListener('DOMContentLoaded', function() {
             html += '<option value="' + escapeAttr(columnId) + '"' + boolAttr('selected', String(selectedColumnId || '') === columnId) + '>' + escapeHtml(columnLabel + ' (' + (column.name || columnId) + ')') + '</option>';
         });
         return html;
+    }
+
+    function buildGpsCameraDataKeyOptions(selectedDataKey) {
+        const dataKeys = [
+            { value: 'latitude', label: 'Latitude' },
+            { value: 'longitude', label: 'Longitude' },
+            { value: 'gps_accuracy', label: 'GPS Accuracy' },
+            { value: 'captured_date', label: 'Tanggal' },
+            { value: 'captured_time', label: 'Waktu' },
+            { value: 'captured_at_server', label: 'Server Timestamp' },
+            { value: 'photo_path', label: 'Path Foto' },
+            { value: 'photo_url', label: 'URL Foto' },
+            { value: 'photo_name', label: 'Nama File' },
+            { value: 'photo_mime', label: 'Tipe MIME' },
+            { value: 'photo_size', label: 'Ukuran File (bytes)' },
+        ];
+        let html = '<option value="">Pilih data...</option>';
+        dataKeys.forEach(key => {
+            html += '<option value="' + escapeAttr(key.value) + '"' + boolAttr('selected', String(selectedDataKey || '') === key.value) + '>' + escapeHtml(key.label) + '</option>';
+        });
+        return html;
+    }
+
+    function normalizeGpsCameraBindingState(field) {
+        if (!field || typeof field !== 'object') {
+            return field;
+        }
+
+        let bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings.slice() : [];
+        if (bindings.length === 0 && (field.target_table_id || field.target_column_id || field.target_table_name || field.target_column_name)) {
+            bindings = [{
+                data_key: field.gps_camera_data_key || 'photo_path',
+                target_table_id: field.target_table_id || '',
+                target_table_name: field.target_table_name || '',
+                target_column_id: field.target_column_id || '',
+                target_column_name: field.target_column_name || ''
+            }];
+        }
+
+        bindings = bindings.map(binding => ({
+            data_key: String(binding && (binding.data_key || binding.source_key || 'photo_path') || 'photo_path').trim() || 'photo_path',
+            target_table_id: String(binding && binding.target_table_id ? binding.target_table_id : ''),
+            target_table_name: String(binding && binding.target_table_name ? binding.target_table_name : ''),
+            target_column_id: String(binding && binding.target_column_id ? binding.target_column_id : ''),
+            target_column_name: String(binding && binding.target_column_name ? binding.target_column_name : '')
+        }));
+
+        if (bindings.length === 0) {
+            bindings = [{
+                data_key: 'photo_path',
+                target_table_id: '',
+                target_table_name: '',
+                target_column_id: '',
+                target_column_name: ''
+            }];
+        }
+
+        field.gps_camera_bindings = bindings;
+        field.target_mappings = bindings.slice();
+        const firstBinding = bindings[0] || {};
+        field.gps_camera_data_key = firstBinding.data_key || field.gps_camera_data_key || 'photo_path';
+        field.target_table_id = firstBinding.target_table_id || field.target_table_id || '';
+        field.target_table_name = firstBinding.target_table_name || field.target_table_name || '';
+        field.target_column_id = firstBinding.target_column_id || field.target_column_id || '';
+        field.target_column_name = firstBinding.target_column_name || field.target_column_name || '';
+        return field;
+    }
+
+    function buildGpsCameraColumnOptionsForTable(tableId, selectedColumnId) {
+        const normalizedTableId = String(tableId || '');
+        if (!normalizedTableId) {
+            return '<option value="">Pilih table terlebih dulu</option>';
+        }
+        const columns = dropdownSourceColumnsCache[normalizedTableId] || [];
+        if (columns.length === 0) {
+            return '<option value="">Memuat kolom...</option>';
+        }
+        let html = '<option value="">Pilih column...</option>';
+        columns.forEach(column => {
+            const columnId = String(column.id || '');
+            const columnLabel = String(column.label || column.name || 'Column');
+            html += '<option value="' + escapeAttr(columnId) + '"' + boolAttr('selected', String(selectedColumnId || '') === columnId) + '>' + escapeHtml(columnLabel + ' (' + (column.name || columnId) + ')') + '</option>';
+        });
+        return html;
+    }
+
+    function buildGpsCameraBindingRows(field) {
+        field = normalizeGpsCameraBindingState(field);
+        const bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings : [];
+        if (bindings.length === 0) {
+            return '<div style="font-size:12px;color:#64748b;">Belum ada binding.</div>';
+        }
+
+        return bindings.map((binding, index) => {
+            const rowTableId = String(binding.target_table_id || '');
+            const rowColumnId = String(binding.target_column_id || '');
+            return '<div class="gps-camera-binding-row" data-gps-camera-binding-row="' + index + '" style="display:grid;gap:10px;padding:12px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;margin-bottom:10px;">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">'
+                + '<strong style="font-size:12px;color:#0f172a;">Binding ' + (index + 1) + '</strong>'
+                + '<button type="button" class="prop-option-remove" onclick="removeGpsCameraBindingRow(' + index + ')" title="Hapus binding" style="width:28px;height:28px;">&times;</button>'
+                + '</div>'
+                + '<div class="prop-group"><label class="prop-label">Data Key</label><select class="prop-select" onchange="setGpsCameraBindingDataKey(' + index + ', this.value)">' + buildGpsCameraDataKeyOptions(binding.data_key || 'photo_path') + '</select></div>'
+                + '<div class="prop-group"><label class="prop-label">Target Table</label><select class="prop-select" onchange="setGpsCameraBindingTable(' + index + ', this.value)">' + buildGpsCameraTableOptions(rowTableId) + '</select></div>'
+                + '<div class="prop-group"><label class="prop-label">Target Column</label><select class="prop-select" onchange="setGpsCameraBindingColumn(' + index + ', this.value)">' + buildGpsCameraColumnOptionsForTable(rowTableId, rowColumnId) + '</select></div>'
+                + '</div>';
+        }).join('');
     }
 
     function findDropdownTableById(tableId) {
@@ -2536,9 +2646,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (field.type === 'gps_camera') {
-            html += '<div class="prop-section"><div class="prop-section-title">Binding</div>';
-            html += '<div class="prop-group"><label class="prop-label">Target Table</label><select class="prop-select" onchange="setGpsCameraTargetTable(this.value)">' + buildGpsCameraTableOptions(field.target_table_id) + '</select></div>';
-            html += '<div class="prop-group"><label class="prop-label">Target Column</label><select class="prop-select" onchange="setGpsCameraTargetColumn(this.value)">' + buildGpsCameraColumnOptions(field, field.target_column_id) + '</select></div>';
+            html += '<div class="prop-section"><div class="prop-section-title">Binding Multi Kolom</div>';
+            html += '<small style="display:block;color:#64748b;line-height:1.5;margin-bottom:10px;">Satu capture dapat dipetakan ke beberapa kolom target dari metadata table yang tersedia.</small>';
+            html += '<div id="gps-camera-bindings-panel">' + buildGpsCameraBindingRows(field) + '</div>';
+            html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="addGpsCameraBindingRow()">+ Tambah Binding</button></div>';
             html += '</div>';
             html += '<div class="prop-section"><div class="prop-section-title">Capture</div>';
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.auto_capture_gps !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'auto_capture_gps\', this.checked)">Auto Capture GPS</label></div>';
@@ -2724,19 +2835,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        if (field.type === 'gps_camera') {
-            ensureDropdownSourceTablesLoaded().then(function() {
-                if (selectedIndex === null || formFields[selectedIndex] !== field) return;
-                const tableId = field.target_table_id || '';
-                if (tableId && !dropdownSourceColumnsCache[String(tableId)]) {
-                    ensureDropdownSourceColumnsLoaded(tableId).then(function() {
-                        if (selectedIndex !== null && formFields[selectedIndex] === field) {
-                            renderPropsPanel(field);
-                        }
-                    });
-                }
-            });
-        }
     }
     
     // Update Field Property
@@ -2951,35 +3049,103 @@ document.addEventListener('DOMContentLoaded', function() {
     window.setGpsCameraTargetTable = function(tableId) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
-        const table = findDropdownTableById(tableId);
-        field.target_table_id = tableId ? String(tableId) : '';
-        field.target_table_name = table ? String(table.name || table.label || '') : '';
-        field.target_column_id = '';
-        field.target_column_name = '';
-        if (!tableId) {
-            normalizeFieldState(field);
-            renderFields();
-            renderPropsPanel(field);
-            updateData();
-            return;
-        }
-        ensureDropdownSourceColumnsLoaded(tableId).then(function() {
-            normalizeFieldState(field);
-            renderFields();
-            renderPropsPanel(field);
-            updateData();
-        });
+        setGpsCameraBindingTable(0, tableId);
     };
 
     window.setGpsCameraTargetColumn = function(columnId) {
         if (selectedIndex === null || !formFields[selectedIndex]) return;
+        setGpsCameraBindingColumn(0, columnId);
+    };
+
+    window.addGpsCameraBindingRow = function() {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
         const field = formFields[selectedIndex];
-        const tableId = String(field.target_table_id || '');
+        field.gps_camera_bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings : [];
+        field.gps_camera_bindings.push({
+            data_key: 'photo_path',
+            target_table_id: field.target_table_id || '',
+            target_table_name: field.target_table_name || '',
+            target_column_id: '',
+            target_column_name: ''
+        });
+        normalizeGpsCameraBindingState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.removeGpsCameraBindingRow = function(index) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings.slice() : [];
+        if (bindings.length <= 1) {
+            bindings[0] = {
+                data_key: 'photo_path',
+                target_table_id: '',
+                target_table_name: '',
+                target_column_id: '',
+                target_column_name: ''
+            };
+        } else {
+            bindings.splice(index, 1);
+        }
+        field.gps_camera_bindings = bindings;
+        normalizeGpsCameraBindingState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.setGpsCameraBindingDataKey = function(index, dataKey) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.gps_camera_bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings : [];
+        if (!field.gps_camera_bindings[index]) return;
+        field.gps_camera_bindings[index].data_key = String(dataKey || '').trim() || 'photo_path';
+        normalizeGpsCameraBindingState(field);
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.setGpsCameraBindingTable = function(index, tableId) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        const table = findDropdownTableById(tableId);
+        field.gps_camera_bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings : [];
+        if (!field.gps_camera_bindings[index]) return;
+        field.gps_camera_bindings[index].target_table_id = tableId ? String(tableId) : '';
+        field.gps_camera_bindings[index].target_table_name = table ? String(table.name || table.label || '') : '';
+        field.gps_camera_bindings[index].target_column_id = '';
+        field.gps_camera_bindings[index].target_column_name = '';
+        normalizeGpsCameraBindingState(field);
+        if (tableId) {
+            ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+                if (selectedIndex !== null && formFields[selectedIndex] === field) {
+                    renderFields();
+                    renderPropsPanel(field);
+                    updateData();
+                }
+            });
+            return;
+        }
+        renderFields();
+        renderPropsPanel(field);
+        updateData();
+    };
+
+    window.setGpsCameraBindingColumn = function(index, columnId) {
+        if (selectedIndex === null || !formFields[selectedIndex]) return;
+        const field = formFields[selectedIndex];
+        field.gps_camera_bindings = Array.isArray(field.gps_camera_bindings) ? field.gps_camera_bindings : [];
+        const binding = field.gps_camera_bindings[index];
+        if (!binding) return;
+        const tableId = String(binding.target_table_id || '');
         const columns = dropdownSourceColumnsCache[tableId] || [];
         const column = columns.find(item => String(item.id || '') === String(columnId)) || null;
-        field.target_column_id = columnId ? String(columnId) : '';
-        field.target_column_name = column ? String(column.name || column.label || '') : '';
-        normalizeFieldState(field);
+        binding.target_column_id = columnId ? String(columnId) : '';
+        binding.target_column_name = column ? String(column.name || column.label || '') : '';
+        normalizeGpsCameraBindingState(field);
         renderFields();
         renderPropsPanel(field);
         updateData();
@@ -3713,6 +3879,7 @@ document.addEventListener('DOMContentLoaded', function() {
             field.target_table_name = props.target_table_name || '';
             field.target_column_id = props.target_column_id || '';
             field.target_column_name = props.target_column_name || '';
+            field.gps_camera_bindings = Array.isArray(props.gps_camera_bindings) ? props.gps_camera_bindings : [];
         }
         normalizeFieldState(field);
         

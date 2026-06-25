@@ -18,6 +18,7 @@ use app\models\Form;
 use app\models\FormSubmission;
 use app\models\PublishedForm;
 use app\models\DbTable;
+use app\models\DbTableColumn;
 use app\models\Project;
 use app\components\ActiveProjectContext;
 use app\components\ActiveDatabaseContext;
@@ -1002,6 +1003,153 @@ class FormController extends Controller
         }
 
         return $data;
+    }
+
+    /**
+     * Expand a GPS Camera field payload into multiple target columns.
+     *
+     * The original field value remains the JSON payload. Mapped columns receive
+     * extracted scalar values from the same payload so one capture can fill many
+     * columns in the target table.
+     */
+    private function expandGpsCameraBindings(Form $form, array $schema, array $data): array
+    {
+        foreach ($schema as $index => $field) {
+            if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
+            if (strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? ''))) !== 'gps_camera') {
+                continue;
+            }
+
+            $fieldName = $this->resolveSchemaFieldName($field, (int)$index);
+            if ($fieldName === '' || !array_key_exists($fieldName, $data)) {
+                continue;
+            }
+
+            $payload = $this->normalizeGpsCameraPayload($data[$fieldName]);
+            if (empty($payload)) {
+                continue;
+            }
+
+            foreach ($this->resolveGpsCameraBindings($field) as $binding) {
+                $dataKey = trim((string)($binding['data_key'] ?? ''));
+                $targetColumnName = $this->resolveGpsCameraBindingTargetColumnName($binding);
+                if ($dataKey === '' || $targetColumnName === '') {
+                    continue;
+                }
+
+                $mappedValue = $this->extractGpsCameraPayloadValue($payload, $dataKey);
+                if ($mappedValue === null || $mappedValue === '') {
+                    continue;
+                }
+
+                $data[$targetColumnName] = $mappedValue;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $field
+     * @return array<int, array<string, mixed>>
+     */
+    private function resolveGpsCameraBindings(array $field): array
+    {
+        $bindings = $field['gps_camera_bindings'] ?? $field['target_mappings'] ?? null;
+        if (is_string($bindings) && trim($bindings) !== '') {
+            $decoded = json_decode($bindings, true);
+            $bindings = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($bindings)) {
+            $bindings = [];
+        }
+
+        $normalized = [];
+        foreach ($bindings as $binding) {
+            if (!is_array($binding)) {
+                continue;
+            }
+
+            $normalized[] = [
+                'data_key' => trim((string)($binding['data_key'] ?? $binding['source_key'] ?? '')),
+                'target_table_id' => (int)($binding['target_table_id'] ?? 0),
+                'target_table_name' => trim((string)($binding['target_table_name'] ?? $binding['table_name'] ?? '')),
+                'target_column_id' => (int)($binding['target_column_id'] ?? 0),
+                'target_column_name' => trim((string)($binding['target_column_name'] ?? $binding['column_name'] ?? '')),
+            ];
+        }
+
+        if (!empty($normalized)) {
+            return $normalized;
+        }
+
+        $fallbackColumn = trim((string)($field['target_column_name'] ?? $field['target_column'] ?? ''));
+        $fallbackDataKey = trim((string)($field['gps_camera_data_key'] ?? ''));
+        if ($fallbackColumn !== '') {
+            return [[
+                'data_key' => $fallbackDataKey !== '' ? $fallbackDataKey : 'photo_path',
+                'target_table_id' => (int)($field['target_table_id'] ?? 0),
+                'target_table_name' => trim((string)($field['target_table_name'] ?? '')),
+                'target_column_id' => (int)($field['target_column_id'] ?? 0),
+                'target_column_name' => $fallbackColumn,
+            ]];
+        }
+
+        return [];
+    }
+
+    /**
+     * @param array<string, mixed> $binding
+     */
+    private function resolveGpsCameraBindingTargetColumnName(array $binding): string
+    {
+        $targetColumnName = trim((string)($binding['target_column_name'] ?? ''));
+        if ($targetColumnName !== '') {
+            return $targetColumnName;
+        }
+
+        $targetColumnId = (int)($binding['target_column_id'] ?? 0);
+        if ($targetColumnId <= 0) {
+            return '';
+        }
+
+        $column = DbTableColumn::findOne($targetColumnId);
+        if (!$column instanceof DbTableColumn) {
+            return '';
+        }
+
+        return trim((string)$column->name);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function extractGpsCameraPayloadValue(array $payload, string $key): ?string
+    {
+        if ($key === '' || !array_key_exists($key, $payload)) {
+            return null;
+        }
+
+        $value = $payload[$key];
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+
+        if (is_array($value) || is_object($value)) {
+            $encoded = json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            return $encoded !== false ? $encoded : null;
+        }
+
+        $stringValue = trim((string)$value);
+        return $stringValue !== '' ? $stringValue : null;
     }
 
     private function resolveGpsCameraUploadInputName(string $fieldName): string
@@ -2353,6 +2501,7 @@ class FormController extends Controller
 
             $data = $this->mergeAdditionalPostedInputs($data);
             $data = $this->applyGpsCameraFieldUploads($model, $schema, $data);
+            $data = $this->expandGpsCameraBindings($model, $schema, $data);
             $normalizedPayloadDebug = [
                 'target_table' => ($targetTableForDebug = $this->findTargetTableForForm($model)) !== null ? (string)$targetTableForDebug->name : '',
                 'schema_columns' => array_map(static function ($field): string {

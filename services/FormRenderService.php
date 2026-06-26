@@ -715,8 +715,14 @@ class FormRenderService
         $previewImage = !array_key_exists('preview_image', $field) || !empty($field['preview_image']) || (string)($field['preview_image'] ?? '') === '1';
         $autoGps = !array_key_exists('auto_capture_gps', $field) || !empty($field['auto_capture_gps']) || (string)($field['auto_capture_gps'] ?? '') === '1';
         $autoTimestamp = !array_key_exists('auto_capture_timestamp', $field) || !empty($field['auto_capture_timestamp']) || (string)($field['auto_capture_timestamp'] ?? '') === '1';
+        $timezone = new \DateTimeZone(Yii::$app->timeZone ?: 'Asia/Jakarta');
+        $serverNow = new \DateTimeImmutable('now', $timezone);
+        $serverDate = $serverNow->format('Y-m-d');
+        $serverTime = $serverNow->format('H:i:s');
+        $serverAt = $serverNow->format(DATE_ATOM);
         $targetTable = trim((string)($field['target_table_name'] ?? ''));
         $targetColumn = trim((string)($field['target_column_name'] ?? ''));
+        $metadataUrl = Url::to(['/form/gps-camera-metadata']);
         $defaultPayload = json_decode(trim((string)($field['default_value'] ?? '')), true);
         $defaultPayload = is_array($defaultPayload) ? $defaultPayload : [];
         $initialPreview = trim((string)($defaultPayload['photo_url'] ?? $defaultPayload['photo_path'] ?? ''));
@@ -744,7 +750,7 @@ class FormRenderService
         $buttonStyle = ($readonly || !$interactive) ? 'opacity:.55;cursor:not-allowed;' : '';
         $previewStyle = $previewImage ? '' : 'display:none;';
 
-        $html = '<div class="gps-camera-field" data-gps-camera-component="1" data-field-name="' . Html::encode($name) . '" data-auto-gps="' . ($autoGps ? '1' : '0') . '" data-auto-timestamp="' . ($autoTimestamp ? '1' : '0') . '" data-preview-image="' . ($previewImage ? '1' : '0') . '" style="' . $wrapperStyle . 'margin-bottom:14px;">'
+        $html = '<div class="gps-camera-field" data-gps-camera-component="1" data-field-name="' . Html::encode($name) . '" data-metadata-url="' . Html::encode($metadataUrl) . '" data-auto-gps="' . ($autoGps ? '1' : '0') . '" data-auto-timestamp="' . ($autoTimestamp ? '1' : '0') . '" data-preview-image="' . ($previewImage ? '1' : '0') . '" data-server-date="' . Html::encode($serverDate) . '" data-server-time="' . Html::encode($serverTime) . '" data-server-at="' . Html::encode($serverAt) . '" style="' . $wrapperStyle . 'margin-bottom:14px;position:relative;">'
             . ($includeLabel ? '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;font-weight:600;">' . Html::encode($label) . ($required ? ' <span style="color:#dc2626;">*</span>' : '') . '</label>' : '')
             . '<input type="hidden" name="' . Html::encode($name) . '" value="' . Html::encode($hiddenPayload ?: '{}') . '" data-gps-camera-payload="1">'
             . '<input type="file" name="__gps_camera_file_' . Html::encode($safeName) . '" accept="image/*" capture="environment" data-gps-camera-file="1" style="display:none;"' . $controlsDisabled . $requiredAttr . '>'
@@ -759,6 +765,24 @@ class FormRenderService
             . '<div data-gps-camera-meta="1" style="font-size:12px;color:#475569;line-height:1.6;"></div>'
             . '</div>'
             . '</div>'
+            . '<div data-gps-camera-modal="1" hidden style="display:none;position:fixed;inset:0;z-index:12000;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.66);backdrop-filter:blur(4px);">'
+            . '<div style="width:min(920px,100%);max-height:min(90vh,920px);background:#0f172a;border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(15,23,42,.42);display:flex;flex-direction:column;">'
+            . '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#111827;color:#fff;">'
+            . '<strong style="font-size:14px;">Kamera GPS</strong>'
+            . '<button type="button" data-gps-camera-modal-close="1" style="border:1px solid rgba(255,255,255,.18);background:transparent;color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;cursor:pointer;">Tutup</button>'
+            . '</div>'
+            . '<div style="position:relative;background:#000;">'
+            . '<video data-gps-camera-video="1" autoplay playsinline muted style="width:100%;max-height:72vh;object-fit:cover;display:block;background:#000;"></video>'
+            . '<div data-gps-camera-live-overlay="1" style="position:absolute;left:14px;right:14px;bottom:14px;padding:10px 12px;border-radius:14px;background:rgba(15,23,42,.72);color:#fff;font-size:12px;line-height:1.55;box-shadow:0 8px 24px rgba(0,0,0,.25);"></div>'
+            . '</div>'
+            . '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px 16px;background:#fff;">'
+            . '<button type="button" data-gps-camera-modal-capture="1" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;">Ambil Foto</button>'
+            . '<button type="button" data-gps-camera-modal-cancel="1" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-weight:700;cursor:pointer;">Batal</button>'
+            . '<span data-gps-camera-modal-status="1" style="font-size:12px;color:#64748b;">Siap mengambil foto.</span>'
+            . '</div>'
+            . '<canvas data-gps-camera-canvas="1" hidden></canvas>'
+            . '</div>'
+            . '</div>'
             . '</div>';
 
         if (!self::$gpsCameraScriptInjected) {
@@ -770,6 +794,7 @@ class FormRenderService
         return;
     }
     window.__gpsCameraBinderInstalled = true;
+    var cameraStateMap = new WeakMap();
 
     function hasPayloadData(payload) {
         if (!payload) {
@@ -803,6 +828,13 @@ class FormRenderService
         image.style.display = 'none';
     }
 
+    function setStatus(wrapper, message, modal) {
+        var node = wrapper.querySelector(modal ? '[data-gps-camera-modal-status]' : '[data-gps-camera-status]');
+        if (node) {
+            node.textContent = message || '';
+        }
+    }
+
     function setMeta(wrapper, payload) {
         var node = wrapper.querySelector('[data-gps-camera-meta]');
         if (!node) {
@@ -810,9 +842,10 @@ class FormRenderService
         }
         var rows = [];
         if (payload.photo_name) rows.push('Nama file: ' + payload.photo_name);
-        if (payload.latitude || payload.longitude) rows.push('Lokasi: ' + (payload.latitude || '-') + ', ' + (payload.longitude || '-'));
+        if (payload.location_text) rows.push('Lokasi: ' + payload.location_text);
+        if (payload.latitude || payload.longitude) rows.push('Koordinat: ' + (payload.latitude || '-') + ', ' + (payload.longitude || '-'));
         if (payload.gps_accuracy) rows.push('Akurasi: ' + payload.gps_accuracy + ' m');
-        if (payload.captured_date || payload.captured_time) rows.push('Waktu server: ' + (payload.captured_date || '-') + (payload.captured_time ? ' ' + payload.captured_time : ''));
+        if (payload.captured_date || payload.captured_time) rows.push('Waktu Jepret: ' + (payload.captured_date || '-') + (payload.captured_time ? ' ' + payload.captured_time : ''));
         node.innerHTML = rows.map(function(row){ return '<div>' + String(row).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>'; }).join('');
     }
 
@@ -824,12 +857,115 @@ class FormRenderService
         setMeta(wrapper, payload || {});
     }
 
-    function fileToDataUrl(file) {
-        return new Promise(function(resolve, reject) {
-            var reader = new FileReader();
-            reader.onload = function() { resolve(String(reader.result || '')); };
-            reader.onerror = function() { reject(reader.error || new Error('file_read_error')); };
-            reader.readAsDataURL(file);
+    function getState(wrapper) {
+        var state = cameraStateMap.get(wrapper);
+        if (!state) {
+            state = {
+                stream: null,
+                contextPromise: null,
+                context: null
+            };
+            cameraStateMap.set(wrapper, state);
+        }
+        return state;
+    }
+
+    function stopStream(state) {
+        if (state && state.stream) {
+            try {
+                state.stream.getTracks().forEach(function(track) {
+                    try { track.stop(); } catch (e) {}
+                });
+            } catch (e) {}
+        }
+        if (state) {
+            state.stream = null;
+        }
+    }
+
+    function getServerSnapshot(wrapper) {
+        return {
+            server_date: wrapper.getAttribute('data-server-date') || '',
+            server_time: wrapper.getAttribute('data-server-time') || '',
+            server_at: wrapper.getAttribute('data-server-at') || ''
+        };
+    }
+
+    function getClientTimestamp() {
+        var now = new Date();
+        var pad = function(value) {
+            return String(value).padStart(2, '0');
+        };
+        var year = now.getFullYear();
+        var month = pad(now.getMonth() + 1);
+        var day = pad(now.getDate());
+        var hours = pad(now.getHours());
+        var minutes = pad(now.getMinutes());
+        var seconds = pad(now.getSeconds());
+
+        return {
+            captured_date: year + '-' + month + '-' + day,
+            captured_time: hours + ':' + minutes + ':' + seconds,
+            captured_at: year + '-' + month + '-' + day + ' ' + hours + ':' + minutes + ':' + seconds
+        };
+    }
+
+    function normalizeText(value) {
+        return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
+    }
+
+    function firstNonEmpty(values) {
+        for (var i = 0; i < values.length; i++) {
+            var value = normalizeText(values[i]);
+            if (value !== '') {
+                return value;
+            }
+        }
+        return '';
+    }
+
+    function buildLocationLabel(address) {
+        address = address || {};
+        var district = firstNonEmpty([
+            address.district,
+            address.city_district,
+            address.suburb,
+            address.town,
+            address.village,
+            address.municipality,
+            address.subdistrict
+        ]);
+        var regency = firstNonEmpty([
+            address.county,
+            address.city,
+            address.state_district,
+            address.state,
+            address.region
+        ]);
+        var parts = [];
+        if (district) {
+            parts.push(/^kecamatan\s+/i.test(district) ? district : 'Kecamatan ' + district);
+        }
+        if (regency) {
+            parts.push(/^(kabupaten|kota)\s+/i.test(regency) ? regency : 'Kabupaten/Kota ' + regency);
+        }
+        return parts.join(', ');
+    }
+
+    function fetchWithTimeout(url, options, timeoutMs) {
+        var controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        var timer = null;
+        if (controller && timeoutMs > 0) {
+            timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+        }
+        var requestOptions = options || {};
+        if (controller) {
+            requestOptions.signal = controller.signal;
+        }
+        return fetch(url, requestOptions).finally(function() {
+            if (timer) {
+                clearTimeout(timer);
+            }
         });
     }
 
@@ -849,63 +985,400 @@ class FormRenderService
             }, {
                 enableHighAccuracy: true,
                 maximumAge: 0,
-                timeout: 10000
+                timeout: 5000
             });
         });
     }
 
-    function resetWrapper(wrapper) {
+    function fetchMetadata(wrapper, gps) {
+        var endpoint = wrapper.getAttribute('data-metadata-url') || '';
+        var params = new URLSearchParams();
+        if (gps && gps.latitude !== undefined && gps.latitude !== null && gps.latitude !== '') {
+            params.set('lat', gps.latitude);
+        }
+        if (gps && gps.longitude !== undefined && gps.longitude !== null && gps.longitude !== '') {
+            params.set('lon', gps.longitude);
+        }
+        if (gps && gps.gps_accuracy !== undefined && gps.gps_accuracy !== null && gps.gps_accuracy !== '') {
+            params.set('accuracy', gps.gps_accuracy);
+        }
+
+        var fallback = {
+            server_date: wrapper.getAttribute('data-server-date') || '',
+            server_time: wrapper.getAttribute('data-server-time') || '',
+            server_at: wrapper.getAttribute('data-server-at') || '',
+            latitude: gps && gps.latitude !== undefined && gps.latitude !== null ? String(gps.latitude) : '',
+            longitude: gps && gps.longitude !== undefined && gps.longitude !== null ? String(gps.longitude) : '',
+            gps_accuracy: gps && gps.gps_accuracy !== undefined && gps.gps_accuracy !== null ? String(gps.gps_accuracy) : '',
+            location_text: '',
+            location_address: ''
+        };
+
+        if (!endpoint) {
+            return Promise.resolve(fallback);
+        }
+
+        var url = endpoint + (endpoint.indexOf('?') === -1 ? '?' : '&') + params.toString();
+        return fetchWithTimeout(url, {
+            headers: {
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        }, 6000)
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('metadata_failed');
+                }
+                return response.json();
+            })
+            .then(function(data) {
+                return {
+                    server_date: data && data.server_date ? String(data.server_date) : fallback.server_date,
+                    server_time: data && data.server_time ? String(data.server_time) : fallback.server_time,
+                    server_at: data && data.server_at ? String(data.server_at) : fallback.server_at,
+                    latitude: data && data.latitude !== undefined && data.latitude !== null && String(data.latitude) !== '' ? String(data.latitude) : fallback.latitude,
+                    longitude: data && data.longitude !== undefined && data.longitude !== null && String(data.longitude) !== '' ? String(data.longitude) : fallback.longitude,
+                    gps_accuracy: data && data.gps_accuracy !== undefined && data.gps_accuracy !== null && String(data.gps_accuracy) !== '' ? String(data.gps_accuracy) : fallback.gps_accuracy,
+                    location_text: data && data.location_text ? String(data.location_text) : fallback.location_text,
+                    location_address: data && data.location_address ? String(data.location_address) : fallback.location_address
+                };
+            })
+            .catch(function() {
+                return fallback;
+            });
+    }
+
+    function fileToDataUrl(file) {
+        return new Promise(function(resolve, reject) {
+            var reader = new FileReader();
+            reader.onload = function() { resolve(String(reader.result || '')); };
+            reader.onerror = function() { reject(reader.error || new Error('file_read_error')); };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function canvasToBlob(canvas, type, quality) {
+        return new Promise(function(resolve) {
+            if (!canvas || !canvas.toBlob) {
+                resolve(null);
+                return;
+            }
+            canvas.toBlob(function(blob) {
+                resolve(blob || null);
+            }, type || 'image/jpeg', quality || 0.92);
+        });
+    }
+
+    function blobToFile(blob, fileName, mimeType) {
+        if (!blob) {
+            return null;
+        }
+        try {
+            return new File([blob], fileName, { type: mimeType || blob.type || 'image/jpeg' });
+        } catch (e) {
+            try {
+                blob.name = fileName;
+                blob.lastModified = Date.now();
+            } catch (err) {}
+            return blob;
+        }
+    }
+
+    function setFileInputFile(wrapper, file) {
+        var fileInput = wrapper.querySelector('[data-gps-camera-file]');
+        if (!fileInput || !file) {
+            return false;
+        }
+
+        try {
+            var transfer = new DataTransfer();
+            transfer.items.add(file);
+            fileInput.files = transfer.files;
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function clearFileInput(wrapper) {
         var fileInput = wrapper.querySelector('[data-gps-camera-file]');
         if (fileInput) {
             fileInput.value = '';
         }
+    }
+
+    function resetWrapper(wrapper) {
+        var state = getState(wrapper);
+        stopStream(state);
+        clearFileInput(wrapper);
         applyPayload(wrapper, {});
         setPreview(wrapper, '');
-        var status = wrapper.querySelector('[data-gps-camera-status]');
-        if (status) {
-            status.textContent = 'Foto belum dipilih.';
+        setStatus(wrapper, 'Foto belum dipilih.');
+        setStatus(wrapper, 'Siap mengambil foto.', true);
+        var modal = wrapper.querySelector('[data-gps-camera-modal]');
+        if (modal) {
+            modal.hidden = true;
+            modal.style.display = 'none';
         }
     }
 
-    async function handleFile(wrapper, file) {
-        var status = wrapper.querySelector('[data-gps-camera-status]');
-        if (!file) {
-            resetWrapper(wrapper);
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+        var words = String(text || '').split(/\s+/);
+        var line = '';
+        var currentY = y;
+        for (var n = 0; n < words.length; n++) {
+            var testLine = line + words[n] + ' ';
+            var metrics = ctx.measureText(testLine);
+            if (metrics.width > maxWidth && n > 0) {
+                ctx.fillText(line, x, currentY);
+                line = words[n] + ' ';
+                currentY += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        ctx.fillText(line, x, currentY);
+        return currentY + lineHeight;
+    }
+
+    function setLiveOverlay(wrapper, context) {
+        var node = wrapper.querySelector('[data-gps-camera-live-overlay]');
+        if (!node) {
+            return;
+        }
+        var lines = [];
+        if (context.location_text) {
+            lines.push(context.location_text);
+        }
+        if (context.latitude || context.longitude) {
+            lines.push('Lat ' + (context.latitude || '-') + ' | Lon ' + (context.longitude || '-'));
+        }
+        if (context.gps_accuracy) {
+            lines.push('Akurasi ' + context.gps_accuracy + ' m');
+        }
+        if (context.server_date || context.server_time) {
+            lines.push('Server ' + (context.server_date || '-') + ' ' + (context.server_time || '-') + ' WIB');
+        }
+        node.innerHTML = lines.length ? lines.map(function(line) {
+            return '<div>' + String(line).replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+        }).join('') : '<div>Menunggu GPS dan waktu server...</div>';
+    }
+
+    async function prepareCaptureContext(wrapper) {
+        var state = getState(wrapper);
+        if (state.context) {
+            return state.context;
+        }
+
+        var serverInfo = getServerSnapshot(wrapper);
+        var gps = await captureGps(wrapper);
+        var geo = await fetchMetadata(wrapper, gps);
+
+        state.context = {
+            latitude: geo.latitude || (gps.latitude !== undefined && gps.latitude !== null ? String(gps.latitude) : ''),
+            longitude: geo.longitude || (gps.longitude !== undefined && gps.longitude !== null ? String(gps.longitude) : ''),
+            gps_accuracy: geo.gps_accuracy || (gps.gps_accuracy !== undefined && gps.gps_accuracy !== null ? String(gps.gps_accuracy) : ''),
+            server_date: geo.server_date || serverInfo.server_date,
+            server_time: geo.server_time || serverInfo.server_time,
+            server_at: geo.server_at || serverInfo.server_at,
+            location_text: geo.location_text || '',
+            location_address: geo.location_address || ''
+        };
+        setLiveOverlay(wrapper, state.context);
+        return state.context;
+    }
+
+    async function openCamera(wrapper) {
+        var state = getState(wrapper);
+        var modal = wrapper.querySelector('[data-gps-camera-modal]');
+        var video = wrapper.querySelector('[data-gps-camera-video]');
+        if (!modal || !video) {
+            return false;
+        }
+
+        modal.hidden = false;
+        modal.style.display = 'flex';
+        setStatus(wrapper, 'Meminta akses kamera...');
+        setStatus(wrapper, 'Menyiapkan kamera...', true);
+        setLiveOverlay(wrapper, {});
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setStatus(wrapper, 'Browser tidak mendukung kamera. Membuka pemilih file...');
+            setStatus(wrapper, 'Browser tidak mendukung kamera.', true);
+            clearFileInput(wrapper);
+            var fallbackFileInput = wrapper.querySelector('[data-gps-camera-file]');
+            if (fallbackFileInput && !fallbackFileInput.disabled) {
+                fallbackFileInput.click();
+            }
+            return false;
+        }
+
+        try {
+            stopStream(state);
+            state.context = null;
+            state.contextPromise = prepareCaptureContext(wrapper);
+            state.stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: 'environment' }
+                },
+                audio: false
+            });
+            video.srcObject = state.stream;
+            await video.play();
+            setStatus(wrapper, 'Kamera aktif. Arahkan objek lalu ambil foto.');
+            setStatus(wrapper, 'Arahkan kamera lalu ambil foto.', true);
+            state.contextPromise.then(function(context) {
+                if (context) {
+                    setLiveOverlay(wrapper, context);
+                }
+            }).catch(function() {});
+            return true;
+        } catch (error) {
+            stopStream(state);
+            setStatus(wrapper, 'Akses kamera ditolak atau tidak tersedia. Membuka pemilih file...');
+            setStatus(wrapper, 'Akses kamera tidak tersedia.', true);
+            modal.hidden = true;
+            modal.style.display = 'none';
+            var fallback = wrapper.querySelector('[data-gps-camera-file]');
+            if (fallback && !fallback.disabled) {
+                fallback.click();
+            }
+            return false;
+        }
+    }
+
+    async function captureFromCamera(wrapper) {
+        var state = getState(wrapper);
+        var video = wrapper.querySelector('[data-gps-camera-video]');
+        var canvas = wrapper.querySelector('[data-gps-camera-canvas]');
+        if (!video || !canvas) {
+            return;
+        }
+        if (!video.videoWidth || !video.videoHeight) {
+            setStatus(wrapper, 'Kamera belum siap.');
+            setStatus(wrapper, 'Kamera belum siap.', true);
             return;
         }
 
-        if (status) {
-            status.textContent = 'Memproses foto dan GPS...';
-        }
+        setStatus(wrapper, 'Memproses foto dan watermark...');
+        setStatus(wrapper, 'Memproses foto...', true);
 
-        var previewImage = wrapper.getAttribute('data-preview-image') !== '0';
-        var imageSrc = '';
+        var shotTime = getClientTimestamp();
+        var context = {};
+        state.context = null;
         try {
-            imageSrc = await fileToDataUrl(file);
+            context = await prepareCaptureContext(wrapper);
         } catch (e) {
-            imageSrc = '';
+            context = state.context || {};
+        }
+        state.context = context;
+
+        var maxWidth = 1600;
+        var width = video.videoWidth;
+        var height = video.videoHeight;
+        if (width > maxWidth) {
+            height = Math.round(height * (maxWidth / width));
+            width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, width, height);
+
+        var boxPadding = Math.max(18, Math.round(width * 0.02));
+        var boxWidth = width - (boxPadding * 2);
+        var boxHeight = Math.max(150, Math.round(height * 0.18));
+        var boxX = boxPadding;
+        var boxY = height - boxPadding - boxHeight;
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(15, 23, 42, .68)';
+        ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.strokeStyle = 'rgba(255,255,255,.18)';
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '700 ' + Math.max(18, Math.round(width * 0.018)) + 'px Arial, sans-serif';
+        ctx.fillText('GPS Camera', boxX + 18, boxY + 28);
+        ctx.font = Math.max(13, Math.round(width * 0.013)) + 'px Arial, sans-serif';
+        var lines = [];
+        if (context.location_text) {
+            lines.push(context.location_text);
+        }
+        if (context.latitude || context.longitude) {
+            lines.push('Lat ' + (context.latitude || '-') + ' | Lon ' + (context.longitude || '-'));
+        }
+        if (context.gps_accuracy) {
+            lines.push('Akurasi ' + context.gps_accuracy + ' m');
+        }
+        if (shotTime.captured_date || shotTime.captured_time) {
+            lines.push('Waktu Jepret ' + shotTime.captured_date + ' ' + shotTime.captured_time);
+        }
+        if (!lines.length) {
+            lines.push('Lokasi dan waktu jepret sedang diproses.');
+        }
+        var currentY = boxY + 56;
+        var maxTextWidth = boxWidth - 36;
+        for (var i = 0; i < lines.length; i++) {
+            currentY = wrapText(ctx, lines[i], boxX + 18, currentY, maxTextWidth, 18);
+        }
+        ctx.restore();
+
+        var mimeType = 'image/jpeg';
+        var quality = 0.92;
+        var blob = await canvasToBlob(canvas, mimeType, quality);
+        var fileName = 'gps-camera-' + (wrapper.getAttribute('data-field-name') || 'capture') + '-' + (shotTime.captured_at ? shotTime.captured_at.replace(/[: ]/g, '-') : Date.now()) + '.jpg';
+        var fallbackDataUrl = '';
+        try {
+            fallbackDataUrl = canvas.toDataURL(mimeType, quality);
+        } catch (e) {
+            fallbackDataUrl = '';
         }
 
-        var gps = await captureGps(wrapper);
+        var file = blobToFile(blob, fileName, mimeType);
         var payload = {
-            photo_name: file.name || '',
-            photo_mime: file.type || '',
-            photo_size: file.size || 0,
-            photo_data: imageSrc,
-            latitude: gps.latitude || '',
-            longitude: gps.longitude || '',
-            gps_accuracy: gps.gps_accuracy || '',
-            captured_date: '',
-            captured_time: '',
-            captured_at_server: ''
+            photo_name: fileName,
+            photo_mime: mimeType,
+            photo_size: blob && blob.size ? blob.size : 0,
+            latitude: context.latitude || '',
+            longitude: context.longitude || '',
+            gps_accuracy: context.gps_accuracy || '',
+            captured_date: shotTime.captured_date || '',
+            captured_time: shotTime.captured_time || '',
+            captured_at: shotTime.captured_at || '',
+            captured_at_server: context.server_at || '',
+            location_text: context.location_text || '',
+            location_address: context.location_address || ''
         };
 
-        applyPayload(wrapper, payload);
-        if (previewImage && imageSrc) {
-            setPreview(wrapper, imageSrc);
+        var fileAssigned = file ? setFileInputFile(wrapper, file) : false;
+        if (!fileAssigned && fallbackDataUrl) {
+            payload.photo_data = fallbackDataUrl;
         }
-        if (status) {
-            status.textContent = 'Foto dan GPS siap disimpan.';
+
+        applyPayload(wrapper, payload);
+        if ((wrapper.getAttribute('data-preview-image') !== '0') && fallbackDataUrl) {
+            setPreview(wrapper, fallbackDataUrl);
+        }
+        setStatus(wrapper, 'Foto, lokasi, dan waktu berhasil ditangkap.');
+        setStatus(wrapper, 'Foto siap disimpan dengan watermark.', true);
+        resetCameraModal(wrapper);
+    }
+
+    function resetCameraModal(wrapper) {
+        var state = getState(wrapper);
+        stopStream(state);
+        var video = wrapper.querySelector('[data-gps-camera-video]');
+        if (video) {
+            try {
+                video.pause();
+            } catch (e) {}
+            video.srcObject = null;
+        }
+        var modal = wrapper.querySelector('[data-gps-camera-modal]');
+        if (modal) {
+            modal.hidden = true;
+            modal.style.display = 'none';
         }
     }
 
@@ -914,9 +1387,8 @@ class FormRenderService
         if (trigger) {
             event.preventDefault();
             var wrapper = trigger.closest('[data-gps-camera-component]');
-            var fileInput = wrapper ? wrapper.querySelector('[data-gps-camera-file]') : null;
-            if (fileInput && !fileInput.disabled) {
-                fileInput.click();
+            if (wrapper && !trigger.disabled) {
+                openCamera(wrapper);
             }
             return;
         }
@@ -927,6 +1399,28 @@ class FormRenderService
             var clearWrapper = clearButton.closest('[data-gps-camera-component]');
             if (clearWrapper && !clearButton.disabled) {
                 resetWrapper(clearWrapper);
+            }
+        }
+
+        var closeButton = event.target.closest('[data-gps-camera-modal-close], [data-gps-camera-modal-cancel]');
+        if (closeButton) {
+            event.preventDefault();
+            var closeWrapper = closeButton.closest('[data-gps-camera-component]');
+            if (closeWrapper) {
+                resetCameraModal(closeWrapper);
+            }
+            return;
+        }
+
+        var captureButton = event.target.closest('[data-gps-camera-modal-capture]');
+        if (captureButton) {
+            event.preventDefault();
+            var captureWrapper = captureButton.closest('[data-gps-camera-component]');
+            if (captureWrapper && !captureButton.disabled) {
+                captureFromCamera(captureWrapper).catch(function() {
+                    setStatus(captureWrapper, 'Gagal mengambil foto.');
+                    setStatus(captureWrapper, 'Gagal mengambil foto.', true);
+                });
             }
         }
     });
@@ -941,7 +1435,47 @@ class FormRenderService
             return;
         }
         var file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
-        handleFile(wrapper, file).catch(function() {
+        if (!file) {
+            resetWrapper(wrapper);
+            return;
+        }
+        (async function() {
+            var status = wrapper.querySelector('[data-gps-camera-status]');
+            if (status) {
+                status.textContent = 'Memproses foto dan GPS...';
+            }
+            var imageSrc = '';
+            try {
+                imageSrc = await fileToDataUrl(file);
+            } catch (e) {
+                imageSrc = '';
+            }
+            var gps = await captureGps(wrapper);
+            var meta = await fetchMetadata(wrapper, gps);
+            var shotTime = getClientTimestamp();
+            var payload = {
+                photo_name: file.name || '',
+                photo_mime: file.type || '',
+                photo_size: file.size || 0,
+                photo_data: imageSrc,
+                latitude: meta.latitude || gps.latitude || '',
+                longitude: meta.longitude || gps.longitude || '',
+                gps_accuracy: meta.gps_accuracy || gps.gps_accuracy || '',
+                captured_date: shotTime.captured_date || '',
+                captured_time: shotTime.captured_time || '',
+                captured_at: shotTime.captured_at || '',
+                captured_at_server: meta.server_at || wrapper.getAttribute('data-server-at') || '',
+                location_text: meta.location_text || '',
+                location_address: meta.location_address || ''
+            };
+            if ((wrapper.getAttribute('data-preview-image') !== '0') && imageSrc) {
+                setPreview(wrapper, imageSrc);
+            }
+            applyPayload(wrapper, payload);
+            if (status) {
+                status.textContent = 'Foto dan GPS siap disimpan.';
+            }
+        })().catch(function() {
             var status = wrapper.querySelector('[data-gps-camera-status]');
             if (status) {
                 status.textContent = 'Gagal memproses foto.';
@@ -963,6 +1497,7 @@ class FormRenderService
             setPreview(wrapper, payload.photo_url || payload.photo_path);
         }
         setMeta(wrapper, payload);
+        setStatus(wrapper, 'Siap mengambil foto.', true);
     });
 })();
 </script>

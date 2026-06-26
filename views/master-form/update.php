@@ -2046,6 +2046,29 @@ document.addEventListener('DOMContentLoaded', function() {
         return html;
     }
 
+    function buildGpsCameraDataKeyOptions(selectedDataKey) {
+        const dataKeys = [
+            { value: 'latitude', label: 'Bind ke Latitude' },
+            { value: 'longitude', label: 'Bind ke Longitude' },
+            { value: 'gps_accuracy', label: 'Bind ke Akurasi GPS' },
+            { value: 'location_text', label: 'Bind ke Lokasi Wilayah' },
+            { value: 'location_address', label: 'Bind ke Alamat Lengkap' },
+            { value: 'captured_date', label: 'Bind ke Tanggal Jepret' },
+            { value: 'captured_time', label: 'Bind ke Jam Jepret' },
+            { value: 'captured_at', label: 'Bind ke Waktu Jepret' },
+            { value: 'photo_path', label: 'Bind ke Path Foto' },
+            { value: 'photo_url', label: 'Bind ke URL Foto' },
+            { value: 'photo_name', label: 'Bind ke Nama File' },
+            { value: 'photo_mime', label: 'Bind ke Tipe MIME' },
+            { value: 'photo_size', label: 'Bind ke Ukuran File (bytes)' },
+        ];
+        let html = '<option value="">Pilih data...</option>';
+        dataKeys.forEach(key => {
+            html += '<option value="' + escapeAttr(key.value) + '"' + boolAttr('selected', String(selectedDataKey || '') === key.value) + '>' + escapeHtml(key.label) + '</option>';
+        });
+        return html;
+    }
+
     function normalizeGpsCameraBindingState(field) {
         if (!field || typeof field !== 'object') {
             return field;
@@ -2124,7 +2147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 + '<strong style="font-size:12px;color:#0f172a;">Binding ' + (index + 1) + '</strong>'
                 + '<button type="button" class="prop-option-remove" onclick="removeGpsCameraBindingRow(' + index + ')" title="Hapus binding" style="width:28px;height:28px;">&times;</button>'
                 + '</div>'
-                + '<div class="prop-group"><label class="prop-label">Data Key</label><select class="prop-select" onchange="setGpsCameraBindingDataKey(' + index + ', this.value)">' + buildGpsCameraDataKeyOptions(binding.data_key || 'photo_path') + '</select></div>'
+                + '<div class="prop-group"><label class="prop-label">Bind ke Data</label><select class="prop-select" onchange="setGpsCameraBindingDataKey(' + index + ', this.value)">' + buildGpsCameraDataKeyOptions(binding.data_key || 'photo_path') + '</select></div>'
                 + '<div class="prop-group"><label class="prop-label">Target Table</label><select class="prop-select" onchange="setGpsCameraBindingTable(' + index + ', this.value)">' + buildGpsCameraTableOptions(rowTableId) + '</select></div>'
                 + '<div class="prop-group"><label class="prop-label">Target Column</label><select class="prop-select" onchange="setGpsCameraBindingColumn(' + index + ', this.value)">' + buildGpsCameraColumnOptionsForTable(rowTableId, rowColumnId) + '</select></div>'
                 + '</div>';

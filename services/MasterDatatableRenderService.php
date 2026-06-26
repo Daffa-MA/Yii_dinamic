@@ -188,6 +188,23 @@ class MasterDatatableRenderService
         $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
 
+        // ===== BUG 4 FIX: Normalize exports dengan default seperti model MasterDatatable =====
+        // Pastikan exports tidak pernah kosong/null - selalu punya default values untuk semua format
+        $rawExports = $config['exports'] ?? [];
+        if (!is_array($rawExports)) {
+            $rawExports = [];
+        }
+        $defaultExports = ['csv' => true, 'excel' => true, 'pdf' => true, 'print' => true];
+        $normalizedExports = [];
+        foreach ($defaultExports as $fmt => $defaultValue) {
+            if (array_key_exists($fmt, $rawExports)) {
+                $normalizedExports[$fmt] = !empty($rawExports[$fmt]);
+            } else {
+                // Jika format export tidak disebutkan dalam config, gunakan default true
+                $normalizedExports[$fmt] = $defaultValue;
+            }
+        }
+
         return self::$renderDataCache[$cacheKey] = [
             'uid' => $uid,
             'table' => $table,
@@ -202,7 +219,7 @@ class MasterDatatableRenderService
             'filters' => $filters,
             'stats' => $stats,
             'workflow' => $workflow,
-            'exports' => $config['exports'] ?? [],
+            'exports' => $normalizedExports,
             'state' => [
                 'searchEnabled' => $searchEnabled,
                 'paginationEnabled' => $paginationEnabled,

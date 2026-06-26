@@ -2019,7 +2019,25 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             onUpdateInput.value = normalizeForeignKeyAction(column.on_update || '');
             toggleForeignKeySettings(foreignKeyToggleInput.checked);
             syncEnumValuesVisibility(column.type);
+            updateAutoIncrementDisabled(column);
             isSyncingProperties = false;
+        }
+
+        function updateAutoIncrementDisabled(column) {
+            const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
+            const autoIncrementCheckbox = document.getElementById('prop-auto-increment');
+            var colType = (column.type || '').toUpperCase();
+            if (integerTypes.indexOf(colType) === -1) {
+                column.is_auto_increment = false;
+                autoIncrementCheckbox.checked = false;
+                autoIncrementCheckbox.disabled = true;
+            } else {
+                autoIncrementCheckbox.disabled = false;
+            }
+            if (column.is_auto_increment && integerTypes.indexOf(colType) === -1) {
+                column.is_auto_increment = false;
+                autoIncrementCheckbox.checked = false;
+            }
         }
 
         function syncProperty(event) {
@@ -2070,20 +2088,7 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             }
             toggleForeignKeySettings(column.is_foreign_key);
 
-            const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
-            // Disable auto-increment checkbox if column type is not integer
-            const autoIncrementCheckbox = document.getElementById('prop-auto-increment');
-            if (integerTypes.indexOf(column.type) === -1) {
-                column.is_auto_increment = false;
-                autoIncrementCheckbox.checked = false;
-                autoIncrementCheckbox.disabled = true;
-            } else {
-                autoIncrementCheckbox.disabled = false;
-            }
-            if (column.is_auto_increment && integerTypes.indexOf(column.type) === -1) {
-                column.is_auto_increment = false;
-                autoIncrementCheckbox.checked = false;
-            }
+            updateAutoIncrementDisabled(column);
             if (column.is_auto_increment) {
                 column.is_primary = true;
                 column.is_nullable = false;

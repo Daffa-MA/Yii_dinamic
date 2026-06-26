@@ -2189,6 +2189,12 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 editMode: 'custom',
                 editFormId: ''
             },
+            exports: {
+                csv: true,
+                excel: true,
+                pdf: true,
+                print: true
+            },
             search: true,
             pagination: true
         },
@@ -3104,6 +3110,25 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     <input type="checkbox" class="prop-checkbox" ${normalizeDatatableActions(props.actions || {}).delete !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'delete', this.checked)">
                     <label style="margin: 0; cursor: pointer;">Delete action</label>
                 </div>
+                <div style="border-top:1px solid #e5e7eb;margin:12px 0;padding-top:12px;">
+                    <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Export</div>
+                    <div class="prop-checkbox-group">
+                        <input type="checkbox" class="prop-checkbox" ${(props.exports || {}).csv !== false ? 'checked' : ''} onchange="updateDatatableExport('${blockId}', 'csv', this.checked)">
+                        <label style="margin: 0; cursor: pointer;">CSV</label>
+                    </div>
+                    <div class="prop-checkbox-group">
+                        <input type="checkbox" class="prop-checkbox" ${(props.exports || {}).excel !== false ? 'checked' : ''} onchange="updateDatatableExport('${blockId}', 'excel', this.checked)">
+                        <label style="margin: 0; cursor: pointer;">Excel</label>
+                    </div>
+                    <div class="prop-checkbox-group">
+                        <input type="checkbox" class="prop-checkbox" ${(props.exports || {}).pdf !== false ? 'checked' : ''} onchange="updateDatatableExport('${blockId}', 'pdf', this.checked)">
+                        <label style="margin: 0; cursor: pointer;">PDF</label>
+                    </div>
+                    <div class="prop-checkbox-group">
+                        <input type="checkbox" class="prop-checkbox" ${(props.exports || {}).print !== false ? 'checked' : ''} onchange="updateDatatableExport('${blockId}', 'print', this.checked)">
+                        <label style="margin: 0; cursor: pointer;">Print</label>
+                    </div>
+                </div>
             </div>`;
                 break;
 
@@ -3328,6 +3353,16 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         if (action === 'edit' && !enabled) {
             block.props.actions.editMode = 'custom';
         }
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableExport(blockId, format, enabled) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.exports = Object.assign({}, block.props.exports || {});
+        block.props.exports[format] = enabled;
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }

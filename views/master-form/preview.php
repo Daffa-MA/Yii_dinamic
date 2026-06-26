@@ -5,7 +5,6 @@ use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\View;
 use app\models\DbTable;
-use app\components\SystemFieldService;
 use app\helpers\FormSystemFieldHelper;
 use app\services\FormRenderService;
 
@@ -21,94 +20,6 @@ if (empty($fields)) {
         $formData = json_decode($formData, true) ?? [];
     }
     $fields = is_array($formData) ? $formData : [];
-}
-$targetTable = null;
-if (!empty($model->table_id)) {
-    $targetTable = DbTable::findOne((int)$model->table_id);
-}
-if ($targetTable !== null) {
-    $targetSchema = Yii::$app->db->schema->getTableSchema((string)$targetTable->name, true);
-    $existingFieldNames = [];
-    foreach ($fields as $field) {
-        if (!is_array($field)) {
-            continue;
-        }
-        $fieldName = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
-        if ($fieldName !== '') {
-            $existingFieldNames[strtolower($fieldName)] = true;
-        }
-    }
-
-    $targetColumns = $targetTable->getColumns()->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC])->all();
-    foreach ($targetColumns as $column) {
-        $columnName = trim((string)$column->name);
-        if ($columnName === '' || isset($existingFieldNames[strtolower($columnName)])) {
-            continue;
-        }
-        if (SystemFieldService::shouldHideFromForm($column)) {
-            continue;
-        }
-
-        $isForeignKey = $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');
-        $schemaColumn = $targetSchema !== null ? ($targetSchema->columns[$columnName] ?? null) : null;
-        $rawColumnType = (string)($schemaColumn !== null ? ($schemaColumn->dbType ?? $schemaColumn->type ?? '') : ($column->type ?? ''));
-        $fieldSeed = [
-            'name' => $columnName,
-            'field_name' => $columnName,
-            'field_key' => $columnName,
-            'column_name' => $columnName,
-            'source_column_db_type' => $rawColumnType,
-            'source_column_column_type' => $rawColumnType,
-            'source_column_data_type' => (string)($schemaColumn !== null ? ($schemaColumn->type ?? '') : ''),
-            'source_column_type' => (string)($column->type ?? ''),
-            'source_column_length' => $schemaColumn !== null ? (int)($schemaColumn->size ?? 0) : (int)($column->length ?? 0),
-        ];
-        $fieldType = $isForeignKey ? 'select' : FormSystemFieldHelper::resolveFieldInputType($fieldSeed);
-
-        $referencedTable = $isForeignKey && $column->hasAttribute('referenced_table_name')
-            ? trim((string)$column->getAttribute('referenced_table_name'))
-            : '';
-        $referencedColumn = $isForeignKey && $column->hasAttribute('referenced_column_name')
-            ? trim((string)$column->getAttribute('referenced_column_name'))
-            : '';
-
-        $fields[] = [
-            'id' => 'preview_autofill_' . $column->id,
-            'name' => $columnName,
-            'field_name' => $columnName,
-            'field_key' => $columnName,
-            'column_name' => $columnName,
-            'label' => (string)($column->label ?: $columnName),
-            'field_label' => (string)($column->label ?: $columnName),
-            'type' => $fieldType,
-            'inputType' => $fieldType === 'datetime' ? 'datetime-local' : $fieldType,
-            'required' => !$column->is_nullable,
-            'excluded' => false,
-            'source_column_id' => (int)$column->id,
-            'source_column_name' => $columnName,
-            'source_column_type' => (string)($column->type ?? ''),
-            'source_column_db_type' => $rawColumnType,
-            'source_column_column_type' => $rawColumnType,
-            'source_column_data_type' => (string)($schemaColumn !== null ? ($schemaColumn->type ?? '') : ''),
-            'source_column_length' => $schemaColumn !== null ? (int)($schemaColumn->size ?? 0) : (int)($column->length ?? 0),
-            'is_foreign_key' => $isForeignKey,
-            'fk_referenced_table' => $referencedTable !== '' ? $referencedTable : null,
-            'fk_referenced_column' => $referencedColumn !== '' ? $referencedColumn : null,
-            'value_column' => $referencedColumn !== '' ? $referencedColumn : null,
-            'relation_config' => $isForeignKey && $referencedTable !== '' && $referencedColumn !== '' ? [
-                'local_column' => $columnName,
-                'source_column' => $columnName,
-                'column_name' => $columnName,
-                'referenced_table' => $referencedTable,
-                'referenced_table_name' => $referencedTable,
-                'referenced_value_column' => $referencedColumn,
-                'referenced_column' => $referencedColumn,
-                'referenced_column_name' => $referencedColumn,
-                'value_column' => $referencedColumn,
-            ] : null,
-        ];
-        $existingFieldNames[strtolower($columnName)] = true;
-    }
 }
 $rawPreviewFields = array_values(array_filter($fields, static function ($field): bool {
     return is_array($field);

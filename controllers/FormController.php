@@ -2454,6 +2454,7 @@ class FormController extends Controller
         $schema = $this->getFilteredBlocks($model);
         $schemaMappingDebug = [];
         $schema = $this->normalizeFormSchemaFields($schema, $model, $schemaMappingDebug);
+        $schema = \app\services\FormRenderService::filterGpsCameraCompanionFields($schema);
         $fkConfig = [];
         $fieldConstraints = $this->buildFormFieldConstraints($model, $schema)['byField'];
 
@@ -2568,6 +2569,7 @@ class FormController extends Controller
         $schema = $this->getFilteredBlocks($model);
         $schemaMappingDebug = [];
         $schema = $this->normalizeFormSchemaFields($schema, $model, $schemaMappingDebug);
+        $schema = \app\services\FormRenderService::filterGpsCameraCompanionFields($schema);
         $fkConfig = [];
         $fieldConstraints = $this->buildFormFieldConstraints($model, $schema)['byField'];
 
@@ -2608,6 +2610,7 @@ class FormController extends Controller
         $schema = $this->getFilteredBlocks($model);
         $schemaMappingDebug = [];
         $schema = $this->normalizeFormSchemaFields($schema, $model, $schemaMappingDebug);
+        $schema = \app\services\FormRenderService::filterGpsCameraCompanionFields($schema);
         $returnUrl = $this->resolveSafeReturnUrl();
 
         if (Yii::$app->request->isPost) {

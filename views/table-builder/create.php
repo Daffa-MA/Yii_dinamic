@@ -62,721 +62,722 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 ?>
 
 <style>
-.table-create-page {
-    --ink: #142033;
-    --muted: #60708a;
-    --line: #d9e2ef;
-    --panel: #ffffff;
-    --accent: var(--ws-sidebar-active-bg-start, #2563eb);
-    --accent-strong: var(--ws-sidebar-active-bg-end, #1d4ed8);
-    --accent-soft: var(--ws-sidebar-hover-bg, rgba(37, 99, 235, 0.12));
-    --accent-ghost: var(--ws-light-sidebar-bg, #eff6ff);
-    --shadow: 0 20px 55px rgba(20, 32, 51, 0.08);
-    color: var(--ink);
-}
-
-.table-create-page .page-shell {
-    display: grid;
-    gap: 24px;
-}
-
-.table-create-page .hero,
-.table-create-page .panel {
-    background: var(--panel);
-    border: 1px solid #e4ebf3;
-    border-radius: 24px;
-    box-shadow: var(--shadow);
-}
-
-.table-create-page .hero {
-    padding: 28px;
-    background:
-        radial-gradient(circle at top left, var(--accent-soft), transparent 28%),
-        linear-gradient(180deg, #ffffff, #f8fbff);
-}
-
-.table-create-page .hero-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
-    margin-bottom: 24px;
-}
-
-.table-create-page .hero-title {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-}
-
-.table-create-page .hero-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, var(--accent-ghost), var(--accent-soft));
-    color: var(--accent);
-    border: 1px solid var(--line);
-}
-
-.table-create-page h1 {
-    margin: 0 0 8px;
-    font-size: 34px;
-    line-height: 1.08;
-    font-weight: 800;
-    letter-spacing: -0.03em;
-}
-
-.table-create-page .hero-text,
-.table-create-page .panel-subtitle,
-.table-create-page .field-note,
-.table-create-page .footer-note,
-.table-create-page .columns-meta,
-.table-create-page .empty-text {
-    color: var(--muted);
-    font-size: 14px;
-}
-
-.table-create-page .hero-actions,
-.table-create-page .columns-toolbar,
-.table-create-page .footer-actions {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.table-create-page .hero-actions {
-    justify-content: flex-end;
-}
-
-.table-create-page .btn-clean {
-    border-radius: 12px;
-    padding: 11px 16px;
-    border: 1px solid var(--line);
-    background: #fff;
-    color: var(--ink);
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-}
-
-.table-create-page .btn-clean:hover {
-    border-color: #bfd0e6;
-    transform: translateY(-1px);
-    box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
-}
-
-.table-create-page .btn-primary-clean {
-    background: linear-gradient(135deg, var(--accent-strong), var(--accent));
-    border-color: var(--accent-strong);
-    color: var(--ws-sidebar-active-text, #fff);
-}
-
-.table-create-page .btn-primary-clean:hover {
-    color: #fff;
-}
-
-.table-create-page .builder-mode-switch {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    padding: 18px 22px;
-    border: 1px solid #e4ebf3;
-    border-radius: 20px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow: 0 12px 30px rgba(20, 32, 51, 0.05);
-}
-
-.table-create-page .mode-toggle-group {
-    display: inline-flex;
-    gap: 8px;
-    padding: 6px;
-    border-radius: 16px;
-    background: #f3f7fc;
-    border: 1px solid #dfe8f2;
-}
-
-.table-create-page .mode-tab {
-    border: 0;
-    background: transparent;
-    color: #5b6b80;
-    border-radius: 12px;
-    padding: 10px 16px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.table-create-page .mode-tab.is-active {
-    background: var(--accent-ghost);
-    color: var(--accent-strong);
-    box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
-}
-
-.table-create-page .mode-note {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-    line-height: 1.6;
-}
-
-.table-create-page .sql-shell {
-    display: none;
-}
-
-.table-create-page.builder-mode-sql .sql-shell {
-    display: block;
-}
-
-.table-create-page.builder-mode-sql [data-builder-scope="manual"] {
-    display: none !important;
-}
-
-.table-create-page .sql-panel {
-    display: grid;
-    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-    gap: 20px;
-}
-
-.table-create-page .sql-help,
-.table-create-page .sql-editor-card {
-    border: 1px solid #e4ebf3;
-    border-radius: 18px;
-    background: #fff;
-    padding: 18px;
-}
-
-.table-create-page .sql-help h3,
-.table-create-page .sql-editor-card h3 {
-    margin: 0 0 10px;
-    font-size: 16px;
-    font-weight: 750;
-    color: #102033;
-}
-
-.table-create-page .sql-help p,
-.table-create-page .sql-help li,
-.table-create-page .sql-editor-card p {
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.7;
-}
-
-.table-create-page .sql-help ul {
-    margin: 10px 0 0;
-    padding-left: 18px;
-}
-
-.table-create-page .sql-example {
-    margin-top: 14px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: #0f172a;
-    color: #dbe7ff;
-    overflow: auto;
-    font-size: 13px;
-    line-height: 1.7;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-}
-
-.table-create-page .sql-warning {
-    margin-top: 14px;
-    padding: 12px 14px;
-    border-radius: 14px;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    color: #9a3412;
-    font-size: 13px;
-    line-height: 1.6;
-}
-
-.table-create-page .sql-error {
-    margin-bottom: 14px;
-    padding: 14px 16px;
-    border-radius: 14px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    color: #991b1b;
-    font-size: 14px;
-    line-height: 1.6;
-}
-
-.table-create-page .sql-error code {
-    display: block;
-    margin-top: 8px;
-    padding: 12px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.65);
-    border: 1px solid rgba(254, 202, 202, 0.8);
-    color: #7f1d1d;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    font-size: 13px;
-}
-
-.table-create-page .sql-debug-grid {
-    display: grid;
-    gap: 8px;
-    margin-top: 10px;
-    font-size: 13px;
-}
-
-.table-create-page .sql-debug-grid strong {
-    color: #7f1d1d;
-}
-
-.table-create-page .sql-debug-pre {
-    margin: 8px 0 0;
-    padding: 12px;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, 0.7);
-    border: 1px solid rgba(254, 202, 202, 0.85);
-    color: #7f1d1d;
-    white-space: pre-wrap;
-    word-break: break-word;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    font-size: 12px;
-}
-
-.table-create-page .sql-editor-toolbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-}
-
-.table-create-page .sql-editor-toolbar .toolbar-hint {
-    color: var(--muted);
-    font-size: 13px;
-}
-
-.table-create-page .sql-editor-wrap {
-    border: 1px solid #dfe8f2;
-    border-radius: 16px;
-    overflow: hidden;
-    background: #fff;
-}
-
-.table-create-page .CodeMirror {
-    height: auto;
-    min-height: 360px;
-    font-size: 13px;
-    line-height: 1.7;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-}
-
-.table-create-page .CodeMirror-scroll {
-    min-height: 360px;
-}
-
-.table-create-page .sql-submit-row {
-    display: flex;
-    justify-content: flex-end;
-    gap: 12px;
-    margin-top: 14px;
-}
-
-.table-create-page .hero-stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.table-create-page .stat-card {
-    padding: 18px;
-    border-radius: 18px;
-    border: 1px solid #e7edf5;
-    background: rgba(255, 255, 255, 0.84);
-}
-
-.table-create-page .stat-label {
-    display: block;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--muted);
-    font-weight: 700;
-    margin-bottom: 10px;
-}
-
-.table-create-page .stat-value {
-    font-size: 26px;
-    line-height: 1;
-    font-weight: 800;
-    margin-bottom: 6px;
-}
-
-.table-create-page .stat-note {
-    margin: 0;
-    color: var(--muted);
-    font-size: 13px;
-}
-
-.table-create-page .workspace {
-    display: grid;
-    grid-template-columns: minmax(0, 1.9fr) minmax(320px, 0.95fr);
-    gap: 24px;
-}
-
-.table-create-page .stack {
-    display: grid;
-    gap: 24px;
-}
-
-.table-create-page .panel-header {
-    padding: 20px 24px;
-    border-bottom: 1px solid #edf2f7;
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: flex-start;
-    background: linear-gradient(180deg, #ffffff, #f9fbfd);
-}
-
-.table-create-page .panel-title {
-    margin: 0 0 4px;
-    font-size: 20px;
-    font-weight: 760;
-    letter-spacing: -0.02em;
-}
-
-.table-create-page .panel-body {
-    padding: 24px;
-}
-
-.table-create-page .info-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 18px 16px;
-}
-
-.table-create-page .field-group,
-.table-create-page .property-grid,
-.table-create-page .checkbox-grid {
-    display: grid;
-    gap: 10px;
-}
-
-.table-create-page .field-span-3 {
-    grid-column: span 3;
-}
-
-.table-create-page .field-label {
-    display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: #344256;
-}
-
-.table-create-page .field-input,
-.table-create-page .field-select,
-.table-create-page textarea.field-input {
-    width: 100%;
-    border: 1px solid #d8e2ee;
-    border-radius: 14px;
-    padding: 12px 14px;
-    font-size: 14px;
-    color: var(--ink);
-    background: #fff;
-    transition: all 0.2s ease;
-}
-
-.table-create-page .field-input:focus,
-.table-create-page .field-select:focus,
-.table-create-page textarea.field-input:focus {
-    outline: none;
-    border-color: #90b6f7;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
-}
-
-.table-create-page .columns-list,
-.table-create-page .meta-list {
-    display: grid;
-    gap: 12px;
-}
-
-.table-create-page .empty-columns,
-.table-create-page .placeholder-panel {
-    border: 1px dashed #ccd8e8;
-    background: #f9fbfe;
-    border-radius: 18px;
-    padding: 32px 24px;
-    text-align: center;
-}
-
-.table-create-page .empty-columns .material-symbols-outlined,
-.table-create-page .placeholder-panel .material-symbols-outlined {
-    font-size: 40px;
-    color: #8ea0b8;
-    margin-bottom: 10px;
-}
-
-.table-create-page .empty-title {
-    font-size: 18px;
-    font-weight: 700;
-    margin: 0 0 8px;
-}
-
-.table-create-page .column-item {
-    display: grid;
-    gap: 14px;
-    border: 1px solid #dfe8f2;
-    background: #fff;
-    border-radius: 18px;
-    padding: 16px 18px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.table-create-page .column-item:hover {
-    border-color: #b8cce7;
-    box-shadow: 0 10px 24px rgba(20, 32, 51, 0.06);
-}
-
-.table-create-page .column-item.selected {
-    border-color: #90b6f7;
-    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
-    background: #fbfdff;
-}
-
-.table-create-page .column-item.sortable-ghost {
-    opacity: 0.45;
-}
-
-.table-create-page .column-top,
-.table-create-page .column-main,
-.table-create-page .column-title,
-.table-create-page .column-actions,
-.table-create-page .column-summary {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.table-create-page .column-top {
-    justify-content: space-between;
-    gap: 16px;
-    align-items: flex-start;
-}
-
-.table-create-page .column-main {
-    gap: 12px;
-    align-items: flex-start;
-    min-width: 0;
-}
-
-.table-create-page .column-title {
-    align-items: center;
-}
-
-.table-create-page .drag-handle {
-    color: #8ea0b8;
-    cursor: grab;
-    user-select: none;
-    margin-top: 2px;
-}
-
-.table-create-page .drag-handle:active {
-    cursor: grabbing;
-}
-
-.table-create-page .column-label {
-    font-size: 15px;
-    font-weight: 700;
-}
-
-.table-create-page .column-name {
-    margin: 4px 0 0;
-    color: var(--muted);
-    font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-}
-
-.table-create-page .type-badge,
-.table-create-page .flag-badge,
-.table-create-page .summary-chip {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 999px;
-    padding: 6px 10px;
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.table-create-page .type-badge {
-    background: var(--accent-ghost);
-    color: var(--accent-strong);
-}
-
-.table-create-page .flag-badge {
-    background: var(--accent-ghost);
-    color: var(--accent-strong);
-}
-
-.table-create-page .summary-chip {
-    background: #f3f7fb;
-    color: #41536d;
-    font-weight: 600;
-}
-
-.table-create-page .icon-btn {
-    border: 1px solid #d7e0eb;
-    background: #fff;
-    color: #314155;
-    border-radius: 12px;
-    padding: 9px 11px;
-    line-height: 1;
-    transition: all 0.2s ease;
-}
-
-.table-create-page .icon-btn:hover {
-    border-color: #b8cce7;
-    transform: translateY(-1px);
-}
-
-.table-create-page .icon-btn.delete:hover {
-    border-color: #f0b1b1;
-    background: #fff7f7;
-    color: #b91c1c;
-}
-
-.table-create-page .icon-btn:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.table-create-page .check-card {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    border: 1px solid #e1e8f0;
-    background: #fff;
-    border-radius: 14px;
-    padding: 12px 14px;
-}
-
-.table-create-page .check-card input {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--accent);
-}
-
-.table-create-page .check-card span {
-    font-size: 14px;
-    font-weight: 600;
-}
-
-.table-create-page .relation-settings {
-    border: 1px dashed #d3e1f3;
-    background: #f8fbff;
-    border-radius: 14px;
-    padding: 14px;
-    margin-top: 2px;
-}
-
-.table-create-page .relation-settings-grid {
-    display: grid;
-    gap: 12px;
-}
-
-.table-create-page .meta-list {
-    gap: 0;
-    border: 1px solid #e9eff6;
-    border-radius: 18px;
-    overflow: hidden;
-}
-
-.table-create-page .meta-row {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 14px 16px;
-    border-bottom: 1px solid #eef3f8;
-    background: #fff;
-    font-size: 14px;
-}
-
-.table-create-page .meta-row:last-child {
-    border-bottom: 0;
-}
-
-.table-create-page .meta-label {
-    color: var(--muted);
-    font-weight: 600;
-}
-
-.table-create-page .meta-value {
-    font-weight: 700;
-    color: var(--ink);
-    text-align: right;
-}
-
-.table-create-page .footer-actions {
-    justify-content: space-between;
-}
-
-.table-create-page .error-box {
-    border: 1px solid #f5c2c2;
-    background: #fff7f7;
-    color: #842029;
-    border-radius: 16px;
-    padding: 14px 16px;
-    margin-bottom: 18px;
-}
-
-@media (max-width: 1100px) {
-    .table-create-page .workspace {
-        grid-template-columns: 1fr;
+    .table-create-page {
+        --ink: #142033;
+        --muted: #60708a;
+        --line: #d9e2ef;
+        --panel: #ffffff;
+        --accent: var(--ws-sidebar-active-bg-start, #2563eb);
+        --accent-strong: var(--ws-sidebar-active-bg-end, #1d4ed8);
+        --accent-soft: var(--ws-sidebar-hover-bg, rgba(37, 99, 235, 0.12));
+        --accent-ghost: var(--ws-light-sidebar-bg, #eff6ff);
+        --shadow: 0 20px 55px rgba(20, 32, 51, 0.08);
+        color: var(--ink);
     }
 
-    .table-create-page .sql-panel {
-        grid-template-columns: 1fr;
+    .table-create-page .page-shell {
+        display: grid;
+        gap: 24px;
     }
 
-    .table-create-page .hero-stats {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 768px) {
     .table-create-page .hero,
-    .table-create-page .panel-body {
-        padding: 20px;
+    .table-create-page .panel {
+        background: var(--panel);
+        border: 1px solid #e4ebf3;
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+    }
+
+    .table-create-page .hero {
+        padding: 28px;
+        background:
+            radial-gradient(circle at top left, var(--accent-soft), transparent 28%),
+            linear-gradient(180deg, #ffffff, #f8fbff);
     }
 
     .table-create-page .hero-top {
-        flex-direction: column;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+
+    .table-create-page .hero-title {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+    }
+
+    .table-create-page .hero-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--accent-ghost), var(--accent-soft));
+        color: var(--accent);
+        border: 1px solid var(--line);
+    }
+
+    .table-create-page h1 {
+        margin: 0 0 8px;
+        font-size: 34px;
+        line-height: 1.08;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+    }
+
+    .table-create-page .hero-text,
+    .table-create-page .panel-subtitle,
+    .table-create-page .field-note,
+    .table-create-page .footer-note,
+    .table-create-page .columns-meta,
+    .table-create-page .empty-text {
+        color: var(--muted);
+        font-size: 14px;
+    }
+
+    .table-create-page .hero-actions,
+    .table-create-page .columns-toolbar,
+    .table-create-page .footer-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
     }
 
     .table-create-page .hero-actions {
-        justify-content: flex-start;
-        width: 100%;
+        justify-content: flex-end;
     }
 
-    .table-create-page .hero-stats,
+    .table-create-page .btn-clean {
+        border-radius: 12px;
+        padding: 11px 16px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--ink);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+
+    .table-create-page .btn-clean:hover {
+        border-color: #bfd0e6;
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
+    }
+
+    .table-create-page .btn-primary-clean {
+        background: linear-gradient(135deg, var(--accent-strong), var(--accent));
+        border-color: var(--accent-strong);
+        color: var(--ws-sidebar-active-text, #fff);
+    }
+
+    .table-create-page .btn-primary-clean:hover {
+        color: #fff;
+    }
+
+    .table-create-page .builder-mode-switch {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 18px 22px;
+        border: 1px solid #e4ebf3;
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 12px 30px rgba(20, 32, 51, 0.05);
+    }
+
+    .table-create-page .mode-toggle-group {
+        display: inline-flex;
+        gap: 8px;
+        padding: 6px;
+        border-radius: 16px;
+        background: #f3f7fc;
+        border: 1px solid #dfe8f2;
+    }
+
+    .table-create-page .mode-tab {
+        border: 0;
+        background: transparent;
+        color: #5b6b80;
+        border-radius: 12px;
+        padding: 10px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .table-create-page .mode-tab.is-active {
+        background: var(--accent-ghost);
+        color: var(--accent-strong);
+        box-shadow: 0 8px 18px rgba(20, 32, 51, 0.08);
+    }
+
+    .table-create-page .mode-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .table-create-page .sql-shell {
+        display: none;
+    }
+
+    .table-create-page.builder-mode-sql .sql-shell {
+        display: block;
+    }
+
+    .table-create-page.builder-mode-sql [data-builder-scope="manual"] {
+        display: none !important;
+    }
+
+    .table-create-page .sql-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+        gap: 20px;
+    }
+
+    .table-create-page .sql-help,
+    .table-create-page .sql-editor-card {
+        border: 1px solid #e4ebf3;
+        border-radius: 18px;
+        background: #fff;
+        padding: 18px;
+    }
+
+    .table-create-page .sql-help h3,
+    .table-create-page .sql-editor-card h3 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        font-weight: 750;
+        color: #102033;
+    }
+
+    .table-create-page .sql-help p,
+    .table-create-page .sql-help li,
+    .table-create-page .sql-editor-card p {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.7;
+    }
+
+    .table-create-page .sql-help ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+    }
+
+    .table-create-page .sql-example {
+        margin-top: 14px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #0f172a;
+        color: #dbe7ff;
+        overflow: auto;
+        font-size: 13px;
+        line-height: 1.7;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .table-create-page .sql-warning {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #9a3412;
+        font-size: 13px;
+        line-height: 1.6;
+    }
+
+    .table-create-page .sql-error {
+        margin-bottom: 14px;
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #991b1b;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .table-create-page .sql-error code {
+        display: block;
+        margin-top: 8px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.65);
+        border: 1px solid rgba(254, 202, 202, 0.8);
+        color: #7f1d1d;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 13px;
+    }
+
+    .table-create-page .sql-debug-grid {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    .table-create-page .sql-debug-grid strong {
+        color: #7f1d1d;
+    }
+
+    .table-create-page .sql-debug-pre {
+        margin: 8px 0 0;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(254, 202, 202, 0.85);
+        color: #7f1d1d;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        font-size: 12px;
+    }
+
+    .table-create-page .sql-editor-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .table-create-page .sql-editor-toolbar .toolbar-hint {
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .table-create-page .sql-editor-wrap {
+        border: 1px solid #dfe8f2;
+        border-radius: 16px;
+        overflow: hidden;
+        background: #fff;
+    }
+
+    .table-create-page .CodeMirror {
+        height: auto;
+        min-height: 360px;
+        font-size: 13px;
+        line-height: 1.7;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .table-create-page .CodeMirror-scroll {
+        min-height: 360px;
+    }
+
+    .table-create-page .sql-submit-row {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .table-create-page .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .table-create-page .stat-card {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid #e7edf5;
+        background: rgba(255, 255, 255, 0.84);
+    }
+
+    .table-create-page .stat-label {
+        display: block;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--muted);
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+
+    .table-create-page .stat-value {
+        font-size: 26px;
+        line-height: 1;
+        font-weight: 800;
+        margin-bottom: 6px;
+    }
+
+    .table-create-page .stat-note {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+    }
+
+    .table-create-page .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1.9fr) minmax(320px, 0.95fr);
+        gap: 24px;
+    }
+
+    .table-create-page .stack {
+        display: grid;
+        gap: 24px;
+    }
+
+    .table-create-page .panel-header {
+        padding: 20px 24px;
+        border-bottom: 1px solid #edf2f7;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+        background: linear-gradient(180deg, #ffffff, #f9fbfd);
+    }
+
+    .table-create-page .panel-title {
+        margin: 0 0 4px;
+        font-size: 20px;
+        font-weight: 760;
+        letter-spacing: -0.02em;
+    }
+
+    .table-create-page .panel-body {
+        padding: 24px;
+    }
+
     .table-create-page .info-grid {
-        grid-template-columns: 1fr;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px 16px;
+    }
+
+    .table-create-page .field-group,
+    .table-create-page .property-grid,
+    .table-create-page .checkbox-grid {
+        display: grid;
+        gap: 10px;
     }
 
     .table-create-page .field-span-3 {
-        grid-column: auto;
+        grid-column: span 3;
+    }
+
+    .table-create-page .field-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        color: #344256;
+    }
+
+    .table-create-page .field-input,
+    .table-create-page .field-select,
+    .table-create-page textarea.field-input {
+        width: 100%;
+        border: 1px solid #d8e2ee;
+        border-radius: 14px;
+        padding: 12px 14px;
+        font-size: 14px;
+        color: var(--ink);
+        background: #fff;
+        transition: all 0.2s ease;
+    }
+
+    .table-create-page .field-input:focus,
+    .table-create-page .field-select:focus,
+    .table-create-page textarea.field-input:focus {
+        outline: none;
+        border-color: #90b6f7;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+    }
+
+    .table-create-page .columns-list,
+    .table-create-page .meta-list {
+        display: grid;
+        gap: 12px;
+    }
+
+    .table-create-page .empty-columns,
+    .table-create-page .placeholder-panel {
+        border: 1px dashed #ccd8e8;
+        background: #f9fbfe;
+        border-radius: 18px;
+        padding: 32px 24px;
+        text-align: center;
+    }
+
+    .table-create-page .empty-columns .material-symbols-outlined,
+    .table-create-page .placeholder-panel .material-symbols-outlined {
+        font-size: 40px;
+        color: #8ea0b8;
+        margin-bottom: 10px;
+    }
+
+    .table-create-page .empty-title {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0 0 8px;
+    }
+
+    .table-create-page .column-item {
+        display: grid;
+        gap: 14px;
+        border: 1px solid #dfe8f2;
+        background: #fff;
+        border-radius: 18px;
+        padding: 16px 18px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .table-create-page .column-item:hover {
+        border-color: #b8cce7;
+        box-shadow: 0 10px 24px rgba(20, 32, 51, 0.06);
+    }
+
+    .table-create-page .column-item.selected {
+        border-color: #90b6f7;
+        box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+        background: #fbfdff;
+    }
+
+    .table-create-page .column-item.sortable-ghost {
+        opacity: 0.45;
+    }
+
+    .table-create-page .column-top,
+    .table-create-page .column-main,
+    .table-create-page .column-title,
+    .table-create-page .column-actions,
+    .table-create-page .column-summary {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
     }
 
     .table-create-page .column-top {
-        flex-direction: column;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
     }
-}
+
+    .table-create-page .column-main {
+        gap: 12px;
+        align-items: flex-start;
+        min-width: 0;
+    }
+
+    .table-create-page .column-title {
+        align-items: center;
+    }
+
+    .table-create-page .drag-handle {
+        color: #8ea0b8;
+        cursor: grab;
+        user-select: none;
+        margin-top: 2px;
+    }
+
+    .table-create-page .drag-handle:active {
+        cursor: grabbing;
+    }
+
+    .table-create-page .column-label {
+        font-size: 15px;
+        font-weight: 700;
+    }
+
+    .table-create-page .column-name {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .table-create-page .type-badge,
+    .table-create-page .flag-badge,
+    .table-create-page .summary-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
+    }
+
+    .table-create-page .type-badge {
+        background: var(--accent-ghost);
+        color: var(--accent-strong);
+    }
+
+    .table-create-page .flag-badge {
+        background: var(--accent-ghost);
+        color: var(--accent-strong);
+    }
+
+    .table-create-page .summary-chip {
+        background: #f3f7fb;
+        color: #41536d;
+        font-weight: 600;
+    }
+
+    .table-create-page .icon-btn {
+        border: 1px solid #d7e0eb;
+        background: #fff;
+        color: #314155;
+        border-radius: 12px;
+        padding: 9px 11px;
+        line-height: 1;
+        transition: all 0.2s ease;
+    }
+
+    .table-create-page .icon-btn:hover {
+        border-color: #b8cce7;
+        transform: translateY(-1px);
+    }
+
+    .table-create-page .icon-btn.delete:hover {
+        border-color: #f0b1b1;
+        background: #fff7f7;
+        color: #b91c1c;
+    }
+
+    .table-create-page .icon-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    .table-create-page .check-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 1px solid #e1e8f0;
+        background: #fff;
+        border-radius: 14px;
+        padding: 12px 14px;
+    }
+
+    .table-create-page .check-card input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+    }
+
+    .table-create-page .check-card span {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .table-create-page .relation-settings {
+        border: 1px dashed #d3e1f3;
+        background: #f8fbff;
+        border-radius: 14px;
+        padding: 14px;
+        margin-top: 2px;
+    }
+
+    .table-create-page .relation-settings-grid {
+        display: grid;
+        gap: 12px;
+    }
+
+    .table-create-page .meta-list {
+        gap: 0;
+        border: 1px solid #e9eff6;
+        border-radius: 18px;
+        overflow: hidden;
+    }
+
+    .table-create-page .meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #eef3f8;
+        background: #fff;
+        font-size: 14px;
+    }
+
+    .table-create-page .meta-row:last-child {
+        border-bottom: 0;
+    }
+
+    .table-create-page .meta-label {
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .table-create-page .meta-value {
+        font-weight: 700;
+        color: var(--ink);
+        text-align: right;
+    }
+
+    .table-create-page .footer-actions {
+        justify-content: space-between;
+    }
+
+    .table-create-page .error-box {
+        border: 1px solid #f5c2c2;
+        background: #fff7f7;
+        color: #842029;
+        border-radius: 16px;
+        padding: 14px 16px;
+        margin-bottom: 18px;
+    }
+
+    @media (max-width: 1100px) {
+        .table-create-page .workspace {
+            grid-template-columns: 1fr;
+        }
+
+        .table-create-page .sql-panel {
+            grid-template-columns: 1fr;
+        }
+
+        .table-create-page .hero-stats {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 768px) {
+
+        .table-create-page .hero,
+        .table-create-page .panel-body {
+            padding: 20px;
+        }
+
+        .table-create-page .hero-top {
+            flex-direction: column;
+        }
+
+        .table-create-page .hero-actions {
+            justify-content: flex-start;
+            width: 100%;
+        }
+
+        .table-create-page .hero-stats,
+        .table-create-page .info-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .table-create-page .field-span-3 {
+            grid-column: auto;
+        }
+
+        .table-create-page .column-top {
+            flex-direction: column;
+        }
+    }
 </style>
 
 <div class="table-create-page <?= $builderMode === 'sql' ? 'builder-mode-sql' : '' ?>">
@@ -926,11 +927,11 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                             Safe create (CREATE TABLE IF NOT EXISTS)
                         </label>
                         <div class="sql-example">CREATE TABLE products (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  name VARCHAR(255) NOT NULL,
-  price DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMP NULL
-);</div>
+                            id INT PRIMARY KEY AUTO_INCREMENT,
+                            name VARCHAR(255) NOT NULL,
+                            price DECIMAL(10,2) NOT NULL,
+                            created_at TIMESTAMP NULL
+                            );</div>
                     </div>
                     <div class="sql-editor-card">
                         <div class="sql-editor-toolbar">
@@ -1194,160 +1195,160 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    let columns = [];
-    let selectedIndex = -1;
-    let isSyncingProperties = false;
+    document.addEventListener('DOMContentLoaded', function() {
+        let columns = [];
+        let selectedIndex = -1;
+        let isSyncingProperties = false;
 
-    const columnsList = document.getElementById('columns-list');
-    const columnsJson = document.getElementById('columns-json');
-    const emptyColumnsMsg = document.getElementById('empty-columns-msg');
-    const propertiesEmpty = document.getElementById('properties-empty');
-    const propertiesForm = document.getElementById('properties-form');
-    const tableNameInput = document.getElementById('dbtable-name');
-    const tableLabelInput = document.getElementById('dbtable-label');
-    const tableEngineInput = document.getElementById('table-engine');
-    const foreignKeyToggleInput = document.getElementById('prop-is-foreign-key');
-    const foreignKeySettings = document.getElementById('foreign-key-settings');
-    const enumValuesInput = document.getElementById('prop-enum-values');
-    const enumValuesGroup = document.getElementById('enum-values-group');
-    const referencedTableInput = document.getElementById('prop-referenced-table');
-    const referencedColumnInput = document.getElementById('prop-referenced-column');
-    const onDeleteInput = document.getElementById('prop-on-delete');
-    const onUpdateInput = document.getElementById('prop-on-update');
-    const builderModeInput = document.getElementById('builder-mode');
-    const modeTabs = document.querySelectorAll('.mode-tab');
-    const rootPage = document.querySelector('.table-create-page');
-    const sqlTextarea = document.getElementById('raw-sql-editor');
-    const sqlSampleBtn = document.getElementById('sql-sample-btn');
-    const sqlSubmitBtn = document.getElementById('sql-submit-btn');
-    const primarySubmitBtn = document.getElementById('primary-submit-btn');
-    const tableForm = document.getElementById('table-form');
-    const sqlDebugResult = document.getElementById('sql-debug-result');
-    const manualSubmitLabel = <?= \yii\helpers\Json::encode($submitLabel) ?>;
-    let sqlEditor = null;
-    let isSqlSubmitting = false;
-    const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
+        const columnsList = document.getElementById('columns-list');
+        const columnsJson = document.getElementById('columns-json');
+        const emptyColumnsMsg = document.getElementById('empty-columns-msg');
+        const propertiesEmpty = document.getElementById('properties-empty');
+        const propertiesForm = document.getElementById('properties-form');
+        const tableNameInput = document.getElementById('dbtable-name');
+        const tableLabelInput = document.getElementById('dbtable-label');
+        const tableEngineInput = document.getElementById('table-engine');
+        const foreignKeyToggleInput = document.getElementById('prop-is-foreign-key');
+        const foreignKeySettings = document.getElementById('foreign-key-settings');
+        const enumValuesInput = document.getElementById('prop-enum-values');
+        const enumValuesGroup = document.getElementById('enum-values-group');
+        const referencedTableInput = document.getElementById('prop-referenced-table');
+        const referencedColumnInput = document.getElementById('prop-referenced-column');
+        const onDeleteInput = document.getElementById('prop-on-delete');
+        const onUpdateInput = document.getElementById('prop-on-update');
+        const builderModeInput = document.getElementById('builder-mode');
+        const modeTabs = document.querySelectorAll('.mode-tab');
+        const rootPage = document.querySelector('.table-create-page');
+        const sqlTextarea = document.getElementById('raw-sql-editor');
+        const sqlSampleBtn = document.getElementById('sql-sample-btn');
+        const sqlSubmitBtn = document.getElementById('sql-submit-btn');
+        const primarySubmitBtn = document.getElementById('primary-submit-btn');
+        const tableForm = document.getElementById('table-form');
+        const sqlDebugResult = document.getElementById('sql-debug-result');
+        const manualSubmitLabel = <?= \yii\helpers\Json::encode($submitLabel) ?>;
+        let sqlEditor = null;
+        let isSqlSubmitting = false;
+        const foreignKeyActions = ['RESTRICT', 'CASCADE', 'SET NULL', 'NO ACTION'];
 
-    const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-enum-values', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
-    const lengthInput = document.getElementById('prop-length');
-    const typeDefaultLengths = <?= json_encode(DbTableColumn::getDefaultLengthMap()) ?>;
-    const rawForeignKeyReferenceMap = <?= \yii\helpers\Json::encode($foreignKeyReferenceMap) ?>;
-    const foreignKeyReferenceMap = normalizeReferenceMetadata(rawForeignKeyReferenceMap);
-    const fkDebugEnabled = <?= $fkDebugEnabled ? 'true' : 'false' ?> || window.localStorage.getItem('tb_fk_debug') === '1';
+        const propertyFieldIds = ['prop-name', 'prop-label', 'prop-type', 'prop-length', 'prop-enum-values', 'prop-nullable', 'prop-unique', 'prop-primary', 'prop-auto-increment', 'prop-default', 'prop-comment', 'prop-is-foreign-key', 'prop-referenced-table', 'prop-referenced-column', 'prop-on-delete', 'prop-on-update'];
+        const lengthInput = document.getElementById('prop-length');
+        const typeDefaultLengths = <?= json_encode(DbTableColumn::getDefaultLengthMap()) ?>;
+        const rawForeignKeyReferenceMap = <?= \yii\helpers\Json::encode($foreignKeyReferenceMap) ?>;
+        const foreignKeyReferenceMap = normalizeReferenceMetadata(rawForeignKeyReferenceMap);
+        const fkDebugEnabled = <?= $fkDebugEnabled ? 'true' : 'false' ?> || window.localStorage.getItem('tb_fk_debug') === '1';
 
-    if (sqlTextarea && typeof CodeMirror !== 'undefined') {
-        sqlEditor = CodeMirror.fromTextArea(sqlTextarea, {
-            mode: 'text/x-sql',
-            theme: 'eclipse',
-            lineNumbers: true,
-            lineWrapping: true,
-            indentWithTabs: false,
-            tabSize: 4,
-            viewportMargin: Infinity
+        if (sqlTextarea && typeof CodeMirror !== 'undefined') {
+            sqlEditor = CodeMirror.fromTextArea(sqlTextarea, {
+                mode: 'text/x-sql',
+                theme: 'eclipse',
+                lineNumbers: true,
+                lineWrapping: true,
+                indentWithTabs: false,
+                tabSize: 4,
+                viewportMargin: Infinity
+            });
+            sqlEditor.setSize(null, 'auto');
+        }
+
+        function getBuilderMode() {
+            return builderModeInput ? builderModeInput.value : 'manual';
+        }
+
+        function setBuilderMode(mode) {
+            var nextMode = mode === 'sql' ? 'sql' : 'manual';
+
+            if (builderModeInput) {
+                builderModeInput.value = nextMode;
+            }
+            if (rootPage) {
+                rootPage.classList.toggle('builder-mode-sql', nextMode === 'sql');
+            }
+            modeTabs.forEach(function(tab) {
+                tab.classList.toggle('is-active', tab.dataset.builderMode === nextMode);
+            });
+            if (primarySubmitBtn) {
+                primarySubmitBtn.textContent = nextMode === 'sql' ? 'Run SQL & Sync' : manualSubmitLabel;
+                primarySubmitBtn.style.display = nextMode === 'sql' ? 'none' : '';
+            }
+            if (sqlSubmitBtn) {
+                sqlSubmitBtn.style.display = nextMode === 'sql' ? '' : 'none';
+            }
+            if (sqlEditor) {
+                setTimeout(function() {
+                    sqlEditor.refresh();
+                }, 20);
+            }
+        }
+
+        function setSubmittingState(isSubmitting) {
+            [primarySubmitBtn, sqlSubmitBtn].forEach(function(button) {
+                if (!button) {
+                    return;
+                }
+                button.disabled = isSubmitting;
+                button.dataset.originalLabel = button.dataset.originalLabel || button.textContent;
+                button.textContent = isSubmitting ? 'Processing...' : button.dataset.originalLabel;
+            });
+        }
+
+        modeTabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                setBuilderMode(this.dataset.builderMode || 'manual');
+                if (sqlEditor && getBuilderMode() === 'sql') {
+                    sqlEditor.focus();
+                }
+            });
         });
-        sqlEditor.setSize(null, 'auto');
-    }
 
-    function getBuilderMode() {
-        return builderModeInput ? builderModeInput.value : 'manual';
-    }
+        if (sqlSampleBtn) {
+            sqlSampleBtn.addEventListener('click', function() {
+                var exampleSql = "CREATE TABLE products (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(255) NOT NULL,\n  price DECIMAL(10,2) NOT NULL,\n  created_at TIMESTAMP NULL\n);";
+                if (sqlEditor) {
+                    sqlEditor.setValue(exampleSql);
+                    sqlEditor.focus();
+                } else if (sqlTextarea) {
+                    sqlTextarea.value = exampleSql;
+                }
+                setBuilderMode('sql');
+            });
+        }
 
-    function setBuilderMode(mode) {
-        var nextMode = mode === 'sql' ? 'sql' : 'manual';
+        setBuilderMode(getBuilderMode());
 
-        if (builderModeInput) {
-            builderModeInput.value = nextMode;
+        function cloneDebugPayload(value) {
+            try {
+                return JSON.parse(JSON.stringify(value));
+            } catch (error) {
+                return value;
+            }
         }
-        if (rootPage) {
-            rootPage.classList.toggle('builder-mode-sql', nextMode === 'sql');
-        }
-        modeTabs.forEach(function (tab) {
-            tab.classList.toggle('is-active', tab.dataset.builderMode === nextMode);
-        });
-        if (primarySubmitBtn) {
-            primarySubmitBtn.textContent = nextMode === 'sql' ? 'Run SQL & Sync' : manualSubmitLabel;
-            primarySubmitBtn.style.display = nextMode === 'sql' ? 'none' : '';
-        }
-        if (sqlSubmitBtn) {
-            sqlSubmitBtn.style.display = nextMode === 'sql' ? '' : 'none';
-        }
-        if (sqlEditor) {
-            setTimeout(function () {
-                sqlEditor.refresh();
-            }, 20);
-        }
-    }
 
-    function setSubmittingState(isSubmitting) {
-        [primarySubmitBtn, sqlSubmitBtn].forEach(function (button) {
-            if (!button) {
+        function escapeHtml(value) {
+            return (value === null || value === undefined ? '' : String(value))
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function renderSqlDebugResult(payload) {
+            if (!sqlDebugResult) {
                 return;
             }
-            button.disabled = isSubmitting;
-            button.dataset.originalLabel = button.dataset.originalLabel || button.textContent;
-            button.textContent = isSubmitting ? 'Processing...' : button.dataset.originalLabel;
-        });
-    }
 
-    modeTabs.forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            setBuilderMode(this.dataset.builderMode || 'manual');
-            if (sqlEditor && getBuilderMode() === 'sql') {
-                sqlEditor.focus();
+            if (!payload) {
+                sqlDebugResult.style.display = 'none';
+                sqlDebugResult.innerHTML = '';
+                return;
             }
-        });
-    });
 
-    if (sqlSampleBtn) {
-        sqlSampleBtn.addEventListener('click', function () {
-            var exampleSql = "CREATE TABLE products (\n  id INT PRIMARY KEY AUTO_INCREMENT,\n  name VARCHAR(255) NOT NULL,\n  price DECIMAL(10,2) NOT NULL,\n  created_at TIMESTAMP NULL\n);";
-            if (sqlEditor) {
-                sqlEditor.setValue(exampleSql);
-                sqlEditor.focus();
-            } else if (sqlTextarea) {
-                sqlTextarea.value = exampleSql;
-            }
-            setBuilderMode('sql');
-        });
-    }
-
-    setBuilderMode(getBuilderMode());
-
-    function cloneDebugPayload(value) {
-        try {
-            return JSON.parse(JSON.stringify(value));
-        } catch (error) {
-            return value;
-        }
-    }
-
-    function escapeHtml(value) {
-        return (value === null || value === undefined ? '' : String(value))
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-
-    function renderSqlDebugResult(payload) {
-        if (!sqlDebugResult) {
-            return;
-        }
-
-        if (!payload) {
-            sqlDebugResult.style.display = 'none';
-            sqlDebugResult.innerHTML = '';
-            return;
-        }
-
-        sqlDebugResult.style.display = '';
-        const details = [
-            '<strong>SQL gagal dijalankan.</strong>',
-            '<div>' + escapeHtml(payload.message || 'Terjadi kesalahan saat memproses SQL.') + '</div>',
-            '<code>' + escapeHtml(payload.sql_error || payload.message || '-') + '</code>',
-            '<div class="sql-debug-grid">' +
+            sqlDebugResult.style.display = '';
+            const details = [
+                '<strong>SQL gagal dijalankan.</strong>',
+                '<div>' + escapeHtml(payload.message || 'Terjadi kesalahan saat memproses SQL.') + '</div>',
+                '<code>' + escapeHtml(payload.sql_error || payload.message || '-') + '</code>',
+                '<div class="sql-debug-grid">' +
                 '<div><strong>Success:</strong> ' + escapeHtml(payload.success ? 'true' : 'false') + '</div>' +
                 '<div><strong>Active Database:</strong> ' + escapeHtml(payload.active_database || '-') + '</div>' +
                 '<div><strong>Table Name:</strong> ' + escapeHtml(payload.table_name || '-') + '</div>' +
@@ -1366,68 +1367,68 @@ document.addEventListener('DOMContentLoaded', function () {
                 '<div><strong>Parsed Columns:</strong> ' + escapeHtml((payload.parsed_columns && typeof payload.parsed_columns === 'object') ? Object.keys(payload.parsed_columns).length : 0) + '</div>' +
                 (payload.suggested_fix ? '<div><strong>Suggested Fix:</strong></div><pre class="sql-debug-pre">' + escapeHtml(payload.suggested_fix) + '</pre>' : '') +
                 (payload.diagnostics ? '<div><strong>Diagnostics:</strong></div><pre class="sql-debug-pre">' + escapeHtml(JSON.stringify(payload.diagnostics, null, 2)) + '</pre>' : '') +
-            '</div>'
-        ];
+                '</div>'
+            ];
 
-        sqlDebugResult.innerHTML = details.join('');
-    }
-
-    function fkDebugLog(stage, payload) {
-        if (!fkDebugEnabled) {
-            return;
+            sqlDebugResult.innerHTML = details.join('');
         }
 
-        try {
-            console.groupCollapsed('[TableBuilder FK Debug] ' + stage);
-            console.log(payload);
-            console.groupEnd();
-        } catch (error) {
-            console.log('[TableBuilder FK Debug]', stage, payload);
-        }
-    }
-
-    const savedColumns = <?= !empty($savedColumns) ? \yii\helpers\Json::encode($savedColumns) : '[]' ?>;
-    fkDebugLog('init', {
-        fkDebugEnabled: fkDebugEnabled,
-        formAction: document.getElementById('table-form').getAttribute('action') || window.location.href,
-        savedColumnsCount: savedColumns.length,
-        savedColumns: cloneDebugPayload(savedColumns),
-        foreignKeyReferenceMap: cloneDebugPayload(foreignKeyReferenceMap),
-    });
-    if (savedColumns.length > 0) {
-        columns = savedColumns.map(normalizeColumn);
-        fkDebugLog('savedColumns.normalized', {
-            columnsCount: columns.length,
-            columns: cloneDebugPayload(columns),
-        });
-        refreshAllColumns();
-        updateSchema();
-    }
-
-    if (typeof Sortable !== 'undefined') {
-        new Sortable(columnsList, {
-            animation: 180,
-            handle: '.drag-handle',
-            ghostClass: 'sortable-ghost',
-            onEnd: function () {
-                const reorderedColumns = [];
-                columnsList.querySelectorAll('.column-item').forEach(function (element) {
-                    const index = parseInt(element.getAttribute('data-index'), 10);
-                    reorderedColumns.push(columns[index]);
-                });
-                columns = reorderedColumns;
-                refreshAllColumns();
-                if (selectedIndex >= 0) {
-                    selectColumn(Math.min(selectedIndex, columns.length - 1));
-                }
-                updateSchema();
-                updateSummary();
+        function fkDebugLog(stage, payload) {
+            if (!fkDebugEnabled) {
+                return;
             }
-        });
-    }
 
-    document.getElementById('btn-add-column').addEventListener('click', function () {
-        const nextIndex = columns.length + 1;
+            try {
+                console.groupCollapsed('[TableBuilder FK Debug] ' + stage);
+                console.log(payload);
+                console.groupEnd();
+            } catch (error) {
+                console.log('[TableBuilder FK Debug]', stage, payload);
+            }
+        }
+
+        const savedColumns = <?= !empty($savedColumns) ? \yii\helpers\Json::encode($savedColumns) : '[]' ?>;
+        fkDebugLog('init', {
+            fkDebugEnabled: fkDebugEnabled,
+            formAction: document.getElementById('table-form').getAttribute('action') || window.location.href,
+            savedColumnsCount: savedColumns.length,
+            savedColumns: cloneDebugPayload(savedColumns),
+            foreignKeyReferenceMap: cloneDebugPayload(foreignKeyReferenceMap),
+        });
+        if (savedColumns.length > 0) {
+            columns = savedColumns.map(normalizeColumn);
+            fkDebugLog('savedColumns.normalized', {
+                columnsCount: columns.length,
+                columns: cloneDebugPayload(columns),
+            });
+            refreshAllColumns();
+            updateSchema();
+        }
+
+        if (typeof Sortable !== 'undefined') {
+            new Sortable(columnsList, {
+                animation: 180,
+                handle: '.drag-handle',
+                ghostClass: 'sortable-ghost',
+                onEnd: function() {
+                    const reorderedColumns = [];
+                    columnsList.querySelectorAll('.column-item').forEach(function(element) {
+                        const index = parseInt(element.getAttribute('data-index'), 10);
+                        reorderedColumns.push(columns[index]);
+                    });
+                    columns = reorderedColumns;
+                    refreshAllColumns();
+                    if (selectedIndex >= 0) {
+                        selectColumn(Math.min(selectedIndex, columns.length - 1));
+                    }
+                    updateSchema();
+                    updateSummary();
+                }
+            });
+        }
+
+        document.getElementById('btn-add-column').addEventListener('click', function() {
+            const nextIndex = columns.length + 1;
             const newColumn = normalizeColumn({
                 name: 'column_' + nextIndex,
                 label: 'Column ' + nextIndex,
@@ -1443,707 +1444,726 @@ document.addEventListener('DOMContentLoaded', function () {
                 referenced_table: '',
                 referenced_column: '',
                 on_delete: '',
-            on_update: ''
+                on_update: ''
+            });
+
+            columns.push(newColumn);
+            refreshAllColumns();
+            selectColumn(columns.length - 1);
+            updateSchema();
+            updateSummary();
         });
 
-        columns.push(newColumn);
-        refreshAllColumns();
-        selectColumn(columns.length - 1);
-        updateSchema();
-        updateSummary();
-    });
+        propertyFieldIds.forEach(function(fieldId) {
+            const element = document.getElementById(fieldId);
+            if (!element) {
+                return;
+            }
+            element.addEventListener('input', syncProperty);
+            element.addEventListener('change', syncProperty);
+        });
 
-    propertyFieldIds.forEach(function (fieldId) {
-        const element = document.getElementById(fieldId);
-        if (!element) {
-            return;
+        [tableNameInput, tableLabelInput, tableEngineInput].forEach(function(element) {
+            if (!element) {
+                return;
+            }
+            element.addEventListener('input', updateSummary);
+            element.addEventListener('change', updateSummary);
+        });
+
+        if (sqlDebugResult && <?= !empty($sqlDebug) ? 'true' : 'false' ?>) {
+            renderSqlDebugResult(<?= \yii\helpers\Json::encode($sqlDebug) ?>);
         }
-        element.addEventListener('input', syncProperty);
-        element.addEventListener('change', syncProperty);
-    });
 
-    [tableNameInput, tableLabelInput, tableEngineInput].forEach(function (element) {
-        if (!element) {
-            return;
-        }
-        element.addEventListener('input', updateSummary);
-        element.addEventListener('change', updateSummary);
-    });
-
-    if (sqlDebugResult && <?= !empty($sqlDebug) ? 'true' : 'false' ?>) {
-        renderSqlDebugResult(<?= \yii\helpers\Json::encode($sqlDebug) ?>);
-    }
-
-    tableForm.addEventListener('submit', function (event) {
-        if (getBuilderMode() === 'sql') {
-            if (isSqlSubmitting) {
+        tableForm.addEventListener('submit', function(event) {
+            if (getBuilderMode() === 'sql') {
+                if (isSqlSubmitting) {
+                    event.preventDefault();
+                    return false;
+                }
+                if (sqlEditor && sqlTextarea) {
+                    sqlTextarea.value = sqlEditor.getValue();
+                }
+                if (!sqlTextarea || sqlTextarea.value.trim() === '') {
+                    event.preventDefault();
+                    alert('Paste SQL schema terlebih dahulu.');
+                    return false;
+                }
                 event.preventDefault();
-                return false;
-            }
-            if (sqlEditor && sqlTextarea) {
-                sqlTextarea.value = sqlEditor.getValue();
-            }
-            if (!sqlTextarea || sqlTextarea.value.trim() === '') {
-                event.preventDefault();
-                alert('Paste SQL schema terlebih dahulu.');
-                return false;
-            }
-            event.preventDefault();
-            isSqlSubmitting = true;
-            setSubmittingState(true);
-            renderSqlDebugResult(null);
+                isSqlSubmitting = true;
+                setSubmittingState(true);
+                renderSqlDebugResult(null);
 
-            if (typeof fetch !== 'function') {
-                tableForm.submit();
-                return false;
-            }
+                if (typeof fetch !== 'function') {
+                    tableForm.submit();
+                    return false;
+                }
 
-            fetch(tableForm.action || window.location.href, {
-                method: 'POST',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                },
-                body: new FormData(tableForm)
-            })
-                .then(function (response) {
-                    return response.json().then(function (payload) {
-                        return { ok: response.ok, payload: payload };
-                    }).catch(function () {
-                        return { ok: response.ok, payload: null };
+                fetch(tableForm.action || window.location.href, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        },
+                        body: new FormData(tableForm)
+                    })
+                    .then(function(response) {
+                        return response.json().then(function(payload) {
+                            return {
+                                ok: response.ok,
+                                payload: payload
+                            };
+                        }).catch(function() {
+                            return {
+                                ok: response.ok,
+                                payload: null
+                            };
+                        });
+                    })
+                    .then(function(result) {
+                        isSqlSubmitting = false;
+                        setSubmittingState(false);
+                        const payload = result.payload || {};
+                        if (result.ok && payload.success) {
+                            window.location.href = payload.redirect_url || (tableForm.action || window.location.href);
+                            return;
+                        }
+
+                        renderSqlDebugResult(payload);
+                        if (!payload || !payload.message) {
+                            alert('SQL gagal dijalankan.');
+                        }
+                    })
+                    .catch(function() {
+                        isSqlSubmitting = false;
+                        setSubmittingState(false);
+                        alert('Gagal mengirim SQL editor.');
                     });
-                })
-                .then(function (result) {
-                    isSqlSubmitting = false;
-                    setSubmittingState(false);
-                    const payload = result.payload || {};
-                    if (result.ok && payload.success) {
-                        window.location.href = payload.redirect_url || (tableForm.action || window.location.href);
+
+                return false;
+            }
+
+            if (columns.length === 0) {
+                event.preventDefault();
+                alert('Add at least one column before saving the table definition.');
+                return false;
+            }
+
+            columnsJson.value = JSON.stringify(columns);
+            setSubmittingState(true);
+            const incompleteFkColumns = columns.filter(function(column) {
+                return !!column.is_foreign_key && (!column.referenced_table || !column.referenced_column);
+            });
+            fkDebugLog('submit.columns_json', {
+                columnsCount: columns.length,
+                fkColumns: cloneDebugPayload(columns.filter(function(column) {
+                    return !!column.is_foreign_key;
+                })),
+                incompleteFkColumns: cloneDebugPayload(incompleteFkColumns),
+                columnsJson: columnsJson.value,
+            });
+        });
+
+        updateEmptyState();
+        updateSummary();
+
+        function normalizeColumn(column) {
+            const relation = column.foreign_key || column.foreignKey || column.relation || {};
+            const referencedTable = (
+                column.referenced_table ||
+                column.referencedTable ||
+                relation.referenced_table ||
+                relation.referencedTable ||
+                ''
+            ).toString();
+            const referencedColumn = (
+                column.referenced_column ||
+                column.referencedColumn ||
+                relation.referenced_column ||
+                relation.referencedColumn ||
+                ''
+            ).toString();
+            const hasReference = referencedTable !== '' || referencedColumn !== '';
+            const relationEnabledValue = column.is_foreign_key !== undefined ?
+                column.is_foreign_key :
+                (column.isForeignKey !== undefined ?
+                    column.isForeignKey :
+                    (relation.is_foreign_key !== undefined ?
+                        relation.is_foreign_key :
+                        (relation.enabled !== undefined ? relation.enabled : hasReference)));
+            const isForeignKey = toBoolean(relationEnabledValue, hasReference);
+
+            const normalizedType = (column.type || 'VARCHAR').toString().toUpperCase();
+            const recommendedLength = getRecommendedLength(normalizedType);
+            const resolvedLength = recommendedLength !== '' ?
+                (column.length !== '' && column.length !== null ? column.length : recommendedLength) :
+                null;
+
+            return {
+                name: sanitizeColumnName(column.name || ''),
+                label: (column.label || column.name || 'Column').toString(),
+                type: normalizedType,
+                length: resolvedLength !== '' && resolvedLength !== null ? resolvedLength : null,
+                is_nullable: toBoolean(column.is_nullable, true),
+                is_primary: toBoolean(column.is_primary, false),
+                is_unique: toBoolean(column.is_unique, false),
+                is_auto_increment: toBoolean(column.is_auto_increment, false),
+                default_value: column.default_value || '',
+                comment: column.comment || '',
+                enum_values: (column.enum_values || column.enumValues || '').toString(),
+                is_foreign_key: isForeignKey,
+                referenced_table: isForeignKey ? referencedTable : '',
+                referenced_column: isForeignKey ? referencedColumn : '',
+                on_delete: isForeignKey ?
+                    normalizeForeignKeyAction(column.on_delete || column.onDelete || relation.on_delete || relation.onDelete || '') :
+                    '',
+                on_update: isForeignKey ?
+                    normalizeForeignKeyAction(column.on_update || column.onUpdate || relation.on_update || relation.onUpdate || '') :
+                    ''
+            };
+        }
+
+        function toBoolean(value, fallback) {
+            if (value === undefined || value === null || value === '') {
+                return fallback;
+            }
+            if (typeof value === 'boolean') {
+                return value;
+            }
+            return value === 1 || value === '1' || value === 'true' || value === true;
+        }
+
+        function normalizeForeignKeyAction(value) {
+            const action = (value || '').toString().toUpperCase();
+            return foreignKeyActions.indexOf(action) !== -1 ? action : '';
+        }
+
+        function isEnumType(type) {
+            return ['ENUM', 'SET'].indexOf((type || '').toUpperCase()) !== -1;
+        }
+
+        function getRecommendedLength(type) {
+            const normalizedType = (type || '').toUpperCase();
+            return Object.prototype.hasOwnProperty.call(typeDefaultLengths, normalizedType) ?
+                typeDefaultLengths[normalizedType] :
+                '';
+        }
+
+        function syncEnumValuesVisibility(type) {
+            if (!enumValuesGroup) {
+                return;
+            }
+            const shouldShow = isEnumType(type);
+            enumValuesGroup.style.display = shouldShow ? '' : 'none';
+            if (!shouldShow && enumValuesInput) {
+                enumValuesInput.value = '';
+            }
+        }
+
+        function normalizeReferenceMetadata(rawData) {
+            const map = {};
+            if (!rawData) {
+                return map;
+            }
+
+            if (Array.isArray(rawData)) {
+                rawData.forEach(function(item) {
+                    if (!item || typeof item !== 'object') {
+                        return;
+                    }
+                    const tableName = (item.table || item.table_name || item.name || item.tableName || '').toString().trim();
+                    if (!tableName) {
+                        return;
+                    }
+                    map[tableName] = normalizeReferenceColumns(item.columns || item.column_list || item.referenced_columns || item.referencedColumns || []);
+                });
+                return map;
+            }
+
+            if (typeof rawData === 'object') {
+                Object.keys(rawData).forEach(function(tableName) {
+                    const item = rawData[tableName];
+                    if (Array.isArray(item)) {
+                        map[tableName] = normalizeReferenceColumns(item);
+                        return;
+                    }
+                    if (item && typeof item === 'object') {
+                        map[tableName] = normalizeReferenceColumns(item.columns || item.column_list || item.referenced_columns || item.referencedColumns || []);
+                        return;
+                    }
+                    map[tableName] = [];
+                });
+            }
+
+            return map;
+        }
+
+        function normalizeReferenceColumns(columns) {
+            if (!Array.isArray(columns)) {
+                return [];
+            }
+
+            const seen = {};
+            const normalized = [];
+            columns.forEach(function(column) {
+                const columnName = (column || '').toString().trim();
+                if (!columnName || seen[columnName]) {
+                    return;
+                }
+                seen[columnName] = true;
+                normalized.push(columnName);
+            });
+            return normalized;
+        }
+
+        function populateReferencedTableOptions(selectedTable) {
+            if (!referencedTableInput) {
+                return;
+            }
+
+            const knownTables = Object.keys(foreignKeyReferenceMap).sort();
+            const options = ['<option value="">Pilih tabel referensi</option>'];
+            knownTables.forEach(function(tableName) {
+                options.push('<option value="' + escapeHtml(tableName) + '">' + escapeHtml(tableName) + '</option>');
+            });
+
+            if (selectedTable && knownTables.indexOf(selectedTable) === -1) {
+                options.push('<option value="' + escapeHtml(selectedTable) + '">' + escapeHtml(selectedTable) + '</option>');
+            }
+
+            referencedTableInput.innerHTML = options.join('');
+            referencedTableInput.value = selectedTable || '';
+        }
+
+        function populateReferencedColumnOptions(tableName, selectedColumn) {
+            if (!referencedColumnInput) {
+                return;
+            }
+
+            const availableColumns = normalizeReferenceColumns(foreignKeyReferenceMap[tableName] || []);
+            const options = ['<option value="">Pilih kolom referensi</option>'];
+            availableColumns.forEach(function(columnName) {
+                options.push('<option value="' + escapeHtml(columnName) + '">' + escapeHtml(columnName) + '</option>');
+            });
+
+            if (selectedColumn && availableColumns.indexOf(selectedColumn) === -1) {
+                options.push('<option value="' + escapeHtml(selectedColumn) + '">' + escapeHtml(selectedColumn) + '</option>');
+            }
+
+            referencedColumnInput.innerHTML = options.join('');
+            referencedColumnInput.value = selectedColumn || '';
+        }
+
+        function toggleForeignKeySettings(isEnabled) {
+            if (!foreignKeySettings) {
+                return;
+            }
+
+            foreignKeySettings.style.display = isEnabled ? '' : 'none';
+            [referencedTableInput, referencedColumnInput, onDeleteInput, onUpdateInput].forEach(function(input) {
+                if (!input) {
+                    return;
+                }
+                input.disabled = !isEnabled;
+            });
+        }
+
+        function formatForeignKeySummary(column) {
+            if (!column.is_foreign_key) {
+                return '';
+            }
+            if (column.referenced_table && column.referenced_column) {
+                return 'FK -> ' + column.referenced_table + '.' + column.referenced_column;
+            }
+            return 'FK belum lengkap';
+        }
+
+        function refreshAllColumns() {
+            columnsList.querySelectorAll('.column-item').forEach(function(element) {
+                element.remove();
+            });
+
+            columns.forEach(function(column, index) {
+                const element = document.createElement('div');
+                element.className = 'column-item';
+                element.setAttribute('data-index', index);
+                element.innerHTML = buildColumnHtml(column, index);
+                attachColumnEvents(element, index);
+                columnsList.appendChild(element);
+            });
+
+            updateColumnActionState();
+            updateEmptyState();
+        }
+
+        function renderColumnItem(index) {
+            const element = columnsList.querySelector('.column-item[data-index="' + index + '"]');
+            if (!element || !columns[index]) {
+                return;
+            }
+
+            element.innerHTML = buildColumnHtml(columns[index], index);
+            attachColumnEvents(element, index);
+            updateColumnActionState();
+        }
+
+        function buildColumnHtml(column, index) {
+            const flags = [];
+            if (column.is_primary) {
+                flags.push('<span class="flag-badge">PK</span>');
+            }
+            if (column.is_unique) {
+                flags.push('<span class="flag-badge">UQ</span>');
+            }
+            if (column.is_auto_increment) {
+                flags.push('<span class="flag-badge">AI</span>');
+            }
+            if (column.is_foreign_key) {
+                flags.push('<span class="flag-badge">FK</span>');
+            }
+
+            const summary = [];
+            summary.push('<span class="summary-chip">' + escapeHtml(column.is_nullable ? 'Nullable' : 'Required') + '</span>');
+            if (column.default_value) {
+                summary.push('<span class="summary-chip">Default: ' + escapeHtml(column.default_value) + '</span>');
+            }
+            if (column.comment) {
+                summary.push('<span class="summary-chip">Comment set</span>');
+            }
+            const foreignKeySummary = formatForeignKeySummary(column);
+            if (foreignKeySummary) {
+                summary.push('<span class="summary-chip">' + escapeHtml(foreignKeySummary) + '</span>');
+            }
+
+            return '' +
+                '<div class="column-top">' +
+                '<div class="column-main">' +
+                '<span class="material-symbols-outlined drag-handle" title="Drag to reorder">drag_indicator</span>' +
+                '<div>' +
+                '<div class="column-title">' +
+                '<span class="column-label">' + escapeHtml(column.label || column.name || 'Untitled Column') + '</span>' +
+                '<span class="type-badge">' + escapeHtml(formatColumnType(column)) + '</span>' +
+                flags.join('') +
+                '</div>' +
+                '<p class="column-name">' + escapeHtml(column.name) + '</p>' +
+                '</div>' +
+                '</div>' +
+                '<div class="column-actions">' +
+                '<button type="button" class="icon-btn move-up" title="Move Up"' + (index === 0 ? ' disabled' : '') + '><span class="material-symbols-outlined" style="font-size:18px;">arrow_upward</span></button>' +
+                '<button type="button" class="icon-btn move-down" title="Move Down"' + (index === columns.length - 1 ? ' disabled' : '') + '><span class="material-symbols-outlined" style="font-size:18px;">arrow_downward</span></button>' +
+                '<button type="button" class="icon-btn duplicate" title="Duplicate"><span class="material-symbols-outlined" style="font-size:18px;">content_copy</span></button>' +
+                '<button type="button" class="icon-btn delete" title="Delete"><span class="material-symbols-outlined" style="font-size:18px;">delete</span></button>' +
+                '</div>' +
+                '</div>' +
+                '<div class="column-summary">' + summary.join('') + '</div>';
+        }
+
+        function formatColumnType(column) {
+            return column.length ? column.type + ' (' + column.length + ')' : column.type;
+        }
+
+        function attachColumnEvents(element, index) {
+            element.addEventListener('click', function(event) {
+                if (!event.target.closest('.icon-btn') && !event.target.closest('.drag-handle')) {
+                    selectColumn(index);
+                }
+            });
+
+            const moveUp = element.querySelector('.move-up');
+            const moveDown = element.querySelector('.move-down');
+            const duplicate = element.querySelector('.duplicate');
+            const remove = element.querySelector('.delete');
+
+            if (moveUp) {
+                moveUp.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    if (index > 0) {
+                        swapColumns(index, index - 1);
+                        selectColumn(index - 1);
+                    }
+                });
+            }
+
+            if (moveDown) {
+                moveDown.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    if (index < columns.length - 1) {
+                        swapColumns(index, index + 1);
+                        selectColumn(index + 1);
+                    }
+                });
+            }
+
+            if (duplicate) {
+                duplicate.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    const source = columns[index];
+                    const copy = normalizeColumn({
+                        name: source.name + '_copy',
+                        label: source.label + ' Copy',
+                        type: source.type,
+                        length: source.length,
+                        is_nullable: source.is_nullable,
+                        is_primary: false,
+                        is_unique: false,
+                        is_auto_increment: false,
+                        default_value: source.default_value,
+                        comment: source.comment,
+                        is_foreign_key: source.is_foreign_key,
+                        referenced_table: source.referenced_table,
+                        referenced_column: source.referenced_column,
+                        on_delete: source.on_delete,
+                        on_update: source.on_update
+                    });
+                    columns.splice(index + 1, 0, copy);
+                    refreshAllColumns();
+                    selectColumn(index + 1);
+                    updateSchema();
+                    updateSummary();
+                });
+            }
+
+            if (remove) {
+                remove.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    if (!confirm('Delete this column from the table definition?')) {
                         return;
                     }
 
-                    renderSqlDebugResult(payload);
-                    if (!payload || !payload.message) {
-                        alert('SQL gagal dijalankan.');
+                    columns.splice(index, 1);
+
+                    if (selectedIndex === index) {
+                        selectedIndex = -1;
+                        hideProperties();
+                    } else if (selectedIndex > index) {
+                        selectedIndex--;
                     }
-                })
-                .catch(function () {
-                    isSqlSubmitting = false;
-                    setSubmittingState(false);
-                    alert('Gagal mengirim SQL editor.');
+
+                    refreshAllColumns();
+                    if (selectedIndex >= 0 && columns[selectedIndex]) {
+                        selectColumn(selectedIndex);
+                    }
+                    updateSchema();
+                    updateSummary();
                 });
-
-            return false;
+            }
         }
 
-        if (columns.length === 0) {
-            event.preventDefault();
-            alert('Add at least one column before saving the table definition.');
-            return false;
+        function swapColumns(firstIndex, secondIndex) {
+            const first = columns[firstIndex];
+            columns[firstIndex] = columns[secondIndex];
+            columns[secondIndex] = first;
+            refreshAllColumns();
+            updateSchema();
+            updateSummary();
         }
 
-        columnsJson.value = JSON.stringify(columns);
-        setSubmittingState(true);
-        const incompleteFkColumns = columns.filter(function (column) {
-            return !!column.is_foreign_key && (!column.referenced_table || !column.referenced_column);
-        });
-        fkDebugLog('submit.columns_json', {
-            columnsCount: columns.length,
-            fkColumns: cloneDebugPayload(columns.filter(function (column) {
-                return !!column.is_foreign_key;
-            })),
-            incompleteFkColumns: cloneDebugPayload(incompleteFkColumns),
-            columnsJson: columnsJson.value,
-        });
+        function updateColumnActionState() {
+            columnsList.querySelectorAll('.column-item').forEach(function(element, index) {
+                element.setAttribute('data-index', index);
+                const moveUp = element.querySelector('.move-up');
+                const moveDown = element.querySelector('.move-down');
+                if (moveUp) {
+                    moveUp.disabled = index === 0;
+                }
+                if (moveDown) {
+                    moveDown.disabled = index === columns.length - 1;
+                }
+            });
+        }
+
+        function selectColumn(index) {
+            selectedIndex = index;
+            columnsList.querySelectorAll('.column-item').forEach(function(element) {
+                element.classList.toggle('selected', parseInt(element.getAttribute('data-index'), 10) === index);
+            });
+            showProperties();
+            updateProperties();
+        }
+
+        function showProperties() {
+            propertiesEmpty.style.display = 'none';
+            propertiesForm.style.display = '';
+        }
+
+        function hideProperties() {
+            propertiesEmpty.style.display = '';
+            propertiesForm.style.display = 'none';
+        }
+
+        function updateProperties() {
+            if (selectedIndex < 0 || !columns[selectedIndex]) {
+                hideProperties();
+                return;
+            }
+
+            const column = columns[selectedIndex];
+            isSyncingProperties = true;
+            document.getElementById('prop-name').value = column.name || '';
+            document.getElementById('prop-label').value = column.label || '';
+            document.getElementById('prop-type').value = column.type;
+            lengthInput.value = column.length || '';
+            if (enumValuesInput) {
+                enumValuesInput.value = column.enum_values || '';
+            }
+            document.getElementById('prop-nullable').checked = column.is_nullable;
+            document.getElementById('prop-unique').checked = column.is_unique;
+            document.getElementById('prop-primary').checked = column.is_primary;
+            document.getElementById('prop-auto-increment').checked = toBoolean(column.is_auto_increment, false);
+            document.getElementById('prop-default').value = column.default_value || '';
+            document.getElementById('prop-comment').value = column.comment || '';
+            foreignKeyToggleInput.checked = toBoolean(column.is_foreign_key, false);
+            populateReferencedTableOptions(column.referenced_table || '');
+            populateReferencedColumnOptions(column.referenced_table || '', column.referenced_column || '');
+            onDeleteInput.value = normalizeForeignKeyAction(column.on_delete || '');
+            onUpdateInput.value = normalizeForeignKeyAction(column.on_update || '');
+            toggleForeignKeySettings(foreignKeyToggleInput.checked);
+            syncEnumValuesVisibility(column.type);
+            isSyncingProperties = false;
+        }
+
+        function syncProperty(event) {
+            if (selectedIndex < 0 || !columns[selectedIndex] || isSyncingProperties) {
+                return;
+            }
+
+            const column = columns[selectedIndex];
+            const eventSource = event && event.target ? event.target.id : 'unknown';
+            const nameInput = document.getElementById('prop-name');
+
+            const selectedType = document.getElementById('prop-type').value;
+            if (eventSource === 'prop-type') {
+                const recommendedLength = getRecommendedLength(selectedType);
+                lengthInput.value = recommendedLength !== '' ? recommendedLength : '';
+                syncEnumValuesVisibility(selectedType);
+            }
+
+            column.name = sanitizeColumnName(nameInput.value, true);
+            column.label = document.getElementById('prop-label').value;
+            column.type = selectedType;
+            column.length = lengthInput.value || null;
+            if (enumValuesInput) {
+                column.enum_values = isEnumType(selectedType) ? enumValuesInput.value : '';
+            }
+            column.is_nullable = document.getElementById('prop-nullable').checked;
+            column.is_unique = document.getElementById('prop-unique').checked;
+            column.is_primary = document.getElementById('prop-primary').checked;
+            column.is_auto_increment = document.getElementById('prop-auto-increment').checked;
+            column.default_value = document.getElementById('prop-default').value;
+            column.comment = document.getElementById('prop-comment').value;
+            column.is_foreign_key = foreignKeyToggleInput.checked;
+
+            if (column.is_foreign_key) {
+                const selectedReferencedTable = referencedTableInput.value;
+                if ((column.referenced_table || '') !== selectedReferencedTable) {
+                    populateReferencedColumnOptions(selectedReferencedTable, '');
+                }
+                column.referenced_table = selectedReferencedTable;
+                column.referenced_column = referencedColumnInput.value || '';
+                column.on_delete = normalizeForeignKeyAction(onDeleteInput.value);
+                column.on_update = normalizeForeignKeyAction(onUpdateInput.value);
+            } else {
+                column.referenced_table = '';
+                column.referenced_column = '';
+                column.on_delete = '';
+                column.on_update = '';
+            }
+            toggleForeignKeySettings(column.is_foreign_key);
+
+            const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
+            // Disable auto-increment checkbox if column type is not integer
+            const autoIncrementCheckbox = document.getElementById('prop-auto-increment');
+            if (integerTypes.indexOf(column.type) === -1) {
+                column.is_auto_increment = false;
+                autoIncrementCheckbox.checked = false;
+                autoIncrementCheckbox.disabled = true;
+            } else {
+                autoIncrementCheckbox.disabled = false;
+            }
+            if (column.is_auto_increment && integerTypes.indexOf(column.type) === -1) {
+                column.is_auto_increment = false;
+                autoIncrementCheckbox.checked = false;
+            }
+            if (column.is_auto_increment) {
+                column.is_primary = true;
+                column.is_nullable = false;
+                document.getElementById('prop-primary').checked = true;
+                document.getElementById('prop-nullable').checked = false;
+            }
+
+            if (column.is_primary) {
+                column.is_nullable = false;
+                document.getElementById('prop-nullable').checked = false;
+            }
+
+            isSyncingProperties = true;
+            nameInput.value = column.name;
+            isSyncingProperties = false;
+
+            renderColumnItem(selectedIndex);
+            const activeColumn = columnsList.querySelector('.column-item[data-index="' + selectedIndex + '"]');
+            if (activeColumn) {
+                activeColumn.classList.add('selected');
+            }
+            updateSchema();
+            updateSummary();
+            fkDebugLog('syncProperty.updated', {
+                eventSource: eventSource,
+                selectedIndex: selectedIndex,
+                column: cloneDebugPayload(column),
+            });
+        }
+
+        function updateEmptyState() {
+            emptyColumnsMsg.style.display = columns.length === 0 ? '' : 'none';
+            document.getElementById('columns-meta-text').textContent = columns.length === 0 ?
+                'No columns added yet.' :
+                columns.length + ' column' + (columns.length === 1 ? '' : 's') + ' in this draft.';
+        }
+
+        function updateSchema() {
+            columnsJson.value = JSON.stringify(columns);
+        }
+
+        function updateSummary() {
+            const primaryCount = columns.filter(function(column) {
+                return column.is_primary;
+            }).length;
+            const uniqueCount = columns.filter(function(column) {
+                return column.is_unique;
+            }).length;
+            const tableName = (tableNameInput.value || '').trim();
+            const tableLabel = (tableLabelInput.value || '').trim();
+            const engine = (tableEngineInput.value || '').trim();
+
+            document.getElementById('summary-column-count').textContent = String(columns.length);
+            document.getElementById('summary-primary-count').textContent = String(primaryCount);
+            document.getElementById('summary-engine').textContent = engine || '-';
+            document.getElementById('draft-table-name').textContent = tableName || '-';
+            document.getElementById('draft-table-label').textContent = tableLabel || '-';
+            document.getElementById('draft-column-count').textContent = String(columns.length);
+            document.getElementById('draft-primary-count').textContent = String(primaryCount);
+            document.getElementById('draft-unique-count').textContent = String(uniqueCount);
+        }
+
+        function sanitizeColumnName(value, allowEmpty) {
+            const sanitized = (value || '')
+                .toLowerCase()
+                .replace(/[^a-z0-9_]+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_+/, '');
+
+            if (allowEmpty) {
+                return sanitized;
+            }
+
+            return sanitized || 'column';
+        }
+
+        function escapeHtml(value) {
+            const container = document.createElement('div');
+            container.textContent = value;
+            return container.innerHTML;
+        }
     });
-
-    updateEmptyState();
-    updateSummary();
-
-    function normalizeColumn(column) {
-        const relation = column.foreign_key || column.foreignKey || column.relation || {};
-        const referencedTable = (
-            column.referenced_table
-            || column.referencedTable
-            || relation.referenced_table
-            || relation.referencedTable
-            || ''
-        ).toString();
-        const referencedColumn = (
-            column.referenced_column
-            || column.referencedColumn
-            || relation.referenced_column
-            || relation.referencedColumn
-            || ''
-        ).toString();
-        const hasReference = referencedTable !== '' || referencedColumn !== '';
-        const relationEnabledValue = column.is_foreign_key !== undefined
-            ? column.is_foreign_key
-            : (column.isForeignKey !== undefined
-                ? column.isForeignKey
-                : (relation.is_foreign_key !== undefined
-                    ? relation.is_foreign_key
-                    : (relation.enabled !== undefined ? relation.enabled : hasReference)));
-        const isForeignKey = toBoolean(relationEnabledValue, hasReference);
-
-        const normalizedType = (column.type || 'VARCHAR').toString().toUpperCase();
-        const recommendedLength = getRecommendedLength(normalizedType);
-        const resolvedLength = recommendedLength !== ''
-            ? (column.length !== '' && column.length !== null ? column.length : recommendedLength)
-            : null;
-
-        return {
-            name: sanitizeColumnName(column.name || ''),
-            label: (column.label || column.name || 'Column').toString(),
-            type: normalizedType,
-            length: resolvedLength !== '' && resolvedLength !== null ? resolvedLength : null,
-            is_nullable: toBoolean(column.is_nullable, true),
-            is_primary: toBoolean(column.is_primary, false),
-            is_unique: toBoolean(column.is_unique, false),
-            is_auto_increment: toBoolean(column.is_auto_increment, false),
-            default_value: column.default_value || '',
-            comment: column.comment || '',
-            enum_values: (column.enum_values || column.enumValues || '').toString(),
-            is_foreign_key: isForeignKey,
-            referenced_table: isForeignKey ? referencedTable : '',
-            referenced_column: isForeignKey ? referencedColumn : '',
-            on_delete: isForeignKey
-                ? normalizeForeignKeyAction(column.on_delete || column.onDelete || relation.on_delete || relation.onDelete || '')
-                : '',
-            on_update: isForeignKey
-                ? normalizeForeignKeyAction(column.on_update || column.onUpdate || relation.on_update || relation.onUpdate || '')
-                : ''
-        };
-    }
-
-    function toBoolean(value, fallback) {
-        if (value === undefined || value === null || value === '') {
-            return fallback;
-        }
-        if (typeof value === 'boolean') {
-            return value;
-        }
-        return value === 1 || value === '1' || value === 'true' || value === true;
-    }
-
-    function normalizeForeignKeyAction(value) {
-        const action = (value || '').toString().toUpperCase();
-        return foreignKeyActions.indexOf(action) !== -1 ? action : '';
-    }
-
-    function isEnumType(type) {
-        return ['ENUM', 'SET'].indexOf((type || '').toUpperCase()) !== -1;
-    }
-
-    function getRecommendedLength(type) {
-        const normalizedType = (type || '').toUpperCase();
-        return Object.prototype.hasOwnProperty.call(typeDefaultLengths, normalizedType)
-            ? typeDefaultLengths[normalizedType]
-            : '';
-    }
-
-    function syncEnumValuesVisibility(type) {
-        if (!enumValuesGroup) {
-            return;
-        }
-        const shouldShow = isEnumType(type);
-        enumValuesGroup.style.display = shouldShow ? '' : 'none';
-        if (!shouldShow && enumValuesInput) {
-            enumValuesInput.value = '';
-        }
-    }
-
-    function normalizeReferenceMetadata(rawData) {
-        const map = {};
-        if (!rawData) {
-            return map;
-        }
-
-        if (Array.isArray(rawData)) {
-            rawData.forEach(function (item) {
-                if (!item || typeof item !== 'object') {
-                    return;
-                }
-                const tableName = (item.table || item.table_name || item.name || item.tableName || '').toString().trim();
-                if (!tableName) {
-                    return;
-                }
-                map[tableName] = normalizeReferenceColumns(item.columns || item.column_list || item.referenced_columns || item.referencedColumns || []);
-            });
-            return map;
-        }
-
-        if (typeof rawData === 'object') {
-            Object.keys(rawData).forEach(function (tableName) {
-                const item = rawData[tableName];
-                if (Array.isArray(item)) {
-                    map[tableName] = normalizeReferenceColumns(item);
-                    return;
-                }
-                if (item && typeof item === 'object') {
-                    map[tableName] = normalizeReferenceColumns(item.columns || item.column_list || item.referenced_columns || item.referencedColumns || []);
-                    return;
-                }
-                map[tableName] = [];
-            });
-        }
-
-        return map;
-    }
-
-    function normalizeReferenceColumns(columns) {
-        if (!Array.isArray(columns)) {
-            return [];
-        }
-
-        const seen = {};
-        const normalized = [];
-        columns.forEach(function (column) {
-            const columnName = (column || '').toString().trim();
-            if (!columnName || seen[columnName]) {
-                return;
-            }
-            seen[columnName] = true;
-            normalized.push(columnName);
-        });
-        return normalized;
-    }
-
-    function populateReferencedTableOptions(selectedTable) {
-        if (!referencedTableInput) {
-            return;
-        }
-
-        const knownTables = Object.keys(foreignKeyReferenceMap).sort();
-        const options = ['<option value="">Pilih tabel referensi</option>'];
-        knownTables.forEach(function (tableName) {
-            options.push('<option value="' + escapeHtml(tableName) + '">' + escapeHtml(tableName) + '</option>');
-        });
-
-        if (selectedTable && knownTables.indexOf(selectedTable) === -1) {
-            options.push('<option value="' + escapeHtml(selectedTable) + '">' + escapeHtml(selectedTable) + '</option>');
-        }
-
-        referencedTableInput.innerHTML = options.join('');
-        referencedTableInput.value = selectedTable || '';
-    }
-
-    function populateReferencedColumnOptions(tableName, selectedColumn) {
-        if (!referencedColumnInput) {
-            return;
-        }
-
-        const availableColumns = normalizeReferenceColumns(foreignKeyReferenceMap[tableName] || []);
-        const options = ['<option value="">Pilih kolom referensi</option>'];
-        availableColumns.forEach(function (columnName) {
-            options.push('<option value="' + escapeHtml(columnName) + '">' + escapeHtml(columnName) + '</option>');
-        });
-
-        if (selectedColumn && availableColumns.indexOf(selectedColumn) === -1) {
-            options.push('<option value="' + escapeHtml(selectedColumn) + '">' + escapeHtml(selectedColumn) + '</option>');
-        }
-
-        referencedColumnInput.innerHTML = options.join('');
-        referencedColumnInput.value = selectedColumn || '';
-    }
-
-    function toggleForeignKeySettings(isEnabled) {
-        if (!foreignKeySettings) {
-            return;
-        }
-
-        foreignKeySettings.style.display = isEnabled ? '' : 'none';
-        [referencedTableInput, referencedColumnInput, onDeleteInput, onUpdateInput].forEach(function (input) {
-            if (!input) {
-                return;
-            }
-            input.disabled = !isEnabled;
-        });
-    }
-
-    function formatForeignKeySummary(column) {
-        if (!column.is_foreign_key) {
-            return '';
-        }
-        if (column.referenced_table && column.referenced_column) {
-            return 'FK -> ' + column.referenced_table + '.' + column.referenced_column;
-        }
-        return 'FK belum lengkap';
-    }
-
-    function refreshAllColumns() {
-        columnsList.querySelectorAll('.column-item').forEach(function (element) {
-            element.remove();
-        });
-
-        columns.forEach(function (column, index) {
-            const element = document.createElement('div');
-            element.className = 'column-item';
-            element.setAttribute('data-index', index);
-            element.innerHTML = buildColumnHtml(column, index);
-            attachColumnEvents(element, index);
-            columnsList.appendChild(element);
-        });
-
-        updateColumnActionState();
-        updateEmptyState();
-    }
-
-    function renderColumnItem(index) {
-        const element = columnsList.querySelector('.column-item[data-index="' + index + '"]');
-        if (!element || !columns[index]) {
-            return;
-        }
-
-        element.innerHTML = buildColumnHtml(columns[index], index);
-        attachColumnEvents(element, index);
-        updateColumnActionState();
-    }
-
-    function buildColumnHtml(column, index) {
-        const flags = [];
-        if (column.is_primary) {
-            flags.push('<span class="flag-badge">PK</span>');
-        }
-        if (column.is_unique) {
-            flags.push('<span class="flag-badge">UQ</span>');
-        }
-        if (column.is_auto_increment) {
-            flags.push('<span class="flag-badge">AI</span>');
-        }
-        if (column.is_foreign_key) {
-            flags.push('<span class="flag-badge">FK</span>');
-        }
-
-        const summary = [];
-        summary.push('<span class="summary-chip">' + escapeHtml(column.is_nullable ? 'Nullable' : 'Required') + '</span>');
-        if (column.default_value) {
-            summary.push('<span class="summary-chip">Default: ' + escapeHtml(column.default_value) + '</span>');
-        }
-        if (column.comment) {
-            summary.push('<span class="summary-chip">Comment set</span>');
-        }
-        const foreignKeySummary = formatForeignKeySummary(column);
-        if (foreignKeySummary) {
-            summary.push('<span class="summary-chip">' + escapeHtml(foreignKeySummary) + '</span>');
-        }
-
-        return '' +
-            '<div class="column-top">' +
-                '<div class="column-main">' +
-                    '<span class="material-symbols-outlined drag-handle" title="Drag to reorder">drag_indicator</span>' +
-                    '<div>' +
-                        '<div class="column-title">' +
-                            '<span class="column-label">' + escapeHtml(column.label || column.name || 'Untitled Column') + '</span>' +
-                            '<span class="type-badge">' + escapeHtml(formatColumnType(column)) + '</span>' +
-                            flags.join('') +
-                        '</div>' +
-                        '<p class="column-name">' + escapeHtml(column.name) + '</p>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="column-actions">' +
-                    '<button type="button" class="icon-btn move-up" title="Move Up"' + (index === 0 ? ' disabled' : '') + '><span class="material-symbols-outlined" style="font-size:18px;">arrow_upward</span></button>' +
-                    '<button type="button" class="icon-btn move-down" title="Move Down"' + (index === columns.length - 1 ? ' disabled' : '') + '><span class="material-symbols-outlined" style="font-size:18px;">arrow_downward</span></button>' +
-                    '<button type="button" class="icon-btn duplicate" title="Duplicate"><span class="material-symbols-outlined" style="font-size:18px;">content_copy</span></button>' +
-                    '<button type="button" class="icon-btn delete" title="Delete"><span class="material-symbols-outlined" style="font-size:18px;">delete</span></button>' +
-                '</div>' +
-            '</div>' +
-            '<div class="column-summary">' + summary.join('') + '</div>';
-    }
-
-    function formatColumnType(column) {
-        return column.length ? column.type + ' (' + column.length + ')' : column.type;
-    }
-
-    function attachColumnEvents(element, index) {
-        element.addEventListener('click', function (event) {
-            if (!event.target.closest('.icon-btn') && !event.target.closest('.drag-handle')) {
-                selectColumn(index);
-            }
-        });
-
-        const moveUp = element.querySelector('.move-up');
-        const moveDown = element.querySelector('.move-down');
-        const duplicate = element.querySelector('.duplicate');
-        const remove = element.querySelector('.delete');
-
-        if (moveUp) {
-            moveUp.addEventListener('click', function (event) {
-                event.stopPropagation();
-                if (index > 0) {
-                    swapColumns(index, index - 1);
-                    selectColumn(index - 1);
-                }
-            });
-        }
-
-        if (moveDown) {
-            moveDown.addEventListener('click', function (event) {
-                event.stopPropagation();
-                if (index < columns.length - 1) {
-                    swapColumns(index, index + 1);
-                    selectColumn(index + 1);
-                }
-            });
-        }
-
-        if (duplicate) {
-            duplicate.addEventListener('click', function (event) {
-                event.stopPropagation();
-                const source = columns[index];
-                const copy = normalizeColumn({
-                    name: source.name + '_copy',
-                    label: source.label + ' Copy',
-                    type: source.type,
-                    length: source.length,
-                    is_nullable: source.is_nullable,
-                    is_primary: false,
-                    is_unique: false,
-                    is_auto_increment: false,
-                    default_value: source.default_value,
-                    comment: source.comment,
-                    is_foreign_key: source.is_foreign_key,
-                    referenced_table: source.referenced_table,
-                    referenced_column: source.referenced_column,
-                    on_delete: source.on_delete,
-                    on_update: source.on_update
-                });
-                columns.splice(index + 1, 0, copy);
-                refreshAllColumns();
-                selectColumn(index + 1);
-                updateSchema();
-                updateSummary();
-            });
-        }
-
-        if (remove) {
-            remove.addEventListener('click', function (event) {
-                event.stopPropagation();
-                if (!confirm('Delete this column from the table definition?')) {
-                    return;
-                }
-
-                columns.splice(index, 1);
-
-                if (selectedIndex === index) {
-                    selectedIndex = -1;
-                    hideProperties();
-                } else if (selectedIndex > index) {
-                    selectedIndex--;
-                }
-
-                refreshAllColumns();
-                if (selectedIndex >= 0 && columns[selectedIndex]) {
-                    selectColumn(selectedIndex);
-                }
-                updateSchema();
-                updateSummary();
-            });
-        }
-    }
-
-    function swapColumns(firstIndex, secondIndex) {
-        const first = columns[firstIndex];
-        columns[firstIndex] = columns[secondIndex];
-        columns[secondIndex] = first;
-        refreshAllColumns();
-        updateSchema();
-        updateSummary();
-    }
-
-    function updateColumnActionState() {
-        columnsList.querySelectorAll('.column-item').forEach(function (element, index) {
-            element.setAttribute('data-index', index);
-            const moveUp = element.querySelector('.move-up');
-            const moveDown = element.querySelector('.move-down');
-            if (moveUp) {
-                moveUp.disabled = index === 0;
-            }
-            if (moveDown) {
-                moveDown.disabled = index === columns.length - 1;
-            }
-        });
-    }
-
-    function selectColumn(index) {
-        selectedIndex = index;
-        columnsList.querySelectorAll('.column-item').forEach(function (element) {
-            element.classList.toggle('selected', parseInt(element.getAttribute('data-index'), 10) === index);
-        });
-        showProperties();
-        updateProperties();
-    }
-
-    function showProperties() {
-        propertiesEmpty.style.display = 'none';
-        propertiesForm.style.display = '';
-    }
-
-    function hideProperties() {
-        propertiesEmpty.style.display = '';
-        propertiesForm.style.display = 'none';
-    }
-
-    function updateProperties() {
-        if (selectedIndex < 0 || !columns[selectedIndex]) {
-            hideProperties();
-            return;
-        }
-
-        const column = columns[selectedIndex];
-        isSyncingProperties = true;
-        document.getElementById('prop-name').value = column.name || '';
-        document.getElementById('prop-label').value = column.label || '';
-        document.getElementById('prop-type').value = column.type;
-        lengthInput.value = column.length || '';
-        if (enumValuesInput) {
-            enumValuesInput.value = column.enum_values || '';
-        }
-        document.getElementById('prop-nullable').checked = column.is_nullable;
-        document.getElementById('prop-unique').checked = column.is_unique;
-        document.getElementById('prop-primary').checked = column.is_primary;
-        document.getElementById('prop-auto-increment').checked = toBoolean(column.is_auto_increment, false);
-        document.getElementById('prop-default').value = column.default_value || '';
-        document.getElementById('prop-comment').value = column.comment || '';
-        foreignKeyToggleInput.checked = toBoolean(column.is_foreign_key, false);
-        populateReferencedTableOptions(column.referenced_table || '');
-        populateReferencedColumnOptions(column.referenced_table || '', column.referenced_column || '');
-        onDeleteInput.value = normalizeForeignKeyAction(column.on_delete || '');
-        onUpdateInput.value = normalizeForeignKeyAction(column.on_update || '');
-        toggleForeignKeySettings(foreignKeyToggleInput.checked);
-        syncEnumValuesVisibility(column.type);
-        isSyncingProperties = false;
-    }
-
-    function syncProperty(event) {
-        if (selectedIndex < 0 || !columns[selectedIndex] || isSyncingProperties) {
-            return;
-        }
-
-        const column = columns[selectedIndex];
-        const eventSource = event && event.target ? event.target.id : 'unknown';
-        const nameInput = document.getElementById('prop-name');
-
-        const selectedType = document.getElementById('prop-type').value;
-        if (eventSource === 'prop-type') {
-            const recommendedLength = getRecommendedLength(selectedType);
-            lengthInput.value = recommendedLength !== '' ? recommendedLength : '';
-            syncEnumValuesVisibility(selectedType);
-        }
-
-        column.name = sanitizeColumnName(nameInput.value, true);
-        column.label = document.getElementById('prop-label').value;
-        column.type = selectedType;
-        column.length = lengthInput.value || null;
-        if (enumValuesInput) {
-            column.enum_values = isEnumType(selectedType) ? enumValuesInput.value : '';
-        }
-        column.is_nullable = document.getElementById('prop-nullable').checked;
-        column.is_unique = document.getElementById('prop-unique').checked;
-        column.is_primary = document.getElementById('prop-primary').checked;
-        column.is_auto_increment = document.getElementById('prop-auto-increment').checked;
-        column.default_value = document.getElementById('prop-default').value;
-        column.comment = document.getElementById('prop-comment').value;
-        column.is_foreign_key = foreignKeyToggleInput.checked;
-
-        if (column.is_foreign_key) {
-            const selectedReferencedTable = referencedTableInput.value;
-            if ((column.referenced_table || '') !== selectedReferencedTable) {
-                populateReferencedColumnOptions(selectedReferencedTable, '');
-            }
-            column.referenced_table = selectedReferencedTable;
-            column.referenced_column = referencedColumnInput.value || '';
-            column.on_delete = normalizeForeignKeyAction(onDeleteInput.value);
-            column.on_update = normalizeForeignKeyAction(onUpdateInput.value);
-        } else {
-            column.referenced_table = '';
-            column.referenced_column = '';
-            column.on_delete = '';
-            column.on_update = '';
-        }
-        toggleForeignKeySettings(column.is_foreign_key);
-
-        const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
-        if (column.is_auto_increment && integerTypes.indexOf(column.type) === -1) {
-            column.is_auto_increment = false;
-            document.getElementById('prop-auto-increment').checked = false;
-        }
-        if (column.is_auto_increment) {
-            column.is_primary = true;
-            column.is_nullable = false;
-            document.getElementById('prop-primary').checked = true;
-            document.getElementById('prop-nullable').checked = false;
-        }
-
-        if (column.is_primary) {
-            column.is_nullable = false;
-            document.getElementById('prop-nullable').checked = false;
-        }
-
-        isSyncingProperties = true;
-        nameInput.value = column.name;
-        isSyncingProperties = false;
-
-        renderColumnItem(selectedIndex);
-        const activeColumn = columnsList.querySelector('.column-item[data-index="' + selectedIndex + '"]');
-        if (activeColumn) {
-            activeColumn.classList.add('selected');
-        }
-        updateSchema();
-        updateSummary();
-        fkDebugLog('syncProperty.updated', {
-            eventSource: eventSource,
-            selectedIndex: selectedIndex,
-            column: cloneDebugPayload(column),
-        });
-    }
-
-    function updateEmptyState() {
-        emptyColumnsMsg.style.display = columns.length === 0 ? '' : 'none';
-        document.getElementById('columns-meta-text').textContent = columns.length === 0
-            ? 'No columns added yet.'
-            : columns.length + ' column' + (columns.length === 1 ? '' : 's') + ' in this draft.';
-    }
-
-    function updateSchema() {
-        columnsJson.value = JSON.stringify(columns);
-    }
-
-    function updateSummary() {
-        const primaryCount = columns.filter(function (column) { return column.is_primary; }).length;
-        const uniqueCount = columns.filter(function (column) { return column.is_unique; }).length;
-        const tableName = (tableNameInput.value || '').trim();
-        const tableLabel = (tableLabelInput.value || '').trim();
-        const engine = (tableEngineInput.value || '').trim();
-
-        document.getElementById('summary-column-count').textContent = String(columns.length);
-        document.getElementById('summary-primary-count').textContent = String(primaryCount);
-        document.getElementById('summary-engine').textContent = engine || '-';
-        document.getElementById('draft-table-name').textContent = tableName || '-';
-        document.getElementById('draft-table-label').textContent = tableLabel || '-';
-        document.getElementById('draft-column-count').textContent = String(columns.length);
-        document.getElementById('draft-primary-count').textContent = String(primaryCount);
-        document.getElementById('draft-unique-count').textContent = String(uniqueCount);
-    }
-
-    function sanitizeColumnName(value, allowEmpty) {
-        const sanitized = (value || '')
-            .toLowerCase()
-            .replace(/[^a-z0-9_]+/g, '_')
-            .replace(/_+/g, '_')
-            .replace(/^_+/, '');
-
-        if (allowEmpty) {
-            return sanitized;
-        }
-
-        return sanitized || 'column';
-    }
-
-    function escapeHtml(value) {
-        const container = document.createElement('div');
-        container.textContent = value;
-        return container.innerHTML;
-    }
-});
 </script>

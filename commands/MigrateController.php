@@ -72,7 +72,6 @@ class MigrateController extends Controller
             }
         }
 
-        $migrationService = Yii::$app->get('migration');
         $originalDb = Yii::$app->getDb();
 
         foreach ($databasesToMigrate as $dbName => $projectName) {
@@ -86,19 +85,20 @@ class MigrateController extends Controller
                     'password' => $originalDb->password,
                     'charset' => $originalDb->charset,
                 ]);
-                Yii::$app->set('db', $projectDb);
 
-                // Run migrations
-                $migrationService->db = $projectDb;
-                $migrationService->up();
+                // Create a new instance of the core migration controller for each project DB
+                $migrationController = Yii::createObject([
+                    'class' => 'yii\console\controllers\MigrateController',
+                    'db' => $projectDb, // Use the project-specific connection
+                    'interactive' => false, // Ensure it runs non-interactively
+                ]);
+
+                // Run all new migrations for this database
+                $migrationController->actionUp();
 
                 $this->stdout("Successfully migrated database: {$dbName}\n", Console::FG_GREEN);
             } catch (\Throwable $e) {
                 $this->stderr("Error migrating database {$dbName}: " . $e->getMessage() . "\n", Console::FG_RED);
-            } finally {
-                // Restore original DB connection
-                Yii::$app->set('db', $originalDb);
-                $migrationService->db = $originalDb;
             }
         }
 

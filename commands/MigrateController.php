@@ -86,24 +86,43 @@ class MigrateController extends Controller
                     'charset' => $originalDb->charset,
                 ]);
 
-                // Switch the current app DB to the project one
-                Yii::$app->set('db', $projectDb);
+                // Execute the fix directly here, no external files
+                $this->stdout("Checking for missing foreign key columns...\n", Console::FG_YELLOW);
+                $tableName = 'db_table_columns';
+                $schema = $projectDb->schema->getTableSchema($tableName, true);
+                $columnsAdded = 0;
 
-                // Instantiate ONLY our specific migration file and run it
-                $migration = new \app\migrations\m260626_100000_ensure_foreign_key_metadata_columns_exist();
-                $migration->db = $projectDb;
+                if ($schema !== null) {
+                    $columnsToCheck = [
+                        'is_foreign_key' => "ADD COLUMN `is_foreign_key` TINYINT(1) DEFAULT 0",
+                        'referenced_table_name' => "ADD COLUMN `referenced_table_name` VARCHAR(255) NULL",
+                        'referenced_column_name' => "ADD COLUMN `referenced_column_name` VARCHAR(255) NULL",
+                        'on_delete_action' => "ADD COLUMN `on_delete_action` VARCHAR(50) NULL",
+                        'on_update_action' => "ADD COLUMN `on_update_action` VARCHAR(50) NULL",
+                    ];
 
-                if ($migration->safeUp() === false) {
-                    $this->stdout("Migration for {$dbName} completed, no changes were needed (columns already exist).\n", Console::FG_YELLOW);
+                    $alterStatements = [];
+                    foreach ($columnsToCheck as $colName => $addSql) {
+                        if (!isset($schema->columns[$colName])) {
+                            $alterStatements[] = $addSql;
+                            $columnsAdded++;
+                        }
+                    }
+
+                    if (!empty($alterStatements)) {
+                        $sql = "ALTER TABLE `{$tableName}` " . implode(', ', $alterStatements);
+                        $projectDb->createCommand($sql)->execute();
+                        $this->stdout("Added {$columnsAdded} missing columns to {$tableName}.\n", Console::FG_GREEN);
+                    } else {
+                        $this->stdout("All columns already exist. No changes needed.\n", Console::FG_CYAN);
+                    }
                 } else {
-                    $this->stdout("Successfully applied our fix migration to {$dbName}\n", Console::FG_GREEN);
+                    $this->stdout("Table {$tableName} not found in {$dbName}, skipping.\n", Console::FG_YELLOW);
                 }
 
-                // Restore the original database connection
-                Yii::$app->set('db', $originalDb);
+                $this->stdout("Successfully processed database: {$dbName}\n", Console::FG_GREEN);
             } catch (\Throwable $e) {
-                Yii::$app->set('db', $originalDb); // Always restore the connection
-                $this->stderr("Error migrating database {$dbName}: " . $e->getMessage() . "\n", Console::FG_RED);
+                $this->stderr("Error processing database {$dbName}: " . $e->getMessage() . "\n", Console::FG_RED);
             }
         }
 

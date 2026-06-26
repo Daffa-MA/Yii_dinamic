@@ -1513,6 +1513,80 @@ HTML;
         return $type === 'gps_camera';
     }
 
+    /**
+     * Hide GPS Camera companion columns from the rendered schema so one GPS Camera
+     * component can populate many database columns without exposing them as
+     * separate editable inputs.
+     *
+     * @param array<int, array<string, mixed>> $fields
+     * @return array<int, array<string, mixed>>
+     */
+    public static function filterGpsCameraCompanionFields(array $fields): array
+    {
+        $boundNames = [];
+
+        foreach ($fields as $field) {
+            if (!is_array($field) || !self::isGpsCameraField($field)) {
+                continue;
+            }
+
+            $bindings = $field['gps_camera_bindings'] ?? $field['target_mappings'] ?? null;
+            if (is_string($bindings) && trim($bindings) !== '') {
+                $decoded = json_decode($bindings, true);
+                $bindings = is_array($decoded) ? $decoded : [];
+            }
+            if (!is_array($bindings)) {
+                $bindings = [];
+            }
+
+            foreach ($bindings as $binding) {
+                if (!is_array($binding)) {
+                    continue;
+                }
+
+                $targetColumnName = trim((string)($binding['target_column_name'] ?? $binding['column_name'] ?? ''));
+                if ($targetColumnName === '') {
+                    $targetColumnId = (int)($binding['target_column_id'] ?? 0);
+                    if ($targetColumnId > 0) {
+                        $column = DbTableColumn::findOne($targetColumnId);
+                        if ($column instanceof DbTableColumn) {
+                            $targetColumnName = trim((string)$column->name);
+                        }
+                    }
+                }
+
+                if ($targetColumnName !== '') {
+                    $boundNames[strtolower($targetColumnName)] = true;
+                }
+            }
+        }
+
+        if (empty($boundNames)) {
+            return $fields;
+        }
+
+        return array_values(array_filter($fields, static function ($field) use ($boundNames): bool {
+            if (!is_array($field)) {
+                return true;
+            }
+
+            if (self::isGpsCameraField($field)) {
+                return true;
+            }
+
+            $fieldName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
+            if ($fieldName === '') {
+                return true;
+            }
+
+            if (isset($boundNames[strtolower($fieldName)]) && strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? ''))) !== 'hidden') {
+                return false;
+            }
+
+            return true;
+        }));
+    }
+
     public static function attachAjaxSubmitHandler(string $html): string
     {
         return self::appendCustomFormSubmitCollectorScript($html);

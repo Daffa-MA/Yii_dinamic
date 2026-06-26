@@ -99,6 +99,8 @@ class FormEngineService
             ]);
         }
 
+        $fieldRows = FormRenderService::filterGpsCameraCompanionFields($fieldRows);
+
         return self::$resolvedSchemaCache[$cacheKey] = [
             'fields' => $fieldRows,
             'layout' => $layout,

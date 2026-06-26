@@ -3290,6 +3290,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 tableId: preset.tableId,
                 columns: JSON.parse(JSON.stringify(preset.columns || [])),
                 actions: normalizeDatatableActions(Object.assign({}, existingActions, preset.actions || {})),
+                exports: Object.assign({}, block.props.exports || {}, preset.exports || {}),
                 search: preset.search !== false,
                 pagination: preset.pagination !== false
             });

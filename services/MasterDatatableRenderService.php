@@ -770,8 +770,10 @@ class MasterDatatableRenderService
         $detailFields = $this->resolveDetailFields($columns);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
         $reloadUrl = $presetId > 0 ? Url::to(['/master-datatable/reload', 'id' => $presetId]) : '';
-        $exportCsvUrl = $presetId > 0 ? Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => 'csv'] + Yii::$app->request->get()) : '';
-        $exportPrintUrl = $presetId > 0 ? Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => 'print'] + Yii::$app->request->get()) : '';
+        $exportUrls = [];
+        foreach (['csv', 'excel', 'pdf', 'print'] as $fmt) {
+            $exportUrls[$fmt] = $presetId > 0 ? Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => $fmt] + Yii::$app->request->get()) : '';
+        }
 
         ob_start();
         ?>
@@ -928,12 +930,12 @@ class MasterDatatableRenderService
                 </div>
                 <div class="dt-tools">
                     <?php if ($presetId > 0): ?>
-                        <?php if (!isset($exports['csv']) || !empty($exports['csv'])): ?>
-                        <a class="dt-btn" href="<?= Html::encode($exportCsvUrl) ?>">Export CSV</a>
-                        <?php endif; ?>
-                        <?php if (!isset($exports['print']) || !empty($exports['print'])): ?>
-                        <a class="dt-btn" href="<?= Html::encode($exportPrintUrl) ?>" target="_blank">Print/PDF</a>
-                        <?php endif; ?>
+                        <?php $exportLabels = ['csv' => 'CSV', 'excel' => 'Excel', 'pdf' => 'PDF', 'print' => 'Print']; ?>
+                        <?php foreach ($exportLabels as $fmt => $label): ?>
+                            <?php if (!isset($exports[$fmt]) || !empty($exports[$fmt])): ?>
+                            <a class="dt-btn" href="<?= Html::encode($exportUrls[$fmt]) ?>" <?= $fmt === 'print' || $fmt === 'pdf' ? 'target="_blank"' : '' ?>><?= Html::encode($label) ?></a>
+                            <?php endif; ?>
+                        <?php endforeach; ?>
                     <?php endif; ?>
                     <?php if ($state['searchEnabled']): ?>
                     <form method="get" class="dt-search-form">

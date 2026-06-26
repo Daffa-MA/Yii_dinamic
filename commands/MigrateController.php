@@ -93,6 +93,7 @@ class MigrateController extends Controller
                 $columnsAdded = 0;
 
                 if ($schema !== null) {
+                    // Columns exist, check for missing FK metadata
                     $columnsToCheck = [
                         'is_foreign_key' => "ADD COLUMN `is_foreign_key` TINYINT(1) DEFAULT 0",
                         'referenced_table_name' => "ADD COLUMN `referenced_table_name` VARCHAR(255) NULL",
@@ -117,7 +118,39 @@ class MigrateController extends Controller
                         $this->stdout("All columns already exist. No changes needed.\n", Console::FG_CYAN);
                     }
                 } else {
-                    $this->stdout("Table {$tableName} not found in {$dbName}, skipping.\n", Console::FG_YELLOW);
+                    // Table doesn't exist, create the entire db_tables and db_table_columns structure
+                    $this->stdout("Table {$tableName} not found. Creating the full table builder structure...\n", Console::FG_YELLOW);
+
+                    // Create main db_tables table
+                    $createTablesSql = "CREATE TABLE `db_tables` (
+                        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                        `name` VARCHAR(255) NOT NULL,
+                        `display_name` VARCHAR(255) NULL,
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+                    $projectDb->createCommand($createTablesSql)->execute();
+
+                    // Create db_table_columns table with ALL columns (including FK metadata)
+                    $createColumnsSql = "CREATE TABLE `db_table_columns` (
+                        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+                        `db_table_id` INT UNSIGNED NOT NULL,
+                        `name` VARCHAR(255) NOT NULL,
+                        `type` VARCHAR(255) NOT NULL,
+                        `is_nullable` TINYINT(1) DEFAULT 0,
+                        `is_primary_key` TINYINT(1) DEFAULT 0,
+                        `is_foreign_key` TINYINT(1) DEFAULT 0,
+                        `referenced_table_name` VARCHAR(255) NULL,
+                        `referenced_column_name` VARCHAR(255) NULL,
+                        `on_delete_action` VARCHAR(50) NULL,
+                        `on_update_action` VARCHAR(50) NULL,
+                        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (`db_table_id`) REFERENCES `db_tables`(`id`) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+                    $projectDb->createCommand($createColumnsSql)->execute();
+
+                    $this->stdout("Successfully created full table builder structure in {$dbName}.\n", Console::FG_GREEN);
                 }
 
                 $this->stdout("Successfully processed database: {$dbName}\n", Console::FG_GREEN);

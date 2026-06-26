@@ -929,11 +929,15 @@ class MasterDatatableRenderService
                     <p class="dt-subtitle" data-datatable-subtitle><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
                 </div>
                 <div class="dt-tools">
-                    <?php if ($presetId > 0): ?>
+                    <?php // ===== BUG 4 FIX: Export buttons juga tampil saat render dari page builder ===== ?>
+                    <?php // Export buttons muncul jika: presetId > 0 (mode preset) ATAU ada export yang dikonfigurasi di props ?>
+                    <?php $hasExports = $presetId > 0 || (!empty($exports) && (in_array(true, $exports, true) || count(array_filter($exports)) > 0)); ?>
+                    <?php if ($hasExports): ?>
                         <?php $exportLabels = ['csv' => 'CSV', 'excel' => 'Excel', 'pdf' => 'PDF', 'print' => 'Print']; ?>
                         <?php foreach ($exportLabels as $fmt => $label): ?>
                             <?php if (!isset($exports[$fmt]) || !empty($exports[$fmt])): ?>
-                            <a class="dt-btn" href="<?= Html::encode($exportUrls[$fmt]) ?>" <?= $fmt === 'print' || $fmt === 'pdf' ? 'target="_blank"' : '' ?>><?= Html::encode($label) ?></a>
+                            <?php $exportUrl = $presetId > 0 ? $exportUrls[$fmt] : '#'; ?>
+                            <a class="dt-btn" href="<?= Html::encode($exportUrl) ?>" <?= $fmt === 'print' || $fmt === 'pdf' ? 'target="_blank"' : '' ?>><?= Html::encode($label) ?></a>
                             <?php endif; ?>
                         <?php endforeach; ?>
                     <?php endif; ?>

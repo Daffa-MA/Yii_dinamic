@@ -1,4 +1,18 @@
-﻿    document.addEventListener('DOMContentLoaded', function() {
+    // ===== DEBOUNCE HELPER (BUG 1 FIX) =====
+    // Fungsi debounce untuk mencegah infinite loop / re-render berlebihan
+    function debounce(fn, delay) {
+        let timer = null;
+        return function(...args) {
+            clearTimeout(timer);
+            timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+    }
+
+    // ===== RE-RENDER GUARD (BUG 1 FIX) =====
+    // Mencegah renderPropsPanel() memanggil dirinya sendiri secara rekursif
+    let _renderPropsPanelGuard = false;
+
+    document.addEventListener('DOMContentLoaded', function() {
         // Elements
         const dropZone = document.getElementById('canvas-drop-zone');
         const container = document.getElementById('fields-container');
@@ -22,18 +36,54 @@
         });
         let gpsCameraMetadataLoadToken = 0;
 
+        // ===== BUG 2 FIX: Safe JSON.parse dengan try-catch =====
         // **CRITICAL HYDRATION**: Load existing form data from hidden input
-        const existingDataRaw = formDataInput ? formDataInput.value : '[]';
-        const existingData = JSON.parse(existingDataRaw);
-        if (existingData && !Array.isArray(existingData) && typeof existingData === 'object') {
-            formFields = Array.isArray(existingData.fields) ? JSON.parse(JSON.stringify(existingData.fields)) : [];
-            formFields = formFields.map(normalizeFieldState);
-            removeSystemFieldsFromState();
-        } else if (existingData && Array.isArray(existingData) && existingData.length > 0) {
-            formFields = JSON.parse(JSON.stringify(existingData));
-            formFields = formFields.map(normalizeFieldState);
-            removeSystemFieldsFromState();
+        // Gunakan try-catch dan async pattern agar data siap sebelum render
+        async function hydrateFormData() {
+            try {
+                const existingDataRaw = formDataInput ? formDataInput.value : '[]';
+                var existingData;
+                try {
+                    existingData = JSON.parse(existingDataRaw);
+                } catch (parseErr) {
+                    console.error('BUG 2 FIX: Gagal parse JSON form data, fallback ke array kosong:', parseErr);
+                    formFields = [];
+                    return;
+                }
+                if (existingData && !Array.isArray(existingData) && typeof existingData === 'object') {
+                    formFields = Array.isArray(existingData.fields) ? JSON.parse(JSON.stringify(existingData.fields)) : [];
+                } else if (existingData && Array.isArray(existingData) && existingData.length > 0) {
+                    formFields = JSON.parse(JSON.stringify(existingData));
+                }
+
+                // Normalisasi dilakukan SETELAH data siap (tidak race condition)
+                formFields = formFields.map(function(field) {
+                    try {
+                        return normalizeFieldState(field);
+                    } catch (normErr) {
+                        console.error('BUG 2 FIX: Gagal normalisasi field:', normErr, field);
+                        return field;
+                    }
+                });
+                try {
+                    removeSystemFieldsFromState();
+                } catch (removeErr) {
+                    console.error('BUG 2 FIX: Gagal remove system fields:', removeErr);
+                }
+
+                // Render setelah semua data siap
+                renderFields();
+                if (formFields.length > 0) {
+                    selectField(0);
+                }
+            } catch (err) {
+                console.error('BUG 2 FIX: Gagal hydrate form data:', err);
+                formFields = [];
+            }
         }
+
+        // Panggil hydrate secara async - PASTI dijalankan SETELAH DOM ready dan data tersedia
+        hydrateFormData();
 
         // Field Configuration
         const fieldConfig = {
@@ -1889,18 +1939,30 @@
                 ensureGpsCameraMetadataLoaded(field);
             }
 
-            if (field.type === 'select' && field.is_foreign_key) {
+            // ===== BUG 1 FIX: Cegah infinite loop pada renderPropsPanel =====
+            // Guard: jika sedang dalam proses renderPropsPanel yang sama, jangan panggil lagi
+            if (!_renderPropsPanelGuard && field.type === 'select' && field.is_foreign_key) {
                 const tableId = resolveForeignKeyReferencedTableId(field);
                 ensureDropdownSourceTablesLoaded().then(function() {
                     if (selectedIndex === null || formFields[selectedIndex] !== field) return;
                     if (tableId && !dropdownSourceColumnsCache[String(tableId)]) {
                         ensureDropdownSourceColumnsLoaded(tableId).then(function() {
                             if (selectedIndex !== null && formFields[selectedIndex] === field) {
+                                // BUG 1 FIX: Gunakan flag guard untuk mencegah stack overflow
+                                if (_renderPropsPanelGuard) return;
+                                _renderPropsPanelGuard = true;
                                 renderPropsPanel(field);
+                                _renderPropsPanelGuard = false;
                             }
                         });
                     } else if (tableId) {
-                        renderPropsPanel(field);
+                        // BUG 1 FIX: Jika data sudah di cache, TIDAK perlu re-render ulang propsPanel
+                        // karena data sudah tersedia, cukup update dropdown display column via DOM
+                        // tanpa memanggil renderPropsPanel lagi (yang menyebabkan infinite loop)
+                        const displaySelect = panel.querySelector('[name="fk_display_column"]');
+                        if (displaySelect && !displaySelect.hasChildNodes()) {
+                            displaySelect.innerHTML = buildDropdownColumnOptions(field, field.fk_display_column || field.label_column || field.dropdown_label_column);
+                        }
                     }
                 });
             }

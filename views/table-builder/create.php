@@ -2023,18 +2023,31 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             isSyncingProperties = false;
         }
 
+        // ===== BUG 3 FIX: UpdateAutoIncrement dengan logika Primary Key =====
+        // Auto Increment hanya boleh aktif jika:
+        // 1. Tipe data = INT/BIGINT (integerTypes)
+        // 2. Kolom tersebut adalah Primary Key (is_primary === true)
         function updateAutoIncrementDisabled(column) {
             const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
             const autoIncrementCheckbox = document.getElementById('prop-auto-increment');
             var colType = (column.type || '').toUpperCase();
-            if (integerTypes.indexOf(colType) === -1) {
+
+            // BUG 3 FIX: Cek apakah tipe data adalah integer AND primary key tercentang
+            var isValidType = integerTypes.indexOf(colType) !== -1;
+            var isPrimary = column.is_primary === true || (document.getElementById('prop-primary') && document.getElementById('prop-primary').checked);
+
+            if (!isValidType || !isPrimary) {
+                // Tidak memenuhi syarat: disable dan uncheck
                 column.is_auto_increment = false;
                 autoIncrementCheckbox.checked = false;
                 autoIncrementCheckbox.disabled = true;
             } else {
+                // Memenuhi syarat (integer type + primary key): enable checkbox auto increment
                 autoIncrementCheckbox.disabled = false;
             }
-            if (column.is_auto_increment && integerTypes.indexOf(colType) === -1) {
+
+            // Safety: jika auto increment masih ter-set tapi tipe sudah berubah, reset
+            if (column.is_auto_increment && !isValidType) {
                 column.is_auto_increment = false;
                 autoIncrementCheckbox.checked = false;
             }

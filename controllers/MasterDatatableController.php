@@ -172,6 +172,13 @@ class MasterDatatableController extends Controller
             'button_label' => trim((string)($post['workflow']['button_label'] ?? 'Approve')) ?: 'Approve',
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
+        $model->exports_config = json_encode([
+            'csv' => !empty($post['exports']['csv']),
+            'excel' => !empty($post['exports']['excel']),
+            'pdf' => !empty($post['exports']['pdf']),
+            'print' => !empty($post['exports']['print']),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
         return $model->save();
     }
 

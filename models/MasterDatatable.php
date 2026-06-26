@@ -57,6 +57,7 @@ class MasterDatatable extends ActiveRecord
             'filters_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
             'stats_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
             'workflow_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+            'exports_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
         ];
 
         foreach ($columnsToAdd as $column => $definition) {
@@ -73,7 +74,7 @@ class MasterDatatable extends ActiveRecord
         return [
             [['user_id', 'name', 'table_id'], 'required'],
             [['user_id', 'project_id', 'table_id', 'search_enabled', 'pagination_enabled', 'is_active'], 'integer'],
-            [['columns_config', 'actions_config', 'filters_config', 'stats_config', 'workflow_config'], 'string'],
+            [['columns_config', 'actions_config', 'filters_config', 'stats_config', 'workflow_config', 'exports_config'], 'string'],
             [['name'], 'string', 'max' => 160],
         ];
     }
@@ -147,6 +148,18 @@ class MasterDatatable extends ActiveRecord
         return is_array($decoded) ? $decoded : [];
     }
 
+    public function getExportsConfigArray(): array
+    {
+        $decoded = json_decode((string)$this->exports_config, true);
+        $decoded = is_array($decoded) ? $decoded : [];
+        return array_merge([
+            'csv' => true,
+            'excel' => true,
+            'pdf' => true,
+            'print' => true,
+        ], $decoded);
+    }
+
     public function toComponentConfig(): array
     {
         return [
@@ -157,6 +170,7 @@ class MasterDatatable extends ActiveRecord
             'filters' => $this->getFiltersConfigArray(),
             'stats' => $this->getStatsConfigArray(),
             'workflow' => $this->getWorkflowConfigArray(),
+            'exports' => $this->getExportsConfigArray(),
             'search' => (bool)$this->search_enabled,
             'pagination' => (bool)$this->pagination_enabled,
         ];

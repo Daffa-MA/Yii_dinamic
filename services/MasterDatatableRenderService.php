@@ -89,7 +89,7 @@ class MasterDatatableRenderService
             return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
         }
 
-        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId, $data['filters'], $data['stats'], $data['workflow']);
+        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId, $data['filters'], $data['stats'], $data['workflow'], $data['exports']);
     }
 
     private function buildRenderData(array $config): ?array
@@ -202,6 +202,7 @@ class MasterDatatableRenderService
             'filters' => $filters,
             'stats' => $stats,
             'workflow' => $workflow,
+            'exports' => $config['exports'] ?? [],
             'state' => [
                 'searchEnabled' => $searchEnabled,
                 'paginationEnabled' => $paginationEnabled,
@@ -759,7 +760,7 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0, array $filters = [], array $stats = [], array $workflow = []): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0, array $filters = [], array $stats = [], array $workflow = [], array $exports = []): string
     {
         $hasWorkflowAction = !empty($workflow['approval_enabled']) && !empty($primaryKeys);
         $hasActions = (in_array(true, $actions, true) || $hasWorkflowAction) && !empty($primaryKeys);
@@ -927,8 +928,12 @@ class MasterDatatableRenderService
                 </div>
                 <div class="dt-tools">
                     <?php if ($presetId > 0): ?>
+                        <?php if (!isset($exports['csv']) || !empty($exports['csv'])): ?>
                         <a class="dt-btn" href="<?= Html::encode($exportCsvUrl) ?>">Export CSV</a>
+                        <?php endif; ?>
+                        <?php if (!isset($exports['print']) || !empty($exports['print'])): ?>
                         <a class="dt-btn" href="<?= Html::encode($exportPrintUrl) ?>" target="_blank">Print/PDF</a>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php if ($state['searchEnabled']): ?>
                     <form method="get" class="dt-search-form">

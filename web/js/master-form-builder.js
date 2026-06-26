@@ -36,54 +36,64 @@
         });
         let gpsCameraMetadataLoadToken = 0;
 
-        // ===== BUG 2 FIX: Safe JSON.parse dengan try-catch =====
-        // **CRITICAL HYDRATION**: Load existing form data from hidden input
-        // Gunakan try-catch dan async pattern agar data siap sebelum render
-        async function hydrateFormData() {
+        // ===== BUG 2 FIX: Load existing form data dengan safe JSON.parse + try-catch =====
+        // **KRITIKAL**: Original code tidak pernah memanggil renderFields() setelah parse data,
+        // sehingga data ada di memory tapi DOM canvas tetap kosong (blank canvas).
+        // User terpaksa drag satu component dulu untuk trigger render.
+        function loadExistingFormData() {
             try {
-                const existingDataRaw = formDataInput ? formDataInput.value : '[]';
+                var existingDataRaw = formDataInput ? formDataInput.value : '[]';
+                // BUG 2 FIX: JSON.parse dengan try-catch agar tidak crash
                 var existingData;
                 try {
                     existingData = JSON.parse(existingDataRaw);
                 } catch (parseErr) {
-                    console.error('BUG 2 FIX: Gagal parse JSON form data, fallback ke array kosong:', parseErr);
-                    formFields = [];
-                    return;
+                    console.error('BUG 2 FIX: Gagal parse JSON form data:', parseErr);
+                    existingData = null;
                 }
-                if (existingData && !Array.isArray(existingData) && typeof existingData === 'object') {
-                    formFields = Array.isArray(existingData.fields) ? JSON.parse(JSON.stringify(existingData.fields)) : [];
-                } else if (existingData && Array.isArray(existingData) && existingData.length > 0) {
-                    formFields = JSON.parse(JSON.stringify(existingData));
-                }
-
-                // Normalisasi dilakukan SETELAH data siap (tidak race condition)
-                formFields = formFields.map(function(field) {
-                    try {
-                        return normalizeFieldState(field);
-                    } catch (normErr) {
-                        console.error('BUG 2 FIX: Gagal normalisasi field:', normErr, field);
-                        return field;
+                if (existingData) {
+                    if (!Array.isArray(existingData) && typeof existingData === 'object') {
+                        // Format: { fields: [...] }
+                        formFields = Array.isArray(existingData.fields) ? JSON.parse(JSON.stringify(existingData.fields)) : [];
+                    } else if (Array.isArray(existingData) && existingData.length > 0) {
+                        // Format langsung: [{...}, {...}]
+                        formFields = JSON.parse(JSON.stringify(existingData));
                     }
-                });
-                try {
-                    removeSystemFieldsFromState();
-                } catch (removeErr) {
-                    console.error('BUG 2 FIX: Gagal remove system fields:', removeErr);
-                }
-
-                // Render setelah semua data siap
-                renderFields();
-                if (formFields.length > 0) {
-                    selectField(0);
+                    // Normalisasi setiap field dengan error handling
+                    formFields = formFields.map(function(field) {
+                        try {
+                            return normalizeFieldState(field);
+                        } catch (normErr) {
+                            console.error('BUG 2 FIX: Gagal normalisasi field:', normErr, field);
+                            return field;
+                        }
+                    });
+                    try {
+                        removeSystemFieldsFromState();
+                    } catch (removeErr) {
+                        console.error('BUG 2 FIX: Gagal remove system fields:', removeErr);
+                    }
                 }
             } catch (err) {
-                console.error('BUG 2 FIX: Gagal hydrate form data:', err);
+                console.error('BUG 2 FIX: Gagal load form data:', err);
                 formFields = [];
             }
         }
 
-        // Panggil hydrate secara async - PASTI dijalankan SETELAH DOM ready dan data tersedia
-        hydrateFormData();
+        // Panggil load data - synchronous, PASTI data siap SEBELUM renderFields() dipanggil
+        // BUG 2 FIX: Jalankan SEKARANG juga karena function definitions sudah di-hoist
+        loadExistingFormData();
+
+        // ===== BUG 2 FIX: RENDER existing fields setelah load data =====
+        // **KRITIKAL**: Original code tidak pernah memanggil renderFields() atau selectField()
+        // setelah loadExistingFormData, sehingga data formFields terisi tapi canvas tetap blank.
+        // User harus drag komponen baru untuk trigger renderFields() di addField().
+        // Panggil renderFields() sekarang untuk render field yang sudah dimuat.
+        renderFields();
+        // Pilih field pertama agar properties panel ikut terisi
+        if (formFields.length > 0) {
+            selectField(0);
+        }
 
         // Field Configuration
         const fieldConfig = {

@@ -90,6 +90,7 @@ class MigrateController extends Controller
                 $migrationController = Yii::createObject([
                     'class' => 'yii\console\controllers\MigrateController',
                     'db' => $projectDb, // Use the project-specific connection
+                    'migrationPath' => '@app/migrations', // Explicitly set the path
                     'interactive' => false, // Ensure it runs non-interactively
                 ]);
 

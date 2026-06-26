@@ -94,7 +94,20 @@ class MigrateController extends Controller
                     'interactive' => false, // Ensure it runs non-interactively
                 ]);
 
+                // --- FIX: Synchronize history for unmanaged databases ---
+                $history = $migrationController->getMigrationHistory(null);
+                $userTableExists = $projectDb->schema->getTableSchema('users', true) !== null;
+
+                if (empty($history) && $userTableExists) {
+                    $this->stdout("Unmanaged database detected. Synchronizing migration history...\n", Console::FG_YELLOW);
+                    // Mark all existing migrations as applied without running them
+                    $migrationController->actionMark('all');
+                    $this->stdout("Migration history synchronized.\n", Console::FG_GREEN);
+                }
+                // --- END FIX ---
+
                 // Run all new migrations for this database
+                $this->stdout("Checking for new migrations...\n");
                 $migrationController->actionUp();
 
                 $this->stdout("Successfully migrated database: {$dbName}\n", Console::FG_GREEN);

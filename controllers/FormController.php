@@ -123,7 +123,7 @@ class FormController extends Controller
 
     private function shouldBypassProjectContext(string $actionId): bool
     {
-        return in_array($actionId, ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add'], true);
+        return in_array($actionId, ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add', 'gps-camera-metadata'], true);
     }
 
     private function getRelationMapper(?Connection $db = null): RelationMapper
@@ -990,9 +990,18 @@ class FormController extends Controller
             }
 
             if ($autoTimestamp) {
-                $payload['captured_date'] = $now->format('Y-m-d');
-                $payload['captured_time'] = $now->format('H:i:s');
-                $payload['captured_at_server'] = $now->format(DATE_ATOM);
+                if (empty($payload['captured_date'])) {
+                    $payload['captured_date'] = $now->format('Y-m-d');
+                }
+                if (empty($payload['captured_time'])) {
+                    $payload['captured_time'] = $now->format('H:i:s');
+                }
+                if (empty($payload['captured_at'])) {
+                    $payload['captured_at'] = (string)$payload['captured_date'] . ' ' . (string)$payload['captured_time'];
+                }
+                if (empty($payload['captured_at_server'])) {
+                    $payload['captured_at_server'] = $now->format(DATE_ATOM);
+                }
             }
 
             $payload['field_name'] = $fieldName;
@@ -1395,6 +1404,133 @@ class FormController extends Controller
         }
 
         return null;
+    }
+
+    private function normalizeGpsCameraCoordinate($value): ?float
+    {
+        if ($value === null) {
+            return null;
+        }
+        if (is_string($value) && trim($value) === '') {
+            return null;
+        }
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        return (float)$value;
+    }
+
+    /**
+     * @return array{location_text:string,location_address:string}
+     */
+    private function resolveGpsCameraLocationMetadata(?float $latitude, ?float $longitude): array
+    {
+        if ($latitude === null || $longitude === null) {
+            return [
+                'location_text' => '',
+                'location_address' => '',
+            ];
+        }
+
+        $url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=' . rawurlencode((string)$latitude) . '&lon=' . rawurlencode((string)$longitude) . '&zoom=18&addressdetails=1';
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'timeout' => 6,
+                'header' => implode("\r\n", [
+                    'Accept: application/json',
+                    'Accept-Language: id',
+                    'User-Agent: YiiDinamic/1.0',
+                ]),
+            ],
+        ]);
+
+        try {
+            $response = @file_get_contents($url, false, $context);
+            if (!is_string($response) || trim($response) === '') {
+                return [
+                    'location_text' => '',
+                    'location_address' => '',
+                ];
+            }
+
+            $decoded = json_decode($response, true);
+            if (!is_array($decoded)) {
+                return [
+                    'location_text' => '',
+                    'location_address' => '',
+                ];
+            }
+
+            $address = is_array($decoded['address'] ?? null) ? $decoded['address'] : [];
+            $locationText = $this->buildGpsCameraLocationLabel($address);
+            if ($locationText === '') {
+                $locationText = trim((string)($decoded['display_name'] ?? ''));
+            }
+
+            return [
+                'location_text' => $locationText,
+                'location_address' => trim((string)($decoded['display_name'] ?? '')),
+            ];
+        } catch (\Throwable $e) {
+            Yii::warning('GPS camera reverse geocode failed: ' . $e->getMessage(), 'gps-camera');
+            return [
+                'location_text' => '',
+                'location_address' => '',
+            ];
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $address
+     */
+    private function buildGpsCameraLocationLabel(array $address): string
+    {
+        $district = $this->firstGpsCameraText([
+            $address['district'] ?? null,
+            $address['city_district'] ?? null,
+            $address['suburb'] ?? null,
+            $address['town'] ?? null,
+            $address['village'] ?? null,
+            $address['municipality'] ?? null,
+            $address['subdistrict'] ?? null,
+        ]);
+        $regency = $this->firstGpsCameraText([
+            $address['county'] ?? null,
+            $address['city'] ?? null,
+            $address['state_district'] ?? null,
+            $address['state'] ?? null,
+            $address['region'] ?? null,
+        ]);
+
+        $parts = [];
+        if ($district !== '') {
+            $parts[] = preg_match('/^(kecamatan|kelurahan|desa)\s+/i', $district) === 1 ? $district : 'Kecamatan ' . $district;
+        }
+        if ($regency !== '') {
+            $parts[] = preg_match('/^(kabupaten|kota)\s+/i', $regency) === 1 ? $regency : 'Kabupaten/Kota ' . $regency;
+        }
+
+        return trim(implode(', ', array_filter($parts)));
+    }
+
+    /**
+     * @param array<int, mixed> $values
+     */
+    private function firstGpsCameraText(array $values): string
+    {
+        foreach ($values as $value) {
+            if (!is_scalar($value)) {
+                continue;
+            }
+            $text = trim((string)$value);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
     }
 
     private function supportsLengthConstraint(array $column): bool
@@ -2039,7 +2175,7 @@ class FormController extends Controller
                 'class' => \yii\filters\AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add'],
+                        'actions' => ['render', 'submit', 'public-render', 'success', 'fk-options', 'fk-quick-add', 'gps-camera-metadata'],
                         'allow' => true,
                         'roles' => ['?', '@'], // Allow both guests and authenticated users
                     ],
@@ -2345,6 +2481,31 @@ class FormController extends Controller
             'fkConfig' => $fkConfig,
             'fieldConstraints' => $fieldConstraints,
         ]);
+    }
+
+    public function actionGpsCameraMetadata()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $latitude = $this->normalizeGpsCameraCoordinate(Yii::$app->request->get('lat'));
+        $longitude = $this->normalizeGpsCameraCoordinate(Yii::$app->request->get('lon'));
+        $accuracy = $this->normalizeGpsCameraCoordinate(Yii::$app->request->get('accuracy'));
+
+        $timezone = new \DateTimeZone(Yii::$app->timeZone ?: 'Asia/Jakarta');
+        $now = new \DateTimeImmutable('now', $timezone);
+        $location = $this->resolveGpsCameraLocationMetadata($latitude, $longitude);
+
+        return [
+            'success' => true,
+            'server_date' => $now->format('Y-m-d'),
+            'server_time' => $now->format('H:i:s'),
+            'server_at' => $now->format(DATE_ATOM),
+            'latitude' => $latitude !== null ? (string)$latitude : '',
+            'longitude' => $longitude !== null ? (string)$longitude : '',
+            'gps_accuracy' => $accuracy !== null ? (string)$accuracy : '',
+            'location_text' => (string)($location['location_text'] ?? ''),
+            'location_address' => (string)($location['location_address'] ?? ''),
+        ];
     }
 
     /**

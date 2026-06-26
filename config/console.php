@@ -77,6 +77,9 @@ $config = [
             'class' => 'yii\console\controllers\MigrateController',
             'migrationPath' => '@app/migrations',
         ],
+        'project-migrate' => [
+            'class' => 'app\commands\MigrateController',
+        ],
     ],
     'params' => $params,
 ];

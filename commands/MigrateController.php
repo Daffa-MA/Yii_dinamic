@@ -86,41 +86,23 @@ class MigrateController extends Controller
                     'charset' => $originalDb->charset,
                 ]);
 
-                // Create a new instance of the core migration controller for each project DB
-                $migrationController = Yii::createObject([
-                    'class' => 'yii\console\controllers\MigrateController',
-                    'db' => $projectDb, // Use the project-specific connection
-                    'migrationPath' => Yii::getAlias('@app/migrations'), // Explicitly set the path
-                    'interactive' => false, // Ensure it runs non-interactively
-                ]);
+                // Switch the current app DB to the project one
+                Yii::$app->set('db', $projectDb);
 
-                // --- FIX: Synchronize history for unmanaged databases ---
-                $migrationTable = $migrationController->migrationTable;
-                $migrationTableExists = $projectDb->schema->getTableSchema($migrationTable, true) !== null;
-                $historyIsEmpty = true;
+                // Instantiate ONLY our specific migration file and run it
+                $migration = new \app\migrations\m260626_100000_ensure_foreign_key_metadata_columns_exist();
+                $migration->db = $projectDb;
 
-                if ($migrationTableExists) {
-                    $historyCount = (int)$projectDb->createCommand("SELECT COUNT(*) FROM {{$migrationTable}}")->queryScalar();
-                    if ($historyCount > 0) {
-                        $historyIsEmpty = false;
-                    }
+                if ($migration->safeUp() === false) {
+                    $this->stdout("Migration for {$dbName} completed, no changes were needed (columns already exist).\n", Console::FG_YELLOW);
+                } else {
+                    $this->stdout("Successfully applied our fix migration to {$dbName}\n", Console::FG_GREEN);
                 }
 
-                $userTableExists = $projectDb->schema->getTableSchema('users', true) !== null;
-
-                if ($historyIsEmpty && $userTableExists) {
-                    $this->stdout("Unmanaged database detected. Synchronizing migration history...\n", Console::FG_YELLOW);
-                    $migrationController->actionMark('all');
-                    $this->stdout("Migration history synchronized.\n", Console::FG_GREEN);
-                }
-                // --- END FIX ---
-
-                // Run all new migrations for this database
-                $this->stdout("Checking for new migrations...\n");
-                $migrationController->actionUp();
-
-                $this->stdout("Successfully migrated database: {$dbName}\n", Console::FG_GREEN);
+                // Restore the original database connection
+                Yii::$app->set('db', $originalDb);
             } catch (\Throwable $e) {
+                Yii::$app->set('db', $originalDb); // Always restore the connection
                 $this->stderr("Error migrating database {$dbName}: " . $e->getMessage() . "\n", Console::FG_RED);
             }
         }

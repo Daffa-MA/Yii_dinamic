@@ -1453,20 +1453,31 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             updateSchema();
             updateSummary();
 
-            // ===== BUG 3 FIX: Update Auto Increment state untuk kolom baru =====
-            // Saat kolom baru dibuat, panggil updateAutoIncrementDisabled untuk memastikan
-            // checkbox AI enabled/disabled sesuai dengan tipe data dan primary key
+            // ===== BUG 2 FIX: Update Auto Increment state untuk kolom baru =====
             const newCol = columns[columns.length - 1];
             if (newCol) {
-                updateAutoIncrementDisabled(newCol);
+                validateRowState(newCol);
             }
         });
 
-        // PERBAIKAN BUG 3: Event delegation pada panel properti agar perubahan tipe/PK selalu terdeteksi
+        // PERBAIKAN BUG 2: Event delegation pada panel properti agar perubahan tipe/PK selalu terdeteksi
         const propertiesFormEl = document.getElementById('properties-form');
         if (propertiesFormEl) {
             propertiesFormEl.addEventListener('input', syncProperty);
             propertiesFormEl.addEventListener('change', syncProperty);
+            
+            // Listener spesifik untuk Type dan Primary Key agar validasi Auto Increment lebih agresif
+            const watchFields = ['prop-type', 'prop-primary'];
+            watchFields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', function() {
+                        if (selectedIndex >= 0 && columns[selectedIndex]) {
+                            validateRowState(columns[selectedIndex]);
+                        }
+                    });
+                }
+            });
         }
 
         // PERBAIKAN BUG 3: Event delegation pada daftar kolom dinamis (baris baru otomatis terikat)
@@ -2031,32 +2042,57 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             onUpdateInput.value = normalizeForeignKeyAction(column.on_update || '');
             toggleForeignKeySettings(foreignKeyToggleInput.checked);
             syncEnumValuesVisibility(column.type);
-            updateAutoIncrementDisabled(column);
+            validateRowState(column);
             isSyncingProperties = false;
         }
 
-        // ===== PERBAIKAN BUG 3: Auto Increment hanya aktif jika integer + Primary Key =====
-        function updateAutoIncrementDisabled(column) {
-            const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
-            const autoIncrementCheckbox = document.getElementById('prop-auto-increment');
-            const primaryCheckbox = document.getElementById('prop-primary');
-            if (!autoIncrementCheckbox || !column) {
+        // PERBAIKAN BUG 2: Auto Increment state-validator terpisah
+        function validateRowState(column) {
+            const typeSelect = document.getElementById('prop-type');
+            const primaryCheck = document.getElementById('prop-primary');
+            const aiCheck = document.getElementById('prop-auto-increment');
+
+            if (!aiCheck || !typeSelect || !primaryCheck) {
+                console.warn('Elements for Auto Increment validation not found');
                 return;
             }
 
-            var colType = String(column.type || '').toUpperCase();
-            var isValidType = integerTypes.indexOf(colType) !== -1;
-            // PERBAIKAN BUG 3: Gunakan toBoolean + state checkbox DOM agar sinkron dengan baris dinamis
-            var isPrimary = toBoolean(column.is_primary, false) || (primaryCheckbox && primaryCheckbox.checked);
-
-            if (!isValidType || !isPrimary) {
-                column.is_auto_increment = false;
-                autoIncrementCheckbox.checked = false;
-                autoIncrementCheckbox.disabled = true;
-            } else {
-                autoIncrementCheckbox.disabled = false;
-                autoIncrementCheckbox.checked = toBoolean(column.is_auto_increment, false);
+            const typeValue = (typeSelect.value || '').toUpperCase();
+            const isPrimary = primaryCheck.checked;
+            
+            // PERBAIKAN: Perluas keluarga tipe data numerik yang mendukung Auto Increment
+            const numericTypes = [
+                'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'INTEGER', 'BIGINT',
+                'FLOAT', 'DOUBLE', 'DECIMAL', 'REAL'
+            ];
+            
+            let isNumeric = false;
+            for (let i = 0; i < numericTypes.length; i++) {
+                if (typeValue.indexOf(numericTypes[i]) !== -1) {
+                    isNumeric = true;
+                    break;
+                }
             }
+
+            const card = aiCheck.closest('.check-card');
+
+            if (isNumeric && isPrimary) {
+                // PERBAIKAN: Hilangkan properti disabled secara paksa
+                aiCheck.disabled = false;
+                if (card) card.classList.remove('disabled');
+            } else {
+                aiCheck.disabled = true;
+                aiCheck.checked = false;
+                if (card) card.classList.add('disabled');
+                if (column) {
+                    column.is_auto_increment = false;
+                }
+            }
+        }
+
+        // Maintain old function name for compatibility if needed elsewhere, but point to new logic
+        function updateAutoIncrementDisabled(column) {
+            validateRowState(column);
         }
 
         function syncProperty(event) {
@@ -2086,8 +2122,8 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             column.is_unique = document.getElementById('prop-unique').checked;
             column.is_primary = document.getElementById('prop-primary').checked;
 
-            // PERBAIKAN BUG 3: Evaluasi AI state SETELAH tipe & PK tersinkron
-            updateAutoIncrementDisabled(column);
+            // PERBAIKAN BUG 2: Evaluasi AI state SETELAH tipe & PK tersinkron
+            validateRowState(column);
             column.is_auto_increment = document.getElementById('prop-auto-increment').checked;
             column.default_value = document.getElementById('prop-default').value;
             column.comment = document.getElementById('prop-comment').value;

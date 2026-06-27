@@ -530,6 +530,20 @@ class MasterDatatableRenderService
             return Yii::$app->response;
         }
 
+        $extension = $format === 'excel' ? 'xlsx' : 'csv';
+        $contentType = $format === 'excel' 
+            ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+            : 'text/csv; charset=UTF-8';
+
+        // PERBAIKAN BUG 1: Jika format excel diminta via URL, kirim XML Spreadsheet yang VALID
+        if ($format === 'excel') {
+            Yii::$app->response->format = Response::FORMAT_RAW;
+            Yii::$app->response->headers->set('Content-Type', 'application/vnd.ms-excel; charset=UTF-8');
+            Yii::$app->response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '.xls"');
+            Yii::$app->response->content = $this->renderExcelXmlExport($data, $tableName);
+            return Yii::$app->response;
+        }
+
         $lines = [];
         $lines[] = array_map(static fn(array $column): string => (string)($column['label'] ?? $column['field'] ?? ''), $data['columns']);
         foreach ($data['rows'] as $row) {
@@ -549,8 +563,8 @@ class MasterDatatableRenderService
         fclose($handle);
 
         Yii::$app->response->format = Response::FORMAT_RAW;
-        Yii::$app->response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
-        Yii::$app->response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '.csv"');
+        Yii::$app->response->headers->set('Content-Type', $contentType);
+        Yii::$app->response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '.' . $extension . '"');
         Yii::$app->response->content = "\xEF\xBB\xBF" . (string)$csv;
         return Yii::$app->response;
     }
@@ -837,6 +851,7 @@ class MasterDatatableRenderService
         ob_start();
         ?>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/tabler-icons.min.css">
+        
         <section
             class="master-datatable"
             id="<?= Html::encode($uid) ?>"
@@ -2077,6 +2092,18 @@ class MasterDatatableRenderService
                         window.location.href = exportUrl;
                     });
                 });
+                        if (!exportUrl || exportUrl === '#') {
+                            event.preventDefault();
+                            console.warn('Export URL belum tersedia untuk datatable ini.');
+                            return;
+                        }
+                        if (exportBtn.getAttribute('target') === '_blank') {
+                            return;
+                        }
+                        event.preventDefault();
+                        window.location.href = exportUrl;
+                    });
+                });
             })();
         </script>
         </section>
@@ -2190,6 +2217,62 @@ class MasterDatatableRenderService
         </html>
         <?php
         return (string)ob_get_clean();
+    }
+
+    /**
+     * PERBAIKAN BUG 1: Excel XML Spreadsheet 2003 (Sangat kompatibel dengan Excel tanpa library PHP eksternal)
+     */
+    private function renderExcelXmlExport(array $data, string $title): string
+    {
+        $columns = $data['columns'];
+        $rows = $data['rows'];
+        $lookup = $data['displayLookup'];
+
+        $xml = '<?xml version="1.0" encoding="utf-8"?>' . "\n";
+        $xml .= '<?mso-application progid="Excel.Sheet"?>' . "\n";
+        $xml .= '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" ';
+        $xml .= 'xmlns:o="urn:schemas-microsoft-com:office:office" ';
+        $xml .= 'xmlns:x="urn:schemas-microsoft-com:office:excel" ';
+        $xml .= 'xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" ';
+        $xml .= 'xmlns:html="http://www.w3.org/TR/REC-html40">' . "\n";
+        
+        $xml .= '  <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">';
+        $xml .= '    <Title>' . htmlspecialchars($title) . '</Title>';
+        $xml .= '    <Created>' . date('Y-m-d\TH:i:s\Z') . '</Created>';
+        $xml .= '  </DocumentProperties>' . "\n";
+        
+        $xml .= '  <Styles>';
+        $xml .= '    <Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Bottom"/><Borders/><Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#000000"/><Interior/><NumberFormat/><Protection/></Style>';
+        $xml .= '    <Style ss:ID="Header"><Font ss:FontName="Calibri" x:Family="Swiss" ss:Size="11" ss:Color="#FFFFFF" ss:Bold="1"/><Interior ss:Color="#4F46E5" ss:Pattern="Solid"/></Style>';
+        $xml .= '  </Styles>' . "\n";
+        
+        $xml .= '  <Worksheet ss:Name="Sheet1">' . "\n";
+        $xml .= '    <Table>' . "\n";
+        
+        // Header
+        $xml .= '      <Row ss:Height="20">' . "\n";
+        foreach ($columns as $column) {
+            $label = (string)($column['label'] ?? $column['field'] ?? '');
+            $xml .= '        <Cell ss:StyleID="Header"><Data ss:Type="String">' . htmlspecialchars($label) . '</Data></Cell>' . "\n";
+        }
+        $xml .= '      </Row>' . "\n";
+        
+        // Data Rows
+        foreach ($rows as $row) {
+            $xml .= '      <Row>' . "\n";
+            foreach ($columns as $column) {
+                $val = $this->formatDisplayValue($row, $column, $lookup);
+                $type = is_numeric($val) && (strlen($val) < 11 || $val[0] !== '0') ? 'Number' : 'String';
+                $xml .= '        <Cell><Data ss:Type="' . $type . '">' . htmlspecialchars($val) . '</Data></Cell>' . "\n";
+            }
+            $xml .= '      </Row>' . "\n";
+        }
+        
+        $xml .= '    </Table>' . "\n";
+        $xml .= '  </Worksheet>' . "\n";
+        $xml .= '</Workbook>';
+        
+        return $xml;
     }
 
     private function formatValue($value): string

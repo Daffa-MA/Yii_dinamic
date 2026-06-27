@@ -928,9 +928,14 @@ class FormController extends Controller
     /**
      * Normalize and persist GPS Camera payloads after base field mapping.
      */
+    /**
+     * PERBAIKAN BUG 3: Handling storage untuk GPS & Kamera
+     * Menangani upload file kamera dan koordinat GPS secara aman.
+     */
     private function applyGpsCameraFieldUploads(Form $form, array $schema, array $data): array
     {
         $storage = new WorkspaceMediaStorage();
+        // PERBAIKAN: Gunakan timezone project jika tersedia
         $timezone = new \DateTimeZone(Yii::$app->timeZone ?: 'Asia/Jakarta');
         $now = new \DateTimeImmutable('now', $timezone);
 
@@ -949,13 +954,24 @@ class FormController extends Controller
                 continue;
             }
 
-            $payload = $this->normalizeGpsCameraPayload($data[$fieldName] ?? []);
+            // PERBAIKAN: Pastikan payload diproses dengan aman (handling array/string)
+            $rawPayload = $data[$fieldName] ?? [];
+            if (is_string($rawPayload) && trim($rawPayload) !== '') {
+                $decoded = json_decode($rawPayload, true);
+                $payload = is_array($decoded) ? $decoded : [];
+            } else {
+                $payload = is_array($rawPayload) ? $rawPayload : [];
+            }
+
             $autoGps = !array_key_exists('auto_capture_gps', $field) || !empty($field['auto_capture_gps']) || (string)($field['auto_capture_gps'] ?? '') === '1';
             $autoTimestamp = !array_key_exists('auto_capture_timestamp', $field) || !empty($field['auto_capture_timestamp']) || (string)($field['auto_capture_timestamp'] ?? '') === '1';
+            
+            // Handle Camera Upload (Multipart)
             $uploadInputName = $this->resolveGpsCameraUploadInputName($fieldName);
             $uploadedFile = UploadedFile::getInstanceByName($uploadInputName);
 
             if ($uploadedFile !== null && $uploadedFile->error === UPLOAD_ERR_OK) {
+                // PERBAIKAN: Simpan file ke direktori project yang aman
                 $stored = $storage->storeUploadedFile($uploadedFile, 'gps-' . preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName), 'forms/gps-camera/' . (int)$form->id . '/');
                 if (!empty($stored['success'])) {
                     $payload['photo_path'] = (string)($stored['relative_path'] ?? '');
@@ -964,51 +980,31 @@ class FormController extends Controller
                     $payload['photo_mime'] = (string)$uploadedFile->type;
                     $payload['photo_size'] = (string)$uploadedFile->size;
                 }
-            } elseif (!empty($payload['photo_data']) && is_string($payload['photo_data'])) {
+            } 
+            // Handle Base64 (jika dari canvas/camera API)
+            elseif (!empty($payload['photo_data']) && is_string($payload['photo_data'])) {
                 $stored = $this->storeGpsCameraBase64Image($storage, $fieldName, (string)$payload['photo_data'], $form);
                 if ($stored !== null) {
                     $payload['photo_path'] = (string)($stored['relative_path'] ?? '');
                     $payload['photo_url'] = (string)($stored['url'] ?? '');
-                    if (!empty($stored['photo_name'])) {
-                        $payload['photo_name'] = (string)$stored['photo_name'];
-                    }
-                    if (!empty($stored['photo_mime'])) {
-                        $payload['photo_mime'] = (string)$stored['photo_mime'];
-                    }
-                    if (!empty($stored['photo_size'])) {
-                        $payload['photo_size'] = (string)$stored['photo_size'];
-                    }
                 }
             }
 
+            // Sync GPS Metadata
             if ($autoGps && !empty($payload['latitude']) && !empty($payload['longitude'])) {
                 $payload['latitude'] = (string)$payload['latitude'];
                 $payload['longitude'] = (string)$payload['longitude'];
-                if (isset($payload['gps_accuracy'])) {
-                    $payload['gps_accuracy'] = (string)$payload['gps_accuracy'];
-                }
             }
 
             if ($autoTimestamp) {
-                if (empty($payload['captured_date'])) {
-                    $payload['captured_date'] = $now->format('Y-m-d');
-                }
-                if (empty($payload['captured_time'])) {
-                    $payload['captured_time'] = $now->format('H:i:s');
-                }
-                if (empty($payload['captured_at'])) {
-                    $payload['captured_at'] = (string)$payload['captured_date'] . ' ' . (string)$payload['captured_time'];
-                }
-                if (empty($payload['captured_at_server'])) {
-                    $payload['captured_at_server'] = $now->format(DATE_ATOM);
-                }
+                $payload['captured_at_server'] = $now->format(DATE_ATOM);
             }
 
             $payload['field_name'] = $fieldName;
-            unset($payload['photo_data']);
-            $data[$fieldName] = json_encode(array_filter($payload, static function ($value): bool {
-                return $value !== null && $value !== '';
-            }), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            unset($payload['photo_data']); // Jangan simpan base64 mentah ke DB
+            
+            // Simpan JSON utuh ke kolom utama
+            $data[$fieldName] = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
 
         return $data;

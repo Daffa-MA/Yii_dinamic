@@ -288,21 +288,14 @@ class SiteController extends Controller
                 }
             }
 
-            $databaseTableQuery = DbTable::find();
-            if (!$isCommanderSuperAdmin) {
-                $databaseTableQuery->where(['user_id' => $userId]);
-            }
-            if ($projectContextEnabled && $activeProjectId !== null) {
-                $databaseTableQuery->andWhere(['project_id' => $activeProjectId]);
-            }
-            $databaseTableCount = (int) $databaseTableQuery->count();
+            $userTablesCount = count(\app\services\TableService::getUserTables($userId, $activeProjectId));
 
             return [
                 'recentForms' => $recentForms,
                 'forms' => $forms,
                 'recentSubmissions' => $recentSubmissions,
                 'formSubmissionCounts' => $formSubmissionCounts,
-                'databaseTableCount' => $databaseTableCount,
+                'databaseTableCount' => $userTablesCount,
             ];
         }, 30);
 

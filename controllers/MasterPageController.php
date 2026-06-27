@@ -558,27 +558,15 @@ class MasterPageController extends Controller
 
     private function findAvailableTablesForBuilder(): array
     {
-        $tableSelect = ['id', 'name', 'label', 'user_id'];
-        $tableSchema = DbTable::getTableSchema();
-        if ($tableSchema !== null && isset($tableSchema->columns['project_id'])) {
-            $tableSelect[] = 'project_id';
-        }
-
-        $query = DbTable::find()
-            ->select($tableSelect)
-            ->with('columns')
-            ->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
         $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
-        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-            $query->andWhere(['project_id' => $activeProjectId]);
-        }
-        if (!(new \app\components\CommanderAuthContext())->isSuperAdmin() && !Yii::$app->user->isGuest) {
-            $query->andWhere(['user_id' => Yii::$app->user->id]);
-        }
+        $effectiveUserId = (new \app\components\CommanderAuthContext())->isSuperAdmin() ? null : (int)(Yii::$app->user->id ?? 0);
+        if ($effectiveUserId === 0) $effectiveUserId = null;
+        
+        $userTables = \app\services\TableService::getUserTables($effectiveUserId, $activeProjectId);
 
         $items = [];
         $relatedSchemaColumnsCache = [];
-        foreach ($query->all() as $table) {
+        foreach ($userTables as $table) {
             $columns = [];
             foreach ($table->columns as $column) {
                 $isForeignKey = $column->hasAttribute('is_foreign_key') && (bool)$column->getAttribute('is_foreign_key');

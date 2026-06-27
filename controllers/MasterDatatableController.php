@@ -271,27 +271,11 @@ class MasterDatatableController extends Controller
 
     private function findAvailableTables(): array
     {
-        $tableSelect = ['id', 'name', 'label', 'user_id'];
-        $dbTableSchema = DbTable::getTableSchema();
-        if ($dbTableSchema !== null && isset($dbTableSchema->columns['project_id'])) {
-            $tableSelect[] = 'project_id';
-        }
-
-        $query = DbTable::find()
-            ->select($tableSelect)
-            ->with(['columns' => static function ($query): void {
-                $query->select(['id', 'table_id', 'name', 'label', 'sort_order'])
-                    ->orderBy(['sort_order' => SORT_ASC, 'id' => SORT_ASC]);
-            }])
-            ->orderBy(['label' => SORT_ASC, 'name' => SORT_ASC]);
         $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
-        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-            $query->andWhere(['project_id' => $activeProjectId]);
-        }
-        if (!(new CommanderAuthContext())->isSuperAdmin() && !Yii::$app->user->isGuest) {
-            $query->andWhere(['user_id' => Yii::$app->user->id]);
-        }
-        return $query->all();
+        $effectiveUserId = (new CommanderAuthContext())->isSuperAdmin() ? null : (int)(Yii::$app->user->id ?? 0);
+        if ($effectiveUserId === 0) $effectiveUserId = null;
+        
+        return \app\services\TableService::getUserTables($effectiveUserId, $activeProjectId);
     }
 
     private function findAvailableForms(): array

@@ -750,7 +750,13 @@ class FormRenderService
         $buttonStyle = ($readonly || !$interactive) ? 'opacity:.55;cursor:not-allowed;' : '';
         $previewStyle = $previewImage ? '' : 'display:none;';
 
-        $html = '<div class="gps-camera-field" data-gps-camera-component="1" data-field-name="' . Html::encode($name) . '" data-metadata-url="' . Html::encode($metadataUrl) . '" data-auto-gps="' . ($autoGps ? '1' : '0') . '" data-auto-timestamp="' . ($autoTimestamp ? '1' : '0') . '" data-preview-image="' . ($previewImage ? '1' : '0') . '" data-server-date="' . Html::encode($serverDate) . '" data-server-time="' . Html::encode($serverTime) . '" data-server-at="' . Html::encode($serverAt) . '" style="' . $wrapperStyle . 'margin-bottom:14px;position:relative;">'
+        $mappings = $field['gps_camera_mappings'] ?? [];
+        if (is_string($mappings)) {
+            $mappings = json_decode($mappings, true) ?: [];
+        }
+        $mappingsJson = json_encode($mappings);
+
+        $html = '<div class="gps-camera-field" data-gps-camera-component="1" data-field-name="' . Html::encode($name) . '" data-metadata-url="' . Html::encode($metadataUrl) . '" data-auto-gps="' . ($autoGps ? '1' : '0') . '" data-auto-timestamp="' . ($autoTimestamp ? '1' : '0') . '" data-preview-image="' . ($previewImage ? '1' : '0') . '" data-server-date="' . Html::encode($serverDate) . '" data-server-time="' . Html::encode($serverTime) . '" data-server-at="' . Html::encode($serverAt) . '" data-gps-camera-mappings=\'' . Html::encode($mappingsJson) . '\' style="' . $wrapperStyle . 'margin-bottom:14px;position:relative;">'
             . ($includeLabel ? '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;font-weight:600;">' . Html::encode($label) . ($required ? ' <span style="color:#dc2626;">*</span>' : '') . '</label>' : '')
             . '<input type="hidden" name="' . Html::encode($name) . '" value="' . Html::encode($hiddenPayload ?: '{}') . '" data-gps-camera-payload="1">'
             . '<input type="file" name="__gps_camera_file_' . Html::encode($safeName) . '" accept="image/*" capture="environment" data-gps-camera-file="1" style="display:none;"' . $controlsDisabled . $requiredAttr . '>'
@@ -855,6 +861,46 @@ class FormRenderService
             input.value = hasPayloadData(payload) ? encodePayload(payload) : '';
         }
         setMeta(wrapper, payload || {});
+        
+        // Advanced Binding Logic
+        var mappingsStr = wrapper.getAttribute('data-gps-camera-mappings');
+        if (mappingsStr) {
+            try {
+                var mappings = JSON.parse(mappingsStr);
+                var form = wrapper.closest('form');
+                if (form && payload) {
+                    for (var key in mappings) {
+                        var colName = mappings[key];
+                        if (!colName) continue;
+                        // Use querySelectorAll to handle possible multiple fields with same name or case sensitivity
+                        var targetInputs = form.querySelectorAll('[name="' + colName + '"]');
+                        if (targetInputs.length === 0) {
+                            // Try common Yii2 naming patterns if direct name fails
+                            targetInputs = form.querySelectorAll('[id$="-' + colName.toLowerCase() + '"]');
+                        }
+                        
+                        targetInputs.forEach(function(targetInput) {
+                            var value = '';
+                            switch(key) {
+                                case 'photo_path': value = payload.photo_path || payload.photo_name || ''; break;
+                                case 'latitude': value = payload.latitude || ''; break;
+                                case 'longitude': value = payload.longitude || ''; break;
+                                case 'gps_link': value = (payload.latitude && payload.longitude) ? 'https://www.google.com/maps?q=' + payload.latitude + ',' + payload.longitude : ''; break;
+                                case 'captured_at': value = payload.captured_at || ''; break;
+                                case 'location_name': value = payload.location_text || payload.location_address || ''; break;
+                            }
+                            if (targetInput.type === 'checkbox' || targetInput.type === 'radio') {
+                                targetInput.checked = !!value;
+                            } else {
+                                targetInput.value = value;
+                            }
+                            targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                        });
+                    }
+                }
+            } catch(e) { console.error('GPS Mapping Error:', e); }
+        }
     }
 
     function getState(wrapper) {
@@ -1014,12 +1060,35 @@ class FormRenderService
             location_address: ''
         };
 
+        var osmPromise = Promise.resolve({});
+        if (gps && gps.latitude && gps.longitude) {
+            var osmUrl = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + gps.latitude + '&lon=' + gps.longitude;
+            osmPromise = fetch(osmUrl, {
+                headers: {
+                    'User-Agent': 'TableForge-Application/1.0 (developer@tableforge.local)'
+                }
+            })
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                return {
+                    location_text: buildLocationLabel(data.address),
+                    location_address: data.display_name || ''
+                };
+            })
+            .catch(function() { return {}; });
+        }
+
         if (!endpoint) {
-            return Promise.resolve(fallback);
+            return osmPromise.then(function(osmData) {
+                var result = {};
+                for (var key in fallback) result[key] = fallback[key];
+                for (var key in osmData) result[key] = osmData[key];
+                return result;
+            });
         }
 
         var url = endpoint + (endpoint.indexOf('?') === -1 ? '?' : '&') + params.toString();
-        return fetchWithTimeout(url, {
+        var serverPromise = fetchWithTimeout(url, {
             headers: {
                 'Accept': 'application/json'
             },
@@ -1031,21 +1100,24 @@ class FormRenderService
                 }
                 return response.json();
             })
-            .then(function(data) {
-                return {
-                    server_date: data && data.server_date ? String(data.server_date) : fallback.server_date,
-                    server_time: data && data.server_time ? String(data.server_time) : fallback.server_time,
-                    server_at: data && data.server_at ? String(data.server_at) : fallback.server_at,
-                    latitude: data && data.latitude !== undefined && data.latitude !== null && String(data.latitude) !== '' ? String(data.latitude) : fallback.latitude,
-                    longitude: data && data.longitude !== undefined && data.longitude !== null && String(data.longitude) !== '' ? String(data.longitude) : fallback.longitude,
-                    gps_accuracy: data && data.gps_accuracy !== undefined && data.gps_accuracy !== null && String(data.gps_accuracy) !== '' ? String(data.gps_accuracy) : fallback.gps_accuracy,
-                    location_text: data && data.location_text ? String(data.location_text) : fallback.location_text,
-                    location_address: data && data.location_address ? String(data.location_address) : fallback.location_address
-                };
-            })
             .catch(function() {
-                return fallback;
+                return {};
             });
+
+        return Promise.all([osmPromise, serverPromise]).then(function(results) {
+            var osmData = results[0];
+            var data = results[1];
+            return {
+                server_date: data && data.server_date ? String(data.server_date) : fallback.server_date,
+                server_time: data && data.server_time ? String(data.server_time) : fallback.server_time,
+                server_at: data && data.server_at ? String(data.server_at) : fallback.server_at,
+                latitude: data && data.latitude !== undefined && data.latitude !== null && String(data.latitude) !== '' ? String(data.latitude) : fallback.latitude,
+                longitude: data && data.longitude !== undefined && data.longitude !== null && String(data.longitude) !== '' ? String(data.longitude) : fallback.longitude,
+                gps_accuracy: data && data.gps_accuracy !== undefined && data.gps_accuracy !== null && String(data.gps_accuracy) !== '' ? String(data.gps_accuracy) : fallback.gps_accuracy,
+                location_text: osmData.location_text || (data && data.location_text ? String(data.location_text) : fallback.location_text),
+                location_address: osmData.location_address || (data && data.location_address ? String(data.location_address) : fallback.location_address)
+            };
+        });
     }
 
     function fileToDataUrl(file) {
@@ -1559,32 +1631,44 @@ HTML;
                     $boundNames[strtolower($targetColumnName)] = true;
                 }
             }
+
+            // Also check for advanced mappings
+            $mappings = $field['gps_camera_mappings'] ?? [];
+            if (is_string($mappings)) {
+                $mappings = json_decode($mappings, true) ?: [];
+            }
+            if (is_array($mappings)) {
+                foreach ($mappings as $col) {
+                    if ($col !== '') {
+                        $boundNames[strtolower((string)$col)] = true;
+                    }
+                }
+            }
         }
 
         if (empty($boundNames)) {
             return $fields;
         }
 
-        return array_values(array_filter($fields, static function ($field) use ($boundNames): bool {
+        return array_map(static function ($field) use ($boundNames) {
             if (!is_array($field)) {
-                return true;
+                return $field;
             }
 
             if (self::isGpsCameraField($field)) {
-                return true;
+                return $field;
             }
 
             $fieldName = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
-            if ($fieldName === '') {
-                return true;
+            if ($fieldName !== '' && isset($boundNames[strtolower($fieldName)])) {
+                $field['excluded'] = true;
+                $field['hidden'] = true;
+                $field['type'] = 'hidden';
+                $field['inputType'] = 'hidden';
             }
 
-            if (isset($boundNames[strtolower($fieldName)]) && strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? ''))) !== 'hidden') {
-                return false;
-            }
-
-            return true;
-        }));
+            return $field;
+        }, $fields);
     }
 
     public static function attachAjaxSubmitHandler(string $html): string

@@ -665,6 +665,193 @@
         applyAutofillResponse(form, fieldName, value);
     }
 
+    function DynamicFormLogicEngine(form, schema) {
+        this.form = form;
+        this.schema = schema;
+        this.fields = schema.fields || [];
+        this.fieldMap = {};
+        this.fields.forEach(f => {
+            if (f.field_id) this.fieldMap[f.field_id] = f;
+            const name = f.field_name || f.name || f.field_key;
+            if (name) this.fieldMap[name] = f;
+        });
+        this.init();
+    }
+
+    DynamicFormLogicEngine.prototype.init = function() {
+        var self = this;
+        this.form.addEventListener('change', function() {
+            self.evaluate();
+        });
+        this.form.addEventListener('input', function() {
+            self.evaluate();
+        });
+        this.form.addEventListener('submit', function(e) {
+            self.handleSubmit(e);
+        });
+        this.evaluate(); // Initial run
+    };
+
+    DynamicFormLogicEngine.prototype.handleSubmit = function(e) {
+        // 5.1 Pre-Submit Pipeline
+        
+        // Step 1: Evaluate Active Fields
+        var activeFields = this.fields.filter(f => {
+            const name = f.field_name || f.name || f.field_key;
+            const container = this.form.querySelector('[name="' + cssEscape(name) + '"]')?.closest('.preview-field, .field-wrapper');
+            return !container || container.style.display !== 'none';
+        });
+
+        // Step 2: Validation
+        var errors = this.validate(activeFields);
+        if (errors.length) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.showErrors(errors);
+            return;
+        }
+
+        // Step 3 & 4: Transformation & Payload (Standard Form submit will handle basic ones, 
+        // but we might need to inject transformed values)
+        this.transform(activeFields);
+        
+        // Final submit happens normally if not prevented
+    };
+
+    DynamicFormLogicEngine.prototype.validate = function(fields) {
+        var errors = [];
+        var formData = this.getFormData();
+        
+        fields.forEach(field => {
+            const name = field.field_name || field.name || field.field_key;
+            const val = formData[name];
+            
+            if (field.is_required && (!val || val === '')) {
+                errors.push({ field: name, message: field.label + ' wajib diisi.' });
+            }
+            
+            // Add more complex validation rules based on field.validation_rules here
+        });
+
+        return errors;
+    };
+
+    DynamicFormLogicEngine.prototype.showErrors = function(errors) {
+        alert('Terdapat kesalahan validasi:\n' + errors.map(e => '- ' + e.message).join('\n'));
+        // Focus first error
+        if (errors.length) {
+            const el = this.form.querySelector('[name="' + cssEscape(errors[0].field) + '"]');
+            if (el) el.focus();
+        }
+    };
+
+    DynamicFormLogicEngine.prototype.transform = function(fields) {
+        // Transformation logic as per 5.1 Step 3
+        fields.forEach(field => {
+            if (field.input_type === 'date' && field.save_format) {
+                // Convert date format if needed
+            }
+            // FK values are already PKs from picker, so no transform needed for FK usually
+        });
+    };
+
+    DynamicFormLogicEngine.prototype.getFormData = function() {
+        var data = {};
+        var formData = new FormData(this.form);
+        formData.forEach(function(value, key) {
+            data[key] = value;
+        });
+        return data;
+    };
+
+    DynamicFormLogicEngine.prototype.checkConditions = function(conditions, logic, formData) {
+        if (!conditions || !conditions.length) return true;
+        
+        var results = conditions.map(cond => {
+            const field = this.fieldMap[cond.field_id] || this.fieldMap[cond.field_name];
+            if (!field) return true;
+            
+            const name = field.field_name || field.name || field.field_key;
+            const val = formData[name];
+            return this.compare(val, cond.operator, cond.value);
+        });
+
+        if (logic === 'OR') {
+            return results.some(r => r);
+        }
+        return results.every(r => r);
+    };
+
+    DynamicFormLogicEngine.prototype.compare = function(val, op, target) {
+        switch (op) {
+            case '==': return val == target;
+            case '!=': return val != target;
+            case '>': return parseFloat(val) > parseFloat(target);
+            case '>=': return parseFloat(val) >= parseFloat(target);
+            case '<': return parseFloat(val) < parseFloat(target);
+            case '<=': return parseFloat(val) <= parseFloat(target);
+            case 'in': return Array.isArray(target) && target.includes(val);
+            case 'notIn': return Array.isArray(target) && !target.includes(val);
+            case 'empty': return !val || val === '';
+            case 'notEmpty': return !!val && val !== '';
+            default: return true;
+        }
+    };
+
+    DynamicFormLogicEngine.prototype.evaluate = function() {
+        var formData = this.getFormData();
+        var self = this;
+        
+        this.fields.forEach(field => {
+            const name = field.field_name || field.name || field.field_key;
+            const container = this.form.querySelector('.preview-field, .field-wrapper, [data-field-container="' + cssEscape(name) + '"]') 
+                              || this.form.querySelector('[name="' + cssEscape(name) + '"]')?.closest('.preview-field, .field-wrapper');
+            
+            if (field.input_type === 'hidden') {
+                this.handleHiddenField(field);
+                return;
+            }
+
+            if (!container) return;
+
+            // show_if
+            const visible = field.show_if && field.show_if.length > 0 ? this.checkConditions(field.show_if, field.condition_logic, formData) : true;
+            container.style.display = visible ? '' : 'none';
+
+            // required_if
+            const required = field.is_required || (field.required_if && field.required_if.length > 0 ? this.checkConditions(field.required_if, field.condition_logic, formData) : false);
+            const input = container.querySelector('input, select, textarea');
+            if (input) {
+                input.required = required;
+                const label = container.querySelector('.preview-label, label');
+                if (label) label.classList.toggle('required', required);
+            }
+
+            // disabled_if
+            const disabled = field.is_disabled || (field.disabled_if && field.disabled_if.length > 0 ? this.checkConditions(field.disabled_if, field.condition_logic, formData) : false);
+            if (input) input.disabled = disabled;
+        });
+    };
+
+    DynamicFormLogicEngine.prototype.handleHiddenField = function(field) {
+        const name = field.field_name || field.name || field.field_key;
+        const input = this.form.querySelector('input[type="hidden"][name="' + cssEscape(name) + '"]');
+        if (!input) return;
+
+        switch (field.value_source) {
+            case 'timestamp':
+                if (!input.value) input.value = new Date().toISOString();
+                break;
+            case 'uuid':
+                if (!input.value) input.value = crypto.randomUUID();
+                break;
+            case 'session':
+                if (field.session_key) input.value = localStorage.getItem(field.session_key) || sessionStorage.getItem(field.session_key) || input.value;
+                break;
+            // ... context and computed logic can be added here
+        }
+    };
+
     function bindForm(form) {
         if (!form || form.dataset.dynamicRuntimeBound === '1') {
             return;
@@ -675,6 +862,17 @@
         installStyle();
 
         devDebug('Initializing dynamic form', form.getAttribute('data-dynamic-form-instance') || form.id || getFormId(form) || '');
+
+        // Initialize Logic Engine if schema is provided
+        var schemaJson = form.getAttribute('data-form-schema');
+        if (schemaJson) {
+            var schema = parseJson(schemaJson);
+            if (schema) {
+                new DynamicFormLogicEngine(form, schema);
+            }
+        } else if (window.__dynamicFormSchema) {
+            new DynamicFormLogicEngine(form, window.__dynamicFormSchema);
+        }
 
         Array.prototype.forEach.call(form.querySelectorAll('.relation-picker-display'), function(input) {
             if (input.dataset.dynamicRuntimeBound === '1') {

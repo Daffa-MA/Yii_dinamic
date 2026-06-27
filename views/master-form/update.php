@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use yii\helpers\Html;
 use yii\helpers\Url;
@@ -1054,7 +1054,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
             <span class="material-symbols-outlined">pin</span>
             <span>Number</span>
         </div>
-        <div class="component-item" draggable="true" data-field-type="tel">
+        <div class="component-item" draggable="true" data-field-type="phone">
             <span class="material-symbols-outlined">phone</span>
             <span>Phone</span>
         </div>
@@ -1070,7 +1070,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
         </div>
 
         <div class="component-section-title">Selection</div>
-        <div class="component-item" draggable="true" data-field-type="select">
+        <div class="component-item" draggable="true" data-field-type="dropdown">
             <span class="material-symbols-outlined">arrow_drop_down_circle</span>
             <span>Dropdown</span>
         </div>
@@ -1085,6 +1085,10 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
         <div class="component-item" draggable="true" data-field-type="checkboxes">
             <span class="material-symbols-outlined">checklist</span>
             <span>Checkboxes</span>
+        </div>
+        <div class="component-item" draggable="true" data-field-type="toggle">
+            <span class="material-symbols-outlined">toggle_on</span>
+            <span>Switch Toggle</span>
         </div>
 
         <div class="component-section-title">Date & Time</div>
@@ -1102,7 +1106,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
         </div>
 
         <div class="component-section-title">File & Hidden</div>
-        <div class="component-item" draggable="true" data-field-type="file">
+        <div class="component-item" draggable="true" data-field-type="file_upload">
             <span class="material-symbols-outlined">upload_file</span>
             <span>File Upload</span>
         </div>

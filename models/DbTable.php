@@ -101,6 +101,144 @@ class DbTable extends ActiveRecord
         return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 
+    /**
+     * PERBAIKAN: Identifikasi tabel sistem secara dinamis tanpa hardcoding yang kaku.
+     * Tabel sistem adalah tabel yang menunjang sistem / bawaan saat project dibuat.
+     */
+    public static function isSystemTable(string $tableName): bool
+    {
+        $name = strtolower(trim($tableName));
+        if ($name === '') {
+            return false;
+        }
+
+        // Framework / Library Patterns (Yii2, Gii, Auth, Debug, Migration, RBAC, Cache, Queue)
+        $systemPatterns = [
+            '/^yii_/',
+            '/^gii_/',
+            '/^auth_/',
+            '/^migration/',
+            '/^debug_/',
+            '/^rbac_/',
+            '/^cache_/',
+            '/^queue_/',
+            '/^session_/',
+            '/^audit_/',
+            '/^log_/',
+            '/^oauth_/',
+        ];
+
+        foreach ($systemPatterns as $pattern) {
+            if (preg_match($pattern, $name)) {
+                return true;
+            }
+        }
+
+        // Core Meta-Tables and Internal Application Tables (Bawaan Sistem)
+        $systemTables = [
+            // Metadata & Config
+            'db_tables',
+            'db_table_columns',
+            'system_settings',
+            'settings',
+            'internal_metadata',
+            'internal_metadata_columns',
+            'table_metadata',
+            
+            // App Builders & Masters
+            'master_form',
+            'master_form_fields',
+            'master_form_layouts',
+            'master_datatable',
+            'master_menu',
+            'master_page',
+            'master_page_form',
+            'master_report',
+            'master_dashboard',
+            'master_api',
+            'master_automation',
+            'forms', // Bawaan database_setup.sql
+            'page_forms',
+            
+            // Auth, Users & Projects
+            'user',
+            'users', // Bawaan database_setup.sql
+            'project',
+            'project_user',
+            'roles',
+            'permissions',
+            'role_permissions',
+            'user_roles',
+            'role_access',
+            'auth_assignment',
+            'auth_item',
+            'auth_item_child',
+            'auth_rule',
+            
+            // Operations & Features
+            'notification',
+            'notifications', // Bawaan database_setup.sql
+            'form_submissions', // Bawaan database_setup.sql
+            'form_responses',
+            'submissions',
+            'audit_logs',
+            'audit',
+            'failed_jobs',
+            'migrations',
+            'cache',
+            'queue',
+            'session',
+            'logs',
+            'log',
+            'workspace_settings',
+            
+            // Internal Database (e.g. SQLite)
+            'sqlite_sequence',
+            'sqlite_master',
+            'sqlite_stat1',
+        ];
+
+        if (in_array($name, $systemTables, true)) {
+            return true;
+        }
+
+        // Cek metadata jika tabel terdaftar di db_tables dan ditandai sebagai sistem
+        try {
+            $meta = self::find()->where(['name' => $tableName])->asArray()->one();
+            if ($meta !== null && !empty($meta['is_system'])) {
+                return true;
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore if table doesn't exist in metadata
+        }
+
+        return false;
+    }
+
+    /**
+     * PERBAIKAN: Ambil hanya tabel pengguna untuk dropdown global (Source of Truth).
+     */
+    public static function getUserTables(?int $userId = null, ?int $projectId = null): array
+    {
+        return \app\services\TableService::getUserTables($userId, $projectId);
+    }
+
+    /**
+     * PERBAIKAN: Ambil tabel sistem secara dinamis (Source of Truth).
+     */
+    public static function getSystemTables(?int $userId = null, ?int $projectId = null): array
+    {
+        return \app\services\TableService::getSystemTables($userId, $projectId);
+    }
+
+    /**
+     * PERBAIKAN: Ambil semua tabel (User + System) (Source of Truth).
+     */
+    public static function getAllTables(?int $userId = null, ?int $projectId = null): array
+    {
+        return \app\services\TableService::getAllTables($userId, $projectId);
+    }
+
     public function getProject()
     {
         return $this->hasOne(Project::class, ['id' => 'project_id']);

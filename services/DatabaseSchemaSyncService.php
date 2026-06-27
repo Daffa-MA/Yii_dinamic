@@ -165,10 +165,10 @@ class DatabaseSchemaSyncService
         }
 
         if ($hasSystemAttribute) {
-            $model->setAttribute('is_system', false);
+            $model->setAttribute('is_system', DbTable::isSystemTable($model->name));
         }
         if ($hasVisibleAttribute) {
-            $model->setAttribute('is_visible_in_builder', true);
+            $model->setAttribute('is_visible_in_builder', !DbTable::isSystemTable($model->name));
         }
     }
 

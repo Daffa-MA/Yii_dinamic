@@ -370,11 +370,12 @@ class MasterFormController extends Controller
     private function buildSchemaColumnLookup($schema): array
     {
         $lookup = [];
-        if ($schema === null || empty($schema->columns)) {
+        $columns = is_object($schema) ? ($schema->columns ?? []) : (is_array($schema) ? $schema : []);
+        if (empty($columns)) {
             return $lookup;
         }
 
-        foreach ($schema->columns as $columnName => $column) {
+        foreach ($columns as $columnName => $column) {
             $columnName = (string)$columnName;
             $aliases = [
                 $columnName,
@@ -387,8 +388,8 @@ class MasterFormController extends Controller
             }
 
             foreach ([
-                $column->label ?? null,
-                $column->comment ?? null,
+                is_object($column) ? ($column->label ?? null) : ($column['label'] ?? null),
+                is_object($column) ? ($column->comment ?? null) : ($column['comment'] ?? null),
             ] as $aliasValue) {
                 if (is_string($aliasValue) && trim($aliasValue) !== '') {
                     $aliases[] = trim($aliasValue);
@@ -1124,15 +1125,16 @@ class MasterFormController extends Controller
             $field['column_name'] ?? null,
             $field['relation_target_column'] ?? null,
         ]));
+        $columns = is_object($targetSchema) ? ($targetSchema->columns ?? []) : (is_array($targetSchema) ? $targetSchema : []);
         foreach ($candidates as $candidate) {
             $normalized = $this->normalizeSchemaKey((string)$candidate);
-            if (isset($targetSchema->columns[$candidate])) {
+            if (isset($columns[$candidate])) {
                 return $candidate;
             }
-            if (isset($targetSchema->columns[$normalized])) {
+            if (isset($columns[$normalized])) {
                 return $normalized;
             }
-            foreach ($targetSchema->columns as $colName => $col) {
+            foreach ($columns as $colName => $col) {
                 if ($this->normalizeSchemaKey($colName) === $normalized) {
                     return $colName;
                 }
@@ -1148,7 +1150,7 @@ class MasterFormController extends Controller
             }
         }
         $refTableNormalized = str_replace(['_', '-'], '', strtolower($referencedTable));
-        foreach ($targetSchema->columns as $colName => $col) {
+        foreach ($columns as $colName => $col) {
             $colNormalized = str_replace(['_', '-'], '', strtolower($colName));
             if ($colNormalized === $refTableNormalized . 'id' || $colNormalized === $refTableNormalized) {
                 return $colName;
@@ -2538,6 +2540,21 @@ class MasterFormController extends Controller
                     }
                 }
             }
+
+            // BAGIAN 5.1 Step 2: Server-side Validation
+            $schemaValidationErrors = $this->validateBySchema($insertData, $fields, $columns->columns, (int)$tableId);
+            if (!empty($schemaValidationErrors)) {
+                if ($isAjax) {
+                    return [
+                        'success' => false,
+                        'message' => 'Validasi gagal.',
+                        'errors' => $schemaValidationErrors,
+                    ];
+                }
+                Yii::$app->session->setFlash('error', 'Validasi gagal: ' . implode(', ', $schemaValidationErrors));
+                return $this->redirect(['preview', 'id' => $id]);
+            }
+
             $preSystemInsertData = $insertData;
             if (empty($preSystemInsertData)) {
                 $postedFieldNames = array_keys($postData);
@@ -3307,7 +3324,10 @@ class MasterFormController extends Controller
             'workspace_id',
         ];
 
-        return in_array($columnName, $systemColumns, true) || !empty($column->isPrimaryKey) || !empty($column->autoIncrement);
+        $isPk = is_object($column) ? !empty($column->isPrimaryKey) : !empty($column['isPrimaryKey']);
+        $isAi = is_object($column) ? !empty($column->autoIncrement) : !empty($column['autoIncrement']);
+
+        return in_array($columnName, $systemColumns, true) || $isPk || $isAi;
     }
 
     private function canSubmitEmbeddedPageForm(int $formId): bool
@@ -3343,5 +3363,59 @@ class MasterFormController extends Controller
         return $permissionService->canUseFormAsPageContent($formId, $pageId, $projectId)
             || $permissionService->canUseLegacyFormAsPageContent($formId, $pageId, $projectId);
     }
-    
+    private function validateBySchema(array $data, array $fields, array $columns, int $tableId): array
+    {
+        $errors = [];
+        foreach ($fields as $field) {
+            if (!is_array($field)) continue;
+            
+            $fieldName = $this->normalizeFieldName($field, 0, $columns, $tableId);
+            if (!$fieldName) continue;
+
+            $value = $data[$fieldName] ?? null;
+            $rules = is_array($field['validation_rules'] ?? null) ? $field['validation_rules'] : [];
+            
+            // Check required (always at top)
+            if (!empty($field['is_required']) && ($value === null || $value === '')) {
+                $errors[$fieldName] = ($field['label'] ?? $fieldName) . ' wajib diisi.';
+                continue;
+            }
+
+            foreach ($rules as $ruleConfig) {
+                if (!is_array($ruleConfig)) continue;
+                $rule = $ruleConfig['rule'] ?? '';
+                $params = $ruleConfig['value'] ?? null;
+                $message = $ruleConfig['message'] ?? (($field['label'] ?? $fieldName) . " tidak valid.");
+
+                if (!$this->validateRule($value, $rule, $params)) {
+                    $errors[$fieldName] = $message;
+                    break;
+                }
+            }
+        }
+        return $errors;
+    }
+
+    private function validateRule($value, string $rule, $params = null): bool
+    {
+        if ($value === null || $value === '') {
+            return $rule !== 'required';
+        }
+
+        switch ($rule) {
+            case 'required': return true; // Already checked above
+            case 'min': return (float)$value >= (float)$params;
+            case 'max': return (float)$value <= (float)$params;
+            case 'minLength': return mb_strlen((string)$value, 'UTF-8') >= (int)$params;
+            case 'maxLength': return mb_strlen((string)$value, 'UTF-8') <= (int)$params;
+            case 'email': return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
+            case 'url': return filter_var($value, FILTER_VALIDATE_URL) !== false;
+            case 'numeric': return is_numeric($value);
+            case 'integer': return filter_var($value, FILTER_VALIDATE_INT) !== false;
+            case 'pattern': return preg_match('/' . str_replace('/', '\/', (string)$params) . '/', (string)$value) === 1;
+            case 'in': return is_array($params) && in_array($value, $params);
+            case 'notIn': return is_array($params) && !in_array($value, $params);
+            default: return true;
+        }
+    }
 }

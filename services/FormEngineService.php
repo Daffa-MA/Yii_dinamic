@@ -273,9 +273,11 @@ class FormEngineService
             }
         }
         $resolvedLabel = $this->resolveCanonicalFieldLabel($fieldData, $resolvedName, $sourceColumn);
-        $resolvedType = (string)($fieldData['field_type'] ?? $fieldData['type'] ?? 'text');
-        $componentType = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $resolvedType);
+        $resolvedType = (string)($fieldData['type'] ?? $fieldData['field_type'] ?? 'text');
+        $componentType = (string)($fieldData['component_type'] ?? $fieldData['inputType'] ?? $fieldData['input_type'] ?? $resolvedType);
+
         $resolvedField = $fieldData;
+        $resolvedField['field_id'] = $fieldData['field_id'] ?? (string)($fieldData['id'] ?? '');
         $resolvedField['original_name'] = trim((string)($fieldData['original_name'] ?? $fieldData['name'] ?? ''));
         $resolvedField['resolved_name'] = $resolvedName;
         $resolvedField['resolved_column_name'] = $resolvedName;
@@ -288,8 +290,46 @@ class FormEngineService
         $resolvedField['field_label'] = $resolvedLabel;
         $resolvedField['type'] = $resolvedType;
         $resolvedField['field_type'] = $resolvedType;
+        $resolvedField['input_type'] = $componentType;
         $resolvedField['component_type'] = $componentType;
         $resolvedField['inputType'] = $componentType;
+        
+        // 1.1 Base Properties
+        $resolvedField['is_required'] = (bool)($fieldData['is_required'] ?? $fieldData['required'] ?? false);
+        $resolvedField['is_visible'] = (bool)($fieldData['is_visible'] ?? true);
+        $resolvedField['is_disabled'] = (bool)($fieldData['is_disabled'] ?? false);
+        $resolvedField['placeholder'] = (string)($fieldData['placeholder'] ?? '');
+        $resolvedField['default_value'] = $fieldData['default_value'] ?? null;
+        $resolvedField['helper_text'] = (string)($fieldData['helper_text'] ?? '');
+        $resolvedField['error_text'] = (string)($fieldData['error_text'] ?? '');
+        $resolvedField['order'] = (int)($fieldData['order'] ?? $index);
+        $resolvedField['column_width'] = (int)($fieldData['column_width'] ?? 12);
+        $resolvedField['column_offset'] = (int)($fieldData['column_offset'] ?? 0);
+        $resolvedField['section_id'] = (string)($fieldData['section_id'] ?? '');
+        $resolvedField['css_class'] = (string)($fieldData['css_class'] ?? '');
+        $resolvedField['style_override'] = is_array($fieldData['style_override'] ?? null) ? $fieldData['style_override'] : (object)[];
+        $resolvedField['tooltip'] = (string)($fieldData['tooltip'] ?? '');
+        $resolvedField['icon_prefix'] = (string)($fieldData['icon_prefix'] ?? '');
+        $resolvedField['icon_suffix'] = (string)($fieldData['icon_suffix'] ?? '');
+        $resolvedField['tab_index'] = (int)($fieldData['tab_index'] ?? 0);
+
+        // 1.2 Validation Properties
+        $resolvedField['validation_rules'] = is_array($fieldData['validation_rules'] ?? null) ? $fieldData['validation_rules'] : [];
+        $resolvedField['validate_on'] = (string)($fieldData['validate_on'] ?? 'change');
+        $resolvedField['custom_validator'] = (string)($fieldData['custom_validator'] ?? '');
+        $resolvedField['remote_validate_url'] = (string)($fieldData['remote_validate_url'] ?? '');
+        $resolvedField['remote_validate_debounce_ms'] = (int)($fieldData['remote_validate_debounce_ms'] ?? 500);
+        $resolvedField['validate_on_mount'] = (bool)($fieldData['validate_on_mount'] ?? false);
+
+        // 1.3 Conditional Logic Properties
+        $resolvedField['show_if'] = is_array($fieldData['show_if'] ?? null) ? $fieldData['show_if'] : [];
+        $resolvedField['required_if'] = is_array($fieldData['required_if'] ?? null) ? $fieldData['required_if'] : [];
+        $resolvedField['disabled_if'] = is_array($fieldData['disabled_if'] ?? null) ? $fieldData['disabled_if'] : [];
+        $resolvedField['readonly_if'] = is_array($fieldData['readonly_if'] ?? null) ? $fieldData['readonly_if'] : [];
+        $resolvedField['clear_if'] = is_array($fieldData['clear_if'] ?? null) ? $fieldData['clear_if'] : [];
+        $resolvedField['condition_logic'] = (string)($fieldData['condition_logic'] ?? 'AND');
+        $resolvedField['condition_groups'] = is_array($fieldData['condition_groups'] ?? null) ? $fieldData['condition_groups'] : [];
+
         $resolvedField['source_column_name'] = $sourceColumn !== null ? (string)$sourceColumn->name : (string)($fieldData['source_column_name'] ?? '');
         $resolvedField['source_column_label'] = $sourceColumn !== null ? (string)($sourceColumn->label ?? $sourceColumn->name) : (string)($fieldData['source_column_label'] ?? '');
         $resolvedField['source_column_type'] = $sourceColumn !== null ? (string)($sourceColumn->type ?? '') : (string)($fieldData['source_column_type'] ?? '');

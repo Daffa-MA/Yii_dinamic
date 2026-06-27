@@ -67,6 +67,26 @@
         }).catch(err => {
             console.error('Failed to load dropdown tables:', err);
         });
+        // Event Delegation for field selection
+        if (container) {
+            container.addEventListener('click', function(e) {
+                const fieldItem = e.target.closest('.field-item');
+                if (fieldItem) {
+                    // Check if clicked on delete button or other actions
+                    if (e.target.dataset.delete || e.target.closest('[data-delete]') || 
+                        e.target.classList.contains('field-actions-btn') || 
+                        e.target.closest('.field-actions-btn')) {
+                        return;
+                    }
+                    
+                    const index = parseInt(fieldItem.dataset.index, 10);
+                    if (!isNaN(index)) {
+                        selectField(index);
+                    }
+                }
+            });
+        }
+
         let gpsCameraMetadataLoadToken = 0;
 
         // ===== BUG 2 FIX: Load existing form data dengan safe JSON.parse + try-catch =====
@@ -127,131 +147,37 @@
 
         // Field Configuration
         const fieldConfig = {
-            text: {
-                label: 'Text Input',
-                inputType: 'text',
-                placeholder: 'Masukkan teks...'
-            },
-            email: {
-                label: 'Email',
-                inputType: 'email',
-                placeholder: 'email@example.com'
-            },
-            password: {
-                label: 'Password',
-                inputType: 'password',
-                placeholder: ''
-            },
-            number: {
-                label: 'Number',
-                inputType: 'number',
-                placeholder: ''
-            },
-            tel: {
-                label: 'Phone',
-                inputType: 'tel',
-                placeholder: '+62 xxx'
-            },
-            url: {
-                label: 'URL',
-                inputType: 'url',
-                placeholder: 'https://...'
-            },
-            textarea: {
-                label: 'Textarea',
-                inputType: 'textarea',
-                rows: 4,
-                placeholder: 'Masukkan teks panjang...'
-            },
-            select: {
-                label: 'Dropdown',
-                inputType: 'select',
-                option_source: 'manual',
-                dropdown_source: 'static_options',
-                options: [{
-                    value: '',
-                    label: 'Pilih...'
-                }, {
-                    value: 'opt1',
-                    label: 'Opsi 1'
-                }]
-            },
-            radio: {
-                label: 'Radio Group',
-                inputType: 'radio',
-                option_source: 'manual',
-                dropdown_source: 'static_options',
-                options: [{
-                    value: 'opt1',
-                    label: 'Opsi 1'
-                }, {
-                    value: 'opt2',
-                    label: 'Opsi 2'
-                }]
-            },
-            checkbox: {
-                label: 'Checkbox',
-                inputType: 'checkbox',
-                labelText: 'Centang ini'
-            },
-            checkboxes: {
-                label: 'Checkboxes',
-                inputType: 'checkboxes',
-                option_source: 'manual',
-                dropdown_source: 'static_options',
-                options: [{
-                    value: 'opt1',
-                    label: 'Opsi 1'
-                }, {
-                    value: 'opt2',
-                    label: 'Opsi 2'
-                }]
-            },
-            date: {
-                label: 'Date',
-                inputType: 'date'
-            },
-            time: {
-                label: 'Time',
-                inputType: 'time'
-            },
-            datetime: {
-                label: 'Date Time',
-                inputType: 'datetime-local'
-            },
-            file: {
-                label: 'File Upload',
-                inputType: 'file'
-            },
-            gps_camera: {
-                label: 'GPS Camera',
-                inputType: 'gps_camera',
-                auto_capture_gps: true,
-                auto_capture_timestamp: true,
-                preview_image: true,
-                gps_camera_bindings: []
-            },
-            hidden: {
-                label: 'Hidden',
-                inputType: 'hidden'
-            }
+            text: { label: 'Text Input', inputType: 'text', placeholder: 'Masukkan teks...' },
+            email: { label: 'Email', inputType: 'email', placeholder: 'email@example.com' },
+            password: { label: 'Password', inputType: 'password', placeholder: '' },
+            number: { label: 'Number', inputType: 'number', placeholder: '' },
+            phone: { label: 'Phone', inputType: 'phone', placeholder: '+62 xxx' },
+            url: { label: 'URL', inputType: 'url', placeholder: 'https://...' },
+            textarea: { label: 'Textarea', inputType: 'textarea', rows: 4, placeholder: 'Masukkan teks panjang...' },
+            dropdown: { label: 'Dropdown', inputType: 'dropdown', options_source: 'static', options: [{ value: '', label: 'Pilih...' }] },
+            radio: { label: 'Radio Group', inputType: 'radio', options_source: 'static', options: [{ value: 'opt1', label: 'Opsi 1' }] },
+            checkbox: { label: 'Checkbox', inputType: 'checkbox', true_label: 'Ya', false_label: 'Tidak' },
+            checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', options_source: 'static', options: [{ value: 'opt1', label: 'Opsi 1' }] },
+            toggle: { label: 'Switch Toggle', inputType: 'toggle', true_value: 1, false_value: 0 },
+            date: { label: 'Date', inputType: 'date' },
+            time: { label: 'Time', inputType: 'time' },
+            datetime: { label: 'Date Time', inputType: 'datetime' },
+            file_upload: { label: 'File Upload', inputType: 'file_upload' },
+            gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', capture_gps: true },
+            hidden: { label: 'Hidden', inputType: 'hidden', value_source: 'static' }
         };
 
         // PERBAIKAN BUG 1: Debounce/throttle untuk render canvas & props panel
         let _isRenderingFields = false;
         const debouncedRenderFields = debounce(function() {
             renderFieldsImmediate();
-        }, 120);
+        }, 80);
         const throttledRenderPropsPanel = throttle(function(field) {
             renderPropsPanelImmediate(field);
-        }, 150);
+        }, 80);
 
         function renderFieldsImmediate() {
             if (_isRenderingFields) {
-                return;
-            }
-            if (!acquireRenderLock(150)) {
-                debouncedRenderFields();
                 return;
             }
             _isRenderingFields = true;
@@ -259,7 +185,6 @@
                 renderFields();
             } finally {
                 _isRenderingFields = false;
-                releaseRenderLock();
             }
         }
 
@@ -268,13 +193,10 @@
         }
 
         function renderPropsPanelImmediate(field) {
-            if (!acquireRenderLock(120)) {
-                return;
-            }
             try {
                 renderPropsPanel(field);
-            } finally {
-                releaseRenderLock();
+            } catch (e) {
+                console.error('[PROPS] Render error:', e);
             }
         }
 
@@ -284,17 +206,22 @@
             email: 'email',
             password: 'lock',
             number: 'pin',
+            phone: 'phone',
             tel: 'phone',
             url: 'link',
             textarea: 'notes',
+            dropdown: 'arrow_drop_down_circle',
             select: 'arrow_drop_down_circle',
             radio: 'radio_button_checked',
             checkbox: 'check_box',
             checkboxes: 'checklist',
+            toggle: 'toggle_on',
+            boolean: 'toggle_on',
             date: 'calendar_today',
             time: 'schedule',
             datetime: 'event',
             gps_camera: 'photo_camera',
+            file_upload: 'upload_file',
             file: 'upload_file',
             hidden: 'visibility_off'
         };
@@ -769,6 +696,7 @@
             }
 
             field.source_table_id = field.source_table_id || field.dropdown_table_id || '';
+            field.source_column_id = field.source_column_id || '';
             field.source_table_name = field.source_table_name || field.fk_referenced_table || field.referenced_table_name || relationConfig.referenced_table || relationConfig.referenced_table_name || '';
             field.value_column = field.value_column || field.dropdown_value_column || field.fk_referenced_column || field.referenced_value_column || field.referenced_column_name || relationConfig.referenced_value_column || relationConfig.value_column || relationConfig.referenced_column || relationConfig.referenced_column_name || '';
             field.label_column = field.label_column || field.dropdown_label_column || field.fk_display_column || relationConfig.display_column || relationConfig.display_column_name || '';
@@ -802,6 +730,42 @@
             if (!field || typeof field !== 'object') {
                 return field;
             }
+
+            // 1.1 Base Properties Defaults
+            field.field_id = field.field_id || field.id || '';
+            field.is_required = field.required !== undefined ? !!field.required : (field.is_required !== undefined ? !!field.is_required : false);
+            field.is_visible = field.is_visible !== undefined ? !!field.is_visible : true;
+            field.is_disabled = field.is_disabled !== undefined ? !!field.is_disabled : (field.disabled !== undefined ? !!field.disabled : false);
+            field.placeholder = field.placeholder || '';
+            field.default_value = field.default_value !== undefined ? field.default_value : '';
+            field.helper_text = field.helper_text || '';
+            field.error_text = field.error_text || '';
+            field.column_width = parseInt(field.column_width || 12, 10);
+            field.column_offset = parseInt(field.column_offset || 0, 10);
+            field.section_id = field.section_id || '';
+            field.css_class = field.css_class || '';
+            field.style_override = typeof field.style_override === 'object' ? field.style_override : {};
+            field.tooltip = field.tooltip || '';
+            field.icon_prefix = field.icon_prefix || '';
+            field.icon_suffix = field.icon_suffix || '';
+            field.tab_index = parseInt(field.tab_index || 0, 10);
+
+            // 1.2 Validation Properties Defaults
+            field.validation_rules = Array.isArray(field.validation_rules) ? field.validation_rules : [];
+            field.validate_on = field.validate_on || 'change';
+            field.custom_validator = field.custom_validator || '';
+            field.remote_validate_url = field.remote_validate_url || '';
+            field.remote_validate_debounce_ms = parseInt(field.remote_validate_debounce_ms || 500, 10);
+            field.validate_on_mount = !!field.validate_on_mount;
+
+            // 1.3 Conditional Logic Defaults
+            field.show_if = Array.isArray(field.show_if) ? field.show_if : [];
+            field.required_if = Array.isArray(field.required_if) ? field.required_if : [];
+            field.disabled_if = Array.isArray(field.disabled_if) ? field.disabled_if : [];
+            field.readonly_if = Array.isArray(field.readonly_if) ? field.readonly_if : [];
+            field.clear_if = Array.isArray(field.clear_if) ? field.clear_if : [];
+            field.condition_logic = field.condition_logic || 'AND';
+            field.condition_groups = Array.isArray(field.condition_groups) ? field.condition_groups : [];
 
             const columnType = normalizeColumnType(
                 field.source_column_db_type ||
@@ -1754,25 +1718,241 @@
         window.selectField = function(index) {
             if (index === null || index === undefined) return;
             selectedIndex = index;
+            
+            // Ensure properties panel is visible and on design tab
+            const designTabBtn = document.querySelector('.prop-tab-btn[data-tab="design"]');
+            if (designTabBtn && !designTabBtn.classList.contains('active')) {
+                designTabBtn.click();
+            }
+
             // PERBAIKAN BUG 1: Debounce render canvas agar tidak freeze saat klik cepat
             scheduleRenderFields();
-            if (formFields[index]) {
-                throttledRenderPropsPanel(formFields[index]);
+            
+            const field = formFields[index];
+            if (field) {
+                // PERBAIKAN: Deteksi FK secara dinamis saat field diklik
+                const tableId = getCurrentBuilderTableId();
+                if (tableId && field.name) {
+                    fetch('/tables/get-column-metadata?table_id=' + tableId + '&column_name=' + encodeURIComponent(field.name), {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success && data.is_foreign_key) {
+                            field.is_foreign_key = true;
+                            field.fk_referenced_table = data.referenced_table;
+                            field.fk_referenced_column = data.referenced_column;
+                            field.target_columns = data.target_columns;
+                            // Set default display column jika kosong
+                            if (!field.fk_display_column) {
+                                field.fk_display_column = data.referenced_column;
+                            }
+                            syncRelationConfig(field);
+                        }
+                        throttledRenderPropsPanel(field);
+                    })
+                    .catch(() => throttledRenderPropsPanel(field));
+                } else {
+                    throttledRenderPropsPanel(field);
+                }
             }
         };
 
         // Render Properties Panel (Design Tab)
+        function renderBaseProps(field) {
+            let html = '<div class="prop-section"><div class="prop-section-title">Base Properties</div>';
+            html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + escapeAttr(field.label || '') + '" onchange="updateFieldProp(\'label\', this.value)"></div>';
+            
+            const isAuto = !!field.source_column_id;
+            html += '<div class="prop-group"><label class="prop-label">Name (DB Column)</label><input type="text" class="prop-input" value="' + escapeAttr(field.name || '') + '" ' + (isAuto ? 'readonly style="background:#f1f5f9;"' : 'onchange="updateFieldProp(\'name\', this.value)"') + '></div>';
+
+            if (!isAuto) {
+                html += '<div class="prop-group"><label class="prop-label">Bind to Table</label>';
+                html += '<select class="prop-select" onchange="bindFieldToTable(this.value)">';
+                html += '<option value="">(Manual Input)</option>';
+                dropdownSourceTables.forEach(t => {
+                    html += '<option value="' + t.id + '" ' + (field.source_table_id == t.id ? 'selected' : '') + '>' + escapeHtml(t.name) + '</option>';
+                });
+                html += '</select></div>';
+                
+                if (field.source_table_id) {
+                    html += '<div class="prop-group"><label class="prop-label">Bind to Column</label>';
+                    html += '<select class="prop-select" onchange="bindFieldToColumn(this.value)">';
+                    html += '<option value="">(Select Column)</option>';
+                    const cols = dropdownSourceColumnsCache[String(field.source_table_id)] || [];
+                    cols.forEach(c => {
+                        html += '<option value="' + c.id + '" ' + (field.source_column_id == c.id ? 'selected' : '') + '>' + escapeHtml(c.name) + '</option>';
+                    });
+                    html += '</select></div>';
+                }
+            }
+
+            html += '<div class="prop-group"><label class="prop-label">Placeholder</label><input type="text" class="prop-input" value="' + escapeAttr(field.placeholder || '') + '" onchange="updateFieldProp(\'placeholder\', this.value)"></div>';
+            
+            html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 12px;">';
+            html += '<div><label class="prop-label">Width (1-12)</label><input type="number" class="prop-input" min="1" max="12" value="' + (field.column_width || 12) + '" onchange="updateFieldProp(\'column_width\', this.value)"></div>';
+            html += '<div><label class="prop-label">Offset (0-11)</label><input type="number" class="prop-input" min="0" max="11" value="' + (field.column_offset || 0) + '" onchange="updateFieldProp(\'column_offset\', this.value)"></div>';
+            html += '</div>';
+
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_required ? 'checked' : '') + ' onchange="updateFieldProp(\'is_required\', this.checked)">Wajib Diisi (Required)</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_visible ? 'checked' : '') + ' onchange="updateFieldProp(\'is_visible\', this.checked)">Tampilkan (Visible)</label></div>';
+            html += '</div>';
+            return html;
+        }
+
+        function renderSpecificInputProps(field) {
+            let html = '';
+            const type = field.type;
+
+            if (['text', 'email', 'password', 'phone', 'tel', 'url'].includes(type)) {
+                html += '<div class="prop-section"><div class="prop-section-title">Text Input Settings</div>';
+                html += '<div class="prop-group"><label class="prop-label">Min Length</label><input type="number" class="prop-input" value="' + (field.min_length || '') + '" onchange="updateFieldProp(\'min_length\', this.value)"></div>';
+                html += '<div class="prop-group"><label class="prop-label">Max Length</label><input type="number" class="prop-input" value="' + (field.max_length || '') + '" onchange="updateFieldProp(\'max_length\', this.value)"></div>';
+                if (type === 'text') {
+                    html += '<div class="prop-group"><label class="prop-label">Pattern (Regex)</label><input type="text" class="prop-input" value="' + escapeAttr(field.pattern || '') + '" onchange="updateFieldProp(\'pattern\', this.value)"></div>';
+                    html += '<div class="prop-group"><label class="prop-label">Transform</label><select class="prop-select" onchange="updateFieldProp(\'transform\', this.value)">';
+                    ['', 'uppercase', 'lowercase', 'capitalize'].forEach(v => {
+                        html += '<option value="' + v + '" ' + (field.transform === v ? 'selected' : '') + '>' + (v || 'None') + '</option>';
+                    });
+                    html += '</select></div>';
+                }
+                html += '</div>';
+            }
+
+            if (type === 'number') {
+                html += '<div class="prop-section"><div class="prop-section-title">Number Settings</div>';
+                html += '<div class="prop-group"><label class="prop-label">Min Value</label><input type="number" class="prop-input" value="' + (field.min_value || '') + '" onchange="updateFieldProp(\'min_value\', this.value)"></div>';
+                html += '<div class="prop-group"><label class="prop-label">Max Value</label><input type="number" class="prop-input" value="' + (field.max_value || '') + '" onchange="updateFieldProp(\'max_value\', this.value)"></div>';
+                html += '<div class="prop-group"><label class="prop-label">Step</label><input type="number" class="prop-input" step="any" value="' + (field.step || 1) + '" onchange="updateFieldProp(\'step\', this.value)"></div>';
+                html += '</div>';
+            }
+
+            if (type === 'gps_camera') {
+                html += '<div class="prop-section"><div class="prop-section-title">GPS Camera Binding</div>';
+                const builderTableId = getCurrentBuilderTableId();
+                const activeCols = builderTableId ? (dropdownSourceColumnsCache[String(builderTableId)] || []) : [];
+                
+                const metaPoints = [
+                    { key: 'photo_path', label: 'Photo Path / File' },
+                    { key: 'latitude', label: 'Latitude' },
+                    { key: 'longitude', label: 'Longitude' },
+                    { key: 'gps_link', label: 'Google Maps Link' },
+                    { key: 'captured_at', label: 'Captured At (Time)' },
+                    { key: 'location_name', label: 'Location Address' }
+                ];
+
+                if (!field.gps_camera_mappings) field.gps_camera_mappings = {};
+
+                metaPoints.forEach(point => {
+                    html += '<div class="prop-group"><label class="prop-label">' + point.label + '</label>';
+                    html += '<select class="prop-select" onchange="updateGpsMapping(\'' + point.key + '\', this.value)">';
+                    html += '<option value="">(None / Hidden Payload Only)</option>';
+                    activeCols.forEach(col => {
+                        html += '<option value="' + col.name + '" ' + (field.gps_camera_mappings[point.key] === col.name ? 'selected' : '') + '>' + col.name + '</option>';
+                    });
+                    html += '</select></div>';
+                });
+                html += '</div>';
+            }
+
+            if (['dropdown', 'select', 'radio', 'checkboxes'].includes(type) || field.is_foreign_key) {
+                const isFk = field.is_foreign_key || getOptionSourceMode(field) === 'table';
+                if (isFk) {
+                    html += '<div class="prop-section"><div class="prop-section-title">FK UI Selection Mode</div>';
+                    html += '<div class="prop-group"><select class="prop-select" onchange="updateFieldProp(\'picker_mode\', this.value)">';
+                    [['dropdown', 'Standard Dropdown'], ['modal_picker', 'Interactive Modal Search']].forEach(opt => {
+                        html += '<option value="' + opt[0] + '" ' + ((field.picker_mode || 'dropdown') === opt[0] ? 'selected' : '') + '>' + opt[1] + '</option>';
+                    });
+                    html += '</select></div>';
+
+                    if (field.picker_mode === 'modal_picker') {
+                        html += '<div class="prop-group"><label class="prop-label">Modal Grid Columns</label>';
+                        html += '<div style="font-size:11px;color:#64748b;margin-bottom:8px;">Pilih kolom yang tampil di modal pencarian.</div>';
+                        const refTable = field.fk_referenced_table || field.source_table_name || '';
+                        const refTableId = findTableIdByName(refTable);
+                        const refCols = refTableId ? (dropdownSourceColumnsCache[String(refTableId)] || []) : [];
+                        
+                        if (refCols.length > 0) {
+                            html += '<div style="max-height:150px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;">';
+                            if (!field.picker_config) field.picker_config = {};
+                            if (!Array.isArray(field.picker_config.display_columns)) field.picker_config.display_columns = [];
+                            
+                            refCols.forEach(col => {
+                                const checked = field.picker_config.display_columns.includes(col.name);
+                                html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px;cursor:pointer;">';
+                                html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="updateModalDisplayColumns(\'' + col.name + '\', this.checked)">';
+                                html += col.name + '</label>';
+                            });
+                            html += '</div>';
+                        } else {
+                            html += '<div style="font-size:11px;color:#ef4444;">Tabel referensi belum dimuat atau tidak ditemukan.</div>';
+                        }
+                        html += '</div>';
+                    }
+                    html += '</div>';
+                }
+
+                html += '<div class="prop-section"><div class="prop-section-title">Option Settings</div>';
+                html += '<div class="prop-group"><label class="prop-label">Source</label><select class="prop-select" onchange="setOptionSourceMode(this.value)">';
+                [['manual', 'Manual (Static)'], ['table', 'Database Table'], ['preset', 'Preset (Months, etc)']].forEach(opt => {
+                    html += '<option value="' + opt[0] + '" ' + (getOptionSourceMode(field) === opt[0] ? 'selected' : '') + '>' + opt[1] + '</option>';
+                });
+                html += '</select></div>';
+                
+                if (getOptionSourceMode(field) === 'manual') {
+                    html += '<div class="prop-group"><label class="prop-label">Options</label><div class="prop-options-list">';
+                    (field.options || []).forEach((opt, i) => {
+                        html += '<div class="prop-option-row">';
+                        html += '<input type="text" class="prop-input" placeholder="Value" value="' + escapeAttr(opt.value) + '" onchange="updateFieldOption(' + i + ', \'value\', this.value)">';
+                        html += '<input type="text" class="prop-input" placeholder="Label" value="' + escapeAttr(opt.label) + '" onchange="updateFieldOption(' + i + ', \'label\', this.value)">';
+                        html += '<button type="button" class="prop-option-remove" onclick="removeFieldOption(' + i + ')"><span class="material-symbols-outlined">delete</span></button>';
+                        html += '</div>';
+                    });
+                    html += '</div><button type="button" class="prop-option-add" onclick="addFieldOption()">+ Tambah Opsi</button></div>';
+                }
+                html += '</div>';
+            }
+
+            return html;
+        }
+
+        function renderValidationProps(field) {
+            let html = '<div class="prop-section"><div class="prop-section-title">Validation Rules</div>';
+            html += '<div class="prop-group"><label class="prop-label">Validate On</label><select class="prop-select" onchange="updateFieldProp(\'validate_on\', this.value)">';
+            ['change', 'blur', 'submit', 'all'].forEach(v => {
+                html += '<option value="' + v + '" ' + (field.validate_on === v ? 'selected' : '') + '>' + v.toUpperCase() + '</option>';
+            });
+            html += '</select></div>';
+            
+            // Simple rule list for now, we can expand to a full array editor later if needed
+            html += '<div class="prop-group"><label class="prop-label">Rules</label><div style="font-size:11px;color:#64748b;margin-bottom:8px;">Rules are defined as JSON objects.</div>';
+            html += '<textarea class="prop-input" style="height:80px;font-family:monospace;font-size:11px;" onchange="updateFieldProp(\'validation_rules\', safeJsonParse(this.value, []))">' + escapeHtml(JSON.stringify(field.validation_rules || [])) + '</textarea></div>';
+            html += '</div>';
+            return html;
+        }
+
+        function renderConditionalProps(field) {
+            let html = '<div class="prop-section"><div class="prop-section-title">Conditional Logic</div>';
+            html += '<div class="prop-group"><label class="prop-label">Show If (JSON)</label>';
+            html += '<textarea class="prop-input" style="height:60px;font-family:monospace;font-size:11px;" onchange="updateFieldProp(\'show_if\', safeJsonParse(this.value, []))">' + escapeHtml(JSON.stringify(field.show_if || [])) + '</textarea></div>';
+            html += '<div class="prop-group"><label class="prop-label">Required If (JSON)</label>';
+            html += '<textarea class="prop-input" style="height:60px;font-family:monospace;font-size:11px;" onchange="updateFieldProp(\'required_if\', safeJsonParse(this.value, []))">' + escapeHtml(JSON.stringify(field.required_if || [])) + '</textarea></div>';
+            html += '</div>';
+            return html;
+        }
+
+        function safeJsonParse(str, fallback) {
+            try {
+                return JSON.parse(str);
+            } catch (e) {
+                return fallback;
+            }
+        }
+
         function renderPropsPanel(field) {
             // ===== BUG 1 FIX: Guard untuk mencegah infinite loop =====
-            // Jika lock masih aktif, abort render untuk mencegah stack overflow
-            if (_renderPropsPanelLock) {
-                return;
-            }
-            // Jika guard aktif, abaikan (mencegah rekursi)
-            if (_renderPropsPanelGuard) {
-                return;
-            }
-            
+            if (_renderPropsPanelGuard) return;
+
             field = normalizeFieldState(field);
             const panel = document.getElementById('properties-panel');
             if (!panel) return;
@@ -1782,331 +1962,95 @@
                 return;
             }
 
+            // Trigger background loading of columns if needed
+            const builderTableId = getCurrentBuilderTableId();
+            if (builderTableId) {
+                ensureDropdownSourceColumnsLoaded(builderTableId).then(() => {
+                    // Check if still same field selected
+                    if (selectedIndex !== null && formFields[selectedIndex] === field && !dropdownSourceColumnsCache['GPS_LOADED_' + builderTableId]) {
+                        dropdownSourceColumnsCache['GPS_LOADED_' + builderTableId] = true;
+                        throttledRenderPropsPanel(field);
+                    }
+                });
+            }
+
+            const refTable = field.fk_referenced_table || field.source_table_name || '';
+            const refTableId = findTableIdByName(refTable);
+            if (refTableId) {
+                ensureDropdownSourceColumnsLoaded(refTableId).then(() => {
+                    if (selectedIndex !== null && formFields[selectedIndex] === field && !dropdownSourceColumnsCache['REF_LOADED_' + refTableId]) {
+                        dropdownSourceColumnsCache['REF_LOADED_' + refTableId] = true;
+                        throttledRenderPropsPanel(field);
+                    }
+                });
+            }
+
             const icons = {
-                text: 'text_fields',
-                email: 'email',
-                password: 'lock',
-                number: 'pin',
-                tel: 'phone',
-                url: 'link',
-                textarea: 'notes',
-                select: 'arrow_drop_down_circle',
-                radio: 'radio_button_checked',
-                checkbox: 'check_box',
-                checkboxes: 'checklist',
-                boolean: 'toggle_on',
-                date: 'calendar_today',
-                time: 'schedule',
-                datetime: 'event',
-                gps_camera: 'photo_camera',
-                file: 'upload_file',
-                hidden: 'visibility_off'
+                text: 'text_fields', email: 'email', password: 'lock', number: 'pin',
+                phone: 'phone', tel: 'phone', url: 'link', textarea: 'notes', 
+                dropdown: 'arrow_drop_down_circle', select: 'arrow_drop_down_circle',
+                radio: 'radio_button_checked', checkbox: 'check_box', checkboxes: 'checklist',
+                toggle: 'toggle_on', boolean: 'toggle_on', date: 'calendar_today', time: 'schedule',
+                datetime: 'event', gps_camera: 'photo_camera', file_upload: 'upload_file', 
+                file: 'upload_file', hidden: 'visibility_off'
             };
 
-            let html = '<div class="prop-header"><span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span><span class="block-type-badge">' + field.type + '</span></div>';
+            let html = '<div class="prop-header">';
+            html += '<span class="material-symbols-outlined">' + (icons[field.type] || 'text_fields') + '</span>';
+            html += '<span class="block-type-badge">' + field.type + '</span>';
+            html += '<div style="flex:1;text-align:right;"><span style="font-size:10px;color:#94a3b8;font-family:monospace;">' + (field.field_id || 'no-id') + '</span></div>';
+            html += '</div>';
 
-            html += '<div class="prop-section"><div class="prop-section-title">Label & Name</div>';
-            html += '<div class="prop-group"><label class="prop-label">Label</label><input type="text" class="prop-input" value="' + escapeAttr(field.label || '') + '" data-prop="label" onchange="updateFieldProp(\'label\', this.value)"></div>';
-            html += '<div class="prop-group"><label class="prop-label">Name (Database)</label><input type="text" class="prop-input" value="' + escapeAttr(field.name || '') + '" data-prop="name" onchange="updateFieldProp(\'name\', this.value)"></div>';
-            html += '<div class="prop-group"><label class="prop-label">Placeholder</label><input type="text" class="prop-input" value="' + escapeAttr(field.placeholder || '') + '" data-prop="placeholder" onchange="updateFieldProp(\'placeholder\', this.value)"></div></div>';
-
-            html += '<div class="prop-section"><div class="prop-section-title">Konfigurasi</div>';
-            html += '<div class="prop-group"><label class="prop-label">Tipe Input</label><select class="prop-select" data-prop="type" onchange="updateFieldProp(\'type\', this.value)">';
-            const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'textarea', 'select', 'radio', 'checkbox', 'checkboxes', 'boolean', 'date', 'time', 'datetime', 'file', 'gps_camera', 'hidden'];
+            html += '<div class="prop-section"><div class="prop-section-title">Input Type</div>';
+            html += '<div class="prop-group"><select class="prop-select" onchange="updateFieldProp(\'type\', this.value)">';
+            const types = ['text', 'email', 'password', 'number', 'phone', 'url', 'textarea', 'dropdown', 'radio', 'checkbox', 'checkboxes', 'toggle', 'date', 'time', 'datetime', 'file_upload', 'gps_camera', 'hidden'];
             const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'GPS Camera', 'Hidden'];
             types.forEach((t, i) => {
                 html += '<option value="' + t + '" ' + (field.type === t ? 'selected' : '') + '>' + labels[i] + '</option>';
             });
-            html += '</select></div>';
-            html += '<div class="prop-group"><label class="prop-label">Default Value</label><input type="text" class="prop-input" value="' + escapeAttr(field.default_value || '') + '" data-prop="default_value" onchange="updateFieldProp(\'default_value\', this.value)"></div></div>';
+            html += '</select></div></div>';
 
-            if (['text', 'email', 'password', 'tel', 'url'].includes(field.type)) {
-                html += '<div class="prop-section"><div class="prop-section-title">Input Rules</div>';
-                html += '<div class="prop-group"><label class="prop-label">Min Length</label><input type="number" class="prop-input" min="0" value="' + escapeAttr(field.min_length || '') + '" onchange="updateFieldProp(\'min_length\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Max Length</label><input type="number" class="prop-input" min="1" value="' + escapeAttr(field.max_length || '') + '" onchange="updateFieldProp(\'max_length\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Pattern Regex</label><input type="text" class="prop-input" value="' + escapeAttr(field.pattern || '') + '" placeholder="e.g. [A-Za-z0-9]+" onchange="updateFieldProp(\'pattern\', this.value)"></div>';
-                html += '</div>';
-            }
+            html += renderBaseProps(field);
+            html += renderSpecificInputProps(field);
 
-            if (field.type === 'number') {
-                html += '<div class="prop-section"><div class="prop-section-title">Number Rules</div>';
-                html += '<div class="prop-group"><label class="prop-label">Min</label><input type="number" class="prop-input" value="' + escapeAttr(field.min || '') + '" onchange="updateFieldProp(\'min\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Max</label><input type="number" class="prop-input" value="' + escapeAttr(field.max || '') + '" onchange="updateFieldProp(\'max\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Step</label><input type="text" class="prop-input" value="' + escapeAttr(field.step || '') + '" placeholder="1, 0.01, any" onchange="updateFieldProp(\'step\', this.value)"></div>';
-                html += '</div>';
-            }
-
-            if (field.type === 'textarea') {
-                html += '<div class="prop-section"><div class="prop-section-title">Textarea</div>';
-                html += '<div class="prop-group"><label class="prop-label">Rows</label><input type="number" class="prop-input" min="2" max="20" value="' + escapeAttr(field.rows || 4) + '" onchange="updateFieldProp(\'rows\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Max Length</label><input type="number" class="prop-input" min="1" value="' + escapeAttr(field.max_length || '') + '" onchange="updateFieldProp(\'max_length\', this.value)"></div>';
-                html += '</div>';
-            }
-
-            if (['date', 'time', 'datetime'].includes(field.type)) {
-                html += '<div class="prop-section"><div class="prop-section-title">Range</div>';
-                html += '<div class="prop-group"><label class="prop-label">Min</label><input type="' + (field.type === 'datetime' ? 'datetime-local' : field.type) + '" class="prop-input" value="' + escapeAttr(field.min || '') + '" onchange="updateFieldProp(\'min\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Max</label><input type="' + (field.type === 'datetime' ? 'datetime-local' : field.type) + '" class="prop-input" value="' + escapeAttr(field.max || '') + '" onchange="updateFieldProp(\'max\', this.value)"></div>';
-                html += '</div>';
-            }
-
-            if (field.type === 'file') {
-                html += '<div class="prop-section"><div class="prop-section-title">File Upload</div>';
-                html += '<div class="prop-group"><label class="prop-label">Accept</label><input type="text" class="prop-input" value="' + escapeAttr(field.accept || '') + '" placeholder=".jpg,.png,application/pdf" onchange="updateFieldProp(\'accept\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.multiple ? 'checked' : '') + ' onchange="updateFieldProp(\'multiple\', this.checked)">Allow Multiple Files</label></div>';
-                html += '</div>';
-            }
-
-            if (field.type === 'gps_camera') {
-                html += '<div class="prop-section"><div class="prop-section-title">Binding Multi Kolom</div>';
-                html += '<small style="display:block;color:#64748b;line-height:1.5;margin-bottom:10px;">Satu capture dapat dipetakan ke beberapa kolom target dari metadata table yang tersedia.</small>';
-                html += '<div id="gps-camera-bindings-panel">' + buildGpsCameraBindingRows(field) + '</div>';
-                html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="addGpsCameraBindingRow()">+ Tambah Binding</button></div>';
-                html += '</div>';
-                html += '<div class="prop-section"><div class="prop-section-title">Capture</div>';
-                html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.auto_capture_gps !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'auto_capture_gps\', this.checked)">Auto Capture GPS</label></div>';
-                html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.auto_capture_timestamp !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'auto_capture_timestamp\', this.checked)">Auto Capture Timestamp</label></div>';
-                html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.preview_image !== false ? 'checked' : '') + ' onchange="updateFieldProp(\'preview_image\', this.checked)">Preview Image</label></div>';
-                html += '</div>';
-            }
-
-            if (field.type === 'checkbox') {
-                html += '<div class="prop-section"><div class="prop-section-title">Checkbox</div>';
-                html += '<div class="prop-group"><label class="prop-label">Checkbox Text</label><input type="text" class="prop-input" value="' + escapeAttr(field.labelText || '') + '" placeholder="Centang ini" onchange="updateFieldProp(\'labelText\', this.value)"></div>';
-                html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.default_checked ? 'checked' : '') + ' onchange="updateFieldProp(\'default_checked\', this.checked)">Checked by Default</label></div>';
-                html += '</div>';
-            }
-
-            if (field.type === 'checkboxes') {
-                html += '<div class="prop-section"><div class="prop-section-title">Checkboxes</div>';
-                html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.saveAsMultipleRows ? 'checked' : '') + ' onchange="updateFieldProp(\'saveAsMultipleRows\', this.checked)">Save each selected value as separate row</label></div>';
-                html += '</div>';
-            }
-
-            if (['select', 'radio', 'checkboxes'].includes(field.type)) {
-                const sourceMode = getOptionSourceMode(field);
-                html += '<div class="prop-section"><div class="prop-section-title">Option Source</div>';
-                html += '<div class="prop-group"><label class="prop-label">Sumber Opsi</label><select class="prop-select" onchange="setOptionSourceMode(this.value)">';
-                html += '<option value="manual"' + boolAttr('selected', sourceMode === 'manual') + '>Manual</option>';
-                html += '<option value="preset"' + boolAttr('selected', sourceMode === 'preset') + '>Preset</option>';
-                html += '<option value="table"' + boolAttr('selected', sourceMode === 'table') + '>Dari Table</option>';
-                html += '</select></div>';
-                if (sourceMode === 'preset') {
-                    html += '<div class="prop-group"><label class="prop-label">Preset</label><select class="prop-select" onchange="setOptionPreset(this.value)">';
-                    html += '<option value="calendar_months"' + boolAttr('selected', field.option_preset === 'calendar_months') + '>Calendar Months / Bulan Kalender</option>';
-                    html += '</select></div>';
-                    html += '<small style="display:block;color:#64748b;line-height:1.5;">Value yang disimpan ke database: 01 sampai 12. Label hanya untuk tampilan.</small>';
-                }
-                if (sourceMode === 'table') {
-                    const fkPanelState = getCurrentTableForeignKeyPanelState();
-                    if (!fkPanelState.tableId) {
-                        html += '<small style="display:block;color:#b45309;line-height:1.5;">Pilih target table form terlebih dulu. Source dari table hanya tersedia jika form sudah memakai table aktif.</small>';
-                    } else if (!fkPanelState.isLoaded) {
-                        html += '<small style="display:block;color:#64748b;line-height:1.5;">Memuat kolom foreign key dari table aktif...</small>';
-                    } else if (fkPanelState.columns.length === 0) {
-                        html += '<small style="display:block;color:#b45309;line-height:1.5;">Table aktif tidak memiliki kolom foreign key. Ambil dari table tidak tersedia untuk dropdown ini.</small>';
+            // FK Mapping Section (Always show if it's a relation field or dropdown)
+            if (field.is_foreign_key || ['dropdown', 'select', 'radio', 'checkboxes'].includes(field.type)) {
+                html += '<div class="prop-section"><div class="prop-section-title">Relasi Database (FK)</div>';
+                // ... rest of FK logic remains ...
+                if (field.is_foreign_key) {
+                    html += '<div class="prop-group"><label class="prop-label">Table Referensi</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
+                    html += '<div class="prop-group"><label class="prop-label">Kolom Value (PK)</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
+                    html += '<div class="prop-group"><label class="prop-label">Display Column</label>';
+                    html += '<select class="prop-select" onchange="setForeignKeyColumn(\'display\', this.value)">';
+                    const targetCols = field.target_columns || [];
+                    if (targetCols.length === 0) {
+                        html += '<option value="">(Tidak ada kolom tersedia)</option>';
                     } else {
-                        html += '<div class="prop-group"><label class="prop-label">Kolom FK dari Table Aktif</label><select class="prop-select" onchange="setDropdownSourceForeignKey(this.value)">' + buildCurrentTableForeignKeyOptions(field.source_column_id) + '</select></div>';
-                        html += '<small style="display:block;color:#64748b;line-height:1.5;">Pilih salah satu kolom FK dari table aktif. Setelah dipilih, dropdown akan memakai data relasi itu.</small>';
-                    }
-                }
-                html += '</div>';
-            }
-
-            if (['select', 'radio', 'checkboxes'].includes(field.type) && !field.is_foreign_key && getOptionSourceMode(field) === 'manual') {
-                const options = normalizeChoiceOptions(field);
-                html += '<div class="prop-section"><div class="prop-section-title">Options</div>';
-                html += '<div class="prop-group">';
-                html += '<div class="prop-options-list">';
-                options.forEach((opt, index) => {
-                    html += '<div class="prop-option-row">';
-                    html += '<input type="text" class="prop-input" value="' + escapeAttr(opt.label) + '" placeholder="Label" onchange="updateFieldOption(' + index + ', \'label\', this.value)">';
-                    html += '<input type="text" class="prop-input" value="' + escapeAttr(opt.value) + '" placeholder="Value" onchange="updateFieldOption(' + index + ', \'value\', this.value)">';
-                    html += '<button type="button" class="prop-option-remove" onclick="removeFieldOption(' + index + ')" title="Remove option"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>';
-                    html += '</div>';
-                });
-                html += '</div>';
-                html += '<button type="button" class="prop-option-add" onclick="addFieldOption()">+ Add option</button>';
-                html += '</div></div>';
-            }
-
-            html += '<div class="prop-section"><div class="prop-section-title">Validasi</div>';
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.required ? 'checked' : '') + ' data-prop="required" onchange="updateFieldProp(\'required\', this.checked)">Wajib Diisi (Required)</label></div>';
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.readonly ? 'checked' : '') + ' data-prop="readonly" onchange="updateFieldProp(\'readonly\', this.checked)">Read-only</label></div>';
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.disabled ? 'checked' : '') + ' data-prop="disabled" onchange="updateFieldProp(\'disabled\', this.checked)">Disabled</label></div></div>';
-
-            if (field.type === 'select' && field.is_foreign_key) {
-                html += '<div class="prop-section"><div class="prop-section-title">Foreign Key</div>';
-                html += '<div class="prop-group"><label class="prop-label">Local Column / Kolom Form</label><input type="text" class="prop-input" value="' + escapeAttr(field.local_column || field.name || '-') + '" readonly style="background:#f1f5f9;"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Referenced Table</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_table || '-') + '" readonly style="background:#f1f5f9;"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Referenced Value Column</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_column || field.value_column || field.dropdown_value_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Display Column</label><select class="prop-select" name="fk_display_column" onchange="setForeignKeyColumn(\'display\', this.value)">' + buildDropdownColumnOptions(field, field.fk_display_column || field.label_column || field.dropdown_label_column) + '</select></div>';
-                html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="reloadForeignKeyOptions()">Refresh dropdown relasi</button></div>';
-                const pickerConfig = ensureRelationPickerConfig(field);
-                html += '<div class="prop-section-title" style="padding:10px 0 0;">Relation Picker</div>';
-                html += '<div class="prop-group"><label class="prop-label">Picker Mode</label><select class="prop-select" onchange="setRelationPickerMode(this.value)">';
-                ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'].forEach(mode => {
-                    html += '<option value="' + mode + '"' + boolAttr('selected', (field.picker_mode || 'dropdown') === mode) + '>' + mode.replace(/_/g, ' ') + '</option>';
-                });
-                html += '</select></div>';
-                html += '<div class="prop-group"><label class="prop-label">Search Target</label><select class="prop-select" onchange="updateRelationPickerConfig(\'search_target\', this.value)">';
-                html += '<option value="display_only"' + boolAttr('selected', (pickerConfig.search_target || 'display_only') === 'display_only') + '>Display column / label</option>';
-                html += '<option value="value_only"' + boolAttr('selected', (pickerConfig.search_target || '') === 'value_only') + '>Value column / ID</option>';
-                html += '<option value="value_and_display"' + boolAttr('selected', (pickerConfig.search_target || '') === 'value_and_display') + '>Value + display</option>';
-                html += '<option value="custom"' + boolAttr('selected', (pickerConfig.search_target || '') === 'custom') + '>Custom columns</option>';
-                html += '</select></div>';
-                html += '<div class="prop-group"><label class="prop-label">Quick Search Preset</label><div style="display:flex;flex-wrap:wrap;gap:8px;">';
-                html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'display_only\')">Display</button>';
-                html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'value_only\')">ID / Value</button>';
-                html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'value_and_display\')">Keduanya</button>';
-                html += '<button type="button" class="prop-option-add" onclick="updateRelationPickerConfig(\'search_target\', \'custom\')">Custom</button>';
-                html += '</div></div>';
-                html += '<div class="prop-group" style="' + ((pickerConfig.search_target || 'display_only') === 'custom' ? '' : 'display:none;') + '"><label class="prop-label">Search Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.search_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'search_columns\', this.value)" placeholder="nama, kode, email"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Display Columns</label><input type="text" class="prop-input" value="' + escapeAttr((pickerConfig.display_columns || []).join(', ')) + '" onchange="updateRelationPickerConfig(\'display_columns\', this.value)" placeholder="id, nama, kode"></div>';
-                html += '<div class="prop-group"><label class="prop-label">Page Size</label><input type="number" min="1" max="50" class="prop-input" value="' + escapeAttr(pickerConfig.page_size || 10) + '" onchange="updateRelationPickerConfig(\'page_size\', this.value)"></div>';
-                html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="openRelationPickerColumnsModal()">Atur kolom modal</button></div>';
-                html += '<div class="prop-group"><button type="button" class="prop-option-add" onclick="generateRelationPickerConfig()">Generate picker config</button></div>';
-                html += '<div id="relation-picker-columns-modal" class="relation-picker-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(15,23,42,0.55);align-items:center;justify-content:center;padding:24px;">';
-                html += '<div style="width:min(920px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;box-shadow:0 24px 80px rgba(15,23,42,0.24);">';
-                html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #e2e8f0;">';
-                html += '<div>';
-                html += '<div style="font-size:18px;font-weight:700;color:#0f172a;">Relation Picker Columns & Modal FK Display</div>';
-                html += '<div style="font-size:12px;color:#64748b;">Pilih kolom modal dan atur kolom FK agar tampil sebagai raw ID atau display dari relasi.</div>';
-                html += '</div>';
-                html += '<button type="button" class="prop-option-remove" onclick="closeRelationPickerColumnsModal()" style="width:36px;height:36px;">&times;</button>';
-                html += '</div>';
-                html += '<div style="padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">';
-                html += '<div>';
-                html += '<div class="prop-section-title" style="margin-bottom:10px;">Search Columns</div>';
-                html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">';
-                html += '<input type="text" class="prop-input" placeholder="Cari kolom..." oninput="filterRelationPickerColumnsModal(\'search\', this.value)" style="flex:1;min-width:0;">';
-                html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'search\', true)">Select all</button>';
-                html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'search\', false)">Clear</button>';
-                html += '</div>';
-                html += '<div id="relation-picker-search-columns" style="display:grid;gap:10px;">' + buildRelationPickerColumnChecklist(field, 'search') + '</div>';
-                html += '</div>';
-                html += '<div>';
-                html += '<div class="prop-section-title" style="margin-bottom:10px;">Display Columns / Modal FK Display</div>';
-                html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;">';
-                html += '<input type="text" class="prop-input" placeholder="Cari kolom..." oninput="filterRelationPickerColumnsModal(\'display\', this.value)" style="flex:1;min-width:0;">';
-                html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'display\', true)">Select all</button>';
-                html += '<button type="button" class="prop-option-add" onclick="setRelationPickerColumnsSelection(\'display\', false)">Clear</button>';
-                html += '</div>';
-                html += '<div id="relation-picker-display-columns" style="display:grid;gap:10px;">' + buildRelationPickerColumnChecklist(field, 'display') + '</div>';
-                html += '</div>';
-                html += '</div>';
-                html += '<div style="padding:0 22px 22px;">';
-                html += '<div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">';
-                html += '<div style="flex:1;">';
-                html += '<label class="prop-label">Page Size</label>';
-                html += '<input type="number" min="1" max="50" class="prop-input" id="relation-picker-page-size" value="' + escapeAttr(pickerConfig.page_size || 10) + '">';
-                html += '</div>';
-                html += '<div style="align-self:flex-end;display:flex;gap:10px;">';
-                html += '<button type="button" class="prop-option-add" onclick="closeRelationPickerColumnsModal()">Cancel</button>';
-                html += '<button type="button" class="prop-option-add" onclick="applyRelationPickerColumnsModal()">Apply Columns</button>';
-                html += '</div>';
-                html += '</div>';
-                html += '<small style="display:block;color:#64748b;line-height:1.5;">Kolom yang dipilih di sini akan dipakai oleh modal picker untuk menampilkan baris data relasi.</small>';
-                html += '</div>';
-                html += '</div>';
-                if (field.fk_options && field.fk_options.length > 0) {
-                    html += '<div class="prop-group"><label class="prop-label">Options (' + field.fk_options.length + ' items)</label><div style="max-height:120px;overflow-y:auto;font-size:11px;color:#64748b;">';
-                    field.fk_options.forEach(opt => {
-                        html += '<div style="padding:2px 0;">' + opt.label + ' (value: ' + opt.value + ')</div>';
-                    });
-                    html += '</div></div>';
-                } else {
-                    html += '<div class="prop-group"><label class="prop-label">Options</label><span class="fk-options-loading">Loading options...</span></div>';
-                }
-                html += '</div>';
-            }
-
-            html += '<div class="prop-section"><div class="prop-section-title">System</div>';
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.excluded ? 'checked' : '') + ' data-prop="excluded" onchange="updateFieldProp(\'excluded\', this.checked)">Exclude from Form (Hide)</label></div>';
-            if (field.is_primary) {
-                html += '<div class="prop-group"><span class="field-badge-auto">Primary Key</span></div>';
-            }
-            if (field.is_auto_increment) {
-                html += '<div class="prop-group"><span class="field-badge-auto">Auto Increment</span></div>';
-            }
-            html += '</div>';
-
-            propsPanel.innerHTML = html;
-
-            if (field.type === 'gps_camera') {
-                ensureGpsCameraMetadataLoaded(field);
-            }
-
-            // ===== BUG 1 FIX: Cegah infinite loop pada renderPropsPanel =====
-            // Guard: jika sedang dalam proses renderPropsPanel yang sama, jangan panggil lagi
-            if (!_renderPropsPanelGuard && field.type === 'select' && field.is_foreign_key) {
-                const tableId = resolveForeignKeyReferencedTableId(field);
-                ensureDropdownSourceTablesLoaded().then(function() {
-                    if (selectedIndex === null || formFields[selectedIndex] !== field) return;
-                    if (tableId && !dropdownSourceColumnsCache[String(tableId)]) {
-                        ensureDropdownSourceColumnsLoaded(tableId).then(function() {
-                            if (selectedIndex !== null && formFields[selectedIndex] === field) {
-                                // BUG 1 FIX: Gunakan flag guard untuk mencegah stack overflow
-                                if (_renderPropsPanelGuard) return;
-                                _renderPropsPanelGuard = true;
-                                renderPropsPanel(field);
-                                _renderPropsPanelGuard = false;
-                            }
+                        targetCols.forEach(col => {
+                            const isSelected = (field.fk_display_column || field.label_column) === col.name;
+                            html += '<option value="' + escapeAttr(col.name) + '" ' + (isSelected ? 'selected' : '') + '>' + escapeHtml(col.label || col.name) + '</option>';
                         });
-                    } else if (tableId) {
-                        // BUG 1 FIX: Jika data sudah di cache, TIDAK perlu re-render ulang propsPanel
-                        // karena data sudah tersedia, cukup update dropdown display column via DOM
-                        // tanpa memanggil renderPropsPanel lagi (yang menyebabkan infinite loop)
-                        const displaySelect = panel.querySelector('[name="fk_display_column"]');
-                        if (displaySelect && !displaySelect.hasChildNodes()) {
-                            displaySelect.innerHTML = buildDropdownColumnOptions(field, field.fk_display_column || field.label_column || field.dropdown_label_column);
-                        }
                     }
-                });
+                    html += '</select></div>';
+                } else {
+                    html += '<div class="prop-group" style="padding:10px;text-align:center;"><button type="button" class="prop-option-add" onclick="setOptionSourceMode(\'table\')">Aktifkan Relasi DB</button></div>';
+                }
+                html += '</div>';
             }
 
+            panel.innerHTML = html;
         }
 
         // Update Field Property
-        // ===== BUG 1 FIX: Debounce updateFieldProp untuk mencegah render berlebihan =====
         const debouncedUpdateFieldProp = debounce(function(propName, value) {
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             formFields[selectedIndex][propName] = value;
             normalizeFieldState(formFields[selectedIndex]);
-            const rerenderPanelProps = new Set([
-                'type', 'readonly', 'disabled', 'required', 'excluded',
-                'default_checked', 'saveAsMultipleRows', 'option_source',
-                'option_preset', 'source_column_id', 'source_table_id',
-                'label_column', 'value_column', 'picker_mode',
-                'target_table_id', 'target_column_id', 'auto_capture_gps',
-                'auto_capture_timestamp', 'preview_image'
-            ]);
-            if (propName === 'type') {
-                formFields[selectedIndex].inputType = getInputType(value);
-                if (['select', 'radio', 'checkboxes'].includes(value)) {
-                    if (!formFields[selectedIndex].option_source) {
-                        formFields[selectedIndex].option_source = 'manual';
-                        formFields[selectedIndex].dropdown_source = 'static_options';
-                    }
-                    normalizeChoiceOptions(formFields[selectedIndex]);
-                } else if (value === 'gps_camera') {
-                    formFields[selectedIndex].auto_capture_gps = formFields[selectedIndex].auto_capture_gps !== false;
-                    formFields[selectedIndex].auto_capture_timestamp = formFields[selectedIndex].auto_capture_timestamp !== false;
-                    formFields[selectedIndex].preview_image = formFields[selectedIndex].preview_image !== false;
-                }
-                if (value !== 'select') {
-                    if (formFields[selectedIndex].option_source !== 'table') {
-                        formFields[selectedIndex].dropdown_source = 'static_options';
-                    }
-                }
-            }
             renderFieldsImmediate();
-            if (rerenderPanelProps.has(propName)) {
-                throttledRenderPropsPanel(formFields[selectedIndex]);
-            }
+            throttledRenderPropsPanel(formFields[selectedIndex]);
             updateData();
-        }, 100); // 100ms debounce delay
-        
+        }, 100);
+
         window.updateFieldProp = function(propName, value) {
             // Langsung update value, baru debounce render
             if (selectedIndex === null || !formFields[selectedIndex]) return;
@@ -2168,6 +2112,57 @@
                 renderPropsPanel(field);
                 updateData();
             });
+        };
+
+        window.updateGpsMapping = function(key, value) {
+            if (selectedIndex === null || !formFields[selectedIndex]) return;
+            const field = formFields[selectedIndex];
+            if (!field.gps_camera_mappings) field.gps_camera_mappings = {};
+            field.gps_camera_mappings[key] = value;
+            updateData();
+            renderPropsPanel(field);
+        };
+
+        window.updateModalDisplayColumns = function(columnName, checked) {
+            if (selectedIndex === null || !formFields[selectedIndex]) return;
+            const field = formFields[selectedIndex];
+            if (!field.picker_config) field.picker_config = {};
+            if (!Array.isArray(field.picker_config.display_columns)) field.picker_config.display_columns = [];
+            
+            if (checked) {
+                if (!field.picker_config.display_columns.includes(columnName)) {
+                    field.picker_config.display_columns.push(columnName);
+                }
+            } else {
+                field.picker_config.display_columns = field.picker_config.display_columns.filter(c => c !== columnName);
+            }
+            updateData();
+        };
+
+        window.bindFieldToTable = function(tableId) {
+            if (selectedIndex === null || !formFields[selectedIndex]) return;
+            const field = formFields[selectedIndex];
+            field.source_table_id = tableId;
+            field.source_column_id = null;
+            ensureDropdownSourceColumnsLoaded(tableId).then(function() {
+                renderPropsPanel(field);
+                updateData();
+            });
+        };
+
+        window.bindFieldToColumn = function(columnId) {
+            if (selectedIndex === null || !formFields[selectedIndex]) return;
+            const field = formFields[selectedIndex];
+            field.source_column_id = columnId;
+            const cols = dropdownSourceColumnsCache[String(field.source_table_id)] || [];
+            const col = cols.find(c => String(c.id) === String(columnId));
+            if (col) {
+                field.name = col.name;
+                field.label = col.label || col.name;
+            }
+            renderFields();
+            renderPropsPanel(field);
+            updateData();
         };
 
         window.setOptionSourceMode = function(mode) {
@@ -3064,13 +3059,7 @@
                 fieldCountHint.textContent = formFields.length + ' field' + (formFields.length > 1 ? 's' : '');
             }
 
-            // Event listeners
-            container.querySelectorAll('.field-item').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    if (e.target.dataset.delete || e.target.closest('[data-delete]')) return;
-                    selectField(parseInt(this.dataset.index));
-                });
-            });
+            // Action button listeners (Keep specific handlers for actions)
 
             container.querySelectorAll('[data-delete]').forEach(btn => {
                 btn.addEventListener('click', function(e) {
@@ -3357,11 +3346,12 @@
                                 local_column: col.name,
                                 fk_referenced_table: isForeignKey ? col.referenced_table_name : null,
                                 fk_referenced_column: isForeignKey ? col.referenced_column_name : null,
-                                fk_display_column: isForeignKey ? col.referenced_column_name : null,
+                                target_columns: col.target_columns || [],
+                                fk_display_column: isForeignKey ? (col.referenced_column_name || '') : '',
                                 relation_table_name: isForeignKey ? col.referenced_table_name : null,
                                 relation_target_column: col.name,
                                 relation_value_column: isForeignKey ? col.referenced_column_name : null,
-                                relation_display_column: isForeignKey ? col.referenced_column_name : null,
+                                relation_display_column: isForeignKey ? (col.referenced_column_name || '') : null,
                                 relation_config: isForeignKey ? {
                                     local_column: col.name,
                                     source_column: col.name,
@@ -3373,7 +3363,6 @@
                                     referenced_column_name: col.referenced_column_name || '',
                                     value_column: col.referenced_column_name || '',
                                     display_column: col.referenced_column_name || '',
-                                    display_column_name: col.referenced_column_name || ''
                                 } : null,
                                 fk_options: isForeignKey ? [] : null,
                                 fk_options_loaded: false,

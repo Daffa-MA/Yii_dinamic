@@ -19,6 +19,7 @@ use app\components\SystemFieldService;
 use app\models\ProjectUser;
 use app\components\ProjectSchema;
 use app\services\DatabaseSchemaSyncService;
+use app\services\TableService;
 use app\services\TableExistenceService;
 
 class SqlEditorExecutionException extends \RuntimeException
@@ -1543,34 +1544,16 @@ class TableBuilderController extends Controller
         if (!in_array($tableCategory, ['user', 'system', 'all'], true)) {
             $tableCategory = 'user';
         }
-        $tablesQuery = DbTable::find()
-            ->with(['columns'])
-            ->orderBy(['created_at' => SORT_DESC]);
-        if (!$this->isCommanderSuperAdmin()) {
-            $effectiveUserId = $this->getEffectiveUserId();
-            if ($effectiveUserId !== null) {
-                $tablesQuery->where(['user_id' => $effectiveUserId]);
-            }
+
+        $effectiveUserId = $this->isCommanderSuperAdmin() ? null : $this->getEffectiveUserId();
+        
+        if ($tableCategory === 'user') {
+            $tables = TableService::getUserTables($effectiveUserId, $activeProjectId);
+        } elseif ($tableCategory === 'system') {
+            $tables = TableService::getSystemTables($effectiveUserId, $activeProjectId);
+        } else {
+            $tables = TableService::getAllTables($effectiveUserId, $activeProjectId);
         }
-        if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-            $tablesQuery->andWhere(['project_id' => $activeProjectId]);
-        }
-        if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
-            $tablesQuery->andWhere(['is_created' => true]);
-        }
-        $dbTableSchema = DbTable::getTableSchema();
-        if ($dbTableSchema !== null && isset($dbTableSchema->columns['is_system'], $dbTableSchema->columns['is_visible_in_builder'])) {
-            if ($tableCategory === 'user') {
-                $tablesQuery->andWhere([
-                    'or',
-                    ['is_system' => false],
-                    ['is_visible_in_builder' => true],
-                ]);
-            } elseif ($tableCategory === 'system') {
-                $tablesQuery->andWhere(['is_system' => true]);
-            }
-        }
-        $tables = $tablesQuery->all();
 
         // Build array with tables and their columns
         $tablesWithColumns = [];
@@ -4455,7 +4438,6 @@ class TableBuilderController extends Controller
             '/^\s*TRUNCATE\b/',
             '/^\s*DELETE\b/',
             '/^\s*UPDATE\b/',
-            '/^\s*INSERT\b/',
             '/^\s*REPLACE\b/',
             '/^\s*CREATE\s+DATABASE\b/',
             '/^\s*ALTER\s+DATABASE\b/',
@@ -4494,7 +4476,11 @@ class TableBuilderController extends Controller
             return null;
         }
 
-        return 'hanya CREATE TABLE, ALTER TABLE, CREATE INDEX, dan DROP INDEX yang diperbolehkan.';
+        if (preg_match('/^\s*INSERT\s+INTO\b/i', $normalized) === 1) {
+            return null;
+        }
+
+        return 'hanya CREATE TABLE, ALTER TABLE, CREATE INDEX, DROP INDEX, dan INSERT INTO yang diperbolehkan.';
     }
 
     private function extractAffectedTableName(string $statement): ?string
@@ -4887,6 +4873,28 @@ class TableBuilderController extends Controller
                     continue;
                 }
 
+                $isFk = SystemFieldService::isForeignKey($col, $schemaColumn);
+                $refTable = $col->hasAttribute('referenced_table_name') ? $col->getAttribute('referenced_table_name') : null;
+                $refColumn = $col->hasAttribute('referenced_column_name') ? $col->getAttribute('referenced_column_name') : null;
+                
+                // PERBAIKAN: Jika FK, ambil daftar kolom dari tabel referensi untuk Display Label
+                $targetColumns = [];
+                if ($isFk && $refTable) {
+                    try {
+                        $refSchema = $this->getPhysicalDb()->schema->getTableSchema($refTable, true);
+                        if ($refSchema) {
+                            foreach ($refSchema->columns as $rCol) {
+                                $targetColumns[] = [
+                                    'name' => $rCol->name,
+                                    'label' => ucwords(str_replace('_', ' ', $rCol->name)),
+                                ];
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        // Silently ignore schema errors
+                    }
+                }
+
                 $columnData[] = [
                     'id' => $col->id,
                     'name' => $col->name,
@@ -4900,9 +4908,10 @@ class TableBuilderController extends Controller
                     'is_primary' => SystemFieldService::isPrimaryKey($col, $schemaColumn),
                     'is_system_field' => SystemFieldService::isSystemManagedField($col, $schemaColumn),
                     'is_auto_increment' => SystemFieldService::isAutoIncrement($col, $schemaColumn),
-                    'is_foreign_key' => SystemFieldService::isForeignKey($col, $schemaColumn),
-                    'referenced_table_name' => $col->hasAttribute('referenced_table_name') ? $col->getAttribute('referenced_table_name') : null,
-                    'referenced_column_name' => $col->hasAttribute('referenced_column_name') ? $col->getAttribute('referenced_column_name') : null,
+                    'is_foreign_key' => $isFk,
+                    'referenced_table_name' => $refTable,
+                    'referenced_column_name' => $refColumn,
+                    'target_columns' => $targetColumns,
                     'debug_system_field' => SystemFieldService::decisionPayload($col, 'table-builder/get-columns', $schemaColumn),
                     'default_value' => $col->default_value,
                     'max_length' => $col->length,
@@ -4930,100 +4939,137 @@ class TableBuilderController extends Controller
      * Get table definitions from metadata (DbTable model) for form builder dropdown
      * This returns tables defined in Master Table (table-builder), not physical database tables
      */
+    /**
+     * PERBAIKAN: Ambil metadata kolom secara dinamis termasuk info Foreign Key.
+     */
+    public function actionGetColumnMetadata()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $tableId = Yii::$app->request->get('table_id');
+        $columnName = Yii::$app->request->get('column_name');
+
+        if (!$tableId || !$columnName) {
+            return ['success' => false, 'message' => 'Parameter tidak lengkap.'];
+        }
+
+        $table = DbTable::findOne($tableId);
+        if (!$table) {
+            return ['success' => false, 'message' => 'Tabel tidak ditemukan.'];
+        }
+
+        $column = DbTableColumn::find()->where(['table_id' => $tableId, 'name' => $columnName])->one();
+        $isFk = false;
+        $refTable = '';
+        $refColumn = '';
+        $targetColumns = [];
+
+        if ($column && $column->hasAttribute('is_foreign_key') && $column->getAttribute('is_foreign_key')) {
+            $isFk = true;
+            $refTable = $column->getAttribute('referenced_table_name');
+            $refColumn = $column->getAttribute('referenced_column_name');
+        } else {
+            // Cek schema fisik jika metadata tidak ada/tidak lengkap
+            $schema = $this->getPhysicalDb()->schema->getTableSchema($table->name, true);
+            if ($schema && isset($schema->foreignKeys)) {
+                foreach ($schema->foreignKeys as $fk) {
+                    if (isset($fk[$columnName])) {
+                        $isFk = true;
+                        $refTable = $fk[0];
+                        $refColumn = $fk[$columnName];
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ($isFk && $refTable) {
+            $refSchema = $this->getPhysicalDb()->schema->getTableSchema($refTable, true);
+            if ($refSchema) {
+                foreach ($refSchema->columns as $col) {
+                    $targetColumns[] = [
+                        'name' => $col->name,
+                        'label' => ucwords(str_replace('_', ' ', $col->name)),
+                    ];
+                }
+            }
+        }
+
+        return [
+            'success' => true,
+            'is_foreign_key' => $isFk,
+            'referenced_table' => $refTable,
+            'referenced_column' => $refColumn,
+            'target_columns' => $targetColumns,
+        ];
+    }
     public function actionGetTables()
     {
+        Yii::$app->response->format = Response::FORMAT_JSON;
         try {
             $cache = Yii::$app->has('cache', true) ? Yii::$app->cache : null;
             $activeProjectId = $this->getActiveProjectId();
             $effectiveUserId = $this->isCommanderSuperAdmin() ? null : $this->getEffectiveUserId();
             $forceRefresh = (string)Yii::$app->request->get('refresh', '0') === '1';
+            $category = strtolower(trim((string)Yii::$app->request->get('category', 'user')));
+            
             $cacheKey = implode(':', [
                 'table-builder',
                 'get-tables',
+                $category,
                 $activeProjectId !== null ? (string)$activeProjectId : 'global',
                 $effectiveUserId !== null ? (string)$effectiveUserId : 'all-users',
                 (string)Yii::$app->db->dsn,
                 $forceRefresh ? 'refresh' : 'cached',
             ]);
 
-            if ($cache !== null) {
-                $payload = $cache->getOrSet($cacheKey, function () use ($activeProjectId, $effectiveUserId) {
-                    $this->refreshDbTableColumnsSchema();
+            if ($cache !== null && !$forceRefresh) {
+                $cached = $cache->get($cacheKey);
+                if ($cached !== false) {
+                    return $cached;
+                }
+            }
 
-                    $tablesQuery = DbTable::find()
-                        ->orderBy(['created_at' => SORT_DESC]);
+            $this->refreshDbTableColumnsSchema();
 
-                    if ($effectiveUserId !== null) {
-                        $tablesQuery->where(['user_id' => $effectiveUserId]);
-                    }
-                    if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-                        $tablesQuery->andWhere(['project_id' => $activeProjectId]);
-                    }
-                    if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
-                        $tablesQuery->andWhere(['is_created' => true]);
-                    }
-
-                    $tableList = [];
-                    foreach ($tablesQuery->all() as $table) {
-                        $this->syncTableCreationState($table);
-                        $tableList[] = [
-                            'id' => $table->id,
-                            'name' => $table->name,
-                            'label' => $table->label ?: $table->name,
-                        ];
-                    }
-
-                    return [
-                        'success' => true,
-                        'tables' => $tableList,
-                        'source' => 'db_table_metadata',
-                        'count' => count($tableList),
-                    ];
-                }, 120);
+            if ($category === 'user') {
+                $allTables = TableService::getUserTables($effectiveUserId, $activeProjectId);
+            } elseif ($category === 'system') {
+                $allTables = TableService::getSystemTables($effectiveUserId, $activeProjectId);
             } else {
-                $this->refreshDbTableColumnsSchema();
+                $allTables = TableService::getAllTables($effectiveUserId, $activeProjectId);
+            }
 
-                $tablesQuery = DbTable::find()
-                    ->orderBy(['created_at' => SORT_DESC]);
-                if (!$this->isCommanderSuperAdmin()) {
-                    $effectiveUserId = $this->getEffectiveUserId();
-                    if ($effectiveUserId !== null) {
-                        $tablesQuery->where(['user_id' => $effectiveUserId]);
-                    }
-                }
-                if (ProjectSchema::supportsProjectContext() && $activeProjectId !== null) {
-                    $tablesQuery->andWhere(['project_id' => $activeProjectId]);
-                }
-                if (DbTable::getTableSchema() !== null && isset(DbTable::getTableSchema()->columns['is_created'])) {
-                    $tablesQuery->andWhere(['is_created' => true]);
-                }
-                $tableList = [];
-                foreach ($tablesQuery->all() as $table) {
-                    $this->syncTableCreationState($table);
-                    $tableList[] = [
-                        'id' => $table->id,
-                        'name' => $table->name,
-                        'label' => $table->label ?: $table->name,
-                    ];
-                }
-                $payload = [
-                    'success' => true,
-                    'tables' => $tableList,
-                    'source' => 'db_table_metadata',
-                    'count' => count($tableList),
+            $tableList = [];
+            foreach ($allTables as $table) {
+                $isSystem = DbTable::isSystemTable($table->name);
+                
+                $this->syncTableCreationState($table);
+                $tableList[] = [
+                    'id' => $table->id,
+                    'name' => $table->name,
+                    'label' => $table->label ?: $table->name,
+                    'is_system' => $isSystem,
                 ];
             }
 
-            return $this->asJson($payload);
-            
+            $payload = [
+                'success' => true,
+                'tables' => $tableList,
+                'count' => count($tableList),
+            ];
+
+            if ($cache !== null) {
+                $cache->set($cacheKey, $payload, 120);
+            }
+
+            return $payload;
         } catch (\Throwable $e) {
-            return $this->asJson([
+            return [
                 'success' => false,
                 'error' => $this->buildFriendlyTableBuilderErrorMessage($e),
-            ]);
+            ];
         }
     }
-    
     /**
      * Get columns from table definition (metadata) for form builder
      */

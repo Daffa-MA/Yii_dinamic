@@ -534,7 +534,19 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
             <?php else: ?>
                 <!-- Default Form Builder Mode: Render form fields -->
                 <?php if (!empty($fields)): ?>
-                <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', ['id' => 'preview-form', 'data-form-id' => (int)$model->id]) ?>
+                <?php
+                $fullSchema = [
+                    'fields' => $fields,
+                    'form_id' => (int)$model->id,
+                    'title' => $model->form_name,
+                ];
+                ?>
+                <script>window.__dynamicFormSchema = <?= Json::encode($fullSchema) ?>;</script>
+                <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', [
+                    'id' => 'preview-form', 
+                    'data-form-id' => (int)$model->id,
+                    'data-form-schema' => Json::encode($fullSchema)
+                ]) ?>
                 <input type="hidden" name="<?= Yii::$app->request->csrfParam ?>" value="<?= Yii::$app->request->getCsrfToken() ?>">
                 
                 <?php foreach ($fields as $field): ?>

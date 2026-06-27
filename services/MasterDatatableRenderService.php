@@ -76,6 +76,29 @@ class MasterDatatableRenderService
     public function renderFromConfig(array $config, array $options = []): string
     {
         $presetId = (int)($config['datatableId'] ?? $config['datatable_id'] ?? 0);
+        
+        // ===== BUG 4 FIX: Jika presetId tidak ada, cari preset berdasarkan tableId =====
+        // Saat render dari page builder, mungkin hanya tableId yang tersedia
+        if ($presetId <= 0) {
+            $tableId = (int)($config['tableId'] ?? $config['table_id'] ?? 0);
+            if ($tableId > 0) {
+                // Cari preset yang menggunakan table ini
+                // PERBAIKAN BUG 4: kolom model adalah table_id, bukan source_table_id
+                $preset = MasterDatatable::findScoped()
+                    ->andWhere(['table_id' => $tableId, 'is_active' => 1])
+                    ->orderBy(['id' => SORT_DESC])
+                    ->one();
+                if ($preset instanceof MasterDatatable) {
+                    $presetId = (int)$preset->id;
+                    // Load config dari preset jika belum di-load
+                    if (empty($config['_preset_loaded'])) {
+                        $config = array_replace_recursive($preset->toComponentConfig(), $config);
+                        $config['_preset_loaded'] = true;
+                    }
+                }
+            }
+        }
+        
         if ($presetId > 0 && empty($config['_preset_loaded'])) {
             $preset = MasterDatatable::findScoped()->andWhere(['id' => $presetId, 'is_active' => 1])->one();
             if ($preset instanceof MasterDatatable) {
@@ -480,16 +503,30 @@ class MasterDatatableRenderService
         $config = $preset->toComponentConfig();
         $config['pagination'] = false;
         $config['page_size'] = 5000;
+
+        return $this->exportFromConfig($config, $format, (string)$preset->name);
+    }
+
+    /**
+     * PERBAIKAN BUG 4: Export langsung dari table/config page builder tanpa Master Datatable preset.
+     */
+    public function exportFromConfig(array $config, string $format = 'csv', ?string $filename = null): Response
+    {
+        $format = strtolower(trim($format));
+        $config['pagination'] = false;
+        $config['page_size'] = 5000;
         $data = $this->buildRenderData($config);
         if ($data === null) {
             Yii::$app->response->statusCode = 404;
             return Yii::$app->response;
         }
 
-        $filename = preg_replace('/[^a-z0-9_-]+/i', '-', (string)$preset->name) ?: 'datatable';
+        $tableName = (string)($data['table']->label ?: $data['table']->name);
+        $filename = preg_replace('/[^a-z0-9_-]+/i', '-', (string)($filename ?: $tableName)) ?: 'datatable';
+
         if ($format === 'pdf' || $format === 'print') {
             Yii::$app->response->format = Response::FORMAT_HTML;
-            Yii::$app->response->content = $this->renderPrintableExport($data, (string)$preset->name);
+            Yii::$app->response->content = $this->renderPrintableExport($data, $tableName);
             return Yii::$app->response;
         }
 
@@ -789,7 +826,12 @@ class MasterDatatableRenderService
         $reloadUrl = $presetId > 0 ? Url::to(['/master-datatable/reload', 'id' => $presetId]) : '';
         $exportUrls = [];
         foreach (['csv', 'excel', 'pdf', 'print'] as $fmt) {
-            $exportUrls[$fmt] = $presetId > 0 ? Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => $fmt] + Yii::$app->request->get()) : '';
+            // PERBAIKAN BUG 4: URL export riil via preset ATAU langsung dari table_id
+            if ($presetId > 0) {
+                $exportUrls[$fmt] = Url::to(['/master-datatable/export', 'id' => $presetId, 'format' => $fmt] + Yii::$app->request->get());
+            } else {
+                $exportUrls[$fmt] = Url::to(['/master-datatable/export-table', 'table_id' => (int)$table->id, 'format' => $fmt] + Yii::$app->request->get());
+            }
         }
 
         ob_start();
@@ -946,15 +988,14 @@ class MasterDatatableRenderService
                     <p class="dt-subtitle" data-datatable-subtitle><?= (int)$state['total'] ?> row<?= (int)$state['total'] === 1 ? '' : 's' ?> from <?= Html::encode($table->name) ?></p>
                 </div>
                 <div class="dt-tools">
-                    <?php // ===== BUG 4 FIX: Export buttons juga tampil saat render dari page builder ===== ?>
-                    <?php // Export buttons muncul jika: presetId > 0 (mode preset) ATAU ada export yang dikonfigurasi di props ?>
-                    <?php $hasExports = $presetId > 0 || (!empty($exports) && (in_array(true, $exports, true) || count(array_filter($exports)) > 0)); ?>
+                    <?php // PERBAIKAN BUG 4: Tombol export selalu punya URL riil (preset atau table_id) ?>
+                    <?php $hasExports = !empty($exports) && (in_array(true, $exports, true) || count(array_filter($exports)) > 0); ?>
                     <?php if ($hasExports): ?>
                         <?php $exportLabels = ['csv' => 'CSV', 'excel' => 'Excel', 'pdf' => 'PDF', 'print' => 'Print']; ?>
                         <?php foreach ($exportLabels as $fmt => $label): ?>
                             <?php if (!isset($exports[$fmt]) || !empty($exports[$fmt])): ?>
-                            <?php $exportUrl = $presetId > 0 ? $exportUrls[$fmt] : '#'; ?>
-                            <a class="dt-btn" href="<?= Html::encode($exportUrl) ?>" <?= $fmt === 'print' || $fmt === 'pdf' ? 'target="_blank"' : '' ?>><?= Html::encode($label) ?></a>
+                            <?php $exportUrl = $exportUrls[$fmt] ?? ''; ?>
+                            <a class="dt-btn dt-export-btn" href="<?= Html::encode($exportUrl !== '' ? $exportUrl : '#') ?>" data-export-format="<?= Html::encode($fmt) ?>" data-export-url="<?= Html::encode($exportUrl) ?>" <?= $fmt === 'print' || $fmt === 'pdf' ? 'target="_blank" rel="noopener"' : '' ?>><?= Html::encode($label) ?></a>
                             <?php endif; ?>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -2017,6 +2058,23 @@ class MasterDatatableRenderService
                     }).finally(function() {
                         saveButton.disabled = false;
                         saveButton.textContent = previousLabel;
+                    });
+                });
+
+                // PERBAIKAN BUG 4: Pastikan tombol export kustom memicu navigasi ke URL export riil
+                root.querySelectorAll('.dt-export-btn').forEach(function(exportBtn) {
+                    exportBtn.addEventListener('click', function(event) {
+                        const exportUrl = (exportBtn.getAttribute('data-export-url') || exportBtn.getAttribute('href') || '').trim();
+                        if (!exportUrl || exportUrl === '#') {
+                            event.preventDefault();
+                            console.warn('Export URL belum tersedia untuk datatable ini.');
+                            return;
+                        }
+                        if (exportBtn.getAttribute('target') === '_blank') {
+                            return;
+                        }
+                        event.preventDefault();
+                        window.location.href = exportUrl;
                     });
                 });
             })();

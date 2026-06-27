@@ -12,7 +12,11 @@ $this->params['breadcrumbs'][] = ['label' => 'Master Forms', 'url' => ['index']]
 $this->params['breadcrumbs'][] = $this->title;
 
 // **CRITICAL**: Load existing form data for hydration
-$existingFields = !empty($model->form_data) ? json_encode($model->form_data) : '[]';
+// PERBAIKAN BUG 2: form_data di DB sudah JSON string; gunakan getFormDataArray() agar tidak double-encode
+$formDataArray = $model->getFormDataArray();
+$existingFields = !empty($formDataArray)
+    ? json_encode($formDataArray, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    : '[]';
 $activeLayout = $model->getActiveLayout()->one();
 $existingUseCustomCode = !empty($model->custom_code_mode)
     || ($model->hasAttribute('use_custom_code') && !empty($model->use_custom_code))

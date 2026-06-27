@@ -118,6 +118,30 @@ class MasterDatatableController extends Controller
         return (new MasterDatatableRenderService())->exportPreset($model, (string)$format);
     }
 
+    /**
+     * PERBAIKAN BUG 4: Export dari published page builder tanpa preset Master Datatable.
+     */
+    public function actionExportTable($table_id, $format = 'csv')
+    {
+        $tableId = (int)$table_id;
+        $table = DbTable::find()->where(['id' => $tableId])->one();
+        if (!$table instanceof DbTable) {
+            throw new NotFoundHttpException('Table not found.');
+        }
+
+        $config = [
+            'tableId' => $tableId,
+            'pagination' => false,
+            'page_size' => 5000,
+        ];
+
+        return (new MasterDatatableRenderService())->exportFromConfig(
+            $config,
+            (string)$format,
+            (string)($table->label ?: $table->name)
+        );
+    }
+
     public function actionReload($id)
     {
         Yii::$app->response->format = Response::FORMAT_JSON;

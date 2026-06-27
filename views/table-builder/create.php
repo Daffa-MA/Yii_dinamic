@@ -1452,15 +1452,109 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             selectColumn(columns.length - 1);
             updateSchema();
             updateSummary();
+
+            // ===== BUG 3 FIX: Update Auto Increment state untuk kolom baru =====
+            // Saat kolom baru dibuat, panggil updateAutoIncrementDisabled untuk memastikan
+            // checkbox AI enabled/disabled sesuai dengan tipe data dan primary key
+            const newCol = columns[columns.length - 1];
+            if (newCol) {
+                updateAutoIncrementDisabled(newCol);
+            }
         });
 
-        propertyFieldIds.forEach(function(fieldId) {
-            const element = document.getElementById(fieldId);
-            if (!element) {
+        // PERBAIKAN BUG 3: Event delegation pada panel properti agar perubahan tipe/PK selalu terdeteksi
+        const propertiesFormEl = document.getElementById('properties-form');
+        if (propertiesFormEl) {
+            propertiesFormEl.addEventListener('input', syncProperty);
+            propertiesFormEl.addEventListener('change', syncProperty);
+        }
+
+        // PERBAIKAN BUG 3: Event delegation pada daftar kolom dinamis (baris baru otomatis terikat)
+        columnsList.addEventListener('click', function(event) {
+            const columnItem = event.target.closest('.column-item');
+            if (!columnItem || !columnsList.contains(columnItem)) {
                 return;
             }
-            element.addEventListener('input', syncProperty);
-            element.addEventListener('change', syncProperty);
+
+            const index = parseInt(columnItem.getAttribute('data-index'), 10);
+            if (Number.isNaN(index)) {
+                return;
+            }
+
+            if (event.target.closest('.icon-btn.move-up')) {
+                event.stopPropagation();
+                if (index > 0) {
+                    swapColumns(index, index - 1);
+                    selectColumn(index - 1);
+                }
+                return;
+            }
+
+            if (event.target.closest('.icon-btn.move-down')) {
+                event.stopPropagation();
+                if (index < columns.length - 1) {
+                    swapColumns(index, index + 1);
+                    selectColumn(index + 1);
+                }
+                return;
+            }
+
+            if (event.target.closest('.icon-btn.duplicate')) {
+                event.stopPropagation();
+                const source = columns[index];
+                if (!source) {
+                    return;
+                }
+                const copy = normalizeColumn({
+                    name: source.name + '_copy',
+                    label: source.label + ' Copy',
+                    type: source.type,
+                    length: source.length,
+                    is_nullable: source.is_nullable,
+                    is_primary: false,
+                    is_unique: false,
+                    is_auto_increment: false,
+                    default_value: source.default_value,
+                    comment: source.comment,
+                    enum_values: source.enum_values,
+                    is_foreign_key: source.is_foreign_key,
+                    referenced_table: source.referenced_table,
+                    referenced_column: source.referenced_column,
+                    on_delete: source.on_delete,
+                    on_update: source.on_update
+                });
+                columns.splice(index + 1, 0, copy);
+                refreshAllColumns();
+                selectColumn(index + 1);
+                updateSchema();
+                updateSummary();
+                return;
+            }
+
+            if (event.target.closest('.icon-btn.delete')) {
+                event.stopPropagation();
+                if (!confirm('Delete this column from the table definition?')) {
+                    return;
+                }
+                columns.splice(index, 1);
+                if (selectedIndex === index) {
+                    selectedIndex = -1;
+                    hideProperties();
+                } else if (selectedIndex > index) {
+                    selectedIndex--;
+                }
+                refreshAllColumns();
+                if (selectedIndex >= 0 && columns[selectedIndex]) {
+                    selectColumn(selectedIndex);
+                }
+                updateSchema();
+                updateSummary();
+                return;
+            }
+
+            if (!event.target.closest('.icon-btn') && !event.target.closest('.drag-handle')) {
+                selectColumn(index);
+            }
         });
 
         [tableNameInput, tableLabelInput, tableEngineInput].forEach(function(element) {
@@ -1863,90 +1957,8 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
         }
 
         function attachColumnEvents(element, index) {
-            element.addEventListener('click', function(event) {
-                if (!event.target.closest('.icon-btn') && !event.target.closest('.drag-handle')) {
-                    selectColumn(index);
-                }
-            });
-
-            const moveUp = element.querySelector('.move-up');
-            const moveDown = element.querySelector('.move-down');
-            const duplicate = element.querySelector('.duplicate');
-            const remove = element.querySelector('.delete');
-
-            if (moveUp) {
-                moveUp.addEventListener('click', function(event) {
-                    event.stopPropagation();
-                    if (index > 0) {
-                        swapColumns(index, index - 1);
-                        selectColumn(index - 1);
-                    }
-                });
-            }
-
-            if (moveDown) {
-                moveDown.addEventListener('click', function(event) {
-                    event.stopPropagation();
-                    if (index < columns.length - 1) {
-                        swapColumns(index, index + 1);
-                        selectColumn(index + 1);
-                    }
-                });
-            }
-
-            if (duplicate) {
-                duplicate.addEventListener('click', function(event) {
-                    event.stopPropagation();
-                    const source = columns[index];
-                    const copy = normalizeColumn({
-                        name: source.name + '_copy',
-                        label: source.label + ' Copy',
-                        type: source.type,
-                        length: source.length,
-                        is_nullable: source.is_nullable,
-                        is_primary: false,
-                        is_unique: false,
-                        is_auto_increment: false,
-                        default_value: source.default_value,
-                        comment: source.comment,
-                        is_foreign_key: source.is_foreign_key,
-                        referenced_table: source.referenced_table,
-                        referenced_column: source.referenced_column,
-                        on_delete: source.on_delete,
-                        on_update: source.on_update
-                    });
-                    columns.splice(index + 1, 0, copy);
-                    refreshAllColumns();
-                    selectColumn(index + 1);
-                    updateSchema();
-                    updateSummary();
-                });
-            }
-
-            if (remove) {
-                remove.addEventListener('click', function(event) {
-                    event.stopPropagation();
-                    if (!confirm('Delete this column from the table definition?')) {
-                        return;
-                    }
-
-                    columns.splice(index, 1);
-
-                    if (selectedIndex === index) {
-                        selectedIndex = -1;
-                        hideProperties();
-                    } else if (selectedIndex > index) {
-                        selectedIndex--;
-                    }
-
-                    refreshAllColumns();
-                    if (selectedIndex >= 0 && columns[selectedIndex]) {
-                        selectColumn(selectedIndex);
-                    }
-                    updateSchema();
-                    updateSummary();
-                });
-            }
+            // PERBAIKAN BUG 3: Event row ditangani via delegation di columnsList — hindari duplicate listener
+            element.setAttribute('data-index', String(index));
         }
 
         function swapColumns(firstIndex, secondIndex) {
@@ -2023,33 +2035,27 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             isSyncingProperties = false;
         }
 
-        // ===== BUG 3 FIX: UpdateAutoIncrement dengan logika Primary Key =====
-        // Auto Increment hanya boleh aktif jika:
-        // 1. Tipe data = INT/BIGINT (integerTypes)
-        // 2. Kolom tersebut adalah Primary Key (is_primary === true)
+        // ===== PERBAIKAN BUG 3: Auto Increment hanya aktif jika integer + Primary Key =====
         function updateAutoIncrementDisabled(column) {
             const integerTypes = ['INT', 'BIGINT', 'TINYINT', 'SMALLINT', 'MEDIUMINT'];
             const autoIncrementCheckbox = document.getElementById('prop-auto-increment');
-            var colType = (column.type || '').toUpperCase();
+            const primaryCheckbox = document.getElementById('prop-primary');
+            if (!autoIncrementCheckbox || !column) {
+                return;
+            }
 
-            // BUG 3 FIX: Cek apakah tipe data adalah integer AND primary key tercentang
+            var colType = String(column.type || '').toUpperCase();
             var isValidType = integerTypes.indexOf(colType) !== -1;
-            var isPrimary = column.is_primary === true || (document.getElementById('prop-primary') && document.getElementById('prop-primary').checked);
+            // PERBAIKAN BUG 3: Gunakan toBoolean + state checkbox DOM agar sinkron dengan baris dinamis
+            var isPrimary = toBoolean(column.is_primary, false) || (primaryCheckbox && primaryCheckbox.checked);
 
             if (!isValidType || !isPrimary) {
-                // Tidak memenuhi syarat: disable dan uncheck
                 column.is_auto_increment = false;
                 autoIncrementCheckbox.checked = false;
                 autoIncrementCheckbox.disabled = true;
             } else {
-                // Memenuhi syarat (integer type + primary key): enable checkbox auto increment
                 autoIncrementCheckbox.disabled = false;
-            }
-
-            // Safety: jika auto increment masih ter-set tapi tipe sudah berubah, reset
-            if (column.is_auto_increment && !isValidType) {
-                column.is_auto_increment = false;
-                autoIncrementCheckbox.checked = false;
+                autoIncrementCheckbox.checked = toBoolean(column.is_auto_increment, false);
             }
         }
 
@@ -2079,6 +2085,9 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             column.is_nullable = document.getElementById('prop-nullable').checked;
             column.is_unique = document.getElementById('prop-unique').checked;
             column.is_primary = document.getElementById('prop-primary').checked;
+
+            // PERBAIKAN BUG 3: Evaluasi AI state SETELAH tipe & PK tersinkron
+            updateAutoIncrementDisabled(column);
             column.is_auto_increment = document.getElementById('prop-auto-increment').checked;
             column.default_value = document.getElementById('prop-default').value;
             column.comment = document.getElementById('prop-comment').value;
@@ -2101,7 +2110,6 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
             }
             toggleForeignKeySettings(column.is_foreign_key);
 
-            updateAutoIncrementDisabled(column);
             if (column.is_auto_increment) {
                 column.is_primary = true;
                 column.is_nullable = false;

@@ -242,6 +242,7 @@ $config = [
                 'master-datatable/delete/<id:\d+>' => 'master-datatable/delete',
                 'master-datatable/reload/<id:\d+>' => 'master-datatable/reload',
                 'master-datatable/export/<id:\d+>' => 'master-datatable/export',
+                'master-datatable/export-table/<table_id:\d+>' => 'master-datatable/export-table',
                 'master-datatable/approve-row/<id:\d+>' => 'master-datatable/approve-row',
                 'master-datatable/delete-row/<table_id:\d+>' => 'master-datatable/delete-row',
 

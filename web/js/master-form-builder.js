@@ -8,9 +8,42 @@
         };
     }
 
+    // ===== THROTTLE HELPER (BUG 1 FIX) =====
+    // Fungsi throttle untuk membatasi frekuensi eksekusi fungsi
+    function throttle(fn, limit) {
+        let inThrottle = false;
+        return function(...args) {
+            if (!inThrottle) {
+                fn.apply(this, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    }
+
     // ===== RE-RENDER GUARD (BUG 1 FIX) =====
     // Mencegah renderPropsPanel() memanggil dirinya sendiri secara rekursif
     let _renderPropsPanelGuard = false;
+    let _renderPropsPanelLock = null; // BUG 1 FIX: Lock untuk prevent double render
+    
+    // ===== RENDER LOCK (BUG 1 FIX) =====
+    // Lock yang lebih robust untuk mencegah double render
+    function acquireRenderLock(timeout) {
+        if (_renderPropsPanelLock) {
+            return false;
+        }
+        _renderPropsPanelLock = setTimeout(() => {
+            _renderPropsPanelLock = null;
+        }, timeout || 100);
+        return true;
+    }
+    
+    function releaseRenderLock() {
+        if (_renderPropsPanelLock) {
+            clearTimeout(_renderPropsPanelLock);
+            _renderPropsPanelLock = null;
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
         // Elements
@@ -51,6 +84,15 @@
                     console.error('BUG 2 FIX: Gagal parse JSON form data:', parseErr);
                     existingData = null;
                 }
+                // PERBAIKAN BUG 2: Handle double-encoded JSON string dari update.php lama
+                if (typeof existingData === 'string' && existingData.trim() !== '') {
+                    try {
+                        existingData = JSON.parse(existingData);
+                    } catch (innerParseErr) {
+                        console.error('BUG 2 FIX: Gagal parse JSON nested form data:', innerParseErr);
+                        existingData = null;
+                    }
+                }
                 if (existingData) {
                     if (!Array.isArray(existingData) && typeof existingData === 'object') {
                         // Format: { fields: [...] }
@@ -60,11 +102,11 @@
                         formFields = JSON.parse(JSON.stringify(existingData));
                     }
                     // Normalisasi setiap field dengan error handling
-                    formFields = formFields.map(function(field) {
+                    formFields = formFields.map(function(field, fieldIndex) {
                         try {
                             return normalizeFieldState(field);
                         } catch (normErr) {
-                            console.error('BUG 2 FIX: Gagal normalisasi field:', normErr, field);
+                            console.error('BUG 2 FIX: Gagal normalisasi field index ' + fieldIndex + ':', normErr, field);
                             return field;
                         }
                     });
@@ -80,20 +122,8 @@
             }
         }
 
-        // Panggil load data - synchronous, PASTI data siap SEBELUM renderFields() dipanggil
-        // BUG 2 FIX: Jalankan SEKARANG juga karena function definitions sudah di-hoist
-        loadExistingFormData();
-
-        // ===== BUG 2 FIX: RENDER existing fields setelah load data =====
-        // **KRITIKAL**: Original code tidak pernah memanggil renderFields() atau selectField()
-        // setelah loadExistingFormData, sehingga data formFields terisi tapi canvas tetap blank.
-        // User harus drag komponen baru untuk trigger renderFields() di addField().
-        // Panggil renderFields() sekarang untuk render field yang sudah dimuat.
-        renderFields();
-        // Pilih field pertama agar properties panel ikut terisi
-        if (formFields.length > 0) {
-            selectField(0);
-        }
+        // PERBAIKAN BUG 1 & 2: Jangan panggil renderFields() di sini — fieldIcons belum didefinisikan (TDZ).
+        // Initial render dipindah ke initializeBuilderFromStoredData() di akhir DOMContentLoaded.
 
         // Field Configuration
         const fieldConfig = {
@@ -206,6 +236,47 @@
                 inputType: 'hidden'
             }
         };
+
+        // PERBAIKAN BUG 1: Debounce/throttle untuk render canvas & props panel
+        let _isRenderingFields = false;
+        const debouncedRenderFields = debounce(function() {
+            renderFieldsImmediate();
+        }, 120);
+        const throttledRenderPropsPanel = throttle(function(field) {
+            renderPropsPanelImmediate(field);
+        }, 150);
+
+        function renderFieldsImmediate() {
+            if (_isRenderingFields) {
+                return;
+            }
+            if (!acquireRenderLock(150)) {
+                debouncedRenderFields();
+                return;
+            }
+            _isRenderingFields = true;
+            try {
+                renderFields();
+            } finally {
+                _isRenderingFields = false;
+                releaseRenderLock();
+            }
+        }
+
+        function scheduleRenderFields() {
+            debouncedRenderFields();
+        }
+
+        function renderPropsPanelImmediate(field) {
+            if (!acquireRenderLock(120)) {
+                return;
+            }
+            try {
+                renderPropsPanel(field);
+            } finally {
+                releaseRenderLock();
+            }
+        }
 
         // Field Icons
         const fieldIcons = {
@@ -1341,7 +1412,13 @@
                 field.__gps_camera_metadata_loaded = true;
                 field.__gps_camera_metadata_loading = null;
                 if (selectedIndex !== null && formFields[selectedIndex] === field) {
-                    renderPropsPanel(formFields[selectedIndex]);
+                    // PERBAIKAN BUG 1: Guard agar async GPS metadata tidak memicu render loop
+                    if (_renderPropsPanelGuard) {
+                        return;
+                    }
+                    _renderPropsPanelGuard = true;
+                    throttledRenderPropsPanel(formFields[selectedIndex]);
+                    _renderPropsPanelGuard = false;
                 }
             }).catch(function() {
                 field.__gps_camera_metadata_loading = null;
@@ -1677,14 +1754,25 @@
         window.selectField = function(index) {
             if (index === null || index === undefined) return;
             selectedIndex = index;
-            renderFields();
+            // PERBAIKAN BUG 1: Debounce render canvas agar tidak freeze saat klik cepat
+            scheduleRenderFields();
             if (formFields[index]) {
-                renderPropsPanel(formFields[index]);
+                throttledRenderPropsPanel(formFields[index]);
             }
         };
 
         // Render Properties Panel (Design Tab)
         function renderPropsPanel(field) {
+            // ===== BUG 1 FIX: Guard untuk mencegah infinite loop =====
+            // Jika lock masih aktif, abort render untuk mencegah stack overflow
+            if (_renderPropsPanelLock) {
+                return;
+            }
+            // Jika guard aktif, abaikan (mencegah rekursi)
+            if (_renderPropsPanelGuard) {
+                return;
+            }
+            
             field = normalizeFieldState(field);
             const panel = document.getElementById('properties-panel');
             if (!panel) return;
@@ -1980,7 +2068,8 @@
         }
 
         // Update Field Property
-        window.updateFieldProp = function(propName, value) {
+        // ===== BUG 1 FIX: Debounce updateFieldProp untuk mencegah render berlebihan =====
+        const debouncedUpdateFieldProp = debounce(function(propName, value) {
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             formFields[selectedIndex][propName] = value;
             normalizeFieldState(formFields[selectedIndex]);
@@ -2011,11 +2100,21 @@
                     }
                 }
             }
-            renderFields();
+            renderFieldsImmediate();
             if (rerenderPanelProps.has(propName)) {
-                renderPropsPanel(formFields[selectedIndex]);
+                throttledRenderPropsPanel(formFields[selectedIndex]);
             }
             updateData();
+        }, 100); // 100ms debounce delay
+        
+        window.updateFieldProp = function(propName, value) {
+            // Langsung update value, baru debounce render
+            if (selectedIndex === null || !formFields[selectedIndex]) return;
+            formFields[selectedIndex][propName] = value;
+            updateData(); // Langsung update data agar tidak hilang
+            
+            // Debounce render UI
+            debouncedUpdateFieldProp(propName, value);
         };
 
         window.setForeignKeyColumn = function(kind, value) {
@@ -2920,31 +3019,50 @@
             }
 
             if (placeholder) placeholder.style.display = 'none';
-            if (fieldCountHint) fieldCountHint.textContent = formFields.length + ' field' + (formFields.length > 1 ? 's' : '');
+// PERBAIKAN BUG 2: try-catch per field
+            const renderedItems = [];
+            formFields.forEach(function(field, i) {
+                try {
+                    const selected = selectedIndex === i ? 'selected' : '';
+                    const isExcluded = field.excluded === true;
+                    renderedItems.push(
+                        '<div class="field-item ' + selected + '" data-index="' + i + '" data-field-id="' + (field.id || ('field_' + i)) + '">' +
+                        '<div class="field-item-header">' +
+                        '<div class="field-item-label">' +
+                        '<span class="material-symbols-outlined field-drag-handle" data-drag="' + i + '">drag_indicator</span>' +
+                        '<span class="material-symbols-outlined">' + (fieldIcons[field.type] || 'text_fields') + '</span>' +
+                        (field.label || field.name || ('Field ' + (i + 1))) +
+                        (field.required ? '<span class="field-item-required">*</span>' : '') +
+                        (field.is_foreign_key ? '<span class="field-badge-fk">FK</span>' : '') +
+                        '</div>' +
+                        '<div class="field-actions">' +
+                        (isExcluded ? '<span class="field-badge-auto" style="margin-right:4px;">Hidden</span>' : '') +
+                        '<button class="field-actions-btn" data-duplicate="' + i + '" title="Duplicate"><span class="material-symbols-outlined">content_copy</span></button>' +
+                        '<button class="field-actions-btn" data-settings="' + i + '" title="Settings"><span class="material-symbols-outlined">tune</span></button>' +
+                        '<button class="field-actions-btn delete" data-delete="' + i + '" title="Delete"><span class="material-symbols-outlined">delete</span></button>' +
+                        '</div>' +
+                        '</div>' +
+                        (isExcluded ? '<div class="field-preview" style="background:#fef3c7;border-color:#fcd34d;"><span style="color:#92400e;font-size:12px;">Field disembunyikan dari form (excluded)</span></div>' : renderPreview(field)) +
+                        '<div class="field-name">Name: ' + (field.name || '') + (field.is_foreign_key ? ' <span class="field-badge-fk">FK ' + (field.fk_referenced_table || '') + '</span>' : '') + '</div>' +
+                        '</div>'
+                    );
+                } catch (fieldRenderErr) {
+                    console.error('BUG 2 FIX: Gagal render field index ' + i + ':', fieldRenderErr, field);
+                    renderedItems.push(
+                        '<div class="field-item field-item-error" data-index="' + i + '">' +
+                        '<div class="field-preview" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c;">' +
+                        'Field #' + (i + 1) + ' gagal dirender: ' + escapeHtml(field.label || field.name || field.type || 'unknown') +
+                        '</div></div>'
+                    );
+                }
+            });
 
-            container.innerHTML = formFields.map((field, i) => {
-                const selected = selectedIndex === i ? 'selected' : '';
-                const isExcluded = field.excluded === true;
-                return '<div class="field-item ' + selected + '" data-index="' + i + '" data-field-id="' + field.id + '">' +
-                    '<div class="field-item-header">' +
-                    '<div class="field-item-label">' +
-                    '<span class="material-symbols-outlined field-drag-handle" data-drag="' + i + '">drag_indicator</span>' +
-                    '<span class="material-symbols-outlined">' + (fieldIcons[field.type] || 'text_fields') + '</span>' +
-                    field.label +
-                    (field.required ? '<span class="field-item-required">*</span>' : '') +
-                    (field.is_foreign_key ? '<span class="field-badge-fk">FK</span>' : '') +
-                    '</div>' +
-                    '<div class="field-actions">' +
-                    (isExcluded ? '<span class="field-badge-auto" style="margin-right:4px;">Hidden</span>' : '') +
-                    '<button class="field-actions-btn" data-duplicate="' + i + '" title="Duplicate"><span class="material-symbols-outlined">content_copy</span></button>' +
-                    '<button class="field-actions-btn" data-settings="' + i + '" title="Settings"><span class="material-symbols-outlined">tune</span></button>' +
-                    '<button class="field-actions-btn delete" data-delete="' + i + '" title="Delete"><span class="material-symbols-outlined">delete</span></button>' +
-                    '</div>' +
-                    '</div>' +
-                    (isExcluded ? '<div class="field-preview" style="background:#fef3c7;border-color:#fcd34d;"><span style="color:#92400e;font-size:12px;">Field disembunyikan dari form (excluded)</span></div>' : renderPreview(field)) +
-                    '<div class="field-name">Name: ' + field.name + (field.is_foreign_key ? ' <span class="field-badge-fk">â†’ ' + field.fk_referenced_table + '</span>' : '') + '</div>' +
-                    '</div>';
-            }).join('');
+            if (container) {
+                container.innerHTML = renderedItems.join('');
+            }
+            if (fieldCountHint) {
+                fieldCountHint.textContent = formFields.length + ' field' + (formFields.length > 1 ? 's' : '');
+            }
 
             // Event listeners
             container.querySelectorAll('.field-item').forEach(item => {
@@ -3402,4 +3520,18 @@
 
             return systemFields.includes(normalizedName);
         }
+
+        // PERBAIKAN BUG 2: Inisialisasi builder SETELAH semua helper & fieldIcons siap
+        function initializeBuilderFromStoredData() {
+            loadExistingFormData();
+            renderFieldsImmediate();
+            if (formFields.length > 0) {
+                selectedIndex = 0;
+                throttledRenderPropsPanel(formFields[0]);
+            } else {
+                renderPropsPanel(null);
+            }
+        }
+
+        initializeBuilderFromStoredData();
     });

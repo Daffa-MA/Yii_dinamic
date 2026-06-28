@@ -3236,6 +3236,26 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     </div>
                 </div>
                 <input type="text" class="prop-input" value="${escapeAttr(col.label || col.field)}" onchange="updateDatatableColumn('${blockId}', ${index}, 'label', this.value)" placeholder="Custom header">
+                <div style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+                    <span style="font-size:11px;color:#64748b;white-space:nowrap;">Tampilan:</span>
+                    <select class="prop-select" style="flex:1;font-size:11px;padding:4px 6px;" onchange="updateDatatableColumn('${blockId}', ${index}, 'display_mode', this.value)">
+                        <option value="text" ${(col.display_mode || 'text') === 'text' ? 'selected' : ''}>Text</option>
+                        <option value="image" ${col.display_mode === 'image' ? 'selected' : ''}>Image</option>
+                        <option value="file" ${col.display_mode === 'file' ? 'selected' : ''}>File</option>
+                        <option value="link" ${col.display_mode === 'link' ? 'selected' : ''}>Link</option>
+                        <option value="badge" ${col.display_mode === 'badge' ? 'selected' : ''}>Badge</option>
+                    </select>
+                </div>
+                ${col.display_mode === 'link' ? `
+                <div style="margin-top:6px;">
+                    <input type="text" class="prop-input" value="${escapeAttr(col.link_text || '')}" onchange="updateDatatableColumn('${blockId}', ${index}, 'link_text', this.value)" placeholder="Teks link (kosongi untuk pakai URL)">
+                </div>` : ''}
+                ${col.display_mode === 'badge' ? `
+                <div style="margin-top:6px;display:flex;gap:6px;align-items:center;">
+                    <span style="font-size:11px;color:#64748b;white-space:nowrap;">Warna:</span>
+                    <input type="color" class="prop-input" style="width:40px;height:28px;padding:2px;" value="${col.badge_color || '#3b82f6'}" onchange="updateDatatableColumn('${blockId}', ${index}, 'badge_color', this.value)">
+                    <input type="text" class="prop-input" style="flex:1;font-size:11px;" value="${col.badge_color || '#3b82f6'}" onchange="updateDatatableColumn('${blockId}', ${index}, 'badge_color', this.value)" placeholder="#3b82f6">
+                </div>` : ''}
                 ${renderDatatableFkDisplayEditor(blockId, props, col, index)}
             </div>
         `).join('');

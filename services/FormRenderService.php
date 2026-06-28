@@ -872,31 +872,51 @@ class FormRenderService
                     for (var key in mappings) {
                         var colName = mappings[key];
                         if (!colName) continue;
-                        // Use querySelectorAll to handle possible multiple fields with same name or case sensitivity
+
+                        var value = '';
+                        switch(key) {
+                            case 'photo_path': value = payload.photo_path || payload.photo_name || ''; break;
+                            case 'photo_data': value = payload.photo_data || ''; break;
+                            case 'photo_url': value = payload.photo_url || ''; break;
+                            case 'latitude': value = payload.latitude || ''; break;
+                            case 'longitude': value = payload.longitude || ''; break;
+                            case 'gps_link': value = (payload.latitude && payload.longitude) ? 'https://www.google.com/maps?q=' + payload.latitude + ',' + payload.longitude : ''; break;
+                            case 'captured_at': value = payload.captured_at || ''; break;
+                            case 'location_name': value = payload.location_text || payload.location_address || ''; break;
+                        }
+
+                        // Try to find existing inputs
                         var targetInputs = form.querySelectorAll('[name="' + colName + '"]');
                         if (targetInputs.length === 0) {
-                            // Try common Yii2 naming patterns if direct name fails
+                            // Try common Yii2 naming patterns
                             targetInputs = form.querySelectorAll('[id$="-' + colName.toLowerCase() + '"]');
                         }
                         
-                        targetInputs.forEach(function(targetInput) {
-                            var value = '';
-                            switch(key) {
-                                case 'photo_path': value = payload.photo_path || payload.photo_name || ''; break;
-                                case 'latitude': value = payload.latitude || ''; break;
-                                case 'longitude': value = payload.longitude || ''; break;
-                                case 'gps_link': value = (payload.latitude && payload.longitude) ? 'https://www.google.com/maps?q=' + payload.latitude + ',' + payload.longitude : ''; break;
-                                case 'captured_at': value = payload.captured_at || ''; break;
-                                case 'location_name': value = payload.location_text || payload.location_address || ''; break;
+                        if (targetInputs.length > 0) {
+                            targetInputs.forEach(function(targetInput) {
+                                if (targetInput.type === 'checkbox' || targetInput.type === 'radio') {
+                                    targetInput.checked = !!value;
+                                } else {
+                                    targetInput.value = value;
+                                }
+                                targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                                targetInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            });
+                        } else {
+                            // KRITIKAL: Jika input tidak ditemukan, buat hidden input baru agar data ter-submit ke backend
+                            // Ini menangani kasus dimana user membind kolom tapi tidak menambahkan field-nya di form builder.
+                            var hiddenId = 'dynamic-gps-binding-' + colName.replace(/[^a-z0-9]/gi, '_');
+                            var existingHidden = form.querySelector('#' + hiddenId);
+                            if (!existingHidden) {
+                                existingHidden = document.createElement('input');
+                                existingHidden.type = 'hidden';
+                                existingHidden.name = colName;
+                                existingHidden.id = hiddenId;
+                                existingHidden.setAttribute('data-dynamic-binding', '1');
+                                form.appendChild(existingHidden);
                             }
-                            if (targetInput.type === 'checkbox' || targetInput.type === 'radio') {
-                                targetInput.checked = !!value;
-                            } else {
-                                targetInput.value = value;
-                            }
-                            targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                            targetInput.dispatchEvent(new Event('change', { bubbles: true }));
-                        });
+                            existingHidden.value = value;
+                        }
                     }
                 }
             } catch(e) { console.error('GPS Mapping Error:', e); }
@@ -1424,7 +1444,7 @@ class FormRenderService
         };
 
         var fileAssigned = file ? setFileInputFile(wrapper, file) : false;
-        if (!fileAssigned && fallbackDataUrl) {
+        if (fallbackDataUrl) {
             payload.photo_data = fallbackDataUrl;
         }
 

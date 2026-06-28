@@ -20,6 +20,7 @@ use app\components\ProjectPermissionService;
 use app\components\SystemFieldService;
 use app\helpers\FormSystemFieldHelper;
 use app\components\FormFlowDebugLogger;
+use app\components\WorkspaceMediaStorage;
 use app\services\DynamicFormBehaviorService;
 use app\services\FormActivityLogService;
 use app\services\FormEngineService;
@@ -27,10 +28,12 @@ use app\services\FormRenderService;
 use yii\data\ActiveDataProvider;
 use yii\db\IntegrityException;
 use yii\db\Query;
+use yii\helpers\FileHelper;
 use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
+use yii\web\UploadedFile;
 use yii\filters\VerbFilter;
 
 class MasterFormController extends Controller
@@ -132,6 +135,8 @@ class MasterFormController extends Controller
      */
     private function validateRequiredInsertData(array $insertData, array $schemaColumns): ?string
     {
+        Yii::error('[DEBUG_VERIFY] validateRequiredInsertData insertData_keys=' . json_encode(array_keys($insertData)), 'app');
+        Yii::error('[DEBUG_VERIFY] validateRequiredInsertData has_photo_path=' . (array_key_exists('photo_path', $insertData) ? 'YES value=' . json_encode($insertData['photo_path']) : 'NO'), 'app');
         $missingFields = [];
         foreach ($schemaColumns as $columnName => $column) {
             if ($this->isSubmitSystemColumn((string)$columnName, $column)) {
@@ -147,12 +152,15 @@ class MasterFormController extends Controller
             }
 
             $missingFields[] = $this->formatColumnLabel((string)$columnName);
+            Yii::error('[DEBUG_VERIFY] validateRequiredInsertData MISSING column=' . $columnName . ' allowNull=' . json_encode($column->allowNull) . ' defaultValue=' . json_encode($column->defaultValue), 'app');
         }
 
         if (!empty($missingFields)) {
+            Yii::error('[DEBUG_VERIFY] validateRequiredInsertData FAIL missing=' . json_encode($missingFields), 'app');
             return 'Field berikut wajib diisi karena kolom target tidak mengizinkan nilai kosong: ' . implode(', ', $missingFields) . '.';
         }
 
+        Yii::error('[DEBUG_VERIFY] validateRequiredInsertData PASS', 'app');
         return null;
     }
 
@@ -2331,6 +2339,7 @@ class MasterFormController extends Controller
     
     public function actionSubmit($id = null)
     {
+        Yii::error('[DEBUG:MasterForm] ENTER actionSubmit ID: ' . $id, 'app');
         if ($id === null || (int)$id <= 0) {
             if (Yii::$app->request->isAjax) {
                 Yii::$app->response->format = Response::FORMAT_JSON;
@@ -2374,6 +2383,15 @@ class MasterFormController extends Controller
             $submissionToken = trim((string)Yii::$app->request->post('_submit_request_id', ''));
             
             $tableId = $this->resolveTargetTableId($model);
+            $postData = $this->applyGpsCameraProcessing($model, $fields, $postData, (int)$tableId);
+            Yii::error('[DEBUG_VERIFY] actionSubmit AFTER applyGpsCameraProcessing: keys=' . json_encode(array_keys($postData)), 'app');
+            Yii::error('[DEBUG_VERIFY] actionSubmit AFTER applyGpsCameraProcessing: photo_path_exists=' . (array_key_exists('photo_path', $postData) ? 'YES value=' . $postData['photo_path'] : 'NO'), 'app');
+            foreach ($postData as $k => $v) {
+                if (is_string($v) && (str_contains(strtolower($k), 'gps') || str_contains(strtolower($k), 'photo') || str_contains(strtolower($k), 'camera'))) {
+                    Yii::error('[DEBUG_VERIFY] actionSubmit GPS-RELATED key=' . $k . ' value_preview=' . (is_string($v) ? substr($v, 0, 200) : json_encode($v)), 'app');
+                }
+            }
+            
             if (!$tableId) {
                 $message = 'Target table not configured for this form.';
                 if ($isAjax) {
@@ -2540,6 +2558,10 @@ class MasterFormController extends Controller
                     }
                 }
             }
+
+            Yii::error('[DEBUG_VERIFY] actionSubmit BEFORE VALIDATION insertData=' . json_encode($insertData), 'app');
+            Yii::error('[DEBUG_VERIFY] actionSubmit BEFORE VALIDATION photo_path_in_insertData=' . (array_key_exists('photo_path', $insertData) ? 'YES value=' . json_encode($insertData['photo_path']) : 'NO'), 'app');
+            Yii::error('[DEBUG_VERIFY] actionSubmit BEFORE VALIDATION raw_postData_photo_path=' . (array_key_exists('photo_path', $postData) ? 'YES value=' . $postData['photo_path'] : 'NO'), 'app');
 
             // BAGIAN 5.1 Step 2: Server-side Validation
             $schemaValidationErrors = $this->validateBySchema($insertData, $fields, $columns->columns, (int)$tableId);
@@ -2975,6 +2997,8 @@ class MasterFormController extends Controller
 
     private function extractRawPostedTableData(array $postData, array $columns, array $repeatFieldNames = []): array
     {
+        Yii::error('[DEBUG_VERIFY] extractRawPostedTableData postData_keys=' . json_encode(array_keys($postData)), 'app');
+        Yii::error('[DEBUG_VERIFY] extractRawPostedTableData photo_path_in_postData=' . (array_key_exists('photo_path', $postData) ? 'YES value=' . $postData['photo_path'] : 'NO'), 'app');
         $data = [];
         foreach ($columns as $columnName => $column) {
             if ($this->isSubmitSystemColumn((string)$columnName, $column)) {
@@ -2983,6 +3007,9 @@ class MasterFormController extends Controller
 
             $postedValue = $this->resolvePostedColumnValue($postData, (string)$columnName);
             if ($postedValue === null || $postedValue === '') {
+                if ($columnName === 'photo_path') {
+                    Yii::error('[DEBUG_VERIFY] extractRawPostedTableData photo_path SKIPPED - value null or empty', 'app');
+                }
                 continue;
             }
 
@@ -2995,6 +3022,7 @@ class MasterFormController extends Controller
             $data[$columnName] = $this->dynamicFormBehaviorService->coerceInsertFieldValue($postedValue, false);
         }
 
+        Yii::error('[DEBUG_VERIFY] extractRawPostedTableData returning keys=' . json_encode(array_keys($data)) . ' photo_path_in_result=' . (array_key_exists('photo_path', $data) ? 'YES' : 'NO'), 'app');
         return $data;
     }
 
@@ -3394,6 +3422,186 @@ class MasterFormController extends Controller
             }
         }
         return $errors;
+    }
+
+    private function applyGpsCameraProcessing(MasterForm $form, array $fields, array $postData, int $tableId): array
+    {
+        Yii::error('[DEBUG_VERIFY] ENTER applyGpsCameraProcessing form_id=' . $form->id . ' fields_count=' . count($fields) . ' postData_keys=' . json_encode(array_keys($postData)), 'app');
+        $storage = new WorkspaceMediaStorage();
+        $timezone = new \DateTimeZone(Yii::$app->timeZone ?: 'Asia/Jakarta');
+        $now = new \DateTimeImmutable('now', $timezone);
+        $data = $postData;
+
+        foreach ($fields as $index => $field) {
+            if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
+            $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '')));
+            if ($type !== 'gps_camera') {
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing SKIP non-gps_camera type=' . $type . ' field=' . (string)($field['name'] ?? 'unnamed'), 'app');
+                continue;
+            }
+
+            $fieldName = (string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? '');
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PROCESSING gps_camera fieldName=' . $fieldName, 'app');
+            if ($fieldName === '') {
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing SKIP empty fieldName', 'app');
+                continue;
+            }
+
+            // 1. Process Main Payload
+            $payload = [];
+            $rawPayload = $data[$fieldName] ?? '__MISSING__';
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing rawPayload type=' . gettype($rawPayload) . ' preview=' . (is_string($rawPayload) ? substr($rawPayload, 0, 200) : (is_array($rawPayload) ? json_encode($rawPayload) : json_encode($rawPayload))), 'app');
+            if (is_string($rawPayload) && trim($rawPayload) !== '') {
+                $payload = json_decode($rawPayload, true) ?: [];
+            } elseif (is_array($rawPayload)) {
+                $payload = $rawPayload;
+            }
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing decoded payload=' . json_encode($payload), 'app');
+
+            // 2. Handle File Upload
+            $safeFieldName = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName);
+            $uploadInputName = '__gps_camera_file_' . ($safeFieldName !== '' ? $safeFieldName : 'gps_camera');
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing uploadInputName=' . $uploadInputName, 'app');
+            $uploadedFile = UploadedFile::getInstanceByName($uploadInputName);
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing uploadedFile=' . ($uploadedFile !== null ? 'FOUND name=' . $uploadedFile->name . ' error=' . $uploadedFile->error . ' size=' . $uploadedFile->size : 'NULL'), 'app');
+
+            if ($uploadedFile !== null && $uploadedFile->error === UPLOAD_ERR_OK) {
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_A: file upload detected', 'app');
+                $stored = $storage->storeUploadedFile($uploadedFile, 'gps-' . $safeFieldName, 'forms/gps-camera/' . (int)$form->id . '/');
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing storeUploadedFile result=' . json_encode($stored), 'app');
+                if (!empty($stored['success'])) {
+                    $payload['photo_path'] = (string)($stored['relative_path'] ?? '');
+                    $payload['photo_url'] = (string)($stored['url'] ?? '');
+                    Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_A: photo_path SET to ' . $payload['photo_path'], 'app');
+                } else {
+                    Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_A: storeUploadedFile FAILED', 'app');
+                }
+            }
+            // Handle Base64 (jika dari canvas/camera API)
+            if (!isset($payload['photo_path']) && !empty($payload['photo_data']) && is_string($payload['photo_data'])) {
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_B: base64 photo_data detected, length=' . strlen($payload['photo_data']), 'app');
+                $stored = $this->storeGpsCameraBase64Image($storage, $fieldName, (string)$payload['photo_data'], $form);
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing storeGpsCameraBase64Image result=' . json_encode($stored), 'app');
+                if ($stored !== null) {
+                    $payload['photo_path'] = (string)($stored['relative_path'] ?? '');
+                    $payload['photo_url'] = (string)($stored['url'] ?? '');
+                    Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_B: photo_path SET to ' . $payload['photo_path'], 'app');
+                } else {
+                    Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_B: storeGpsCameraBase64Image returned NULL', 'app');
+                }
+            }
+            if (!isset($payload['photo_path'])) {
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing PATH_C: NEITHER file NOR base64 produced photo_path', 'app');
+            }
+
+            // 3. Sync Server-side Timestamp if needed
+            if (empty($payload['captured_at_server'])) {
+                $payload['captured_at_server'] = $now->format(DATE_ATOM);
+            }
+
+            // Update main payload
+            $data[$fieldName] = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing data[' . $fieldName . '] (JSON payload)=' . $data[$fieldName], 'app');
+
+            // 4. Handle Configuration-Driven Bindings (Dynamic Mappings)
+            $mappings = $field['gps_camera_mappings'] ?? [];
+            if (is_string($mappings)) {
+                $mappings = json_decode($mappings, true) ?: [];
+            }
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing raw_mappings=' . json_encode($field['gps_camera_mappings'] ?? 'NOT_SET'), 'app');
+            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing resolved_mappings=' . json_encode($mappings), 'app');
+
+            if (is_array($mappings) && !empty($mappings)) {
+                foreach ($mappings as $sourceKey => $targetColumn) {
+                    if (empty($targetColumn)) {
+                        Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing SKIP mapping empty targetColumn for sourceKey=' . $sourceKey, 'app');
+                        continue;
+                    }
+
+                    $value = '';
+                    switch($sourceKey) {
+                        case 'photo_path': $value = $payload['photo_path'] ?? $payload['photo_name'] ?? ''; break;
+                        case 'latitude': $value = $payload['latitude'] ?? ''; break;
+                        case 'longitude': $value = $payload['longitude'] ?? ''; break;
+                        case 'gps_link': $value = (!empty($payload['latitude']) && !empty($payload['longitude'])) ? 'https://www.google.com/maps?q=' . $payload['latitude'] . ',' . $payload['longitude'] : ''; break;
+                        case 'captured_at': $value = $payload['captured_at'] ?? ''; break;
+                        case 'location_name': $value = $payload['location_text'] ?? $payload['location_address'] ?? ''; break;
+                    }
+
+                    Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing mapping sourceKey=' . $sourceKey . ' targetColumn=' . $targetColumn . ' computed_value=' . json_encode($value), 'app');
+
+                    if ($value !== '') {
+                        $data[$targetColumn] = $value;
+                        Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing SET data[' . $targetColumn . ']=' . $value, 'app');
+                    } else {
+                        Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing SKIP mapping sourceKey=' . $sourceKey . ' because computed value is empty', 'app');
+                    }
+                }
+            } else {
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing NO MAPPINGS configured for this gps_camera field', 'app');
+            }
+
+            // Auto-populate photo_path jika payload punya photo_path tapi belum di-set ke data
+            if (!empty($payload['photo_path']) && !array_key_exists('photo_path', $data)) {
+                $data['photo_path'] = $payload['photo_path'];
+                Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing AUTO-SET data[photo_path]=' . $payload['photo_path'], 'app');
+            }
+        }
+
+        Yii::error('[DEBUG_VERIFY] EXIT applyGpsCameraProcessing returning keys=' . json_encode(array_keys($data)), 'app');
+        return $data;
+    }
+
+    private function storeGpsCameraBase64Image(WorkspaceMediaStorage $storage, string $fieldName, string $dataUrl, $form): ?array
+    {
+        Yii::error('[DEBUG_VERIFY] ENTER storeGpsCameraBase64Image fieldName=' . $fieldName . ' dataUrl_length=' . strlen($dataUrl) . ' preview=' . substr($dataUrl, 0, 80), 'app');
+        if (!preg_match('/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i', trim($dataUrl), $matches)) {
+            Yii::error('[DEBUG_VERIFY] storeGpsCameraBase64Image REGEX MATCH FAILED dataUrl=' . substr($dataUrl, 0, 120), 'app');
+            return null;
+        }
+        Yii::error('[DEBUG_VERIFY] storeGpsCameraBase64Image REGEX MATCHED mime=' . $matches[1] . ' base64_length=' . strlen($matches[2]), 'app');
+
+        $mimeType = strtolower(trim((string)$matches[1]));
+        $binary = base64_decode((string)$matches[2], true);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $extension = 'jpg';
+        if (str_contains($mimeType, 'png')) {
+            $extension = 'png';
+        } elseif (str_contains($mimeType, 'webp')) {
+            $extension = 'webp';
+        } elseif (str_contains($mimeType, 'gif')) {
+            $extension = 'gif';
+        }
+
+        $safeField = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName);
+        $relativeDir = 'forms/gps-camera/' . (int)$form->id . '/';
+        $fileName = 'gps-' . ($safeField !== '' ? $safeField : 'camera') . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $relativePath = $relativeDir . $fileName;
+        $storagePath = $storage->storagePath($relativePath);
+        $publicPath = $storage->publicPath($relativePath);
+
+        FileHelper::createDirectory(dirname($storagePath));
+        FileHelper::createDirectory(dirname($publicPath));
+        if (file_put_contents($storagePath, $binary) === false) {
+            return null;
+        }
+        if ($publicPath !== $storagePath) {
+            @copy($storagePath, $publicPath);
+        }
+
+        return [
+            'relative_path' => $relativePath,
+            'url' => $storage->publicUrl($relativePath),
+            'photo_name' => $safeField !== '' ? $safeField . '.' . $extension : 'gps-camera.' . $extension,
+            'photo_mime' => $mimeType,
+            'photo_size' => strlen($binary),
+        ];
     }
 
     private function validateRule($value, string $rule, $params = null): bool

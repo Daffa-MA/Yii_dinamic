@@ -234,6 +234,7 @@ $config = [
                 'tables/execute/<id:\d+>' => 'table-builder/execute-sql',
                 'tables/preview/<id:\d+>' => 'table-builder/preview-sql',
                 'tables/delete/<id:\d+>' => 'table-builder/delete',
+                'tables/get-column-metadata' => 'table-builder/get-column-metadata',
 
                 // Master Datatable routes
                 'master-datatable' => 'master-datatable/index',

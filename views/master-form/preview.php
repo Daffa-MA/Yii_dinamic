@@ -661,15 +661,15 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                     'data-form-id' => (int)$model->id,
                                 ]) ?>
                                 <div class="relation-picker-row">
-                                    <?= Html::textInput('__fk_display_' . $name, $selectedDisplay, [
+                                    <?= Html::textInput('__fk_display_' . $name, $selectedDisplay, array_filter([
                                         'class' => 'preview-input relation-picker-display',
                                         'placeholder' => $placeholder ?: 'Cari ' . $label . '...',
                                         'required' => $required,
-                                        'readonly' => $pickerMode === 'modal_picker',
+                                        'readonly' => !empty($field['readonly']) || !empty($field['readOnly']),
                                         'data-form-id' => (int)$model->id,
                                         'data-field-name' => $name,
                                         'data-picker-mode' => $pickerMode,
-                                    ]) ?>
+                                    ], function ($v) { return $v !== false; })) ?>
                                     <?php if ($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal'): ?>
                                         <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="<?= Html::encode($name) ?>" data-field-name="<?= Html::encode($name) ?>" data-picker-field="<?= Html::encode($name) ?>">Pilih</button>
                                     <?php endif; ?>

@@ -1876,12 +1876,33 @@
                             html += '<div style="max-height:150px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;">';
                             if (!field.picker_config) field.picker_config = {};
                             if (!Array.isArray(field.picker_config.display_columns)) field.picker_config.display_columns = [];
+                            if (!field.picker_config.fk_display_columns) field.picker_config.fk_display_columns = {};
                             
                             refCols.forEach(col => {
                                 const checked = field.picker_config.display_columns.includes(col.name);
-                                html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px;cursor:pointer;">';
+                                const isFkColumn = !!(col.is_foreign_key || col.referenced_table_name);
+                                const fkDisplayColumns = Array.isArray(col.target_columns) ? col.target_columns : [];
+                                const currentFkDisplay = field.picker_config.fk_display_columns[col.name] || '';
+                                html += '<div style="padding:6px 0;' + (isFkColumn ? 'border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-bottom:6px;background:#fafbfc;' : '') + '">';
+                                html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">';
                                 html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="updateModalDisplayColumns(\'' + col.name + '\', this.checked)">';
-                                html += col.name + '</label>';
+                                html += col.name;
+                                if (isFkColumn) {
+                                    html += ' <span style="font-size:10px;color:#92400e;background:#fef3c7;border-radius:999px;padding:1px 6px;">FK</span>';
+                                }
+                                html += '</label>';
+                                if (isFkColumn && fkDisplayColumns.length > 0) {
+                                    html += '<div style="margin-left:26px;margin-top:6px;display:flex;align-items:center;gap:6px;">';
+                                    html += '<span style="font-size:11px;color:#64748b;white-space:nowrap;">Display:</span>';
+                                    html += '<select class="prop-select" style="font-size:11px;padding:3px 6px;" onchange="updateModalFkDisplayColumn(\'' + col.name + '\', this.value)">';
+                                    html += '<option value="">-- Kolom Value --</option>';
+                                    fkDisplayColumns.forEach(function(tc) {
+                                        const sel = tc.name === currentFkDisplay ? ' selected' : '';
+                                        html += '<option value="' + tc.name + '"' + sel + '>' + (tc.label || tc.name) + '</option>';
+                                    });
+                                    html += '</select></div>';
+                                }
+                                html += '</div>';
                             });
                             html += '</div>';
                         } else {
@@ -2022,13 +2043,18 @@
                     html += '<div class="prop-group"><label class="prop-label">Kolom Value (PK)</label><input type="text" class="prop-input" value="' + escapeAttr(field.fk_referenced_column || '-') + '" readonly style="background:#f1f5f9;"></div>';
                     html += '<div class="prop-group"><label class="prop-label">Display Column</label>';
                     html += '<select class="prop-select" onchange="setForeignKeyColumn(\'display\', this.value)">';
-                    const targetCols = field.target_columns || [];
-                    if (targetCols.length === 0) {
+                    var refCols = field.target_columns;
+                    if (!refCols || refCols.length === 0) {
+                        refCols = getReferencedColumnsSync(field.fk_referenced_table || field.source_table_name || '');
+                    }
+                    if (!refCols || refCols.length === 0) {
                         html += '<option value="">(Tidak ada kolom tersedia)</option>';
                     } else {
-                        targetCols.forEach(col => {
-                            const isSelected = (field.fk_display_column || field.label_column) === col.name;
-                            html += '<option value="' + escapeAttr(col.name) + '" ' + (isSelected ? 'selected' : '') + '>' + escapeHtml(col.label || col.name) + '</option>';
+                        refCols.forEach(function(col) {
+                            var colName = typeof col === 'object' ? col.name : col;
+                            var colLabel = typeof col === 'object' ? (col.label || col.name) : col;
+                            var isSelected = (field.fk_display_column || field.label_column) === colName;
+                            html += '<option value="' + escapeAttr(colName) + '" ' + (isSelected ? 'selected' : '') + '>' + escapeHtml(colLabel) + '</option>';
                         });
                     }
                     html += '</select></div>';
@@ -2136,6 +2162,15 @@
             } else {
                 field.picker_config.display_columns = field.picker_config.display_columns.filter(c => c !== columnName);
             }
+            updateData();
+        };
+
+        window.updateModalFkDisplayColumn = function(columnName, displayColumn) {
+            if (selectedIndex === null || !formFields[selectedIndex]) return;
+            const field = formFields[selectedIndex];
+            if (!field.picker_config) field.picker_config = {};
+            if (!field.picker_config.fk_display_columns) field.picker_config.fk_display_columns = {};
+            field.picker_config.fk_display_columns[columnName] = displayColumn;
             updateData();
         };
 

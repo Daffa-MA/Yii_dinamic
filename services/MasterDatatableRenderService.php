@@ -621,6 +621,9 @@ class MasterDatatableRenderService
             $columns[$field] = [
                 'field' => $field,
                 'label' => trim((string)($item['label'] ?? '')) ?: ($metadataMap[$field]->label ?: $field),
+                'display_mode' => (string)($item['display_mode'] ?? 'text'),
+                'link_text' => (string)($item['link_text'] ?? ''),
+                'badge_color' => (string)($item['badge_color'] ?? '#3b82f6'),
             ] + $this->resolveForeignKeyDisplayConfig($metadataMap[$field], $item);
         }
 
@@ -635,6 +638,9 @@ class MasterDatatableRenderService
             $columns[] = [
                 'field' => $column->name,
                 'label' => $column->label ?: $column->name,
+                'display_mode' => 'text',
+                'link_text' => '',
+                'badge_color' => '#3b82f6',
             ] + $this->resolveForeignKeyDisplayConfig($column, []);
         }
 
@@ -1166,6 +1172,7 @@ class MasterDatatableRenderService
                 'deleteUrl' => Url::to(['/master-datatable/delete-row', 'table_id' => $table->id]),
                 'csrfParam' => Yii::$app->request->csrfParam,
                 'csrfToken' => Yii::$app->request->csrfToken,
+                'assetBaseUrl' => self::ASSET_BASE_URL,
             ]) ?>;
                 const modal = root.querySelector('[data-row-modal]');
                 const viewMode = root.querySelector('[data-row-view-mode]');
@@ -1297,12 +1304,35 @@ class MasterDatatableRenderService
                     return displayData;
                 }
 
+                function normalizeAssetUrl(url) {
+                    if (!url) return url;
+                    if (/^(https?:\/\/|\/\/|\/)/i.test(url)) return url;
+                    return (payload.assetBaseUrl || '/uploads/workspace/') + url;
+                }
+
                 function buildRowCellsHtml(rowData, rowDisplayData) {
                     const columns = getColumnsMeta();
                     return columns.map(function(column) {
                         const field = String(column.field || '');
                         const rawValue = Object.prototype.hasOwnProperty.call(rowData || {}, field) ? rowData[field] : null;
                         const displayValue = Object.prototype.hasOwnProperty.call(rowDisplayData || {}, field) ? rowDisplayData[field] : rawValue;
+                        const displayMode = String(column.display_mode || 'text');
+                        const value = rawValue !== null && rawValue !== '' ? String(rawValue) : '';
+                        if (displayMode === 'image' && value) {
+                            return '<td><img src="' + escapeHtml(normalizeAssetUrl(value)) + '" alt="" style="max-width:120px;max-height:80px;border-radius:6px;object-fit:cover;background:#f1f5f9;" loading="lazy"></td>';
+                        }
+                        if (displayMode === 'file' && value) {
+                            const fileName = value.split('/').pop() || value;
+                            return '<td><a href="' + escapeHtml(normalizeAssetUrl(value)) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;color:#2563eb;text-decoration:none;"><span style="font-size:14px;">&#128206;</span> ' + escapeHtml(fileName) + '</a></td>';
+                        }
+                        if (displayMode === 'link' && value) {
+                            const linkText = String(column.link_text || value);
+                            return '<td><a href="' + escapeHtml(normalizeAssetUrl(value)) + '" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none;">' + escapeHtml(linkText) + '</a></td>';
+                        }
+                        if (displayMode === 'badge' && value) {
+                            const badgeColor = String(column.badge_color || '#3b82f6');
+                            return '<td><span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;color:#fff;background:' + escapeHtml(badgeColor) + ';">' + escapeHtml(value) + '</span></td>';
+                        }
                         return '<td>' + escapeHtml(stringifyValue(displayValue)) + '</td>';
                     }).join('');
                 }
@@ -1428,6 +1458,29 @@ class MasterDatatableRenderService
                     if (field.inputType === 'boolean') {
                         const active = String(value) === '1' || String(value).toLowerCase() === 'true';
                         return '<span class="dt-btn" style="display:inline-flex;align-items:center;gap:6px;">' + (active ? 'Aktif' : 'Nonaktif') + '</span>';
+                    }
+
+                    const displayMode = field.display_mode || 'text';
+                    if (displayMode === 'image') {
+                        const url = String(value);
+                        if (url.match(/^https?:\/\//i) || url.match(/^\//) || url.match(/^data:image/i) || url.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|#|$)/i)) {
+                            return '<img src="' + escapeHtml(url) + '" alt="" style="max-width:200px;max-height:120px;border-radius:8px;object-fit:cover;background:#f1f5f9;" loading="lazy">';
+                        }
+                    }
+                    if (displayMode === 'file') {
+                        const url = String(value);
+                        const fileName = url.split('/').pop() || url;
+                        return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;color:#2563eb;text-decoration:none;">'
+                            + '<span style="font-size:16px;">&#128206;</span> ' + escapeHtml(fileName) + '</a>';
+                    }
+                    if (displayMode === 'link') {
+                        const url = String(value);
+                        const linkText = (field.link_text || url);
+                        return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none;">' + escapeHtml(linkText) + '</a>';
+                    }
+                    if (displayMode === 'badge') {
+                        const color = field.badge_color || '#3b82f6';
+                        return '<span style="display:inline-block;padding:2px 12px;border-radius:999px;font-size:11px;font-weight:600;color:#fff;background:' + escapeHtml(color) + ';">' + escapeHtml(value) + '</span>';
                     }
 
                     if (typeof value === 'object') {
@@ -2092,18 +2145,6 @@ class MasterDatatableRenderService
                         window.location.href = exportUrl;
                     });
                 });
-                        if (!exportUrl || exportUrl === '#') {
-                            event.preventDefault();
-                            console.warn('Export URL belum tersedia untuk datatable ini.');
-                            return;
-                        }
-                        if (exportBtn.getAttribute('target') === '_blank') {
-                            return;
-                        }
-                        event.preventDefault();
-                        window.location.href = exportUrl;
-                    });
-                });
             })();
         </script>
         </section>
@@ -2125,7 +2166,7 @@ class MasterDatatableRenderService
                 <?php $rowDisplayValues = $this->buildRowDisplayValues($row, $columns, $displayLookup); ?>
                 <tr data-row-key="<?= Html::encode(Json::encode($rowKey)) ?>" data-row-values="<?= Html::encode(Json::encode($row)) ?>" data-row-display-values="<?= Html::encode(Json::encode($rowDisplayValues)) ?>">
                     <?php foreach ($columns as $column): ?>
-                        <td><?= Html::encode($this->formatDisplayValue($row, $column, $displayLookup)) ?></td>
+                        <td><?= $this->renderCellValue($row, $column, $displayLookup) ?></td>
                     <?php endforeach; ?>
                     <?php if ($hasActions): ?>
                         <td>
@@ -2305,6 +2346,62 @@ class MasterDatatableRenderService
         return $this->formatValue($rawValue);
     }
 
+    private function renderCellValue(array $row, array $column, array $displayLookup): string
+    {
+        $field = (string)($column['field'] ?? '');
+        $rawValue = $field !== '' && array_key_exists($field, $row) ? $row[$field] : null;
+        $displayMode = (string)($column['display_mode'] ?? 'text');
+
+        if ($displayMode === 'image') {
+            $url = $rawValue !== null && $rawValue !== '' ? (string)$rawValue : '';
+            if ($url === '') {
+                return '-';
+            }
+            $url = $this->normalizeAssetUrl($url);
+            $escapedUrl = Html::encode($url);
+            return '<img src="' . $escapedUrl . '" alt="" style="max-width:120px;max-height:80px;border-radius:6px;object-fit:cover;background:#f1f5f9;" loading="lazy">';
+        }
+
+        if ($displayMode === 'file') {
+            $url = $rawValue !== null && $rawValue !== '' ? (string)$rawValue : '';
+            if ($url === '') {
+                return '-';
+            }
+            $url = $this->normalizeAssetUrl($url);
+            $fileName = basename($url);
+            $escapedUrl = Html::encode($url);
+            $escapedName = Html::encode($fileName);
+            return '<a href="' . $escapedUrl . '" target="_blank" rel="noopener" class="dt-file-link" style="display:inline-flex;align-items:center;gap:4px;color:#2563eb;text-decoration:none;">'
+                . '<span style="font-size:14px;">&#128206;</span> ' . $escapedName . '</a>';
+        }
+
+        if ($displayMode === 'link') {
+            $url = $rawValue !== null && $rawValue !== '' ? (string)$rawValue : '';
+            if ($url === '') {
+                return '-';
+            }
+            $url = $this->normalizeAssetUrl($url);
+            $displayText = (string)($column['link_text'] ?? $url);
+            $displayText = $displayText === $url ? $url : $displayText;
+            $escapedUrl = Html::encode($url);
+            $escapedText = Html::encode($displayText);
+            return '<a href="' . $escapedUrl . '" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none;">' . $escapedText . '</a>';
+        }
+
+        if ($displayMode === 'badge') {
+            $value = $rawValue !== null && $rawValue !== '' ? (string)$rawValue : '';
+            if ($value === '') {
+                return '-';
+            }
+            $badgeColor = (string)($column['badge_color'] ?? '#3b82f6');
+            $escapedValue = Html::encode($value);
+            return '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;color:#fff;background:' . Html::encode($badgeColor) . ';">' . $escapedValue . '</span>';
+        }
+
+        $displayValue = $this->formatDisplayValue($row, $column, $displayLookup);
+        return Html::encode($displayValue);
+    }
+
     private function buildRowDisplayValues(array $row, array $columns, array $displayLookup): array
     {
         $values = [];
@@ -2341,6 +2438,9 @@ class MasterDatatableRenderService
                 'is_foreign_key' => $isForeignKey,
                 'fk_display_mode' => (string)($column['fk_display_mode'] ?? 'raw_id'),
                 'related_display_column' => (string)($column['related_display_column'] ?? ''),
+                'display_mode' => (string)($column['display_mode'] ?? 'text'),
+                'link_text' => (string)($column['link_text'] ?? ''),
+                'badge_color' => (string)($column['badge_color'] ?? '#3b82f6'),
             ];
         }
 
@@ -2393,6 +2493,9 @@ class MasterDatatableRenderService
                 'is_foreign_key' => SystemFieldService::isForeignKey($metadataColumn, $schemaColumn),
                 'fk_display_mode' => (string)($column['fk_display_mode'] ?? 'raw_id'),
                 'related_display_column' => (string)($column['related_display_column'] ?? ''),
+                'display_mode' => (string)($column['display_mode'] ?? 'text'),
+                'link_text' => (string)($column['link_text'] ?? ''),
+                'badge_color' => (string)($column['badge_color'] ?? '#3b82f6'),
                 'sourceColumn' => $fieldName,
                 'readonly' => SystemFieldService::shouldBeReadonlyInGrid($metadataColumn, $schemaColumn),
             ];
@@ -2538,6 +2641,19 @@ class MasterDatatableRenderService
         }
 
         return $options;
+    }
+
+    private const ASSET_BASE_URL = '/uploads/workspace/';
+
+    private function normalizeAssetUrl(string $url): string
+    {
+        if ($url === '') {
+            return $url;
+        }
+        if (preg_match('#^(https?://|//|/)#i', $url)) {
+            return $url;
+        }
+        return self::ASSET_BASE_URL . ltrim($url);
     }
 
     private function pageUrl(string $pageParam, int $page): string

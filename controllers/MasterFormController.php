@@ -3581,7 +3581,7 @@ class MasterFormController extends Controller
 
         $safeField = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName);
         $relativeDir = 'forms/gps-camera/' . (int)$form->id . '/';
-        $fileName = 'gps-' . ($safeField !== '' ? $safeField : 'camera') . '_' . date('YmdHis') . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+        $fileName = 'gps-' . ($safeField !== '' ? $safeField : 'camera') . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
         $relativePath = $relativeDir . $fileName;
         $storagePath = $storage->storagePath($relativePath);
         $publicPath = $storage->publicPath($relativePath);

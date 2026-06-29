@@ -1027,6 +1027,66 @@ class FormController extends Controller
         return $data;
     }
 
+    private function applyCameraFieldUploads(Form $form, array $schema, array $data): array
+    {
+        $storage = new WorkspaceMediaStorage();
+
+        foreach ($schema as $field) {
+            if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
+            $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '')));
+            if ($type !== 'camera') {
+                continue;
+            }
+
+            $fieldName = (string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? '');
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $rawPayload = $data[$fieldName] ?? '';
+            if (is_string($rawPayload) && trim($rawPayload) !== '') {
+                $payload = json_decode($rawPayload, true) ?: [];
+            } else {
+                $payload = [];
+            }
+
+            if (!empty($payload['photo_data']) && is_string($payload['photo_data'])) {
+                $dataUrl = (string)$payload['photo_data'];
+                if (preg_match('/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i', trim($dataUrl), $matches)) {
+                    $mimeType = strtolower(trim($matches[1]));
+                    $binary = base64_decode($matches[2], true);
+                    if ($binary !== false && $binary !== '') {
+                        $extension = 'jpg';
+                        if (str_contains($mimeType, 'png')) $extension = 'png';
+                        elseif (str_contains($mimeType, 'webp')) $extension = 'webp';
+                        elseif (str_contains($mimeType, 'gif')) $extension = 'gif';
+
+                        $safeField = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName) ?: 'camera';
+                        $relativeDir = 'forms/camera/' . (int)$form->id . '/';
+                        $fileName = 'camera-' . $safeField . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+                        $relativePath = $relativeDir . $fileName;
+                        $storagePath = $storage->storagePath($relativePath);
+                        $publicPath = $storage->publicPath($relativePath);
+
+                        \yii\helpers\FileHelper::createDirectory(dirname($storagePath));
+                        \yii\helpers\FileHelper::createDirectory(dirname($publicPath));
+                        if (file_put_contents($storagePath, $binary) !== false) {
+                            if ($publicPath !== $storagePath) {
+                                @copy($storagePath, $publicPath);
+                            }
+                            $data[$fieldName] = $relativePath;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $data;
+    }
+
     /**
      * Expand a GPS Camera field payload into multiple target columns.
      *
@@ -2737,6 +2797,7 @@ class FormController extends Controller
             $data = $this->mergeAdditionalPostedInputs($data);
             Yii::error('[DEBUG] DATA BEFORE GPS UPLOADS: ' . json_encode($data), 'app');
             $data = $this->applyGpsCameraFieldUploads($model, $schema, $data);
+            $data = $this->applyCameraFieldUploads($model, $schema, $data);
             Yii::error('[DEBUG] DATA AFTER GPS UPLOADS: ' . json_encode($data), 'app');
             $data = $this->expandGpsCameraBindings($model, $schema, $data);
             Yii::error('[DEBUG] DATA AFTER BINDINGS: ' . json_encode($data), 'app');

@@ -812,7 +812,7 @@
                     (Array.isArray(field.options) ? field.options : []);
             }
 
-            if (['select', 'radio', 'checkboxes'].includes(field.type)) {
+            if (['dropdown', 'select', 'radio', 'checkboxes'].includes(field.type)) {
                 if (!field.option_source) {
                     field.option_source = getOptionSourceMode(field);
                 }
@@ -1610,6 +1610,7 @@
                 tel: 'tel',
                 url: 'url',
                 textarea: 'textarea',
+                dropdown: 'select',
                 select: 'select',
                 radio: 'radio',
                 checkbox: 'checkbox',
@@ -1698,6 +1699,13 @@
 
             if (type === 'hidden') {
                 return '<div class="field-preview" style="background:#f8fafc;color:#64748b;">Hidden value: ' + escapeHtml(field.default_value || '(empty)') + '</div>';
+            }
+
+            if (['dropdown', 'select'].includes(type)) {
+                return '<div class="field-preview"><select disabled style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#64748b;font-size:13px;">' +
+                    '<option value="">' + escapeHtml(field.placeholder || 'Pilih opsi...') + '</option>' +
+                    (Array.isArray(field.options) ? field.options.map(function(o) { return '<option value="' + escapeAttr(o.value) + '">' + escapeHtml(o.label || o.value) + '</option>'; }).join('') : '') +
+                    '</select></div>';
             }
 
             const numericAttrs = type === 'number' ? attr('min', field.min) + attr('max', field.max) + attr('step', field.step) : '';
@@ -3495,6 +3503,7 @@
                 tel: 'tel',
                 url: 'url',
                 textarea: 'textarea',
+                dropdown: 'select',
                 select: 'select',
                 radio: 'radio',
                 checkbox: 'checkbox',

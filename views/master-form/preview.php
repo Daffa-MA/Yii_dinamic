@@ -634,7 +634,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                 'rows' => $field['rows'] ?? 4,
                             ]) ?>
                         
-                        <?php elseif ($type === 'select'): ?>
+                        <?php elseif ($type === 'select' || $type === 'dropdown'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <?php
                             $optionsList = ['' => '-- Pilih --'];

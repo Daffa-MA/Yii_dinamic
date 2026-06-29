@@ -1599,6 +1599,169 @@ HTML;
         return $html;
     }
 
+    public static function renderCameraField(array $field, bool $interactive = true, bool $includeLabel = true): string
+    {
+        $field = self::normalizeFieldForRender($field);
+        $name = trim((string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? 'camera'));
+        $name = $name !== '' ? $name : 'camera';
+        $safeName = preg_replace('/[^A-Za-z0-9_-]+/', '_', $name) ?: 'camera';
+        $label = trim((string)($field['label'] ?? $field['field_label'] ?? 'Camera'));
+        $label = $label !== '' ? $label : 'Camera';
+        $required = !empty($field['required']);
+        $readonly = !empty($field['readonly']) || !empty($field['readOnly']);
+        $hidden = !empty($field['hidden']) || !empty($field['excluded']);
+
+        $wrapperStyle = $hidden ? 'display:none;' : '';
+        $controlsDisabled = ($readonly || !$interactive) ? ' disabled aria-disabled="true"' : '';
+
+        $html = '<div class="camera-field" data-camera-component="1" data-field-name="' . Html::encode($name) . '" style="' . $wrapperStyle . 'margin-bottom:14px;position:relative;">'
+            . ($includeLabel ? '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;font-weight:600;">' . Html::encode($label) . ($required ? ' <span style="color:#dc2626;">*</span>' : '') . '</label>' : '')
+            . '<input type="hidden" name="' . Html::encode($name) . '" value="" data-camera-payload="1">'
+            . '<input type="hidden" name="__camera_file_' . Html::encode($safeName) . '" value="" data-camera-file-hidden="1">'
+            . '<div style="display:flex;flex-direction:column;gap:10px;padding:12px;border:1px solid #cbd5e1;border-radius:12px;background:#f8fafc;">'
+            . '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+            . '<button type="button" data-camera-trigger="1" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;cursor:pointer;"' . $controlsDisabled . '>📷 Ambil Foto</button>'
+            . '<button type="button" data-camera-clear="1" style="display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#334155;font-weight:700;cursor:pointer;"' . $controlsDisabled . '>Hapus</button>'
+            . '<span data-camera-status="1" style="font-size:12px;color:#64748b;">Belum ada foto</span>'
+            . '</div>'
+            . '<div data-camera-preview-wrap="1" style="display:none;">'
+            . '<img data-camera-preview="1" src="" alt="Preview foto" style="max-width:100%;max-height:240px;border-radius:12px;border:1px solid #e2e8f0;background:#fff;object-fit:cover;">'
+            . '</div>'
+            . '<div data-camera-viewport="1" style="display:none;position:relative;border-radius:12px;overflow:hidden;background:#000;">'
+            . '<video data-camera-video="1" autoplay playsinline muted style="width:100%;max-height:320px;object-fit:cover;display:block;"></video>'
+            . '<button type="button" data-camera-capture="1" style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);padding:12px 28px;border:3px solid #fff;border-radius:50px;background:rgba(79,70,229,0.9);color:#fff;font-weight:700;font-size:15px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);">Ambil</button>'
+            . '<button type="button" data-camera-close-viewport="1" style="position:absolute;top:10px;right:10px;padding:6px 12px;border:none;border-radius:8px;background:rgba(0,0,0,0.6);color:#fff;font-weight:700;cursor:pointer;font-size:13px;">✕ Tutup</button>'
+            . '</div>'
+            . '<canvas data-camera-canvas="1" hidden></canvas>'
+            . '</div>'
+            . '</div>';
+
+        $html .= <<<'HTML'
+<script>
+(function(){
+    var tag = document.currentScript;
+    if (!tag) return;
+    var root = tag.parentElement;
+    if (!root || root.__cameraBinderInstalled) return;
+    root.__cameraBinderInstalled = true;
+
+    var trigger = root.querySelector('[data-camera-trigger]');
+    var clearBtn = root.querySelector('[data-camera-clear]');
+    var payload = root.querySelector('[data-camera-payload]');
+    var fileHidden = root.querySelector('[data-camera-file-hidden]');
+    var previewWrap = root.querySelector('[data-camera-preview-wrap]');
+    var previewImg = root.querySelector('[data-camera-preview]');
+    var viewport = root.querySelector('[data-camera-viewport]');
+    var video = root.querySelector('[data-camera-video]');
+    var captureBtn = root.querySelector('[data-camera-capture]');
+    var closeBtn = root.querySelector('[data-camera-close-viewport]');
+    var canvas = root.querySelector('[data-camera-canvas]');
+    var statusEl = root.querySelector('[data-camera-status]');
+
+    var stream = null;
+
+    function startCamera() {
+        if (stream) return;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            statusEl.textContent = 'Kamera tidak didukung di browser ini';
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+        }).then(function(s) {
+            stream = s;
+            video.srcObject = stream;
+            viewport.style.display = '';
+            video.play();
+            statusEl.textContent = 'Arahkan kamera ke objek';
+        }).catch(function(err) {
+            statusEl.textContent = 'Gagal akses kamera: ' + err.message;
+        });
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(function(t) { t.stop(); });
+            stream = null;
+        }
+        video.srcObject = null;
+        viewport.style.display = 'none';
+    }
+
+    function capturePhoto() {
+        if (!stream || !canvas || !video) return;
+        var w = video.videoWidth || 1280;
+        var h = video.videoHeight || 720;
+        canvas.width = w;
+        canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, w, h);
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        var base64 = dataUrl.split(',')[1];
+        var size = Math.round(base64.length * 0.75);
+
+        previewImg.src = dataUrl;
+        previewWrap.style.display = '';
+        statusEl.textContent = 'Foto siap (' + (size > 1024 ? (size / 1024).toFixed(1) + ' KB' : size + ' B') + ')';
+        payload.value = JSON.stringify({
+            photo_data: dataUrl,
+            photo_name: 'camera_' + Date.now() + '.jpg',
+            photo_mime: 'image/jpeg',
+            photo_size: size
+        });
+        fileHidden.value = 'captured:' + dataUrl;
+
+        stopCamera();
+    }
+
+    if (trigger) {
+        trigger.addEventListener('click', function(e) {
+            e.preventDefault();
+            startCamera();
+        });
+    }
+
+    if (captureBtn) {
+        captureBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            capturePhoto();
+        });
+    }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            stopCamera();
+            if (!previewImg.src) {
+                statusEl.textContent = 'Belum ada foto';
+            }
+        });
+    }
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            previewImg.src = '';
+            previewWrap.style.display = 'none';
+            payload.value = '';
+            fileHidden.value = '';
+            statusEl.textContent = 'Belum ada foto';
+        });
+    }
+})();
+</script>
+HTML;
+
+        return $html;
+    }
+
+    public static function isCameraField(array $field): bool
+    {
+        $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? $field['component_type'] ?? '')));
+        return $type === 'camera';
+    }
+
     public static function isGpsCameraField(array $field): bool
     {
         $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? $field['component_type'] ?? '')));

@@ -163,6 +163,7 @@
             time: { label: 'Time', inputType: 'time' },
             datetime: { label: 'Date Time', inputType: 'datetime' },
             file_upload: { label: 'File Upload', inputType: 'file_upload' },
+            camera: { label: 'Camera', inputType: 'camera' },
             gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', capture_gps: true },
             hidden: { label: 'Hidden', inputType: 'hidden', value_source: 'static' }
         };
@@ -1668,6 +1669,16 @@
                     '<input type="checkbox" class="form-check-input" ' + boolAttr('checked', checked) + boolAttr('disabled', true) + '>' +
                     '<span>' + escapeHtml(field.label || field.labelText || 'Aktif / Nonaktif') + '</span>' +
                     '</label></div>';
+            }
+
+            if (type === 'camera') {
+                return '<div class="field-preview" style="display:flex;flex-direction:column;gap:10px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                    '<button type="button" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;">📷 Ambil Foto</button>' +
+                    '<span style="font-size:12px;color:#64748b;">Akses kamera langsung</span>' +
+                    '</div>' +
+                    '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;">📷 Capture langsung dari kamera (tanpa galeri)</div>' +
+                    '</div>';
             }
 
             if (type === 'gps_camera') {

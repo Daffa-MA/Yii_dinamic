@@ -1462,19 +1462,19 @@ class MasterDatatableRenderService
 
                     const displayMode = field.display_mode || 'text';
                     if (displayMode === 'image') {
-                        const url = String(value);
+                        const url = normalizeAssetUrl(String(value));
                         if (url.match(/^https?:\/\//i) || url.match(/^\//) || url.match(/^data:image/i) || url.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|#|$)/i)) {
                             return '<img src="' + escapeHtml(url) + '" alt="" style="max-width:200px;max-height:120px;border-radius:8px;object-fit:cover;background:#f1f5f9;" loading="lazy">';
                         }
                     }
                     if (displayMode === 'file') {
-                        const url = String(value);
+                        const url = normalizeAssetUrl(String(value));
                         const fileName = url.split('/').pop() || url;
                         return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;color:#2563eb;text-decoration:none;">'
                             + '<span style="font-size:16px;">&#128206;</span> ' + escapeHtml(fileName) + '</a>';
                     }
                     if (displayMode === 'link') {
-                        const url = String(value);
+                        const url = normalizeAssetUrl(String(value));
                         const linkText = (field.link_text || url);
                         return '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener" style="color:#2563eb;text-decoration:none;">' + escapeHtml(linkText) + '</a>';
                     }

@@ -567,6 +567,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                     $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['name'] ?? $field['field_name'] ?? 'Field'));
                     $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
                     $required = !empty($field['required']);
+                    $fieldReadonly = !empty($field['readonly']) || !empty($field['readOnly']);
                     $placeholder = $field['placeholder'] ?? '';
                     $defaultValue = $field['default_value'] ?? '';
                     $isFk = !empty($field['is_foreign_key']) || strtolower((string)($field['componentType'] ?? '')) === 'foreign_key';
@@ -623,6 +624,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                 'class' => 'preview-input',
                                 'placeholder' => $placeholder,
                                 'required' => $required,
+                                'readonly' => $fieldReadonly,
                             ]) ?>
                         
                         <?php elseif ($type === 'textarea'): ?>
@@ -631,6 +633,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                 'class' => 'preview-input preview-textarea',
                                 'placeholder' => $placeholder,
                                 'required' => $required,
+                                'readonly' => $fieldReadonly,
                                 'rows' => $field['rows'] ?? 4,
                             ]) ?>
                         
@@ -683,6 +686,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                 <?= Html::dropDownList($name, $defaultValue, $optionsList, [
                                     'class' => 'preview-input preview-select',
                                     'required' => $required,
+                                    'disabled' => $fieldReadonly,
                                     'data-fk-submit-name' => $isFk ? $name : null,
                                 ]) ?>
                             <?php endif; ?>
@@ -698,6 +702,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                             <div class="preview-checkbox-item form-check form-switch">
                                 <?= Html::checkbox($name, $booleanChecked, [
                                     'class' => 'preview-input form-check-input',
+                                    'disabled' => $fieldReadonly,
                                     'uncheck' => '0',
                                     'value' => '1',
                                 ]) ?>
@@ -706,7 +711,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                         
                         <?php elseif ($type === 'checkbox'): ?>
                             <label class="preview-checkbox-item">
-                                <?= Html::checkbox($name, $defaultValue, ['class' => 'preview-input']) ?>
+                                <?= Html::checkbox($name, $defaultValue, ['class' => 'preview-input', 'disabled' => $fieldReadonly]) ?>
                                 <span class="preview-label" style="margin-bottom:0;"><?= Html::encode($label) ?></span>
                             </label>
                         
@@ -716,7 +721,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                 <?php foreach ($options as $opt): ?>
                                     <?php if (!is_array($opt) || trim((string)($opt['value'] ?? '')) === '') continue; ?>
                                     <label class="preview-checkbox-item">
-                                        <?= Html::checkbox($name . '[]', false, ['class' => 'preview-input', 'value' => $opt['value'] ?? '']) ?>
+                                        <?= Html::checkbox($name . '[]', false, ['class' => 'preview-input', 'value' => $opt['value'] ?? '', 'disabled' => $fieldReadonly]) ?>
                                         <span><?= Html::encode($opt['label'] ?? '') ?></span>
                                     </label>
                                 <?php endforeach; ?>
@@ -728,7 +733,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                                 <?php foreach ($options as $opt): ?>
                                     <?php if (!is_array($opt) || trim((string)($opt['value'] ?? '')) === '') continue; ?>
                                     <label class="preview-radio-item">
-                                        <?= Html::radio($name, false, ['class' => 'preview-input', 'value' => $opt['value'] ?? '']) ?>
+                                        <?= Html::radio($name, false, ['class' => 'preview-input', 'value' => $opt['value'] ?? '', 'disabled' => $fieldReadonly]) ?>
                                         <span><?= Html::encode($opt['label'] ?? '') ?></span>
                                     </label>
                                 <?php endforeach; ?>
@@ -736,7 +741,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                         
                         <?php elseif ($type === 'date' || $type === 'time' || $type === 'datetime' || $type === 'datetime-local'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
-                            <?= Html::input($type === 'datetime' ? 'datetime-local' : $type, $name, $defaultValue, ['class' => 'preview-input', 'required' => $required]) ?>
+                            <?= Html::input($type === 'datetime' ? 'datetime-local' : $type, $name, $defaultValue, ['class' => 'preview-input', 'required' => $required, 'readonly' => $fieldReadonly]) ?>
                         
                         <?php elseif ($isCamera): ?>
                             <?= FormRenderService::renderCameraField($field, true, false) ?>
@@ -746,7 +751,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                         
                         <?php elseif ($type === 'file'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
-                            <?= Html::fileInput($name, null, ['class' => 'preview-input', 'required' => $required]) ?>
+                            <?= Html::fileInput($name, null, ['class' => 'preview-input', 'required' => $required, 'disabled' => $fieldReadonly]) ?>
                         
                         <?php endif; ?>
                     </div>

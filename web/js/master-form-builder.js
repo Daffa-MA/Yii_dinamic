@@ -151,18 +151,18 @@
             email: { label: 'Email', inputType: 'email', placeholder: 'email@example.com' },
             password: { label: 'Password', inputType: 'password', placeholder: '' },
             number: { label: 'Number', inputType: 'number', placeholder: '' },
-            phone: { label: 'Phone', inputType: 'phone', placeholder: '+62 xxx' },
+            phone: { label: 'Phone', inputType: 'tel', placeholder: '+62 xxx' },
             url: { label: 'URL', inputType: 'url', placeholder: 'https://...' },
             textarea: { label: 'Textarea', inputType: 'textarea', rows: 4, placeholder: 'Masukkan teks panjang...' },
-            dropdown: { label: 'Dropdown', inputType: 'dropdown', options_source: 'static', options: [{ value: '', label: 'Pilih...' }] },
+            dropdown: { label: 'Dropdown', inputType: 'select', options_source: 'static', options: [{ value: '', label: 'Pilih...' }] },
             radio: { label: 'Radio Group', inputType: 'radio', options_source: 'static', options: [{ value: 'opt1', label: 'Opsi 1' }] },
             checkbox: { label: 'Checkbox', inputType: 'checkbox', true_label: 'Ya', false_label: 'Tidak' },
             checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', options_source: 'static', options: [{ value: 'opt1', label: 'Opsi 1' }] },
-            toggle: { label: 'Switch Toggle', inputType: 'toggle', true_value: 1, false_value: 0 },
+            toggle: { label: 'Switch Toggle', inputType: 'boolean', true_value: 1, false_value: 0 },
             date: { label: 'Date', inputType: 'date' },
             time: { label: 'Time', inputType: 'time' },
             datetime: { label: 'Date Time', inputType: 'datetime' },
-            file_upload: { label: 'File Upload', inputType: 'file_upload' },
+            file_upload: { label: 'File Upload', inputType: 'file' },
             camera: { label: 'Camera', inputType: 'camera' },
             gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', capture_gps: true },
             hidden: { label: 'Hidden', inputType: 'hidden', value_source: 'static' }
@@ -738,6 +738,7 @@
             field.is_required = field.required !== undefined ? !!field.required : (field.is_required !== undefined ? !!field.is_required : false);
             field.is_visible = field.is_visible !== undefined ? !!field.is_visible : true;
             field.is_disabled = field.is_disabled !== undefined ? !!field.is_disabled : (field.disabled !== undefined ? !!field.disabled : false);
+            field.readonly = field.readonly !== undefined ? !!field.readonly : false;
             field.placeholder = field.placeholder || '';
             field.default_value = field.default_value !== undefined ? field.default_value : '';
             field.helper_text = field.helper_text || '';
@@ -1641,7 +1642,7 @@
                         optionsHtml += '<option value="' + escapeAttr(value) + '"' + boolAttr('selected', String(field.default_value || '') === value) + '>' + escapeHtml(opt.label ?? value) + '</option>';
                     });
                 }
-                return '<div class="field-preview"><select' + attr('name', field.name || '') + boolAttr('required', field.required) + boolAttr('disabled', true) + '>' + optionsHtml + '</select></div>';
+                return '<div class="field-preview"><select' + attr('name', field.name || '') + boolAttr('required', field.required) + boolAttr('disabled', field.readonly || true) + '>' + optionsHtml + '</select></div>';
             }
 
             if (type === 'radio' || type === 'checkboxes') {
@@ -1806,7 +1807,8 @@
             html += '<div><label class="prop-label">Offset (0-11)</label><input type="number" class="prop-input" min="0" max="11" value="' + (field.column_offset || 0) + '" onchange="updateFieldProp(\'column_offset\', this.value)"></div>';
             html += '</div>';
 
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_required ? 'checked' : '') + ' onchange="updateFieldProp(\'is_required\', this.checked)">Wajib Diisi (Required)</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.required ? 'checked' : '') + ' onchange="updateFieldProp(\'required\', this.checked)">Wajib Diisi (Required)</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.readonly ? 'checked' : '') + ' onchange="updateFieldProp(\'readonly\', this.checked)">Readonly (Hanya Baca)</label></div>';
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_visible ? 'checked' : '') + ' onchange="updateFieldProp(\'is_visible\', this.checked)">Tampilkan (Visible)</label></div>';
             html += '</div>';
             return html;
@@ -2090,12 +2092,12 @@
         }, 100);
 
         window.updateFieldProp = function(propName, value) {
-            // Langsung update value, baru debounce render
             if (selectedIndex === null || !formFields[selectedIndex]) return;
+            if (propName === 'type') {
+                formFields[selectedIndex]['inputType'] = getInputType(value);
+            }
             formFields[selectedIndex][propName] = value;
-            updateData(); // Langsung update data agar tidak hilang
-            
-            // Debounce render UI
+            updateData();
             debouncedUpdateFieldProp(propName, value);
         };
 
@@ -3493,17 +3495,21 @@
                 password: 'password',
                 number: 'number',
                 tel: 'tel',
+                phone: 'tel',
                 url: 'url',
                 textarea: 'textarea',
                 select: 'select',
+                dropdown: 'select',
                 radio: 'radio',
                 checkbox: 'checkbox',
                 checkboxes: 'checkboxes',
                 boolean: 'boolean',
+                toggle: 'boolean',
                 date: 'date',
                 time: 'time',
                 datetime: 'datetime-local',
                 file: 'file',
+                file_upload: 'file',
                 camera: 'camera',
                 gps_camera: 'gps_camera',
                 hidden: 'hidden'

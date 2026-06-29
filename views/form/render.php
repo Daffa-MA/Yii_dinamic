@@ -355,6 +355,9 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\Vie
                                     <?php elseif ($field['type'] === 'date'): ?>
                                         <input type="date" name="<?= Html::encode($fieldName) ?>" class="w-full px-4 py-3 bg-surface-container border border-outline-variant rounded-xl text-sm focus:ring-2 focus:ring-primary-container/20 focus:border-primary-container<?= $readonlyClass ?>" value="<?= Html::encode($defaultValue) ?>" <?= $options ?><?= $readonlyAttr ?>>
 
+                                    <?php elseif (FormRenderService::isCameraField($field)): ?>
+                                        <?= FormRenderService::renderCameraField($field, true, false) ?>
+
                                     <?php elseif (FormRenderService::isGpsCameraField($field)): ?>
                                         <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
 

@@ -623,6 +623,9 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                                     value="<?= Html::encode($defaultValue) ?>"
                                                     class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent transition-all<?= $readonlyClass ?>"<?= $readonlyAttr ?>>
 
+                                            <?php elseif (FormRenderService::isCameraField($field)): ?>
+                                                <?= FormRenderService::renderCameraField($field, true, false) ?>
+
                                             <?php elseif (FormRenderService::isGpsCameraField($field)): ?>
                                                 <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
 

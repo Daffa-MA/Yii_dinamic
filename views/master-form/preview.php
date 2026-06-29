@@ -562,6 +562,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                         $fieldRelationConfig = [];
                     }
                     $type = strtolower(trim((string)($field['inputType'] ?? $field['type'] ?? $field['component_type'] ?? FormSystemFieldHelper::resolveFieldInputType($field))));
+                    $isCamera = FormRenderService::isCameraField($field) || $type === 'camera';
                     $isGpsCamera = FormRenderService::isGpsCameraField($field) || $type === 'gps_camera';
                     $label = trim((string)($field['resolved_label'] ?? $field['label'] ?? $field['field_label'] ?? $field['name'] ?? $field['field_name'] ?? 'Field'));
                     $name = trim((string)($field['resolved_name'] ?? $field['resolved_column_name'] ?? $field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? ''));
@@ -737,6 +738,9 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <?= Html::input($type === 'datetime' ? 'datetime-local' : $type, $name, $defaultValue, ['class' => 'preview-input', 'required' => $required]) ?>
                         
+                        <?php elseif ($isCamera): ?>
+                            <?= FormRenderService::renderCameraField($field, true, false) ?>
+
                         <?php elseif ($isGpsCamera): ?>
                             <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
                         

@@ -1110,6 +1110,10 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
             <span class="material-symbols-outlined">upload_file</span>
             <span>File Upload</span>
         </div>
+        <div class="component-item" draggable="true" data-field-type="camera">
+            <span class="material-symbols-outlined">photo</span>
+            <span>Camera</span>
+        </div>
         <div class="component-item" draggable="true" data-field-type="gps_camera">
             <span class="material-symbols-outlined">photo_camera</span>
             <span>GPS Camera</span>

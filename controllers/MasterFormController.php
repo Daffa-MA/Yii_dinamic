@@ -2384,6 +2384,7 @@ class MasterFormController extends Controller
             
             $tableId = $this->resolveTargetTableId($model);
             $postData = $this->applyGpsCameraProcessing($model, $fields, $postData, (int)$tableId);
+            $postData = $this->applyCameraProcessing($model, $fields, $postData, (int)$tableId);
             Yii::error('[DEBUG_VERIFY] actionSubmit AFTER applyGpsCameraProcessing: keys=' . json_encode(array_keys($postData)), 'app');
             Yii::error('[DEBUG_VERIFY] actionSubmit AFTER applyGpsCameraProcessing: photo_path_exists=' . (array_key_exists('photo_path', $postData) ? 'YES value=' . $postData['photo_path'] : 'NO'), 'app');
             foreach ($postData as $k => $v) {
@@ -3552,6 +3553,67 @@ class MasterFormController extends Controller
         }
 
         Yii::error('[DEBUG_VERIFY] EXIT applyGpsCameraProcessing returning keys=' . json_encode(array_keys($data)), 'app');
+        return $data;
+    }
+
+    private function applyCameraProcessing(MasterForm $form, array $fields, array $postData, int $tableId): array
+    {
+        $storage = new WorkspaceMediaStorage();
+        $data = $postData;
+
+        foreach ($fields as $field) {
+            if (!is_array($field) || FormSystemFieldHelper::isSystemFieldData($field)) {
+                continue;
+            }
+
+            $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '')));
+            if ($type !== 'camera') {
+                continue;
+            }
+
+            $fieldName = (string)($field['name'] ?? $field['field_name'] ?? $field['field_key'] ?? $field['column_name'] ?? '');
+            if ($fieldName === '') {
+                continue;
+            }
+
+            $rawPayload = $data[$fieldName] ?? '';
+            if (is_string($rawPayload) && trim($rawPayload) !== '') {
+                $payload = json_decode($rawPayload, true) ?: [];
+            } else {
+                $payload = [];
+            }
+
+            if (!empty($payload['photo_data']) && is_string($payload['photo_data'])) {
+                $dataUrl = (string)$payload['photo_data'];
+                if (preg_match('/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i', trim($dataUrl), $matches)) {
+                    $mimeType = strtolower(trim($matches[1]));
+                    $binary = base64_decode($matches[2], true);
+                    if ($binary !== false && $binary !== '') {
+                        $extension = 'jpg';
+                        if (str_contains($mimeType, 'png')) $extension = 'png';
+                        elseif (str_contains($mimeType, 'webp')) $extension = 'webp';
+                        elseif (str_contains($mimeType, 'gif')) $extension = 'gif';
+
+                        $safeField = preg_replace('/[^A-Za-z0-9_-]+/', '_', $fieldName) ?: 'camera';
+                        $relativeDir = 'forms/camera/' . (int)$form->id . '/';
+                        $fileName = 'camera-' . $safeField . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $extension;
+                        $relativePath = $relativeDir . $fileName;
+                        $storagePath = $storage->storagePath($relativePath);
+                        $publicPath = $storage->publicPath($relativePath);
+
+                        \yii\helpers\FileHelper::createDirectory(dirname($storagePath));
+                        \yii\helpers\FileHelper::createDirectory(dirname($publicPath));
+                        if (file_put_contents($storagePath, $binary) !== false) {
+                            if ($publicPath !== $storagePath) {
+                                @copy($storagePath, $publicPath);
+                            }
+                            $data[$fieldName] = $relativePath;
+                        }
+                    }
+                }
+            }
+        }
+
         return $data;
     }
 

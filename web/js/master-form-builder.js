@@ -221,6 +221,7 @@
             date: 'calendar_today',
             time: 'schedule',
             datetime: 'event',
+            camera: 'photo',
             gps_camera: 'photo_camera',
             file_upload: 'upload_file',
             file: 'upload_file',
@@ -2023,7 +2024,7 @@
                 dropdown: 'arrow_drop_down_circle', select: 'arrow_drop_down_circle',
                 radio: 'radio_button_checked', checkbox: 'check_box', checkboxes: 'checklist',
                 toggle: 'toggle_on', boolean: 'toggle_on', date: 'calendar_today', time: 'schedule',
-                datetime: 'event', gps_camera: 'photo_camera', file_upload: 'upload_file', 
+                datetime: 'event', camera: 'photo', gps_camera: 'photo_camera', file_upload: 'upload_file', 
                 file: 'upload_file', hidden: 'visibility_off'
             };
 
@@ -2035,8 +2036,8 @@
 
             html += '<div class="prop-section"><div class="prop-section-title">Input Type</div>';
             html += '<div class="prop-group"><select class="prop-select" onchange="updateFieldProp(\'type\', this.value)">';
-            const types = ['text', 'email', 'password', 'number', 'phone', 'url', 'textarea', 'dropdown', 'radio', 'checkbox', 'checkboxes', 'toggle', 'date', 'time', 'datetime', 'file_upload', 'gps_camera', 'hidden'];
-            const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'GPS Camera', 'Hidden'];
+            const types = ['text', 'email', 'password', 'number', 'phone', 'url', 'textarea', 'dropdown', 'radio', 'checkbox', 'checkboxes', 'toggle', 'date', 'time', 'datetime', 'file_upload', 'camera', 'gps_camera', 'hidden'];
+            const labels = ['Text Input', 'Email', 'Password', 'Number', 'Phone/Tel', 'URL', 'Textarea', 'Dropdown Select', 'Radio Button', 'Checkbox', 'Checkboxes', 'Switch Toggle', 'Date', 'Time', 'Date Time', 'File Upload', 'Camera', 'GPS Camera', 'Hidden'];
             types.forEach((t, i) => {
                 html += '<option value="' + t + '" ' + (field.type === t ? 'selected' : '') + '>' + labels[i] + '</option>';
             });
@@ -3503,6 +3504,7 @@
                 time: 'time',
                 datetime: 'datetime-local',
                 file: 'file',
+                camera: 'camera',
                 gps_camera: 'gps_camera',
                 hidden: 'hidden'
             };

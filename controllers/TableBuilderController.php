@@ -11,6 +11,8 @@ use yii\db\Connection;
 use yii\helpers\Url;
 use app\models\DbTable;
 use app\models\DbTableColumn;
+use app\models\MasterDatatable;
+use app\models\MasterForm;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
@@ -2247,17 +2249,103 @@ class TableBuilderController extends Controller
     public function actionDelete($id)
     {
         $model = $this->findModel($id);
+        $tableName = (string)$model->name;
 
         try {
-            $this->getPhysicalDb()->createCommand("DROP TABLE IF EXISTS `{$model->name}`")->execute();
-        } catch (\Exception $e) {
-            Yii::warning('Failed dropping physical table during metadata cleanup: ' . $e->getMessage(), 'table-builder');
+            $physicalDb = $this->getPhysicalDb();
+            $physicalDb->createCommand('SET FOREIGN_KEY_CHECKS = 0')->execute();
+            try {
+                $physicalDb->createCommand('DROP TABLE IF EXISTS ' . $physicalDb->quoteTableName($tableName))->execute();
+            } finally {
+                $physicalDb->createCommand('SET FOREIGN_KEY_CHECKS = 1')->execute();
+            }
+
+            $this->cleanupTableBuilderReferences($model);
+
+            if (!$model->delete()) {
+                $errors = $model->getFirstErrors();
+                throw new \RuntimeException($errors ? implode(' ', $errors) : 'Metadata table gagal dihapus.');
+            }
+
+            Yii::$app->session->setFlash('tableBuilderSuccess', "Table '{$tableName}' berhasil dihapus.");
+        } catch (\Throwable $e) {
+            Yii::error('Failed deleting table builder table: ' . $e->getMessage(), 'table-builder');
+            Yii::$app->session->setFlash('tableBuilderError', 'Table gagal dihapus: ' . $this->buildFriendlyTableBuilderErrorMessage($e));
+            return $this->redirect(['view', 'id' => (int)$id]);
         }
-        
-        $model->delete();
-        Yii::$app->session->setFlash('tableBuilderSuccess', 'Table deleted successfully!');
 
         return $this->redirect(['index']);
+    }
+
+    private function cleanupTableBuilderReferences(DbTable $model): void
+    {
+        $tableId = (int)$model->id;
+        $tableName = (string)$model->name;
+
+        $metadataDb = DbTable::getDb();
+        $transaction = $metadataDb->beginTransaction();
+        try {
+            $this->cleanupMasterDatatablesForTable($tableId);
+            $this->cleanupMasterFormsForTable($tableId);
+            $this->cleanupForeignKeyMetadataForTable($tableName);
+            DbTableColumn::deleteAll(['table_id' => $tableId]);
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            throw $e;
+        }
+    }
+
+    private function cleanupMasterDatatablesForTable(int $tableId): void
+    {
+        try {
+            if (MasterDatatable::getTableSchema() !== null) {
+                MasterDatatable::deleteAll(['table_id' => $tableId]);
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Failed cleaning datatable presets for deleted table: ' . $e->getMessage(), 'table-builder');
+            throw $e;
+        }
+    }
+
+    private function cleanupMasterFormsForTable(int $tableId): void
+    {
+        try {
+            $schema = MasterForm::getTableSchema();
+            if ($schema === null || $schema->getColumn('table_id') === null) {
+                return;
+            }
+
+            $attributes = ['table_id' => null];
+            if ($schema->getColumn('is_active') !== null) {
+                $attributes['is_active'] = 0;
+            }
+            MasterForm::updateAll($attributes, ['table_id' => $tableId]);
+        } catch (\Throwable $e) {
+            Yii::warning('Failed detaching forms from deleted table: ' . $e->getMessage(), 'table-builder');
+            throw $e;
+        }
+    }
+
+    private function cleanupForeignKeyMetadataForTable(string $tableName): void
+    {
+        $schema = DbTableColumn::getTableSchema();
+        if ($schema === null || $schema->getColumn('referenced_table_name') === null) {
+            return;
+        }
+
+        $attributes = [
+            'referenced_table_name' => null,
+            'referenced_column_name' => null,
+        ];
+        if ($schema->getColumn('is_foreign_key') !== null) {
+            $attributes['is_foreign_key'] = 0;
+        }
+        if ($schema->getColumn('foreign_key_name') !== null) {
+            $attributes['foreign_key_name'] = null;
+        }
+
+        DbTableColumn::updateAll($attributes, ['referenced_table_name' => $tableName]);
     }
 
     public function actionSyncFromDatabase($id = null)

@@ -629,7 +629,7 @@ $hasCustomDesign = !empty($customCSS) || !empty($customHTMLBefore) || !empty($cu
                                             <?php elseif (FormRenderService::isGpsCameraField($field)): ?>
                                                 <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
 
-                                            <?php elseif ($fieldType === 'select'): ?>
+                                            <?php elseif (in_array($fieldType, ['dropdown', 'select'], true)): ?>
                                                 <?php
                                                 $optionsList = $resolveOptionsFromField($field);
                                                 if (empty($optionsList) && isset($field['options'])) {

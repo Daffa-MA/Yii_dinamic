@@ -4104,6 +4104,22 @@ class TableBuilderController extends Controller
                 }
 
                 $statement = $this->maybeApplySafeCreate($statement, $safeCreateEnabled);
+                $statement = $this->removeDuplicateAlterAddColumns($db, $statement);
+                if ($statement === null) {
+                    $affectedTableName = $this->extractAffectedTableName($lastStatement);
+                    if ($affectedTableName !== null) {
+                        $tablesToSync[$affectedTableName] = true;
+                        $db->schema->refreshTableSchema($affectedTableName);
+                    }
+                    Yii::info([
+                        'stage' => 'sql_editor_duplicate_add_columns_skipped',
+                        'statement_index' => $index + 1,
+                        'original_statement' => $lastStatement,
+                        'active_database' => $activeDatabase,
+                        'execution_source' => $executionSource,
+                    ], 'table-builder-sql');
+                    continue;
+                }
                 $statementTableName = $this->extractCreatedTableName($statement);
                 if ($statementTableName !== null) {
                     $physicalExists = $this->tableExistsInPhysicalDatabase($db, $statementTableName);
@@ -4378,6 +4394,129 @@ class TableBuilderController extends Controller
         }
 
         return preg_replace('/^\s*CREATE\s+TABLE\s+/i', 'CREATE TABLE IF NOT EXISTS ', $statement, 1) ?? $statement;
+    }
+
+    private function removeDuplicateAlterAddColumns(Connection $db, string $statement): ?string
+    {
+        if (preg_match('/^\s*ALTER\s+TABLE\s+`?([a-zA-Z0-9_]+)`?\s+(.+)$/is', $statement, $matches) !== 1) {
+            return $statement;
+        }
+
+        $tableName = strtolower((string)$matches[1]);
+        $schema = $db->schema->getTableSchema($tableName, true);
+        if ($schema === null) {
+            return $statement;
+        }
+
+        $existingColumns = [];
+        foreach (array_keys($schema->columns) as $existingColumn) {
+            $existingColumns[strtolower((string)$existingColumn)] = true;
+        }
+
+        $clauses = $this->splitSqlCommaClauses((string)$matches[2]);
+        if (empty($clauses)) {
+            return $statement;
+        }
+
+        $hasAddColumnClause = false;
+        $keptClauses = [];
+        $skippedColumns = [];
+        foreach ($clauses as $clause) {
+            $trimmedClause = trim($clause);
+            if (preg_match('/^ADD\s+(?:COLUMN\s+)?`?([a-zA-Z0-9_]+)`?\b/is', $trimmedClause, $columnMatches) !== 1) {
+                $keptClauses[] = $trimmedClause;
+                continue;
+            }
+
+            $hasAddColumnClause = true;
+            $columnName = strtolower((string)$columnMatches[1]);
+            if (isset($existingColumns[$columnName])) {
+                $skippedColumns[] = $columnName;
+                continue;
+            }
+
+            $keptClauses[] = $trimmedClause;
+        }
+
+        if (!$hasAddColumnClause || empty($skippedColumns)) {
+            return $statement;
+        }
+
+        Yii::warning([
+            'stage' => 'sql_editor_duplicate_add_column_removed',
+            'table_name' => $tableName,
+            'skipped_columns' => $skippedColumns,
+            'original_statement' => $statement,
+        ], 'table-builder-sql');
+
+        if (empty($keptClauses)) {
+            return null;
+        }
+
+        return 'ALTER TABLE ' . $db->quoteTableName($tableName) . ' ' . implode(', ', $keptClauses);
+    }
+
+    private function splitSqlCommaClauses(string $sql): array
+    {
+        $clauses = [];
+        $buffer = '';
+        $length = strlen($sql);
+        $depth = 0;
+        $quote = null;
+
+        for ($i = 0; $i < $length; $i++) {
+            $char = $sql[$i];
+            $next = $i + 1 < $length ? $sql[$i + 1] : '';
+
+            if ($quote !== null) {
+                $buffer .= $char;
+                if ($char === '\\' && $next !== '') {
+                    $buffer .= $next;
+                    $i++;
+                    continue;
+                }
+                if ($char === $quote) {
+                    $quote = null;
+                }
+                continue;
+            }
+
+            if ($char === '\'' || $char === '"' || $char === '`') {
+                $quote = $char;
+                $buffer .= $char;
+                continue;
+            }
+
+            if ($char === '(') {
+                $depth++;
+                $buffer .= $char;
+                continue;
+            }
+
+            if ($char === ')') {
+                $depth = max(0, $depth - 1);
+                $buffer .= $char;
+                continue;
+            }
+
+            if ($char === ',' && $depth === 0) {
+                $clause = trim($buffer);
+                if ($clause !== '') {
+                    $clauses[] = $clause;
+                }
+                $buffer = '';
+                continue;
+            }
+
+            $buffer .= $char;
+        }
+
+        $last = trim($buffer);
+        if ($last !== '') {
+            $clauses[] = $last;
+        }
+
+        return $clauses;
     }
 
     private function collectSqlEditorTableDiagnostics(Connection $db, string $tableName): array

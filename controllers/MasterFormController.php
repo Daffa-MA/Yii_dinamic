@@ -820,7 +820,18 @@ class MasterFormController extends Controller
 
             $displayColumn = trim((string)($config['display_column'] ?? ''));
             $referencedSchema = Yii::$app->db->schema->getTableSchema($metadata['referenced_table'], true);
-            if ($referencedSchema === null || !isset($referencedSchema->columns[$displayColumn])) {
+
+            $matchedDisplayColumn = null;
+            if ($referencedSchema !== null && $displayColumn !== '') {
+                foreach (array_keys($referencedSchema->columns) as $columnName) {
+                    if (strcasecmp((string)$columnName, $displayColumn) === 0) {
+                        $matchedDisplayColumn = (string)$columnName;
+                        break;
+                    }
+                }
+            }
+
+            if ($matchedDisplayColumn === null) {
                 $result[$column] = [
                     'mode' => 'raw_id',
                     'referenced_table' => $metadata['referenced_table'],
@@ -829,7 +840,8 @@ class MasterFormController extends Controller
                 ];
                 continue;
             }
-            if (!$this->isPickerSafeColumn($displayColumn, $referencedSchema->columns[$displayColumn])) {
+
+            if (!$this->isPickerSafeColumn($matchedDisplayColumn, $referencedSchema->columns[$matchedDisplayColumn])) {
                 continue;
             }
 
@@ -837,7 +849,7 @@ class MasterFormController extends Controller
                 'mode' => 'relation_display',
                 'referenced_table' => $metadata['referenced_table'],
                 'referenced_column' => $metadata['referenced_column'],
-                'display_column' => $displayColumn,
+                'display_column' => $matchedDisplayColumn,
             ];
         }
 

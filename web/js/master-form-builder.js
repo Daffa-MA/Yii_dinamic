@@ -356,6 +356,34 @@
             if (!field.picker_config.picker_fk_display_columns || typeof field.picker_config.picker_fk_display_columns !== 'object' || Array.isArray(field.picker_config.picker_fk_display_columns)) {
                 field.picker_config.picker_fk_display_columns = {};
             }
+            // Ensure display_column reflects current fk_display_column,
+            // not a stale value from saved picker_config
+            field.picker_config.display_column = displayColumn;
+            // Ensure display_columns includes the current displayColumn and valueColumn
+            if (!Array.isArray(field.picker_config.display_columns)) {
+                field.picker_config.display_columns = [];
+            }
+            if (displayColumn && !field.picker_config.display_columns.includes(displayColumn)) {
+                field.picker_config.display_columns.unshift(displayColumn);
+            }
+            if (valueColumn && !field.picker_config.display_columns.includes(valueColumn)) {
+                field.picker_config.display_columns.push(valueColumn);
+            }
+            field.picker_config.display_columns = Array.from(new Set(field.picker_config.display_columns));
+            // Ensure search_columns includes the current displayColumn
+            if (!Array.isArray(field.picker_config.search_columns)) {
+                field.picker_config.search_columns = displayColumn ? [displayColumn] : [];
+            } else if (displayColumn && !field.picker_config.search_columns.includes(displayColumn)) {
+                field.picker_config.search_columns.unshift(displayColumn);
+                field.picker_config.search_columns = Array.from(new Set(field.picker_config.search_columns));
+            }
+            // Auto-detect nested FK display columns for the main table when not configured
+            if (Object.keys(field.picker_config.picker_fk_display_columns).length === 0) {
+                var autoMapping = buildAutoRelationPickerFkDisplayColumns(field, field.picker_config.display_columns);
+                if (autoMapping && Object.keys(autoMapping).length > 0) {
+                    field.picker_config.picker_fk_display_columns = autoMapping;
+                }
+            }
             return field.picker_config;
         }
 
@@ -1890,13 +1918,13 @@
                             html += '<div style="max-height:150px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;">';
                             if (!field.picker_config) field.picker_config = {};
                             if (!Array.isArray(field.picker_config.display_columns)) field.picker_config.display_columns = [];
-                            if (!field.picker_config.fk_display_columns) field.picker_config.fk_display_columns = {};
+                            if (!field.picker_config.picker_fk_display_columns) field.picker_config.picker_fk_display_columns = {};
                             
                             refCols.forEach(col => {
                                 const checked = field.picker_config.display_columns.includes(col.name);
                                 const isFkColumn = !!(col.is_foreign_key || col.referenced_table_name);
                                 const fkDisplayColumns = Array.isArray(col.target_columns) ? col.target_columns : [];
-                                const currentFkDisplay = field.picker_config.fk_display_columns[col.name] || '';
+                                const currentFkDisplay = field.picker_config.picker_fk_display_columns[col.name] ? field.picker_config.picker_fk_display_columns[col.name].display_column || '' : '';
                                 html += '<div style="padding:6px 0;' + (isFkColumn ? 'border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-bottom:6px;background:#fafbfc;' : '') + '">';
                                 html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">';
                                 html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="updateModalDisplayColumns(\'' + col.name + '\', this.checked)">';
@@ -2105,9 +2133,31 @@
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             const field = formFields[selectedIndex];
             if (kind === 'display') {
+                const oldDisplayColumn = field.fk_display_column || field.label_column || '';
                 field.label_column = value;
                 field.dropdown_label_column = value;
                 field.fk_display_column = value;
+                if (field.picker_config) {
+                    field.picker_config.display_column = value;
+                    if (Array.isArray(field.picker_config.display_columns)) {
+                        if (oldDisplayColumn && oldDisplayColumn !== value) {
+                            field.picker_config.display_columns = field.picker_config.display_columns.filter(function(c) { return c !== oldDisplayColumn; });
+                        }
+                        if (!field.picker_config.display_columns.includes(value)) {
+                            field.picker_config.display_columns.unshift(value);
+                        }
+                        field.picker_config.display_columns = Array.from(new Set(field.picker_config.display_columns));
+                    }
+                    if (Array.isArray(field.picker_config.search_columns)) {
+                        if (oldDisplayColumn && oldDisplayColumn !== value) {
+                            field.picker_config.search_columns = field.picker_config.search_columns.filter(function(c) { return c !== oldDisplayColumn; });
+                        }
+                        if (value && !field.picker_config.search_columns.includes(value)) {
+                            field.picker_config.search_columns.unshift(value);
+                        }
+                        field.picker_config.search_columns = Array.from(new Set(field.picker_config.search_columns));
+                    }
+                }
             }
             syncRelationConfig(field);
             refreshDropdownOptionsFromTable(field).then(function() {
@@ -2183,8 +2233,20 @@
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             const field = formFields[selectedIndex];
             if (!field.picker_config) field.picker_config = {};
-            if (!field.picker_config.fk_display_columns) field.picker_config.fk_display_columns = {};
-            field.picker_config.fk_display_columns[columnName] = displayColumn;
+            if (!field.picker_config.picker_fk_display_columns) field.picker_config.picker_fk_display_columns = {};
+            if (displayColumn) {
+                const columnMeta = findRelationPickerColumnMeta(field, columnName);
+                const referencedTable = columnMeta ? String(columnMeta.referenced_table_name || columnMeta.referenced_table || '').trim() : '';
+                const referencedColumn = columnMeta ? String(columnMeta.referenced_column_name || columnMeta.referenced_column || '').trim() : '';
+                field.picker_config.picker_fk_display_columns[columnName] = {
+                    mode: 'relation_display',
+                    referenced_table: referencedTable,
+                    referenced_column: referencedColumn,
+                    display_column: displayColumn
+                };
+            } else {
+                delete field.picker_config.picker_fk_display_columns[columnName];
+            }
             updateData();
         };
 

@@ -935,9 +935,14 @@ class MasterFormController extends Controller
             }
         }
 
-        foreach (['name', 'nama', 'title', 'judul', 'label', 'kode', 'code', 'email'] as $candidate) {
-            if (isset($columns[$candidate]) && $this->isPickerSafeColumn($candidate, $columns[$candidate])) {
-                return $candidate;
+        $candidates = ['name', 'nama', 'title', 'judul', 'label', 'kode', 'code', 'email'];
+        foreach ($candidates as $candidate) {
+            foreach (array_keys($columns) as $columnName) {
+                if (strcasecmp((string)$columnName, $candidate) === 0) {
+                    if ($this->isPickerSafeColumn($candidate, $columns[$columnName])) {
+                        return (string)$columnName;
+                    }
+                }
             }
         }
         foreach ($columns as $name => $column) {

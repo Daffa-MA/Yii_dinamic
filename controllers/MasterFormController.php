@@ -594,7 +594,7 @@ class MasterFormController extends Controller
             if (!is_array($field)) {
                 continue;
             }
-            $field = FormRenderService::normalizeFieldForRender($field, (int)$index);
+            $field = FormRenderService::resolveDynamicChoiceOptions(FormRenderService::normalizeFieldForRender($field, (int)$index));
             if (!FormRenderService::isRelationField($field) && empty($field['is_foreign_key'])) {
                 continue;
             }

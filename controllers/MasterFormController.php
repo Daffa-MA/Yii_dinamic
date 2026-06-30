@@ -1511,8 +1511,6 @@ class MasterFormController extends Controller
             }
 
             $config = $this->buildRelationPickerConfig($field);
-
-            return $this->asJson($config); // Baris sementara untuk debug
             if ($config === null) {
                 return ['success' => false, 'message' => 'Konfigurasi picker relasi belum valid.'];
             }
@@ -1522,6 +1520,7 @@ class MasterFormController extends Controller
             $pageSize = min(50, max(1, (int)($config['page_size'] ?? 10)));
             $payload = $this->queryRelationPickerRows($config, $keyword, $page, $pageSize);
 
+            Yii::error(json_encode($payload['rows']), 'app');
             return [
                 'success' => true,
                 'config' => $config,

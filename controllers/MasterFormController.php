@@ -649,7 +649,7 @@ class MasterFormController extends Controller
             return null;
         }
 
-        $displayColumn = trim((string)($field['fk_display_column'] ?? $field['label_column'] ?? $pickerConfig['display_column'] ?? $relationConfig['display_column'] ?? ''));
+        $displayColumn = trim((string)($pickerConfig['display_column'] ?? $field['fk_display_column'] ?? $field['label_column'] ?? $relationConfig['display_column'] ?? ''));
         $displayColumn = $this->resolvePickerDisplayColumn($schema->columns, $valueColumn, $displayColumn);
         $searchTarget = strtolower(trim((string)($pickerConfig['search_target'] ?? '')));
         $searchColumns = [];
@@ -674,21 +674,6 @@ class MasterFormController extends Controller
             $tableName,
             $schema->columns
         );
-
-        // Auto-detect nested FK display columns if not configured
-        if (empty($fkDisplayColumns)) {
-            $legacyFkMapping = $pickerConfig['fk_display_columns'] ?? [];
-            if (is_array($legacyFkMapping) && !empty($legacyFkMapping)) {
-                $fkDisplayColumns = $this->normalizePickerFkDisplayColumns(
-                    $legacyFkMapping,
-                    $tableName,
-                    $schema->columns
-                );
-            }
-        }
-        if (empty($fkDisplayColumns)) {
-            $fkDisplayColumns = $this->autoDetectPickerFkDisplayColumns($tableName, $displayColumns, $schema->columns);
-        }
 
         return [
             'main_table' => $tableName,
@@ -853,63 +838,6 @@ class MasterFormController extends Controller
                 'referenced_table' => $metadata['referenced_table'],
                 'referenced_column' => $metadata['referenced_column'],
                 'display_column' => $displayColumn,
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * Auto-detect FK display columns for nested foreign keys in the displayed table.
-     * When display_columns include FK columns (e.g., kelas_id, jurusan_id), this method
-     * resolves their display columns (e.g., nama_kelas, nama_jurusan) from the referenced tables.
-     *
-     * @param string $tableName The main table being queried
-     * @param array<int, string> $displayColumns The columns to display in the modal grid
-     * @param array<string, mixed> $schemaColumns The schema columns of the main table
-     * @return array<string, array{mode: string, referenced_table: string, referenced_column: string, display_column: string}>
-     */
-    private function autoDetectPickerFkDisplayColumns(string $tableName, array $displayColumns, array $schemaColumns): array
-    {
-        $fkMetadata = $this->resolvePickerFkMetadata($tableName);
-        if (empty($fkMetadata)) {
-            return [];
-        }
-
-        $result = [];
-        foreach ($displayColumns as $column) {
-            if (!isset($fkMetadata[$column])) {
-                continue;
-            }
-
-            $metadata = $fkMetadata[$column];
-            $referencedSchema = Yii::$app->db->schema->getTableSchema($metadata['referenced_table'], true);
-            if ($referencedSchema === null) {
-                $result[$column] = [
-                    'mode' => 'raw_id',
-                    'referenced_table' => $metadata['referenced_table'],
-                    'referenced_column' => $metadata['referenced_column'],
-                    'display_column' => '',
-                ];
-                continue;
-            }
-
-            $detectedColumn = $this->resolvePickerDisplayColumn($referencedSchema->columns, $metadata['referenced_column'], '');
-            if ($detectedColumn === $metadata['referenced_column']) {
-                $result[$column] = [
-                    'mode' => 'raw_id',
-                    'referenced_table' => $metadata['referenced_table'],
-                    'referenced_column' => $metadata['referenced_column'],
-                    'display_column' => '',
-                ];
-                continue;
-            }
-
-            $result[$column] = [
-                'mode' => 'relation_display',
-                'referenced_table' => $metadata['referenced_table'],
-                'referenced_column' => $metadata['referenced_column'],
-                'display_column' => $detectedColumn,
             ];
         }
 

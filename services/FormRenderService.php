@@ -174,7 +174,7 @@ class FormRenderService
 
         $type = (string)($field['type'] ?? $field['field_type'] ?? '');
         $source = (string)($field['dropdown_source'] ?? $field['options_source'] ?? '');
-        if (!in_array($type, ['select', 'radio', 'checkboxes'], true) || ($source !== 'table' && !$isForeignKey)) {
+        if (!in_array($type, ['dropdown', 'select', 'radio', 'checkboxes'], true) || ($source !== 'table' && !$isForeignKey)) {
             return $field;
         }
 
@@ -285,7 +285,7 @@ class FormRenderService
         if (($source !== 'preset' && $preset === '') || $preset !== 'calendar_months') {
             return $field;
         }
-        if (!in_array($type, ['select', 'radio', 'checkboxes'], true)) {
+        if (!in_array($type, ['dropdown', 'select', 'radio', 'checkboxes'], true)) {
             $field['type'] = 'checkboxes';
             $field['field_type'] = 'checkboxes';
             $field['inputType'] = 'checkboxes';
@@ -2376,7 +2376,7 @@ HTML;
         }
 
         $label = strtolower(self::fieldLabel($field, $index));
-        return $type === 'select' ? 'Pilih ' . $label : 'Masukkan ' . $label;
+        return in_array($type, ['dropdown', 'select'], true) ? 'Pilih ' . $label : 'Masukkan ' . $label;
     }
 
     private static function humanizeFieldName(string $value): string

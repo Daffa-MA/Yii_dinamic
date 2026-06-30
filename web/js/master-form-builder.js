@@ -151,18 +151,18 @@
             email: { label: 'Email', inputType: 'email', placeholder: 'email@example.com' },
             password: { label: 'Password', inputType: 'password', placeholder: '' },
             number: { label: 'Number', inputType: 'number', placeholder: '' },
-            phone: { label: 'Phone', inputType: 'tel', placeholder: '+62 xxx' },
+            phone: { label: 'Phone', inputType: 'phone', placeholder: '+62 xxx' },
             url: { label: 'URL', inputType: 'url', placeholder: 'https://...' },
             textarea: { label: 'Textarea', inputType: 'textarea', rows: 4, placeholder: 'Masukkan teks panjang...' },
-            dropdown: { label: 'Dropdown', inputType: 'select', options_source: 'static', options: [{ value: '', label: 'Pilih...' }] },
+            dropdown: { label: 'Dropdown', inputType: 'dropdown', options_source: 'static', options: [{ value: '', label: 'Pilih...' }] },
             radio: { label: 'Radio Group', inputType: 'radio', options_source: 'static', options: [{ value: 'opt1', label: 'Opsi 1' }] },
             checkbox: { label: 'Checkbox', inputType: 'checkbox', true_label: 'Ya', false_label: 'Tidak' },
             checkboxes: { label: 'Checkboxes', inputType: 'checkboxes', options_source: 'static', options: [{ value: 'opt1', label: 'Opsi 1' }] },
-            toggle: { label: 'Switch Toggle', inputType: 'boolean', true_value: 1, false_value: 0 },
+            toggle: { label: 'Switch Toggle', inputType: 'toggle', true_value: 1, false_value: 0 },
             date: { label: 'Date', inputType: 'date' },
             time: { label: 'Time', inputType: 'time' },
             datetime: { label: 'Date Time', inputType: 'datetime' },
-            file_upload: { label: 'File Upload', inputType: 'file' },
+            file_upload: { label: 'File Upload', inputType: 'file_upload' },
             camera: { label: 'Camera', inputType: 'camera' },
             gps_camera: { label: 'GPS Camera', inputType: 'gps_camera', capture_gps: true },
             hidden: { label: 'Hidden', inputType: 'hidden', value_source: 'static' }
@@ -355,34 +355,6 @@
             }, picker);
             if (!field.picker_config.picker_fk_display_columns || typeof field.picker_config.picker_fk_display_columns !== 'object' || Array.isArray(field.picker_config.picker_fk_display_columns)) {
                 field.picker_config.picker_fk_display_columns = {};
-            }
-            // Ensure display_column reflects current fk_display_column,
-            // not a stale value from saved picker_config
-            field.picker_config.display_column = displayColumn;
-            // Ensure display_columns includes the current displayColumn and valueColumn
-            if (!Array.isArray(field.picker_config.display_columns)) {
-                field.picker_config.display_columns = [];
-            }
-            if (displayColumn && !field.picker_config.display_columns.includes(displayColumn)) {
-                field.picker_config.display_columns.unshift(displayColumn);
-            }
-            if (valueColumn && !field.picker_config.display_columns.includes(valueColumn)) {
-                field.picker_config.display_columns.push(valueColumn);
-            }
-            field.picker_config.display_columns = Array.from(new Set(field.picker_config.display_columns));
-            // Ensure search_columns includes the current displayColumn
-            if (!Array.isArray(field.picker_config.search_columns)) {
-                field.picker_config.search_columns = displayColumn ? [displayColumn] : [];
-            } else if (displayColumn && !field.picker_config.search_columns.includes(displayColumn)) {
-                field.picker_config.search_columns.unshift(displayColumn);
-                field.picker_config.search_columns = Array.from(new Set(field.picker_config.search_columns));
-            }
-            // Auto-detect nested FK display columns for the main table when not configured
-            if (Object.keys(field.picker_config.picker_fk_display_columns).length === 0) {
-                var autoMapping = buildAutoRelationPickerFkDisplayColumns(field, field.picker_config.display_columns);
-                if (autoMapping && Object.keys(autoMapping).length > 0) {
-                    field.picker_config.picker_fk_display_columns = autoMapping;
-                }
             }
             return field.picker_config;
         }
@@ -766,7 +738,6 @@
             field.is_required = field.required !== undefined ? !!field.required : (field.is_required !== undefined ? !!field.is_required : false);
             field.is_visible = field.is_visible !== undefined ? !!field.is_visible : true;
             field.is_disabled = field.is_disabled !== undefined ? !!field.is_disabled : (field.disabled !== undefined ? !!field.disabled : false);
-            field.readonly = field.readonly !== undefined ? !!field.readonly : false;
             field.placeholder = field.placeholder || '';
             field.default_value = field.default_value !== undefined ? field.default_value : '';
             field.helper_text = field.helper_text || '';
@@ -841,7 +812,7 @@
                     (Array.isArray(field.options) ? field.options : []);
             }
 
-            if (['select', 'radio', 'checkboxes'].includes(field.type)) {
+            if (['dropdown', 'select', 'radio', 'checkboxes'].includes(field.type)) {
                 if (!field.option_source) {
                     field.option_source = getOptionSourceMode(field);
                 }
@@ -1639,6 +1610,7 @@
                 tel: 'tel',
                 url: 'url',
                 textarea: 'textarea',
+                dropdown: 'select',
                 select: 'select',
                 radio: 'radio',
                 checkbox: 'checkbox',
@@ -1670,7 +1642,7 @@
                         optionsHtml += '<option value="' + escapeAttr(value) + '"' + boolAttr('selected', String(field.default_value || '') === value) + '>' + escapeHtml(opt.label ?? value) + '</option>';
                     });
                 }
-                return '<div class="field-preview"><select' + attr('name', field.name || '') + boolAttr('required', field.required) + boolAttr('disabled', field.readonly || true) + '>' + optionsHtml + '</select></div>';
+                return '<div class="field-preview"><select' + attr('name', field.name || '') + boolAttr('required', field.required) + boolAttr('disabled', true) + '>' + optionsHtml + '</select></div>';
             }
 
             if (type === 'radio' || type === 'checkboxes') {
@@ -1727,6 +1699,13 @@
 
             if (type === 'hidden') {
                 return '<div class="field-preview" style="background:#f8fafc;color:#64748b;">Hidden value: ' + escapeHtml(field.default_value || '(empty)') + '</div>';
+            }
+
+            if (['dropdown', 'select'].includes(type)) {
+                return '<div class="field-preview"><select disabled style="width:100%;padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#64748b;font-size:13px;">' +
+                    '<option value="">' + escapeHtml(field.placeholder || 'Pilih opsi...') + '</option>' +
+                    (Array.isArray(field.options) ? field.options.map(function(o) { return '<option value="' + escapeAttr(o.value) + '">' + escapeHtml(o.label || o.value) + '</option>'; }).join('') : '') +
+                    '</select></div>';
             }
 
             const numericAttrs = type === 'number' ? attr('min', field.min) + attr('max', field.max) + attr('step', field.step) : '';
@@ -1835,8 +1814,7 @@
             html += '<div><label class="prop-label">Offset (0-11)</label><input type="number" class="prop-input" min="0" max="11" value="' + (field.column_offset || 0) + '" onchange="updateFieldProp(\'column_offset\', this.value)"></div>';
             html += '</div>';
 
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.required ? 'checked' : '') + ' onchange="updateFieldProp(\'required\', this.checked)">Wajib Diisi (Required)</label></div>';
-            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.readonly ? 'checked' : '') + ' onchange="updateFieldProp(\'readonly\', this.checked)">Readonly (Hanya Baca)</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_required ? 'checked' : '') + ' onchange="updateFieldProp(\'is_required\', this.checked)">Wajib Diisi (Required)</label></div>';
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_visible ? 'checked' : '') + ' onchange="updateFieldProp(\'is_visible\', this.checked)">Tampilkan (Visible)</label></div>';
             html += '</div>';
             return html;
@@ -1918,13 +1896,13 @@
                             html += '<div style="max-height:150px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;">';
                             if (!field.picker_config) field.picker_config = {};
                             if (!Array.isArray(field.picker_config.display_columns)) field.picker_config.display_columns = [];
-                            if (!field.picker_config.picker_fk_display_columns) field.picker_config.picker_fk_display_columns = {};
+                            if (!field.picker_config.fk_display_columns) field.picker_config.fk_display_columns = {};
                             
                             refCols.forEach(col => {
                                 const checked = field.picker_config.display_columns.includes(col.name);
                                 const isFkColumn = !!(col.is_foreign_key || col.referenced_table_name);
                                 const fkDisplayColumns = Array.isArray(col.target_columns) ? col.target_columns : [];
-                                const currentFkDisplay = field.picker_config.picker_fk_display_columns[col.name] ? field.picker_config.picker_fk_display_columns[col.name].display_column || '' : '';
+                                const currentFkDisplay = field.picker_config.fk_display_columns[col.name] || '';
                                 html += '<div style="padding:6px 0;' + (isFkColumn ? 'border:1px solid #e2e8f0;border-radius:8px;padding:8px;margin-bottom:6px;background:#fafbfc;' : '') + '">';
                                 html += '<label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;">';
                                 html += '<input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="updateModalDisplayColumns(\'' + col.name + '\', this.checked)">';
@@ -2120,12 +2098,12 @@
         }, 100);
 
         window.updateFieldProp = function(propName, value) {
+            // Langsung update value, baru debounce render
             if (selectedIndex === null || !formFields[selectedIndex]) return;
-            if (propName === 'type') {
-                formFields[selectedIndex]['inputType'] = getInputType(value);
-            }
             formFields[selectedIndex][propName] = value;
-            updateData();
+            updateData(); // Langsung update data agar tidak hilang
+            
+            // Debounce render UI
             debouncedUpdateFieldProp(propName, value);
         };
 
@@ -2133,31 +2111,9 @@
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             const field = formFields[selectedIndex];
             if (kind === 'display') {
-                const oldDisplayColumn = field.fk_display_column || field.label_column || '';
                 field.label_column = value;
                 field.dropdown_label_column = value;
                 field.fk_display_column = value;
-                if (field.picker_config) {
-                    field.picker_config.display_column = value;
-                    if (Array.isArray(field.picker_config.display_columns)) {
-                        if (oldDisplayColumn && oldDisplayColumn !== value) {
-                            field.picker_config.display_columns = field.picker_config.display_columns.filter(function(c) { return c !== oldDisplayColumn; });
-                        }
-                        if (!field.picker_config.display_columns.includes(value)) {
-                            field.picker_config.display_columns.unshift(value);
-                        }
-                        field.picker_config.display_columns = Array.from(new Set(field.picker_config.display_columns));
-                    }
-                    if (Array.isArray(field.picker_config.search_columns)) {
-                        if (oldDisplayColumn && oldDisplayColumn !== value) {
-                            field.picker_config.search_columns = field.picker_config.search_columns.filter(function(c) { return c !== oldDisplayColumn; });
-                        }
-                        if (value && !field.picker_config.search_columns.includes(value)) {
-                            field.picker_config.search_columns.unshift(value);
-                        }
-                        field.picker_config.search_columns = Array.from(new Set(field.picker_config.search_columns));
-                    }
-                }
             }
             syncRelationConfig(field);
             refreshDropdownOptionsFromTable(field).then(function() {
@@ -2233,20 +2189,8 @@
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             const field = formFields[selectedIndex];
             if (!field.picker_config) field.picker_config = {};
-            if (!field.picker_config.picker_fk_display_columns) field.picker_config.picker_fk_display_columns = {};
-            if (displayColumn) {
-                const columnMeta = findRelationPickerColumnMeta(field, columnName);
-                const referencedTable = columnMeta ? String(columnMeta.referenced_table_name || columnMeta.referenced_table || '').trim() : '';
-                const referencedColumn = columnMeta ? String(columnMeta.referenced_column_name || columnMeta.referenced_column || '').trim() : '';
-                field.picker_config.picker_fk_display_columns[columnName] = {
-                    mode: 'relation_display',
-                    referenced_table: referencedTable,
-                    referenced_column: referencedColumn,
-                    display_column: displayColumn
-                };
-            } else {
-                delete field.picker_config.picker_fk_display_columns[columnName];
-            }
+            if (!field.picker_config.fk_display_columns) field.picker_config.fk_display_columns = {};
+            field.picker_config.fk_display_columns[columnName] = displayColumn;
             updateData();
         };
 
@@ -3557,21 +3501,18 @@
                 password: 'password',
                 number: 'number',
                 tel: 'tel',
-                phone: 'tel',
                 url: 'url',
                 textarea: 'textarea',
-                select: 'select',
                 dropdown: 'select',
+                select: 'select',
                 radio: 'radio',
                 checkbox: 'checkbox',
                 checkboxes: 'checkboxes',
                 boolean: 'boolean',
-                toggle: 'boolean',
                 date: 'date',
                 time: 'time',
                 datetime: 'datetime-local',
                 file: 'file',
-                file_upload: 'file',
                 camera: 'camera',
                 gps_camera: 'gps_camera',
                 hidden: 'hidden'

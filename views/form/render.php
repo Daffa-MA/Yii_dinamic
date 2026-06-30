@@ -361,7 +361,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\Vie
                                     <?php elseif (FormRenderService::isGpsCameraField($field)): ?>
                                         <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
 
-                                    <?php elseif ($field['type'] === 'select'): ?>
+                                    <?php elseif (in_array($field['type'], ['dropdown', 'select'], true)): ?>
                                         <?php
                                         $optionsList = $resolveOptionsFromField($field);
                                         if (empty($optionsList) && isset($field['options'])) {

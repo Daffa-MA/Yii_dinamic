@@ -1511,6 +1511,8 @@ class MasterFormController extends Controller
             }
 
             $config = $this->buildRelationPickerConfig($field);
+
+            return $this->asJson($config); // Baris sementara untuk debug
             if ($config === null) {
                 return ['success' => false, 'message' => 'Konfigurasi picker relasi belum valid.'];
             }

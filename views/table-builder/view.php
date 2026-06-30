@@ -46,6 +46,7 @@ $previewSqlRoute = ['table-builder/preview-sql', 'id' => $model->id];
 $syncRoute = ['table-builder/sync-from-database', 'id' => $model->id];
 $exportCsvRoute = ['table-builder/export', 'id' => $model->id, 'format' => 'csv'];
 $exportPrintRoute = ['table-builder/export', 'id' => $model->id, 'format' => 'print'];
+$deleteRoute = ['table-builder/delete', 'id' => $model->id];
 if ($fkDebugEnabled) {
     $indexRoute['fk_debug'] = 1;
     $updateRoute['fk_debug'] = 1;
@@ -55,6 +56,7 @@ if ($fkDebugEnabled) {
     $syncRoute['fk_debug'] = 1;
     $exportCsvRoute['fk_debug'] = 1;
     $exportPrintRoute['fk_debug'] = 1;
+    $deleteRoute['fk_debug'] = 1;
 }
 
 $spreadsheetContext = $spreadsheetContext ?? [];
@@ -188,6 +190,18 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
 .table-detail-page .btn-primary-clean:hover {
     border-color: var(--accent-strong);
     color: #fff;
+}
+
+.table-detail-page .btn-danger-clean {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #991b1b;
+}
+
+.table-detail-page .btn-danger-clean:hover {
+    border-color: #fca5a5;
+    background: #fee2e2;
+    color: #7f1d1d;
 }
 
 .table-detail-page .status-pill {
@@ -739,6 +753,13 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
                     <?= Html::a('Refresh Data', $viewRoute, ['class' => 'btn-clean']) ?>
                     <?= Html::a('Export CSV', $exportCsvRoute, ['class' => 'btn-clean']) ?>
                     <?= Html::a('Print/PDF', $exportPrintRoute, ['class' => 'btn-clean', 'target' => '_blank']) ?>
+                    <?= Html::a('Delete Table', $deleteRoute, [
+                        'class' => 'btn-clean btn-danger-clean',
+                        'data' => [
+                            'confirm' => 'Hapus table ini? Physical table, metadata kolom, form, dan datatable terkait akan ikut dibersihkan.',
+                            'method' => 'post',
+                        ],
+                    ]) ?>
                 <?php endif; ?>
             </div>
         </div>

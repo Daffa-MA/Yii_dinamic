@@ -2059,11 +2059,44 @@ class TableBuilderController extends Controller
                 }
 
                 Yii::$app->session->setFlash('tableBuilderSuccess', $executionResult['message'] ?? 'SQL berhasil dijalankan dan metadata berhasil disinkronkan.');
+                if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {
+                    return $this->asJson([
+                        'success' => true,
+                        'stage' => $executionResult['current_stage'] ?? 'synced',
+                        'message' => $executionResult['message'] ?? 'SQL berhasil dijalankan dan metadata berhasil disinkronkan.',
+                        'sql_error' => null,
+                        'failed_statement' => null,
+                        'parsed_columns' => $executionResult['parsed_columns'] ?? [],
+                        'created_table_name' => $executionResult['created_table_name'] ?? null,
+                        'table_name' => $executionResult['table_name'] ?? $tableName,
+                        'active_database' => $executionResult['active_database'] ?? null,
+                        'physical_table_exists' => $executionResult['physical_table_exists'] ?? null,
+                        'metadata_table_exists' => $executionResult['metadata_table_exists'] ?? null,
+                        'existed_before_execute' => $executionResult['existed_before_execute'] ?? null,
+                        'exists_after_execute' => $executionResult['exists_after_execute'] ?? null,
+                        'executed_statement_count' => $executionResult['executed_statement_count'] ?? null,
+                        'redirect_url' => Url::to(['table-builder/view', 'id' => (int)$model->id]),
+                    ]);
+                }
                 return $this->redirect(['view', 'id' => (int)$model->id]);
             } catch (\Throwable $e) {
                 $sqlDebug = $this->buildSqlEditorDebugPayload($e, $rawSql);
                 $sqlError = $sqlDebug['message'] ?? $this->buildFriendlyTableBuilderErrorMessage($e);
                 Yii::$app->session->setFlash('tableBuilderError', $sqlError);
+                if (Yii::$app->request->isAjax || stripos((string)Yii::$app->request->headers->get('accept', ''), 'application/json') !== false) {
+                    return $this->asJson($sqlDebug);
+                }
+                // Prevent fallthrough to manual form processing when SQL mode fails
+                return $this->render('update', [
+                    'model' => $model,
+                    'savedColumns' => $savedColumns,
+                    'foreignKeyReferenceMap' => $foreignKeyReferenceMap,
+                    'databaseInfo' => $this->getDatabaseInfo(),
+                    'builderMode' => 'sql',
+                    'rawSql' => $rawSql,
+                    'sqlError' => $sqlError,
+                    'sqlDebug' => $sqlDebug,
+                ]);
             }
         }
 
@@ -4203,6 +4236,27 @@ class TableBuilderController extends Controller
                         } else {
                             throw $statementError;
                         }
+                    } elseif ($statementCode === 1060) {
+                        // Handle duplicate column in ALTER TABLE by retrying per-column
+                        $alterTableName = $this->extractAffectedTableName($statement);
+                        if ($alterTableName !== null && preg_match('/^\s*ALTER\s+TABLE\b/i', $statement)) {
+                            if ($this->retryAlterTableWithoutDuplicateColumns($db, $statement, (string)$alterTableName)) {
+                                $statementExecuted = true;
+                                Yii::warning([
+                                    'stage' => 'sql_editor_recovered_1060',
+                                    'database' => $activeDatabase,
+                                    'table_name' => $alterTableName,
+                                    'original_statement' => $statement,
+                                    'executed_statement_count' => $executedStatementCount,
+                                    'execution_source' => $executionSource,
+                                    'error' => $statementErrorDetails['sql_error'] ?? $statementError->getMessage(),
+                                ], 'table-builder-sql');
+                            } else {
+                                throw $statementError;
+                            }
+                        } else {
+                            throw $statementError;
+                        }
                     } else {
                         throw $statementError;
                     }
@@ -4454,6 +4508,85 @@ class TableBuilderController extends Controller
         }
 
         return 'ALTER TABLE ' . $db->quoteTableName($tableName) . ' ' . implode(', ', $keptClauses);
+    }
+
+    /**
+     * Retry ALTER TABLE statement by executing each ADD COLUMN clause individually,
+     * skipping columns that already exist (error 1060 recovery).
+     */
+    private function retryAlterTableWithoutDuplicateColumns(Connection $db, string $statement, string $tableName): bool
+    {
+        if (preg_match('/^\s*ALTER\s+TABLE\s+`?[a-zA-Z0-9_]+`?\s+(.+)$/is', $statement, $matches) !== 1) {
+            return false;
+        }
+
+        $clauses = $this->splitSqlCommaClauses((string)$matches[1]);
+        if (empty($clauses)) {
+            return false;
+        }
+
+        // Refresh schema to get current state
+        $db->schema->refreshTableSchema($tableName);
+        $schema = $db->schema->getTableSchema($tableName, true);
+        $existingColumns = $schema !== null
+            ? array_map('strtolower', array_keys($schema->columns))
+            : [];
+
+        $executedAny = false;
+        $hadNonAdd = false;
+
+        foreach ($clauses as $clause) {
+            $trimmedClause = trim($clause);
+
+            // Skip ADD COLUMN / ADD clauses for columns that already exist
+            if (preg_match('/^ADD\s+(?:COLUMN\s+)?`?([a-zA-Z0-9_]+)`?\b/i', $trimmedClause, $columnMatches) === 1) {
+                $columnName = strtolower((string)$columnMatches[1]);
+                if (in_array($columnName, $existingColumns, true)) {
+                    Yii::info([
+                        'stage' => 'sql_editor_1060_recovery_skipping',
+                        'table_name' => $tableName,
+                        'column_name' => $columnName,
+                        'clause' => $trimmedClause,
+                    ], 'table-builder-sql');
+                    continue;
+                }
+            } else {
+                $hadNonAdd = true;
+            }
+
+            try {
+                $alterSql = 'ALTER TABLE ' . $db->quoteTableName($tableName) . ' ' . $trimmedClause;
+                $db->createCommand($alterSql)->execute();
+                $executedAny = true;
+            } catch (\Throwable $clauseError) {
+                $clauseErrorDetails = $this->extractDbErrorDetails($clauseError);
+                $clauseCode = (int)($clauseErrorDetails['error_code'] ?? $clauseError->getCode());
+                // If this specific column also already exists, skip it silently
+                if ($clauseCode === 1060) {
+                    Yii::warning([
+                        'stage' => 'sql_editor_1060_recovery_skipped_at_execution',
+                        'table_name' => $tableName,
+                        'clause' => $trimmedClause,
+                        'error' => $clauseErrorDetails['sql_error'] ?? $clauseError->getMessage(),
+                    ], 'table-builder-sql');
+                    continue;
+                }
+                // For non-ADD clauses that fail, re-throw
+                if (!$hadNonAdd && preg_match('/^ADD\s+(?:COLUMN\s+)?/i', $trimmedClause) === 1) {
+                    Yii::error([
+                        'stage' => 'sql_editor_1060_recovery_failed_add',
+                        'table_name' => $tableName,
+                        'clause' => $trimmedClause,
+                        'error' => $clauseErrorDetails['sql_error'] ?? $clauseError->getMessage(),
+                    ], 'table-builder-sql');
+                    throw $clauseError;
+                }
+                // For non-ADD clauses, let the caller handle the error
+                throw $clauseError;
+            }
+        }
+
+        return $executedAny || !$hadNonAdd;
     }
 
     private function splitSqlCommaClauses(string $sql): array

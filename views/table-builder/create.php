@@ -1613,15 +1613,21 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
                         body: new FormData(tableForm)
                     })
                     .then(function(response) {
-                        return response.json().then(function(payload) {
+                        return response.text().then(function(text) {
+                            let payload = null;
+                            try {
+                                payload = text ? JSON.parse(text) : null;
+                            } catch (error) {
+                                payload = {
+                                    success: false,
+                                    message: 'Server tidak mengembalikan JSON yang valid.',
+                                    sql_error: text ? text.substring(0, 500) : ('HTTP ' + response.status),
+                                    current_stage: 'response'
+                                };
+                            }
                             return {
                                 ok: response.ok,
                                 payload: payload
-                            };
-                        }).catch(function() {
-                            return {
-                                ok: response.ok,
-                                payload: null
                             };
                         });
                     })
@@ -1636,7 +1642,7 @@ $tableBuilderWarning = Yii::$app->session->getFlash('tableBuilderWarning');
 
                         renderSqlDebugResult(payload);
                         if (!payload || !payload.message) {
-                            alert('SQL gagal dijalankan.');
+                            alert((payload && (payload.sql_error || payload.message)) || 'SQL gagal dijalankan.');
                         }
                     })
                     .catch(function() {

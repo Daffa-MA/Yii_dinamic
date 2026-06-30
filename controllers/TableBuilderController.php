@@ -4015,7 +4015,7 @@ class TableBuilderController extends Controller
         if ($overrideErrorCode !== null && $overrideErrorCode !== '') {
             $dbError['error_code'] = (string)$overrideErrorCode;
         }
-        if ($dbError['sql_error'] !== '') {
+        if ($dbError['sql_error'] !== '' && $dbError['sql_error'] !== $message) {
             $message .= ' Database error: ' . $dbError['sql_error'];
         }
 

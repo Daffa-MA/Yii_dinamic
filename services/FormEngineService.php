@@ -21,12 +21,38 @@ class FormEngineService
     /** @var array<string, DbTable|null> */
     private static array $targetTableCache = [];
 
+    /**
+     * Clears all internal static caches.
+     * Call this after schema changes or metadata updates to force fresh resolution.
+     */
+    public static function clearCache(): void
+    {
+        self::$resolvedSchemaCache = [];
+        self::$targetTableCache = [];
+    }
+
+    /**
+     * Resolves the display column for a referenced table.
+     * Public entry point so external code (e.g. MasterFormController::syncFormArchitecture)
+     * can resolve display columns without duplicating logic.
+     *
+     * @param string $tableName The referenced table name
+     * @param string $valueColumn The value (PK) column to exclude
+     * @return string The best-guess display column name, or $valueColumn as fallback
+     */
+    public static function resolveDisplayColumnForTable(string $tableName, string $valueColumn): string
+    {
+        $instance = new self();
+        return $instance->resolveReferencedDisplayColumn($tableName, $valueColumn);
+    }
+
     public function getResolvedFormSchema(MasterForm $form): array
     {
         if (Yii::$app instanceof \yii\web\Application || Yii::$app->has('session', true)) {
             (new ActiveDatabaseContext())->resolveAndApply();
             if (DatabaseSchemaInitializer::ensureMasterFormStructure(Yii::$app->db)) {
                 Yii::$app->db->schema->refresh();
+                self::clearCache();
             }
         }
 
@@ -752,8 +778,26 @@ class FormEngineService
             return $valueColumn;
         }
 
-        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
-            if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
+        $normalizedTable = strtolower(trim($tableName));
+        $priorityCandidates = array_filter(array_unique([
+            'name',
+            'nama',
+            'title',
+            'label',
+            $normalizedTable !== '' ? 'nama_' . $normalizedTable : '',
+            'slug',
+            'username',
+            'email',
+            'form_name',
+            'table_name',
+            'kode',
+        ]));
+
+        foreach ($priorityCandidates as $candidate) {
+            if ($candidate === '' || $candidate === $valueColumn) {
+                continue;
+            }
+            if (isset($schema->columns[$candidate])) {
                 return $candidate;
             }
         }

@@ -705,11 +705,22 @@ class MasterFormController extends Controller
         $fkDisplayColumns = is_array($config['picker_fk_display_columns'] ?? null) ? $config['picker_fk_display_columns'] : [];
         $joinDisplayAliases = [];
         $joinIndex = 0;
+        $fkDisplayColumnsLower = array_change_key_case($fkDisplayColumns, CASE_LOWER);
+
         $query = (new Query())->from([$mainAlias => $tableName]);
         foreach ($displayColumns as $column) {
-            $mapping = is_string($column) && isset($fkDisplayColumns[$column]) && is_array($fkDisplayColumns[$column])
-                ? $fkDisplayColumns[$column]
-                : null;
+            $columnLower = strtolower((string)$column);
+            $mapping = null;
+            if (isset($fkDisplayColumnsLower[$columnLower])) {
+                // Find original cased key to get the mapping
+                foreach ($fkDisplayColumns as $originalKey => $originalMapping) {
+                    if (strtolower((string)$originalKey) === $columnLower) {
+                        $mapping = $originalMapping;
+                        break;
+                    }
+                }
+            }
+
             if ($mapping === null || ($mapping['mode'] ?? 'raw_id') !== 'relation_display') {
                 continue;
             }
@@ -887,31 +898,25 @@ class MasterFormController extends Controller
             }
         }
 
-        if (!empty($result)) {
-            return $result;
-        }
-
         $schema = Yii::$app->db->schema->getTableSchema($tableName, true);
-        if ($schema === null || empty($schema->foreignKeys)) {
-            return [];
-        }
-
-        foreach ($schema->foreignKeys as $foreignKey) {
-            if (!is_array($foreignKey) || empty($foreignKey[0])) {
-                continue;
-            }
-            $refTable = trim((string)$foreignKey[0]);
-            foreach ($foreignKey as $column => $refColumn) {
-                if (is_int($column)) {
+        if ($schema !== null && !empty($schema->foreignKeys)) {
+            foreach ($schema->foreignKeys as $foreignKey) {
+                if (!is_array($foreignKey) || empty($foreignKey[0])) {
                     continue;
                 }
-                $column = trim((string)$column);
-                $refColumn = trim((string)$refColumn);
-                if ($this->isSafeIdentifier($column) && $this->isSafeIdentifier($refTable) && $this->isSafeIdentifier($refColumn)) {
-                    $result[$column] = [
-                        'referenced_table' => $refTable,
-                        'referenced_column' => $refColumn,
-                    ];
+                $refTable = trim((string)$foreignKey[0]);
+                foreach ($foreignKey as $column => $refColumn) {
+                    if (is_int($column)) {
+                        continue;
+                    }
+                    $column = trim((string)$column);
+                    $refColumn = trim((string)$refColumn);
+                    if ($this->isSafeIdentifier($column) && $this->isSafeIdentifier($refTable) && $this->isSafeIdentifier($refColumn) && !isset($result[$column])) {
+                        $result[$column] = [
+                            'referenced_table' => $refTable,
+                            'referenced_column' => $refColumn,
+                        ];
+                    }
                 }
             }
         }

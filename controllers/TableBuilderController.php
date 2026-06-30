@@ -4185,9 +4185,18 @@ class TableBuilderController extends Controller
                             'execution_source' => $executionSource,
                         ], 'table-builder-sql');
 
-                        $tablesToSync[$statementTableName] = true;
-                        $primaryExistsAfterExecute = true;
-                        continue;
+                        // If the statement includes IF NOT EXISTS, let MySQL handle it silently
+                        if (preg_match('/^\s*CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\b/i', $statement)) {
+                            $tablesToSync[$statementTableName] = true;
+                            $primaryExistsAfterExecute = true;
+                            continue;
+                        }
+
+                        // Otherwise raise a clear error — the user intended a fresh CREATE
+                        $detail = $metadataExists
+                            ? "Table '{$statementTableName}' sudah ada di database fisik '{$activeDatabase}' dan metadata. Gunakan DROP TABLE terlebih dahulu jika ingin membuat ulang."
+                            : "Table '{$statementTableName}' masih ada di database fisik '{$activeDatabase}' meskipun metadata sudah tidak ditemukan. Hapus table fisik tersebut terlebih dahulu, atau jalankan DROP TABLE IF EXISTS sebelum CREATE TABLE.";
+                        throw new \RuntimeException($detail);
                     }
 
                     if ($metadataExists && !$physicalExists) {

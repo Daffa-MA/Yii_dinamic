@@ -395,10 +395,12 @@ class MasterFormController extends Controller
                 $aliases[] = substr($this->normalizeSchemaKey($columnName), 0, -3);
             }
 
-            foreach ([
-                is_object($column) ? ($column->label ?? null) : ($column['label'] ?? null),
-                is_object($column) ? ($column->comment ?? null) : ($column['comment'] ?? null),
-            ] as $aliasValue) {
+            foreach (
+                [
+                    is_object($column) ? ($column->label ?? null) : ($column['label'] ?? null),
+                    is_object($column) ? ($column->comment ?? null) : ($column['comment'] ?? null),
+                ] as $aliasValue
+            ) {
                 if (is_string($aliasValue) && trim($aliasValue) !== '') {
                     $aliases[] = trim($aliasValue);
                     $aliases[] = $this->normalizeSchemaKey(trim($aliasValue));
@@ -979,9 +981,20 @@ class MasterFormController extends Controller
 
     private function resolvePickerDisplayColumn(array $columns, string $valueColumn, string $preferred = ''): string
     {
-        if ($preferred !== '' && isset($columns[$preferred]) && $this->isPickerSafeColumn($preferred, $columns[$preferred])) {
-            return $preferred;
+        if ($preferred !== '') {
+            $matchedColumnName = null;
+            foreach (array_keys($columns) as $columnName) {
+                if (strcasecmp((string)$columnName, $preferred) === 0) {
+                    $matchedColumnName = (string)$columnName;
+                    break;
+                }
+            }
+
+            if ($matchedColumnName !== null && isset($columns[$matchedColumnName]) && $this->isPickerSafeColumn($matchedColumnName, $columns[$matchedColumnName])) {
+                return $matchedColumnName;
+            }
         }
+
         foreach (['name', 'nama', 'title', 'judul', 'label', 'kode', 'code', 'email'] as $candidate) {
             if (isset($columns[$candidate]) && $this->isPickerSafeColumn($candidate, $columns[$candidate])) {
                 return $candidate;
@@ -1135,14 +1148,16 @@ class MasterFormController extends Controller
                 break;
             }
         }
-        foreach ([
-            (string)($relationConfig['local_column'] ?? ''),
-            (string)($relationConfig['source_column'] ?? ''),
-            (string)($relationConfig['column_name'] ?? ''),
-            (string)($relationConfig['original_column'] ?? ''),
-            (string)($relationConfig['field_name'] ?? ''),
-            (string)($relationConfig['field_key'] ?? ''),
-        ] as $candidate) {
+        foreach (
+            [
+                (string)($relationConfig['local_column'] ?? ''),
+                (string)($relationConfig['source_column'] ?? ''),
+                (string)($relationConfig['column_name'] ?? ''),
+                (string)($relationConfig['original_column'] ?? ''),
+                (string)($relationConfig['field_name'] ?? ''),
+                (string)($relationConfig['field_key'] ?? ''),
+            ] as $candidate
+        ) {
             if ($candidate !== '') {
                 $identityCandidates[] = $candidate;
             }
@@ -1503,7 +1518,6 @@ class MasterFormController extends Controller
                 'foreign_key_column' => $field->foreign_key_column,
                 'relation_config' => $fieldData['relation_config'] ?? null,
             ];
-
         }
 
         $layout = new MasterFormLayout();
@@ -1884,21 +1898,23 @@ class MasterFormController extends Controller
             }
 
             $candidateColumns = [];
-            foreach ([
-                $fieldName,
-                (string)($field['auto_fill_source_column'] ?? ''),
-                (string)($field['autofill_source_column'] ?? ''),
-                (string)($field['auto_fill_from'] ?? ''),
-                (string)($field['autofill_from'] ?? ''),
-                (string)($field['source_column'] ?? ''),
-                (string)($field['source_column_name'] ?? ''),
-                (string)($field['local_column'] ?? ''),
-                (string)($field['display_column'] ?? ''),
-                (string)($field['value_column'] ?? ''),
-                (string)($field['label_column'] ?? ''),
-                (string)($field['field_label'] ?? ''),
-                (string)($field['label'] ?? ''),
-            ] as $candidate) {
+            foreach (
+                [
+                    $fieldName,
+                    (string)($field['auto_fill_source_column'] ?? ''),
+                    (string)($field['autofill_source_column'] ?? ''),
+                    (string)($field['auto_fill_from'] ?? ''),
+                    (string)($field['autofill_from'] ?? ''),
+                    (string)($field['source_column'] ?? ''),
+                    (string)($field['source_column_name'] ?? ''),
+                    (string)($field['local_column'] ?? ''),
+                    (string)($field['display_column'] ?? ''),
+                    (string)($field['value_column'] ?? ''),
+                    (string)($field['label_column'] ?? ''),
+                    (string)($field['field_label'] ?? ''),
+                    (string)($field['label'] ?? ''),
+                ] as $candidate
+            ) {
                 $candidate = trim((string)$candidate);
                 if ($candidate !== '') {
                     $candidateColumns[] = $candidate;
@@ -2132,10 +2148,23 @@ class MasterFormController extends Controller
             return true;
         }
 
-        foreach ([
-            'created_at', 'updated_at', 'deleted_at', 'created_by', 'updated_by', 'deleted_by',
-            'password', 'passwd', 'token', 'secret', 'auth_key', 'api_key', 'remember_token',
-        ] as $blocked) {
+        foreach (
+            [
+                'created_at',
+                'updated_at',
+                'deleted_at',
+                'created_by',
+                'updated_by',
+                'deleted_by',
+                'password',
+                'passwd',
+                'token',
+                'secret',
+                'auth_key',
+                'api_key',
+                'remember_token',
+            ] as $blocked
+        ) {
             if ($normalized === $blocked || str_contains($normalized, $blocked)) {
                 return true;
             }
@@ -2236,11 +2265,11 @@ class MasterFormController extends Controller
                 $model->form_data = json_decode($model->form_data, true);
             }
             $this->cleanSystemFieldsFromModel($model);
-            
+
             if (!empty($model->table_id)) {
                 $model->table_id = (int)$model->table_id;
             }
-            
+
             if (empty($model->slug) && !empty($model->form_name)) {
                 $model->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $model->form_name)));
             }
@@ -2250,7 +2279,7 @@ class MasterFormController extends Controller
             if ($model->hasAttribute('form_type') && empty($model->form_type)) {
                 $model->form_type = 'dynamic';
             }
-            
+
             try {
                 if ($model->save()) {
                     $this->syncFormArchitecture($model, $customCode);
@@ -2275,7 +2304,7 @@ class MasterFormController extends Controller
                 ->all(),
         ]);
     }
-    
+
     public function actionUpdate($id = null)
     {
         if ($id === null || (int)$id <= 0) {
@@ -2297,18 +2326,18 @@ class MasterFormController extends Controller
                 $model->form_data = json_decode($model->form_data, true);
             }
             $this->cleanSystemFieldsFromModel($model);
-            
+
             if (!empty($model->table_id)) {
                 $model->table_id = (int)$model->table_id;
             }
-            
+
             if (empty($model->slug) && !empty($model->form_name)) {
                 $model->slug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $model->form_name)));
             }
             if ($model->hasAttribute('database_context')) {
                 $model->database_context = (string)($dbContext['activeDatabase'] ?? '');
             }
-            
+
             try {
                 if ($model->save()) {
                     $this->syncFormArchitecture($model, $customCode);
@@ -2346,7 +2375,7 @@ class MasterFormController extends Controller
         $model->delete();
         return $this->redirect(['index']);
     }
-    
+
     public function actionDuplicate($id = null)
     {
         if ($id === null || (int)$id <= 0) {
@@ -2354,7 +2383,7 @@ class MasterFormController extends Controller
             return $this->redirect(['index']);
         }
         $source = $this->findScopedModel($id);
-        
+
         $copy = new MasterForm();
         $copy->form_name = $source->form_name . ' (Copy)';
         $copy->form_data = $source->form_data;
@@ -2377,15 +2406,15 @@ class MasterFormController extends Controller
         $copy->table_id = $source->table_id;
         $this->assignActiveProject($copy);
         $copy->is_active = 0;
-        
+
         if ($copy->save()) {
             $this->syncFormArchitecture($copy);
             return $this->redirect(['view', 'id' => $copy->id]);
         }
-        
+
         return $this->redirect(['view', 'id' => $source->id]);
     }
-    
+
     public function actionPreview($id = null)
     {
         if ($id === null || (int)$id <= 0) {
@@ -2408,7 +2437,7 @@ class MasterFormController extends Controller
             'renderPayload' => $renderPayload,
         ]);
     }
-    
+
     public function actionSubmit($id = null)
     {
         Yii::error('[DEBUG:MasterForm] ENTER actionSubmit ID: ' . $id, 'app');
@@ -2421,7 +2450,7 @@ class MasterFormController extends Controller
             return $this->redirect(['index']);
         }
         $model = $this->findScopedModel($id);
-        
+
         if (Yii::$app->request->isPost) {
             $isEmbedded = (int)Yii::$app->request->post('_embedded', 0) === 1;
             $isAjax = Yii::$app->request->isAjax || $isEmbedded;
@@ -2442,18 +2471,18 @@ class MasterFormController extends Controller
             $dbContext = (new ActiveDatabaseContext())->resolveAndApply();
             $db = Yii::$app->db;
             $dbDsn = $db->dsn;
-            
+
             \Yii::info([
                 '=== SUBMIT DEBUG ===' => true,
                 'original_dsn' => $dbDsn,
                 'database_context' => $dbContext,
             ], 'submit_debug');
-            
+
             $schema = $this->formEngineService->getResolvedFormSchema($model);
             $fields = $schema['fields'];
             $postData = Yii::$app->request->post();
             $submissionToken = trim((string)Yii::$app->request->post('_submit_request_id', ''));
-            
+
             $tableId = $this->resolveTargetTableId($model);
             $postData = $this->applyGpsCameraProcessing($model, $fields, $postData, (int)$tableId);
             $postData = $this->applyCameraProcessing($model, $fields, $postData, (int)$tableId);
@@ -2464,7 +2493,7 @@ class MasterFormController extends Controller
                     Yii::error('[DEBUG_VERIFY] actionSubmit GPS-RELATED key=' . $k . ' value_preview=' . (is_string($v) ? substr($v, 0, 200) : json_encode($v)), 'app');
                 }
             }
-            
+
             if (!$tableId) {
                 $message = 'Target table not configured for this form.';
                 if ($isAjax) {
@@ -2473,7 +2502,7 @@ class MasterFormController extends Controller
                 Yii::$app->session->setFlash('error', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
-            
+
             $dbTable = DbTable::findOne(['id' => $tableId]);
             if (ProjectSchema::supportsProjectContext() && $model->hasAttribute('project_id') && (int)$model->project_id > 0) {
                 $dbTableQuery = DbTable::find()
@@ -2508,7 +2537,7 @@ class MasterFormController extends Controller
                 Yii::$app->session->setFlash('error', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
-            
+
             $tableName = $dbTable->name;
             \Yii::info("Target table: $tableName, DB: $dbDsn", 'submit_debug');
 
@@ -2524,7 +2553,7 @@ class MasterFormController extends Controller
                 Yii::$app->session->setFlash('success', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
-            
+
             $columns = $db->schema->getTableSchema($tableName, true);
             if (!$columns) {
                 $message = 'Target table "' . $tableName . '" not found in database "' . $dbDsn . '".';
@@ -2534,12 +2563,12 @@ class MasterFormController extends Controller
                 Yii::$app->session->setFlash('error', $message);
                 return $this->redirect(['preview', 'id' => $id]);
             }
-            
+
             $colNames = array_keys($columns->columns);
             \Yii::info("Table columns found: " . implode(', ', $colNames), 'submit_debug');
-            
+
             \Yii::info("POST data received: " . json_encode(array_keys($postData)), 'submit_debug');
-            
+
             $insertData = [];
             $fieldMappingDebug = [];
             $formBehavior = $this->dynamicFormBehaviorService->resolveDynamicBehavior($fields, $model->getFormDataArray());
@@ -2550,7 +2579,7 @@ class MasterFormController extends Controller
                     return $this->normalizeFieldName($field, $fieldIndex, $columns, (int)$tableId);
                 }
             );
-            
+
             foreach ($fields as $fieldIndex => $field) {
                 if (!is_array($field)) {
                     continue;
@@ -2559,7 +2588,7 @@ class MasterFormController extends Controller
                 $fieldName = $this->normalizeFieldName($field, (int)$fieldIndex, $columns, (int)$tableId);
                 $fieldType = $field['type'] ?? 'text';
                 $isExcluded = !empty($field['excluded']);
-                
+
                 $isFk = !empty($field['is_foreign_key']) || !empty($field['fk_referenced_table']) || !empty($field['foreign_key_table']) || !empty($field['referenced_table_name']) || !empty($field['relation_config']) || !empty($field['relationConfig']) || !empty($field['relation']);
                 $postedValue = $this->resolvePostedFieldValue($postData, $field, $fieldName);
 
@@ -2588,7 +2617,7 @@ class MasterFormController extends Controller
                     }
                     continue;
                 }
-                
+
                 $isRepeatField = in_array($fieldName, $repeatFieldNames, true);
                 if ($postedValue !== null && $postedValue !== '') {
                     $insertData[$fieldName] = $this->dynamicFormBehaviorService->coerceInsertFieldValue($postedValue, $isRepeatField);
@@ -2787,7 +2816,7 @@ class MasterFormController extends Controller
                     return $this->redirect(['preview', 'id' => $id]);
                 }
             }
-            
+
             if (!empty($insertData)) {
                 try {
                     if ($submissionToken !== '' && !$this->reserveSubmissionToken((int)$model->id, $submissionToken)) {
@@ -2808,7 +2837,7 @@ class MasterFormController extends Controller
                     \Yii::info("DB DSN: $dbDsn", 'submit_debug');
                     \Yii::info("Target table: $tableName", 'submit_debug');
                     \Yii::info("Data to insert: " . json_encode($insertData), 'submit_debug');
-                    
+
                     $transaction = $db->beginTransaction();
                     $insertedRowKeys = [];
                     $insertedRowsCount = 0;
@@ -2873,9 +2902,9 @@ class MasterFormController extends Controller
                         'insert_count' => $multipleRowDebug['insert_count'],
                         'error' => null,
                     ]);
-                    
+
                     \Yii::info("Insert executed successfully", 'submit_debug');
-                    
+
                     $colNames = array_keys($columns->columns);
                     $orderBy = in_array('id', $colNames) ? 'ORDER BY id DESC' : (in_array('created_at', $colNames) ? 'ORDER BY created_at DESC' : '');
                     if ($orderBy) {
@@ -2966,13 +2995,13 @@ class MasterFormController extends Controller
                 Yii::$app->session->setFlash('warning', 'No data extracted. POST: ' . implode(', ', $postedFieldNames) . ' | Form fields: ' . implode(', ', $formFieldNames));
                 $this->activityLogService->log($model, 'submit', 'warning', 'No submission data extracted.');
             }
-            
+
             if ($isAjax) {
                 return ['success' => false, 'message' => 'Submit tidak diproses.'];
             }
             return $this->redirect(['preview', 'id' => $id]);
         }
-        
+
         return $this->redirect(['preview', 'id' => $id]);
     }
 
@@ -3146,7 +3175,8 @@ class MasterFormController extends Controller
         $normalizedBaseAlias = $baseAlias !== '' ? $this->normalizeSubmitKey($baseAlias) : '';
         foreach ($postData as $key => $value) {
             $normalizedKey = $this->normalizeSubmitKey((string)$key);
-            if ($normalizedKey === $normalizedColumn
+            if (
+                $normalizedKey === $normalizedColumn
                 || $normalizedKey === $this->normalizeSubmitKey($displayKey)
                 || $normalizedKey === $this->normalizeSubmitKey($submitKey)
                 || ($normalizedBaseAlias !== '' && $normalizedKey === $normalizedBaseAlias)
@@ -3469,13 +3499,13 @@ class MasterFormController extends Controller
         $errors = [];
         foreach ($fields as $field) {
             if (!is_array($field)) continue;
-            
+
             $fieldName = $this->normalizeFieldName($field, 0, $columns, $tableId);
             if (!$fieldName) continue;
 
             $value = $data[$fieldName] ?? null;
             $rules = is_array($field['validation_rules'] ?? null) ? $field['validation_rules'] : [];
-            
+
             // Check required (always at top)
             if (!empty($field['is_required']) && ($value === null || $value === '')) {
                 $errors[$fieldName] = ($field['label'] ?? $fieldName) . ' wajib diisi.';
@@ -3595,13 +3625,25 @@ class MasterFormController extends Controller
                     }
 
                     $value = '';
-                    switch($sourceKey) {
-                        case 'photo_path': $value = $payload['photo_path'] ?? $payload['photo_name'] ?? ''; break;
-                        case 'latitude': $value = $payload['latitude'] ?? ''; break;
-                        case 'longitude': $value = $payload['longitude'] ?? ''; break;
-                        case 'gps_link': $value = (!empty($payload['latitude']) && !empty($payload['longitude'])) ? 'https://www.google.com/maps?q=' . $payload['latitude'] . ',' . $payload['longitude'] : ''; break;
-                        case 'captured_at': $value = $payload['captured_at'] ?? ''; break;
-                        case 'location_name': $value = $payload['location_text'] ?? $payload['location_address'] ?? ''; break;
+                    switch ($sourceKey) {
+                        case 'photo_path':
+                            $value = $payload['photo_path'] ?? $payload['photo_name'] ?? '';
+                            break;
+                        case 'latitude':
+                            $value = $payload['latitude'] ?? '';
+                            break;
+                        case 'longitude':
+                            $value = $payload['longitude'] ?? '';
+                            break;
+                        case 'gps_link':
+                            $value = (!empty($payload['latitude']) && !empty($payload['longitude'])) ? 'https://www.google.com/maps?q=' . $payload['latitude'] . ',' . $payload['longitude'] : '';
+                            break;
+                        case 'captured_at':
+                            $value = $payload['captured_at'] ?? '';
+                            break;
+                        case 'location_name':
+                            $value = $payload['location_text'] ?? $payload['location_address'] ?? '';
+                            break;
                     }
 
                     Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing mapping sourceKey=' . $sourceKey . ' targetColumn=' . $targetColumn . ' computed_value=' . json_encode($value), 'app');
@@ -3745,19 +3787,32 @@ class MasterFormController extends Controller
         }
 
         switch ($rule) {
-            case 'required': return true; // Already checked above
-            case 'min': return (float)$value >= (float)$params;
-            case 'max': return (float)$value <= (float)$params;
-            case 'minLength': return mb_strlen((string)$value, 'UTF-8') >= (int)$params;
-            case 'maxLength': return mb_strlen((string)$value, 'UTF-8') <= (int)$params;
-            case 'email': return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
-            case 'url': return filter_var($value, FILTER_VALIDATE_URL) !== false;
-            case 'numeric': return is_numeric($value);
-            case 'integer': return filter_var($value, FILTER_VALIDATE_INT) !== false;
-            case 'pattern': return preg_match('/' . str_replace('/', '\/', (string)$params) . '/', (string)$value) === 1;
-            case 'in': return is_array($params) && in_array($value, $params);
-            case 'notIn': return is_array($params) && !in_array($value, $params);
-            default: return true;
+            case 'required':
+                return true; // Already checked above
+            case 'min':
+                return (float)$value >= (float)$params;
+            case 'max':
+                return (float)$value <= (float)$params;
+            case 'minLength':
+                return mb_strlen((string)$value, 'UTF-8') >= (int)$params;
+            case 'maxLength':
+                return mb_strlen((string)$value, 'UTF-8') <= (int)$params;
+            case 'email':
+                return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
+            case 'url':
+                return filter_var($value, FILTER_VALIDATE_URL) !== false;
+            case 'numeric':
+                return is_numeric($value);
+            case 'integer':
+                return filter_var($value, FILTER_VALIDATE_INT) !== false;
+            case 'pattern':
+                return preg_match('/' . str_replace('/', '\/', (string)$params) . '/', (string)$value) === 1;
+            case 'in':
+                return is_array($params) && in_array($value, $params);
+            case 'notIn':
+                return is_array($params) && !in_array($value, $params);
+            default:
+                return true;
         }
     }
 }

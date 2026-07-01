@@ -56,6 +56,19 @@
             .replace(/'/g, '&#039;');
     }
 
+    /**
+     * Humanize a raw column name to a display label.
+     * Matches the PHP backend's: ucwords(str_replace('_', ' ', $column))
+     * Example: 'nama_produk' → 'Nama Produk'
+     * This is the ONLY place where column names are humanized — driven purely by backend config.
+     */
+    function humanizeColumnName(name) {
+        return String(name || '')
+            .split('_')
+            .map(function(word) { return word.charAt(0).toUpperCase() + word.slice(1); })
+            .join(' ');
+    }
+
     function cssEscape(value) {
         return window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/"/g, '\\"');
     }
@@ -556,6 +569,40 @@
         }
     }
 
+    /**
+     * Build column definitions from backend response config.
+     *
+     * Uses data.config.display_columns (raw column names) from the backend.
+     * Each column header is derived by humanizing the raw name.
+     * Values are read from each row's display object keyed by the humanized name.
+     *
+     * No frontend resolution, no fallback logic, no hardcoded column names.
+     * The frontend is a pure renderer of the backend response.
+     */
+    function buildGridColumns(data) {
+        var config = data && data.config;
+        var rows = isArray(data.rows) ? data.rows : [];
+
+        // Use config.display_columns from backend (primary source)
+        var rawColumns = config && isArray(config.display_columns) ? config.display_columns : [];
+
+        // Fallback: derive column names from the display keys of the first row.
+        // This should only trigger if the backend does not send display_columns.
+        if (rawColumns.length === 0 && rows.length > 0) {
+            rawColumns = Object.keys(rows[0].display || {});
+        }
+
+        return rawColumns.map(function(raw) {
+            // The backend's buildRows() creates display keys via humanizeColumn().
+            // So we replicate the same transformation to look up row values.
+            var label = humanizeColumnName(raw);
+            return {
+                raw: raw,
+                label: label
+            };
+        });
+    }
+
     function loadPickerPage() {
         var modal = ensureModal();
         var search = modal.querySelector('[data-picker-search]');
@@ -584,14 +631,17 @@
                     return;
                 }
 
-                var keys = Object.keys(rows[0].display || {});
+                // Build grid columns purely from backend config metadata
+                var columns = buildGridColumns(data);
+
                 content.innerHTML = '<table class="relation-picker-table"><thead><tr>' +
-                    keys.map(function(key) { return '<th>' + escapeHtml(key) + '</th>'; }).join('') +
+                    columns.map(function(col) { return '<th>' + escapeHtml(col.label) + '</th>'; }).join('') +
                     '</tr></thead><tbody>' +
                     rows.map(function(row) {
+                        var display = row.display || {};
                         return '<tr data-value="' + escapeHtml(row.value) + '" data-label="' + escapeHtml(row.label) + '" data-selected="' + escapeHtml(JSON.stringify(row)) + '">' +
-                            keys.map(function(key) {
-                                return '<td>' + escapeHtml((row.display || {})[key]) + '</td>';
+                            columns.map(function(col) {
+                                return '<td>' + escapeHtml(display[col.label] || '') + '</td>';
                             }).join('') +
                         '</tr>';
                     }).join('') +

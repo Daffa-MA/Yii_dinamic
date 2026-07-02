@@ -337,6 +337,19 @@ class DatabaseSchemaSyncService
             $column->setAttribute('referenced_column_name', $fk['referenced_column_name'] ?? null);
             $column->setAttribute('on_delete_action', $fk['on_delete_action'] ?? 'RESTRICT');
             $column->setAttribute('on_update_action', $fk['on_update_action'] ?? 'RESTRICT');
+
+            // Auto-detect and store related_display_column for FK columns
+            if ($column->hasAttribute('related_display_column') && $fk !== null && $fk['referenced_table_name'] !== '') {
+                $refTableSchema = $this->physicalDb->schema->getTableSchema($fk['referenced_table_name'], true);
+                if ($refTableSchema !== null) {
+                    $refPk = !empty($refTableSchema->primaryKey) ? (string)$refTableSchema->primaryKey[0] : 'id';
+                    $refValueCol = ($fk['referenced_column_name'] !== '' && isset($refTableSchema->columns[$fk['referenced_column_name']]))
+                        ? $fk['referenced_column_name']
+                        : $refPk;
+                    $displayCol = $this->guessForeignKeyDisplayColumn($refTableSchema, $refValueCol);
+                    $column->setAttribute('related_display_column', $displayCol);
+                }
+            }
         }
 
         return $column;
@@ -448,6 +461,53 @@ class DatabaseSchemaSyncService
         }
 
         return $map;
+    }
+
+    private function guessForeignKeyDisplayColumn(
+        \yii\db\TableSchema $schema,
+        string $valueColumn
+    ): string
+    {
+        // Langkah 1: Cari kolom display berdasarkan nama umum yang dikenal
+        $knownLabels = [
+            'name', 'title', 'label', 'slug', 'username', 'email',
+            'form_name', 'table_name',
+            'nama', 'nama_lengkap', 'nama_siswa', 'nama_pegawai', 'nama_guru',
+            'nama_kelas', 'nama_produk', 'nama_barang', 'nama_kategori',
+            'nama_user', 'nama_departemen', 'nama_divisi', 'nama_jabatan',
+            'nama_status', 'nama_tipe', 'nama_pelanggan', 'nama_supplier',
+            'nama_dosen', 'nama_mahasiswa', 'nama_orangtua', 'nama_wali',
+            'nama_kontak', 'nama_perusahaan', 'nama_bagian',
+            'judul', 'deskripsi', 'keterangan', 'display_name', 'full_name',
+        ];
+        foreach ($knownLabels as $candidate) {
+            if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
+                return $candidate;
+            }
+        }
+
+        // Langkah 2: Cari kolom string pertama yang bukan PK, bukan kolom ID (_id suffix),
+        // dan bukan $valueColumn itu sendiri
+        foreach ($schema->columns as $colName => $colSchema) {
+            if ($colName === $valueColumn) {
+                continue;
+            }
+            // Skip primary key
+            if (!empty($schema->primaryKey) && in_array($colName, $schema->primaryKey, true)) {
+                continue;
+            }
+            // Skip kolom yang terlihat seperti FK (_id suffix)
+            if (strlen($colName) > 3 && substr_compare($colName, '_id', -3) === 0) {
+                continue;
+            }
+            // Hanya kolom string (varchar, char, text)
+            $type = strtolower((string)$colSchema->type);
+            if (in_array($type, ['string', 'text', 'char', 'varchar'], true)) {
+                return $colName;
+            }
+        }
+
+        return $valueColumn;
     }
 
     private function humanize(string $name): string

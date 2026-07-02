@@ -112,7 +112,7 @@ class MasterDatatableRenderService
             return $this->renderNotice('No data available', 'Source table tidak ditemukan atau tidak dapat diakses.');
         }
 
-        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId, $data['filters'], $data['stats'], $data['workflow'], $data['exports']);
+        return $this->renderTable($data['uid'], $data['table'], $data['columns'], $data['rows'], $data['actions'], $data['editMode'], $data['editForm'], $data['primaryKeys'], $data['state'], $presetId, $data['filters'], $data['stats'], $data['workflow'], $data['exports'], $data['displayLookup'], $data['displayValues']);
     }
 
     private function buildRenderData(array $config): ?array
@@ -210,6 +210,8 @@ class MasterDatatableRenderService
         $uid = 'dt-' . $tableId . '-' . substr(md5(json_encode($config)), 0, 8);
         $hasActions = in_array(true, $actions, true) && !empty($primaryKeys);
         $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
+        // Pre-compute display values untuk semua rows — single source of truth untuk UI dan Export
+        $displayValues = $this->buildAllDisplayValues($columns, $rows, $displayLookup);
 
         // ===== BUG 4 FIX: Normalize exports dengan default seperti model MasterDatatable =====
         // Pastikan exports tidak pernah kosong/null - selalu punya default values untuk semua format
@@ -238,6 +240,7 @@ class MasterDatatableRenderService
             'editForm' => $editForm,
             'primaryKeys' => $primaryKeys,
             'displayLookup' => $displayLookup,
+            'displayValues' => $displayValues,
             'colspan' => count($columns) + ($hasActions ? 1 : 0),
             'filters' => $filters,
             'stats' => $stats,
@@ -515,6 +518,22 @@ class MasterDatatableRenderService
         $format = strtolower(trim($format));
         $config['pagination'] = false;
         $config['page_size'] = 5000;
+
+        // ===== PRESET LOOKUP: Gunakan konfigurasi kolom yang sama dengan UI =====
+        // Pastikan export menggunakan columns config yang sama dengan Datatable UI
+        $presetTableId = (int)($config['tableId'] ?? $config['table_id'] ?? 0);
+        $presetDatatableId = (int)($config['datatableId'] ?? $config['datatable_id'] ?? 0);
+        if ($presetDatatableId <= 0 && $presetTableId > 0 && empty($config['_preset_loaded'])) {
+            $exportPreset = MasterDatatable::findScoped()
+                ->andWhere(['table_id' => $presetTableId, 'is_active' => 1])
+                ->orderBy(['id' => SORT_DESC])
+                ->one();
+            if ($exportPreset instanceof MasterDatatable) {
+                $config = array_replace_recursive($exportPreset->toComponentConfig(), $config);
+                $config['_preset_loaded'] = true;
+            }
+        }
+
         $data = $this->buildRenderData($config);
         if ($data === null) {
             Yii::$app->response->statusCode = 404;
@@ -546,10 +565,11 @@ class MasterDatatableRenderService
 
         $lines = [];
         $lines[] = array_map(static fn(array $column): string => (string)($column['label'] ?? $column['field'] ?? ''), $data['columns']);
-        foreach ($data['rows'] as $row) {
+        foreach ($data['rows'] as $index => $row) {
             $line = [];
             foreach ($data['columns'] as $column) {
-                $line[] = $this->formatDisplayValue($row, $column, $data['displayLookup']);
+                $field = (string)($column['field'] ?? '');
+                $line[] = isset($data['displayValues'][$index][$field]) ? (string)$data['displayValues'][$index][$field] : '';
             }
             $lines[] = $line;
         }
@@ -650,9 +670,6 @@ class MasterDatatableRenderService
     private function resolveForeignKeyDisplayConfig(DbTableColumn $metadataColumn, array $item): array
     {
         $isForeignKey = $metadataColumn->hasAttribute('is_foreign_key') && (bool)$metadataColumn->getAttribute('is_foreign_key');
-        if (!$isForeignKey) {
-            return [];
-        }
 
         $referencedTable = $metadataColumn->hasAttribute('referenced_table_name')
             ? trim((string)$metadataColumn->getAttribute('referenced_table_name'))
@@ -660,6 +677,21 @@ class MasterDatatableRenderService
         $referencedColumn = $metadataColumn->hasAttribute('referenced_column_name')
             ? trim((string)$metadataColumn->getAttribute('referenced_column_name'))
             : '';
+
+        // Fallback: deteksi FK berdasarkan konvensi penamaan (_id suffix)
+        // Ini menangani 'logical FK' yang tidak memiliki CONSTRAINT di database fisik
+        if (!$isForeignKey && $referencedTable === '') {
+            $colName = $metadataColumn->name ?? '';
+            if (strlen($colName) > 3 && substr_compare($colName, '_id', -3) === 0) {
+                $guessedTable = substr($colName, 0, -3);
+                $guessedSchema = Yii::$app->db->schema->getTableSchema($guessedTable, true);
+                if ($guessedSchema !== null) {
+                    $referencedTable = $guessedTable;
+                    $referencedColumn = !empty($guessedSchema->primaryKey) ? (string)$guessedSchema->primaryKey[0] : 'id';
+                }
+            }
+        }
+
         if ($referencedTable === '') {
             return [];
         }
@@ -678,8 +710,27 @@ class MasterDatatableRenderService
         if ($referencedColumn === '' || !isset($schema->columns[$referencedColumn])) {
             $referencedColumn = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
         }
-        if ($relatedDisplayColumn === '' || !isset($schema->columns[$relatedDisplayColumn])) {
-            $relatedDisplayColumn = $referencedColumn;
+
+        // Gunakan stored metadata dari DbTableColumn jika tidak ada explicit config
+        // Ini memastikan export menggunakan konfigurasi sistem yang sama dengan Datatable UI
+        if ($relatedDisplayColumn === '' && $metadataColumn->hasAttribute('related_display_column')) {
+            $storedDisplayColumn = trim((string)$metadataColumn->getAttribute('related_display_column'));
+            if ($storedDisplayColumn !== '' && isset($schema->columns[$storedDisplayColumn]) && $storedDisplayColumn !== $referencedColumn) {
+                $relatedDisplayColumn = $storedDisplayColumn;
+                $displayMode = 'related_column';
+            }
+        }
+
+        // Auto-guess display column — LAST RESORT fallback ketika tidak ada config atau metadata
+        if ($relatedDisplayColumn === '' || !isset($schema->columns[$relatedDisplayColumn]) || $relatedDisplayColumn === $referencedColumn) {
+            $guessedColumn = $this->guessForeignKeyLabelColumn($schema, $referencedColumn);
+            if ($guessedColumn !== $referencedColumn && isset($schema->columns[$guessedColumn])) {
+                $relatedDisplayColumn = $guessedColumn;
+                // Override display mode to related_column when we auto-guessed
+                $displayMode = 'related_column';
+            } else {
+                $relatedDisplayColumn = $referencedColumn;
+            }
         }
 
         return [
@@ -698,7 +749,9 @@ class MasterDatatableRenderService
         }
 
         foreach ($columns as $column) {
-            if (($column['fk_display_mode'] ?? 'raw_id') !== 'related_column') {
+            // Build display lookup for ALL FK columns regardless of fk_display_mode
+            // This ensures export (CSV/Excel/PDF/Print) uses same resolved values as the datatable
+            if (empty($column['referenced_table']) || empty($column['referenced_column'])) {
                 continue;
             }
 
@@ -834,7 +887,7 @@ class MasterDatatableRenderService
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
     }
 
-    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0, array $filters = [], array $stats = [], array $workflow = [], array $exports = []): string
+    private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0, array $filters = [], array $stats = [], array $workflow = [], array $exports = [], array $displayLookup = [], array $displayValues = []): string
     {
         $hasWorkflowAction = !empty($workflow['approval_enabled']) && !empty($primaryKeys);
         $hasActions = (in_array(true, $actions, true) || $hasWorkflowAction) && !empty($primaryKeys);
@@ -842,7 +895,6 @@ class MasterDatatableRenderService
         $totalPages = max(1, (int)ceil(($state['total'] ?: 0) / $state['pageSize']));
         $rowFields = $this->resolveRowFields($table, $columns);
         $detailFields = $this->resolveDetailFields($columns);
-        $displayLookup = $this->buildRelatedDisplayLookup($columns, $rows);
         $reloadUrl = $presetId > 0 ? Url::to(['/master-datatable/reload', 'id' => $presetId]) : '';
         $exportUrls = [];
         foreach (['csv', 'excel', 'pdf', 'print'] as $fmt) {
@@ -1079,7 +1131,7 @@ class MasterDatatableRenderService
                     </tr>
                     </thead>
                     <tbody>
-                    <?= $this->renderRowsHtml($table, $columns, $rows, $actions, $primaryKeys, $displayLookup, $colspan, $presetId, $workflow) ?>
+                    <?= $this->renderRowsHtml($table, $columns, $rows, $actions, $primaryKeys, $displayLookup, $colspan, $presetId, $workflow, $displayValues) ?>
                     </tbody>
                 </table>
             </div>
@@ -2152,7 +2204,7 @@ class MasterDatatableRenderService
         return (string)ob_get_clean();
     }
 
-    private function renderRowsHtml(DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $displayLookup, int $colspan, int $presetId = 0, array $workflow = []): string
+    private function renderRowsHtml(DbTable $table, array $columns, array $rows, array $actions, array $primaryKeys, array $displayLookup, int $colspan, int $presetId = 0, array $workflow = [], array $displayValues = []): string
     {
         $hasWorkflowAction = !empty($workflow['approval_enabled']) && $presetId > 0;
         $hasActions = (in_array(true, $actions, true) || $hasWorkflowAction) && !empty($primaryKeys);
@@ -2245,10 +2297,10 @@ class MasterDatatableRenderService
                     </tr>
                 </thead>
                 <tbody>
-                    <?php foreach ($data['rows'] as $row): ?>
+                    <?php foreach ($data['rows'] as $printIndex => $row): ?>
                         <tr>
                             <?php foreach ($data['columns'] as $column): ?>
-                                <td><?= Html::encode($this->formatDisplayValue($row, $column, $data['displayLookup'])) ?></td>
+                                <td><?= Html::encode(isset($data['displayValues'][$printIndex][(string)($column['field'] ?? '')]) ? (string)$data['displayValues'][$printIndex][(string)($column['field'] ?? '')] : '') ?></td>
                             <?php endforeach; ?>
                         </tr>
                     <?php endforeach; ?>
@@ -2299,10 +2351,11 @@ class MasterDatatableRenderService
         $xml .= '      </Row>' . "\n";
         
         // Data Rows
-        foreach ($rows as $row) {
+        foreach ($rows as $excelIndex => $row) {
             $xml .= '      <Row>' . "\n";
             foreach ($columns as $column) {
-                $val = $this->formatDisplayValue($row, $column, $lookup);
+                $field = (string)($column['field'] ?? '');
+                $val = isset($data['displayValues'][$excelIndex][$field]) ? (string)$data['displayValues'][$excelIndex][$field] : '';
                 $type = is_numeric($val) && (strlen($val) < 11 || $val[0] !== '0') ? 'Number' : 'String';
                 $xml .= '        <Cell><Data ss:Type="' . $type . '">' . htmlspecialchars($val) . '</Data></Cell>' . "\n";
             }
@@ -2331,10 +2384,8 @@ class MasterDatatableRenderService
     {
         $field = (string)($column['field'] ?? '');
         $rawValue = $field !== '' && array_key_exists($field, $row) ? $row[$field] : null;
-        if (($column['fk_display_mode'] ?? 'raw_id') !== 'related_column') {
-            return $this->formatValue($rawValue);
-        }
-
+        // Always check displayLookup first, regardless of fk_display_mode
+        // This ensures export (CSV/Excel/PDF/Print) uses same resolved values as datatable
         $lookupKey = $rawValue === null ? '' : (string)$rawValue;
         if ($field !== '' && $lookupKey !== '' && array_key_exists($lookupKey, $displayLookup[$field] ?? [])) {
             $displayValue = $displayLookup[$field][$lookupKey];
@@ -2400,6 +2451,22 @@ class MasterDatatableRenderService
 
         $displayValue = $this->formatDisplayValue($row, $column, $displayLookup);
         return Html::encode($displayValue);
+    }
+
+        private function buildAllDisplayValues(array $columns, array $rows, array $displayLookup): array
+    {
+        $allValues = [];
+        foreach ($rows as $index => $row) {
+            $allValues[$index] = [];
+            foreach ($columns as $column) {
+                $field = (string)($column['field'] ?? '');
+                if ($field === '') {
+                    continue;
+                }
+                $allValues[$index][$field] = $this->formatDisplayValue($row, $column, $displayLookup);
+            }
+        }
+        return $allValues;
     }
 
     private function buildRowDisplayValues(array $row, array $columns, array $displayLookup): array
@@ -2594,7 +2661,7 @@ class MasterDatatableRenderService
 
     private function guessForeignKeyLabelColumn(\yii\db\TableSchema $schema, string $valueColumn): string
     {
-        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
+        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name', 'nama', 'nama_lengkap', 'judul', 'deskripsi', 'keterangan'] as $candidate) {
             if ($candidate !== $valueColumn && isset($schema->columns[$candidate])) {
                 return $candidate;
             }

@@ -100,6 +100,7 @@ class MigrateController extends Controller
                         'referenced_column_name' => "ADD COLUMN `referenced_column_name` VARCHAR(255) NULL",
                         'on_delete_action' => "ADD COLUMN `on_delete_action` VARCHAR(50) NULL",
                         'on_update_action' => "ADD COLUMN `on_update_action` VARCHAR(50) NULL",
+                        'related_display_column' => "ADD COLUMN `related_display_column` VARCHAR(100) NULL",
                     ];
 
                     $alterStatements = [];
@@ -144,6 +145,7 @@ class MigrateController extends Controller
                         `referenced_column_name` VARCHAR(255) NULL,
                         `on_delete_action` VARCHAR(50) NULL,
                         `on_update_action` VARCHAR(50) NULL,
+                        `related_display_column` VARCHAR(100) NULL,
                         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         FOREIGN KEY (`db_table_id`) REFERENCES `db_tables`(`id`) ON DELETE CASCADE

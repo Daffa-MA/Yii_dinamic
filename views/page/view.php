@@ -192,6 +192,36 @@ HTML;
         Yii::warning('Failed to expand custom page tokens on page view: ' . $e->getMessage(), 'app');
     }
 
+    // Pre-render datatable blocks from layout_json and inject as window.dynamicDatatableHtml
+    // so the page source's JavaScript renderBlock() can access server-rendered datatable HTML.
+    $dtLayout = json_decode($page->layout_json ?? '[]', true);
+    $dtHtmlByBlock = [];
+    if (is_array($dtLayout)) {
+        $dtRenderer = new MasterDatatableRenderService();
+        foreach ($dtLayout as $dtBlock) {
+            if (!is_array($dtBlock) || ($dtBlock['type'] ?? '') !== 'datatable') {
+                continue;
+            }
+            $blockId = (string)($dtBlock['id'] ?? '');
+            if ($blockId === '') {
+                continue;
+            }
+            try {
+                $dtHtmlByBlock[$blockId] = $dtRenderer->renderFromConfig((array)($dtBlock['props'] ?? []), [
+                    'page_id' => (int)$page->id,
+                    'menu_id' => $activeMenuId,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to render datatable on page view: ' . $e->getMessage(), 'app');
+                $dtHtmlByBlock[$blockId] = '<div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Datatable tidak dapat ditampilkan.</div>';
+            }
+        }
+    }
+    if (!empty($dtHtmlByBlock)) {
+        $dtScript = '<script>window.dynamicDatatableHtml = ' . \yii\helpers\Json::htmlEncode($dtHtmlByBlock) . ';</script>';
+        $customHtml = preg_replace('/<head\b[^>]*>/i', '$0' . $dtScript, $customHtml, 1);
+    }
+
     if (stripos($customHtml, '<form') !== false) {
         $fallbackFormId = $renderedFormIds[0] ?? 0;
         if ($fallbackFormId <= 0) {
@@ -242,11 +272,51 @@ HTML;
 
     $customSourceDoc = preg_replace(
         '/<head\b[^>]*>/i',
-        '$0<base href="' . Html::encode(Yii::$app->request->hostInfo) . '/">',
+        '$0<base href="' . Html::encode(Yii::$app->request->absoluteUrl) . '">',
         $customSourceDoc,
         1
     ) ?? $customSourceDoc;
     $customSourceDoc = $injectLinkHandler($customSourceDoc);
+
+    // Inject executeScripts to re-execute <script> tags from dynamically injected
+    // datatable HTML (scripts are not executed when set via innerHTML).
+    // Wait for DOMContentLoaded so #preview-content has been populated by the
+    // page source's own DOMContentLoaded handler before we re-execute scripts.
+    $executeHelper = '<script>
+(function() {
+    function executeScripts(root) {
+        root.querySelectorAll("script").forEach(function(oldScript) {
+            var newScript = document.createElement("script");
+            if (oldScript.src) {
+                newScript.src = oldScript.src;
+            } else {
+                newScript.textContent = oldScript.textContent;
+            }
+            if (oldScript.parentNode) {
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            }
+        });
+    }
+    function run() {
+        var container = document.getElementById("preview-content");
+        if (container) {
+            executeScripts(container);
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", run);
+    } else {
+        run();
+    }
+    var attempts = 0;
+    var timer = setInterval(function() {
+        attempts++;
+        run();
+        if (attempts >= 20) clearInterval(timer);
+    }, 150);
+})();
+</script>';
+    $customSourceDoc = preg_replace('/<\/body>\s*<\/html>\s*$/i', $executeHelper . "\n</body>\n</html>", $customSourceDoc);
 }
 
 $layoutJson = $page->layout_json ?? '[]';
@@ -261,7 +331,7 @@ if ($hasCustomPageSource): ?>
             class="block w-full border-0 bg-white"
             title="Custom Page Source"
             style="min-height: 780px;"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
         ></iframe>
     </div>
     <script>

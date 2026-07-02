@@ -1127,7 +1127,7 @@ Yii::info('Current Route: ' . $currentRoute, 'sidebar-debug');
             }
             foreach ($allMenus as $m) {
                 if ($m['parent_id'] && isset($menuMap[$m['parent_id']])) {
-                    $menuMap[$m['parent_id']]['children'][] = $m;
+                    $menuMap[$m['parent_id']]['children'][] = &$menuMap[$m['id']];
                 } else {
                     $menuTree[] = &$menuMap[$m['id']];
                 }

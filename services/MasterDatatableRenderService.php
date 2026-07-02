@@ -1073,7 +1073,7 @@ class MasterDatatableRenderService
                         <?php endforeach; ?>
                     <?php endif; ?>
                     <?php if ($state['searchEnabled']): ?>
-                    <form method="get" class="dt-search-form">
+                    <form method="get" class="dt-search-form" action="<?= Html::encode(Url::current()) ?>">
                         <?php foreach (Yii::$app->request->get() as $key => $value): ?>
                             <?php if ($key !== $state['searchParam'] && $key !== $state['pageParam']): ?>
                                 <input type="hidden" name="<?= Html::encode($key) ?>" value="<?= Html::encode((string)$value) ?>">
@@ -1085,7 +1085,7 @@ class MasterDatatableRenderService
                 </div>
             </div>
             <?php if (!empty($filters)): ?>
-                <form class="dt-filters" method="get">
+                <form class="dt-filters" method="get" action="<?= Html::encode(Url::current()) ?>">
                     <?php foreach (Yii::$app->request->get() as $key => $value): ?>
                         <?php $filterPrefix = 'dt_filter_' . (int)$table->id . '_'; ?>
                         <?php if (strncmp((string)$key, $filterPrefix, strlen($filterPrefix)) !== 0 && $key !== $state['pageParam']): ?>
@@ -1999,6 +1999,7 @@ class MasterDatatableRenderService
                 }
 
                 function openRow(row, mode) {
+                    if (!modal || !viewMode || !editFormEl) { return; }
                     const rowData = getRowData(row);
                     const rowDisplayData = getRowDisplayData(row);
                     const rowKey = getRowKey(row);
@@ -2058,14 +2059,16 @@ class MasterDatatableRenderService
                     }
                 });
 
-                modal.addEventListener('click', function(event) {
-                    if (event.target === modal) {
-                        closeModal();
-                    }
-                });
+                if (modal) {
+                    modal.addEventListener('click', function(event) {
+                        if (event.target === modal) {
+                            closeModal();
+                        }
+                    });
+                }
 
                 document.addEventListener('keydown', function(event) {
-                    if (event.key === 'Escape' && modal.classList.contains('open')) {
+                    if (event.key === 'Escape' && modal && modal.classList.contains('open')) {
                         closeModal();
                     }
                 });
@@ -2083,6 +2086,7 @@ class MasterDatatableRenderService
                     }
                 });
 
+                if (editFormEl) {
                 editFormEl.addEventListener('submit', function(event) {
                     event.preventDefault();
                     if (!activeRow) {
@@ -2180,6 +2184,7 @@ class MasterDatatableRenderService
                         saveButton.textContent = previousLabel;
                     });
                 });
+                }
 
                 // PERBAIKAN BUG 4: Pastikan tombol export kustom memicu navigasi ke URL export riil
                 root.querySelectorAll('.dt-export-btn').forEach(function(exportBtn) {
@@ -2197,6 +2202,132 @@ class MasterDatatableRenderService
                         window.location.href = exportUrl;
                     });
                 });
+
+                // === AJAX interceptors for iframe (srcdoc) compatibility ===
+                // When rendered inside an iframe (custom code mode), form
+                // submissions and link clicks would navigate the iframe away
+                // from srcdoc, breaking the page. These interceptors convert
+                // those navigation actions to AJAX/fetch calls.
+
+                var inIframe = window !== window.top;
+                var reloadUrl = root.getAttribute('data-reload-url') || '';
+
+                function reloadTable(url) {
+                    if (!url) return;
+                    fetch(url, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        credentials: 'same-origin'
+                    }).then(function(r) {
+                        var ct = r.headers.get('Content-Type') || '';
+                        if (ct.indexOf('json') !== -1) {
+                            return r.json();
+                        }
+                        return r.text().then(function(html) {
+                            var parser = new DOMParser();
+                            var doc = parser.parseFromString(html, 'text/html');
+                            var newSection = doc.querySelector('.master-datatable');
+                            if (newSection) {
+                                root.outerHTML = newSection.outerHTML;
+                            }
+                            return null;
+                        });
+                    }).then(function(result) {
+                        if (result && result.success) {
+                            var tbody = root.querySelector('tbody');
+                            if (tbody && result.tbodyHtml) {
+                                tbody.innerHTML = result.tbodyHtml;
+                            }
+                            var subtitle = root.querySelector('[data-datatable-subtitle]');
+                            if (subtitle && result.subtitle) {
+                                subtitle.textContent = result.subtitle;
+                            }
+                        }
+                    }).catch(function() {});
+                }
+
+                if (inIframe) {
+                    // Intercept search form submission
+                    var searchForm = root.querySelector('.dt-search-form');
+                    if (searchForm) {
+                        searchForm.addEventListener('submit', function(e) {
+                            e.preventDefault();
+                            var searchInput = searchForm.querySelector('input[type="search"]');
+                            if (!searchInput) return;
+                            var param = searchInput.getAttribute('name') || 'search';
+                            var value = encodeURIComponent(searchInput.value);
+                            if (reloadUrl) {
+                                reloadTable(reloadUrl + '&' + param + '=' + value);
+                            } else {
+                                reloadTable(searchForm.action + '&' + param + '=' + value);
+                            }
+                        });
+                    }
+
+                    // Intercept filter select changes
+                    var filterForm = root.querySelector('.dt-filters');
+                    if (filterForm) {
+                        filterForm.addEventListener('change', function(e) {
+                            var selects = filterForm.querySelectorAll('select');
+                            var params = '';
+                            selects.forEach(function(sel) {
+                                var name = sel.getAttribute('name') || '';
+                                if (name) {
+                                    params += '&' + encodeURIComponent(name) + '=' + encodeURIComponent(sel.value);
+                                }
+                            });
+                            if (reloadUrl) {
+                                reloadTable(reloadUrl + params);
+                            } else {
+                                var action = filterForm.getAttribute('action') || '';
+                                if (action) reloadTable(action + params);
+                            }
+                        });
+                    }
+
+                    // Intercept pagination link clicks
+                    root.querySelectorAll('.dt-page a').forEach(function(link) {
+                        link.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            var href = link.getAttribute('href') || '';
+                            var pageMatch = href.match(/[?&](dt_page_\d+)=(\d+)/);
+                            if (pageMatch && reloadUrl) {
+                                reloadTable(reloadUrl + '&' + pageMatch[1] + '=' + pageMatch[2]);
+                            } else if (pageMatch) {
+                                var action = searchForm ? (searchForm.getAttribute('action') || '') : '';
+                                if (action) reloadTable(action + '&' + pageMatch[1] + '=' + pageMatch[2]);
+                            }
+                        });
+                    });
+
+                    // Intercept delete form submissions (delegated).
+                    // The inline onsubmit="return confirm(...)" fires first;
+                    // if the user cancels, the event is already prevented and
+                    // this listener never fires. If confirmed, we take over
+                    // with an AJAX POST to avoid navigating the iframe.
+                    root.addEventListener('submit', function(e) {
+                        var form = e.target;
+                        if (!form || form.tagName !== 'FORM') return;
+                        if (!form.action || form.action.indexOf('/master-datatable/delete-row') === -1) return;
+                        e.preventDefault();
+                        var formData = new FormData(form);
+                        fetch(form.action, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                            credentials: 'same-origin'
+                        }).then(function(r) { return r.json(); })
+                        .then(function(result) {
+                            if (result && result.success) {
+                                if (reloadUrl) reloadTable(reloadUrl);
+                            } else {
+                                alert((result && result.message) ? result.message : 'Gagal menghapus data');
+                            }
+                        }).catch(function() {
+                            alert('Gagal menghapus data');
+                        });
+                    });
+                }
+
             })();
         </script>
         </section>

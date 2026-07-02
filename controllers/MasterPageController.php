@@ -64,12 +64,12 @@ class MasterPageController extends Controller
 
         $columns = [
             'page_type' => $db->schema->createColumnSchemaBuilder('string', 50)->defaultValue(MasterPage::PAGE_TYPE_BUILDER),
-            'custom_html' => $db->schema->createColumnSchemaBuilder('text'),
-            'custom_css' => $db->schema->createColumnSchemaBuilder('text'),
-            'custom_js' => $db->schema->createColumnSchemaBuilder('text'),
-            'page_custom_html' => $db->schema->createColumnSchemaBuilder('text'),
-            'page_custom_css' => $db->schema->createColumnSchemaBuilder('text'),
-            'page_custom_js' => $db->schema->createColumnSchemaBuilder('text'),
+            'custom_html' => $db->schema->createColumnSchemaBuilder('longtext'),
+            'custom_css' => $db->schema->createColumnSchemaBuilder('longtext'),
+            'custom_js' => $db->schema->createColumnSchemaBuilder('longtext'),
+            'page_custom_html' => $db->schema->createColumnSchemaBuilder('longtext'),
+            'page_custom_css' => $db->schema->createColumnSchemaBuilder('longtext'),
+            'page_custom_js' => $db->schema->createColumnSchemaBuilder('longtext'),
             'use_page_custom_code' => $db->schema->createColumnSchemaBuilder('tinyint', 1)->defaultValue(0),
         ];
 
@@ -218,6 +218,14 @@ class MasterPageController extends Controller
             ? (int)$data['use_page_custom_code'] === 1
             : (($data['page_type'] ?? MasterPage::PAGE_TYPE_BUILDER) === MasterPage::PAGE_TYPE_CUSTOM_CODE);
         $html = (string)($data['page_custom_html'] ?? $data['custom_html'] ?? '');
+
+        // Strip the heavy window.dynamicDatatableHtml JavaScript variable from the
+        // Page Source before saving. Uses brace-counting that properly skips
+        // quoted strings (which may contain semicolons inside inline CSS values
+        // like "padding:16px;color:red") — a simple [^;]+ regex would break on
+        // the first semicolon inside any JSON string value.
+        $html = $this->stripJsObjectAssignment($html, 'window.dynamicDatatableHtml');
+
         $css = (string)($data['page_custom_css'] ?? $data['custom_css'] ?? '');
         $js = (string)($data['page_custom_js'] ?? $data['custom_js'] ?? '');
 
@@ -478,6 +486,46 @@ class MasterPageController extends Controller
             Yii::error('Preview layout error: ' . $e->getMessage());
             return ['success' => false, 'message' => $e->getMessage()];
         }
+    }
+
+    /**
+     * Strip a JavaScript object variable assignment from HTML by counting braces
+     * and properly skipping quoted strings. This handles semicolons, braces,
+     * and other special characters that may appear inside JSON string values.
+     */
+    private function stripJsObjectAssignment(string $html, string $varName): string
+    {
+        $pos = strpos($html, $varName);
+        if ($pos === false) {
+            return $html;
+        }
+        $bracePos = strpos($html, '{', $pos);
+        if ($bracePos === false) {
+            return $html;
+        }
+        $depth = 0;
+        $inString = false;
+        $len = strlen($html);
+        $endPos = $bracePos;
+        for ($i = $bracePos; $i < $len; $i++) {
+            $ch = $html[$i];
+            if ($inString) {
+                if ($ch === '\\') { $i++; continue; }
+                if ($ch === '"') { $inString = false; }
+                continue;
+            }
+            if ($ch === '"') { $inString = true; continue; }
+            if ($ch === '{') { $depth++; continue; }
+            if ($ch === '}') {
+                $depth--;
+                if ($depth === 0) { $endPos = $i; break; }
+            }
+        }
+        $semiPos = strpos($html, ';', $endPos);
+        if ($semiPos === false) {
+            return $html;
+        }
+        return substr_replace($html, '', $pos, $semiPos - $pos + 1);
     }
 
     /**

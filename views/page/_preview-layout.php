@@ -1,9 +1,38 @@
 <?php
 use yii\helpers\Json;
+use app\services\MasterDatatableRenderService;
 $pageId = (int)($pageId ?? 0);
 $menuId = (int)($menuId ?? 0);
 
 $layoutJson = Json::decode($layoutJson, true);
+
+// Pre-render datatable blocks so the Page Source preview in the builder
+// shows real backend-rendered datatables instead of placeholders.
+// This HTML is embedded in the page source but gets stripped before
+// saving to the database (see applyPageCustomCodePost).
+$datatableHtmlByBlock = [];
+$datatableRenderer = null;
+if (is_array($layoutJson)) {
+    foreach ($layoutJson as $block) {
+        if (!is_array($block) || ($block['type'] ?? '') !== 'datatable') {
+            continue;
+        }
+        $blockId = $block['id'] ?? '';
+        if (!$blockId) continue;
+        try {
+            if ($datatableRenderer === null) {
+                $datatableRenderer = new MasterDatatableRenderService();
+            }
+            $datatableHtmlByBlock[$blockId] = $datatableRenderer->renderFromConfig((array)($block['props'] ?? []), [
+                'page_id' => $pageId,
+                'menu_id' => $menuId,
+            ]);
+        } catch (\Exception $e) {
+            \Yii::warning('Preview-layout datatable render failed: ' . $e->getMessage(), 'app');
+            $datatableHtmlByBlock[$blockId] = '<div style="padding:16px;border:1px solid #fecaca;background:#fff1f2;color:#9f1239;border-radius:12px;">Datatable tidak dapat ditampilkan.</div>';
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -44,6 +73,7 @@ $layoutJson = Json::decode($layoutJson, true);
 
     <script>
         window.pageState = <?= Json::encode($layoutJson) ?>;
+        window.dynamicDatatableHtml = <?= Json::htmlEncode($datatableHtmlByBlock) ?>;
         
         function renderBlock(block) {
             const props = block.props || {};
@@ -102,22 +132,13 @@ $layoutJson = Json::decode($layoutJson, true);
                     return `<div class="dynamic-form-slot p-3 bg-white rounded-lg border border-slate-200" data-form-id="${props.formId || ''}" data-show-title="${props.showTitle ? '1' : '0'}" data-component-id="${componentId}">
                         <div class="text-xs text-slate-500">Loading form...</div>
                     </div>`;
-                case "datatable":
-                    const columns = Array.isArray(props.columns) ? props.columns.filter(col => col.visible !== false) : [];
-                    const headers = columns.length ? columns : [{field:'name', label:'Name'}, {field:'status', label:'Status'}];
-                    return `<div class="my-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        <div class="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
-                            <div>
-                                <div class="text-sm font-bold text-slate-900">Datatable Preview</div>
-                                <div class="text-xs text-slate-500">Source table #${props.tableId || '-'}</div>
-                            </div>
-                            ${props.search !== false ? '<input class="rounded-xl border border-slate-300 px-3 py-2 text-xs" placeholder="Search...">' : ''}
-                        </div>
-                        <table class="w-full border-collapse">
-                            <thead><tr>${headers.map(col => `<th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">${col.label || col.field}</th>`).join('')}<th class="border-b border-slate-200 px-4 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-500">Actions</th></tr></thead>
-                            <tbody><tr>${headers.map(() => '<td class="border-b border-slate-100 px-4 py-3 text-sm text-slate-400">Sample data</td>').join('')}<td class="border-b border-slate-100 px-4 py-3 text-xs font-semibold text-slate-500">View Edit Delete</td></tr></tbody>
-                        </table>
-                    </div>`;
+                case "datatable": {
+                    const blockId = block.id || '';
+                    const dtHtml = (window.dynamicDatatableHtml && window.dynamicDatatableHtml[blockId])
+                        ? window.dynamicDatatableHtml[blockId]
+                        : '<div class="dt-placeholder" style="padding:32px;text-align:center;color:#94a3b8;font-size:14px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;">Memuat datatable...</div>';
+                    return dtHtml;
+                }
                 default:
                     return `<div class="p-4 bg-yellow-100 border border-yellow-300 rounded">Unknown block: ${block.type}</div>`;
             }
@@ -370,12 +391,27 @@ $layoutJson = Json::decode($layoutJson, true);
             };
         })();
 
+        function executeScripts(root) {
+            root.querySelectorAll('script').forEach(function(oldScript) {
+                var newScript = document.createElement('script');
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                if (oldScript.parentNode) {
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                }
+            });
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             if (window.DynamicFormRuntime && window.DynamicFormRuntime.__assetRuntime) {
                 const container = document.getElementById("preview-content");
                 if (container && window.pageState) {
                     container.innerHTML = window.pageState.map(renderBlock).join("");
                     hydrateDynamicForms(container);
+                    executeScripts(container);
                 }
                 return;
             }
@@ -384,6 +420,7 @@ $layoutJson = Json::decode($layoutJson, true);
             if (container && window.pageState) {
                 container.innerHTML = window.pageState.map(renderBlock).join("");
                 hydrateDynamicForms(container);
+                executeScripts(container);
             }
         });
 

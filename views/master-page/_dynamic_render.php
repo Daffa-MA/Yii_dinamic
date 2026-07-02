@@ -123,6 +123,78 @@ HTML;
         Yii::warning('Failed to expand custom page form tokens: ' . $e->getMessage(), 'app');
     }
 
+    // Pre-render datatable blocks from layout_json and inject as window.dynamicDatatableHtml
+    // so the page source's JavaScript renderBlock() can access server-rendered datatable HTML.
+    // Datatable HTML is generated at render time only — never saved to the database.
+    $dtRenderer = new \app\services\MasterDatatableRenderService();
+    $dtLayout = json_decode($layoutJson, true);
+    $dtHtmlByBlock = [];
+    if (is_array($dtLayout)) {
+        foreach ($dtLayout as $dtBlock) {
+            if (!is_array($dtBlock) || ($dtBlock['type'] ?? '') !== 'datatable') {
+                continue;
+            }
+            $blockId = (string)($dtBlock['id'] ?? '');
+            if ($blockId === '') {
+                continue;
+            }
+            try {
+                $dtHtmlByBlock[$blockId] = $dtRenderer->renderFromConfig((array)($dtBlock['props'] ?? []), [
+                    'page_id' => $pageId,
+                    'menu_id' => $menuId,
+                ]);
+            } catch (\Throwable $e) {
+                Yii::warning('Failed to render datatable for custom page: ' . $e->getMessage(), 'app');
+                $dtHtmlByBlock[$blockId] = '<div style="padding:16px;border:1px solid #fecaca;background:#fff1f2;color:#9f1239;border-radius:12px;">Datatable tidak dapat ditampilkan.</div>';
+            }
+        }
+    }
+    if (!empty($dtHtmlByBlock)) {
+        $dtScript = '<script>window.dynamicDatatableHtml = ' . \yii\helpers\Json::htmlEncode($dtHtmlByBlock) . ';</script>';
+        // Inject right after <head> to ensure availability before DOMContentLoaded
+        $customHtml = preg_replace('/<head\b[^>]*>/i', '$0' . $dtScript, $customHtml, 1);
+    }
+
+    // Inject executeScripts helper to re-execute <script> tags from dynamically
+    // injected datatable HTML (scripts are NOT executed when set via innerHTML).
+    $executeScriptsHelper = <<<'HTML'
+<script>
+(function() {
+    function executeScripts(root) {
+        root.querySelectorAll('script').forEach(function(oldScript) {
+            var newScript = document.createElement('script');
+            if (oldScript.src) {
+                newScript.src = oldScript.src;
+            } else {
+                newScript.textContent = oldScript.textContent;
+            }
+            if (oldScript.parentNode) {
+                oldScript.parentNode.replaceChild(newScript, oldScript);
+            }
+        });
+    }
+    function run() {
+        var container = document.getElementById('preview-content');
+        if (container) {
+            executeScripts(container);
+        }
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', run);
+    } else {
+        run();
+    }
+    var attempts = 0;
+    var timer = setInterval(function() {
+        attempts++;
+        run();
+        if (attempts >= 20) clearInterval(timer);
+    }, 150);
+})();
+</script>
+HTML;
+    $customHtml = preg_replace('/<\/body>\s*<\/html>\s*$/i', $executeScriptsHelper . "\n</body>\n</html>", $customHtml);
+
     // Check if it looks like a complete HTML document
     $isCompleteDoc = strpos($customHtml, '<!DOCTYPE') === 0 ||
                      strpos($customHtml, '<html') === 0;
@@ -558,7 +630,11 @@ function renderBlockSafe(block) {
     }
 
     // Handle Block-level Custom Code
-    if (props.customHtml || props.customCss || props.customJs) {
+    // NOTE: Skip iframe rendering for backend-driven component types (datatable, form)
+    // because they rely on server-rendered HTML that would be disconnected inside an iframe.
+    const backendDrivenTypes = ['datatable', 'form'];
+    const isBackendDriven = backendDrivenTypes.includes(type);
+    if (!isBackendDriven && (props.customHtml || props.customCss || props.customJs)) {
         const wrap = document.createElement('div');
         wrap.className = 'mb-8 custom-block-wrap';
         
@@ -868,6 +944,20 @@ function renderBlockSafe(block) {
     }
 }
 
+function executeScripts(root) {
+    root.querySelectorAll('script').forEach(function(oldScript) {
+        var newScript = document.createElement('script');
+        if (oldScript.src) {
+            newScript.src = oldScript.src;
+        } else {
+            newScript.textContent = oldScript.textContent;
+        }
+        if (oldScript.parentNode) {
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('dynamic-content');
     if (!container || !window.dynamicPageState || !Array.isArray(window.dynamicPageState)) {
@@ -878,6 +968,7 @@ document.addEventListener('DOMContentLoaded', function() {
     for (const block of window.dynamicPageState) {
         container.appendChild(renderBlockSafe(block));
     }
+    executeScripts(container);
 
     const showEmptyDestinationToast = function(message) {
         const existing = document.getElementById('empty-action-toast');

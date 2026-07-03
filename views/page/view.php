@@ -331,7 +331,7 @@ if ($hasCustomPageSource): ?>
             class="block w-full border-0 bg-white"
             title="Custom Page Source"
             style="min-height: 780px;"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation"
         ></iframe>
     </div>
     <script>
@@ -603,7 +603,7 @@ if ($hasCustomPageSource): ?>
                 class="block w-full border-0 bg-white"
                 title="Custom Page Source"
                 style="min-height: 780px;"
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
             ></iframe>
         </div>
     <?php endif; ?>

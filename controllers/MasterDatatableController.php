@@ -97,7 +97,27 @@ class MasterDatatableController extends Controller
     {
         $rowKey = json_decode((string)Yii::$app->request->post('row_key', '{}'), true);
         $rowKey = is_array($rowKey) ? $rowKey : [];
-        $deleted = (new MasterDatatableRenderService())->deleteRow((int)$table_id, $rowKey);
+        $table = DbTable::find()->where(['id' => (int)$table_id])->one();
+        if (!$table instanceof DbTable) {
+            if (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                return ['success' => false, 'message' => 'Table tidak ditemukan.'];
+            }
+            Yii::$app->session->setFlash('error', 'Table tidak ditemukan.');
+            return $this->redirect(Yii::$app->request->referrer ?: ['/dashboard']);
+        }
+        $affected = Yii::$app->db->createCommand()->delete($table->name, $rowKey)->execute();
+        $deleted = $affected > 0;
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            return [
+                'success' => $deleted,
+                'affected' => $affected,
+                'row_key' => $rowKey,
+                'table' => $table->name,
+                'message' => $deleted ? 'Data berhasil dihapus.' : 'Data gagal dihapus (0 baris terpengaruh).',
+            ];
+        }
         Yii::$app->session->setFlash($deleted ? 'success' : 'error', $deleted ? 'Data berhasil dihapus.' : 'Data gagal dihapus.');
         return $this->redirect(Yii::$app->request->referrer ?: ['/dashboard']);
     }
@@ -108,6 +128,13 @@ class MasterDatatableController extends Controller
         $rowKey = json_decode((string)Yii::$app->request->post('row_key', '{}'), true);
         $rowKey = is_array($rowKey) ? $rowKey : [];
         $approved = (new MasterDatatableRenderService())->approveRow($model, $rowKey);
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            return [
+                'success' => $approved,
+                'message' => $approved ? 'Data berhasil diproses.' : 'Data gagal diproses.',
+            ];
+        }
         Yii::$app->session->setFlash($approved ? 'success' : 'error', $approved ? 'Data berhasil diproses.' : 'Data gagal diproses.');
         return $this->redirect(Yii::$app->request->referrer ?: ['index']);
     }

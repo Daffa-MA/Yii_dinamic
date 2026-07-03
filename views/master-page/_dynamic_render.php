@@ -1127,7 +1127,7 @@ function bindEmbeddedFormSubmit(root) {
 
 // Global Message Handler for Iframe Resizing
 window.addEventListener('message', (e) => {
-    if (e.data && e.type === 'resize' && e.data.blockId) {
+    if (e.data && e.data.type === 'resize' && e.data.blockId) {
         const iframe = document.getElementById(`iframe-\${e.data.blockId}`);
         if (iframe) {
             iframe.style.height = e.data.height + 'px';

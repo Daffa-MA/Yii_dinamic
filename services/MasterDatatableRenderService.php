@@ -53,6 +53,19 @@ class MasterDatatableRenderService
             ];
         }
 
+        $state = $data['state'];
+        $totalPages = max(1, (int)ceil(($state['total'] ?: 0) / $state['pageSize']));
+        $footHtml = '';
+        if ($state['paginationEnabled']) {
+            $footHtml = '<div class="dt-foot"><span>Page ' . (int)$state['page'] . ' of ' . $totalPages . '</span><div class="dt-page">';
+            if ($state['page'] > 1) {
+                $footHtml .= '<a href="' . Html::encode($this->pageUrl($state['pageParam'], $state['page'] - 1)) . '" target="_top">Previous</a>';
+            }
+            if ($state['page'] < $totalPages) {
+                $footHtml .= '<a href="' . Html::encode($this->pageUrl($state['pageParam'], $state['page'] + 1)) . '" target="_top">Next</a>';
+            }
+            $footHtml .= '</div></div>';
+        }
         return [
             'success' => true,
             'tableId' => (int)$data['table']->id,
@@ -68,8 +81,9 @@ class MasterDatatableRenderService
                 (int)$preset->id,
                 $data['workflow']
             ),
-            'total' => (int)$data['state']['total'],
-            'subtitle' => (int)$data['state']['total'] . ' row' . ((int)$data['state']['total'] === 1 ? '' : 's') . ' from ' . (string)$data['table']->name,
+            'footHtml' => $footHtml,
+            'total' => (int)$state['total'],
+            'subtitle' => (int)$state['total'] . ' row' . ((int)$state['total'] === 1 ? '' : 's') . ' from ' . (string)$data['table']->name,
         ];
     }
 
@@ -177,6 +191,23 @@ class MasterDatatableRenderService
             $or = ['or'];
             foreach ($fields as $field) {
                 $or[] = ['like', $field, $search];
+            }
+            // Also search on FK display values (related table display columns)
+            foreach ($columns as $col) {
+                $displayMode = $col['fk_display_mode'] ?? 'raw_id';
+                if ($displayMode === 'related_column') {
+                    $refTable = $col['referenced_table'] ?? '';
+                    $refColumn = $col['referenced_column'] ?? '';
+                    $displayCol = $col['related_display_column'] ?? '';
+                    $colField = $col['field'] ?? '';
+                    if ($refTable !== '' && $refColumn !== '' && $displayCol !== '' && $colField !== '') {
+                        $subQuery = (new Query())
+                            ->select($refColumn)
+                            ->from($refTable)
+                            ->where(['like', $displayCol, $search]);
+                        $or[] = ['in', $colField, $subQuery];
+                    }
+                }
             }
             if (count($or) > 1) {
                 $query->andWhere($or);
@@ -921,6 +952,7 @@ class MasterDatatableRenderService
             data-table="<?= Html::encode($table->name) ?>"
             data-reload-url="<?= Html::encode($reloadUrl) ?>"
             data-delete-url="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>"
+            data-approve-url="<?= $presetId > 0 ? Html::encode(Url::to(['/master-datatable/approve-row', 'id' => $presetId])) : '' ?>"
             data-csrf-param="<?= Html::encode(Yii::$app->request->csrfParam) ?>"
             data-csrf-token="<?= Html::encode(Yii::$app->request->csrfToken) ?>"
         >
@@ -1073,9 +1105,9 @@ class MasterDatatableRenderService
                         <?php endforeach; ?>
                     <?php endif; ?>
                     <?php if ($state['searchEnabled']): ?>
-                    <form method="get" class="dt-search-form" action="<?= Html::encode(Url::current()) ?>">
+                    <form method="get" class="dt-search-form" action="<?= Html::encode(Url::current()) ?>" target="_top">
                         <?php foreach (Yii::$app->request->get() as $key => $value): ?>
-                            <?php if ($key !== $state['searchParam'] && $key !== $state['pageParam']): ?>
+                            <?php if (strpos((string)$key, 'dt_') === 0 && $key !== $state['searchParam'] && $key !== $state['pageParam']): ?>
                                 <input type="hidden" name="<?= Html::encode($key) ?>" value="<?= Html::encode((string)$value) ?>">
                             <?php endif; ?>
                         <?php endforeach; ?>
@@ -1085,17 +1117,17 @@ class MasterDatatableRenderService
                 </div>
             </div>
             <?php if (!empty($filters)): ?>
-                <form class="dt-filters" method="get" action="<?= Html::encode(Url::current()) ?>">
+                <form class="dt-filters" method="get" action="<?= Html::encode(Url::current()) ?>" target="_top">
                     <?php foreach (Yii::$app->request->get() as $key => $value): ?>
                         <?php $filterPrefix = 'dt_filter_' . (int)$table->id . '_'; ?>
-                        <?php if (strncmp((string)$key, $filterPrefix, strlen($filterPrefix)) !== 0 && $key !== $state['pageParam']): ?>
+                        <?php if (strncmp((string)$key, $filterPrefix, strlen($filterPrefix)) !== 0 && $key !== $state['pageParam'] && strpos((string)$key, 'dt_') === 0): ?>
                             <input type="hidden" name="<?= Html::encode((string)$key) ?>" value="<?= Html::encode((string)$value) ?>">
                         <?php endif; ?>
                     <?php endforeach; ?>
                     <?php foreach ($filters as $filter): ?>
                         <div class="dt-filter">
                             <label><?= Html::encode((string)$filter['label']) ?></label>
-                            <select name="<?= Html::encode((string)$filter['param']) ?>" onchange="this.form.submit()">
+                            <select name="<?= Html::encode((string)$filter['param']) ?>">
                                 <option value="">Semua</option>
                                 <?php foreach ((array)$filter['options'] as $option): ?>
                                     <option value="<?= Html::encode((string)$option['value']) ?>" <?= (string)$filter['value'] === (string)$option['value'] ? 'selected' : '' ?>><?= Html::encode((string)$option['label']) ?></option>
@@ -1140,10 +1172,10 @@ class MasterDatatableRenderService
                     <span>Page <?= (int)$state['page'] ?> of <?= (int)$totalPages ?></span>
                     <div class="dt-page">
                         <?php if ($state['page'] > 1): ?>
-                            <a href="<?= Html::encode($this->pageUrl($state['pageParam'], $state['page'] - 1)) ?>">Previous</a>
+                            <a href="<?= Html::encode($this->pageUrl($state['pageParam'], $state['page'] - 1)) ?>" target="_top">Previous</a>
                         <?php endif; ?>
                         <?php if ($state['page'] < $totalPages): ?>
-                            <a href="<?= Html::encode($this->pageUrl($state['pageParam'], $state['page'] + 1)) ?>">Next</a>
+                            <a href="<?= Html::encode($this->pageUrl($state['pageParam'], $state['page'] + 1)) ?>" target="_top">Next</a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -1403,11 +1435,7 @@ class MasterDatatableRenderService
                         html += '<button type="button" class="dt-btn" data-row-action="edit">Edit</button>';
                     }
                     if (payload.actions && payload.actions.delete) {
-                        html += '<form method="post" action="' + escapeHtml(payload.deleteUrl || '') + '" onsubmit="return confirm(\'Delete this row?\');">' +
-                            '<input type="hidden" name="' + escapeHtml(payload.csrfParam || '_csrf') + '" value="' + escapeHtml(payload.csrfToken || '') + '">' +
-                            '<input type="hidden" name="row_key" value="' + escapeHtml(rowKeyJson) + '">' +
-                            '<button class="dt-btn dt-btn-danger" type="submit">Delete</button>' +
-                        '</form>';
+                        html += '<button class="dt-btn dt-btn-danger" type="button" data-row-action="delete">Delete</button>';
                     }
                     html += '</div></td>';
                     return html;
@@ -1500,6 +1528,9 @@ class MasterDatatableRenderService
                     modal.setAttribute('aria-hidden', 'true');
                     document.body.style.overflow = '';
                     activeRow = null;
+                    if (document.activeElement && modal.contains(document.activeElement)) {
+                        root.focus();
+                    }
                 }
 
                 function formatViewValue(field, value) {
@@ -1515,7 +1546,7 @@ class MasterDatatableRenderService
                     const displayMode = field.display_mode || 'text';
                     if (displayMode === 'image') {
                         const url = normalizeAssetUrl(String(value));
-                        if (url.match(/^https?:\/\//i) || url.match(/^\//) || url.match(/^data:image/i) || url.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|#|$)/i)) {
+                        if (url.match(/^https?:\/\//i) || url.match(/^\//) || url.match(/^data:image/i) || url.match(/[.](jpg|jpeg|png|gif|webp|svg|bmp)([?#]|$)/i)) {
                             return '<img src="' + escapeHtml(url) + '" alt="" style="max-width:200px;max-height:120px;border-radius:8px;object-fit:cover;background:#f1f5f9;" loading="lazy">';
                         }
                     }
@@ -2042,14 +2073,112 @@ class MasterDatatableRenderService
 
                 syncRowActionBindings();
 
+                function dtConfirm(msg, onConfirm) {
+                    var existing = document.getElementById('dt-confirm-overlay');
+                    if (existing) existing.remove();
+                    var overlay = document.createElement('div');
+                    overlay.id = 'dt-confirm-overlay';
+                    overlay.style.cssText = 'position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;';
+                    var box = document.createElement('div');
+                    box.style.cssText = 'background:#fff;border-radius:16px;padding:28px 32px;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.25);text-align:center;';
+                    var p = document.createElement('p');
+                    p.style.cssText = 'margin:0 0 22px;font-size:15px;color:#1e293b;font-weight:600;';
+                    p.textContent = msg;
+                    var wrap = document.createElement('div');
+                    wrap.style.cssText = 'display:flex;gap:10px;justify-content:center;';
+                    var cancelBtn = document.createElement('button');
+                    cancelBtn.textContent = 'Batal';
+                    cancelBtn.style.cssText = 'padding:8px 22px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#475569;font-size:13px;font-weight:600;cursor:pointer;';
+                    var okBtn = document.createElement('button');
+                    okBtn.textContent = 'Yakin';
+                    okBtn.style.cssText = 'padding:8px 22px;border:none;border-radius:10px;background:#dc2626;color:#fff;font-size:13px;font-weight:600;cursor:pointer;';
+                    function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+                    cancelBtn.addEventListener('click', close);
+                    okBtn.addEventListener('click', function() { close(); onConfirm(); });
+                    overlay.addEventListener('click', function(e) { if (e.target === overlay) close(); });
+                    wrap.appendChild(cancelBtn);
+                    wrap.appendChild(okBtn);
+                    box.appendChild(p);
+                    box.appendChild(wrap);
+                    overlay.appendChild(box);
+                    document.body.appendChild(overlay);
+                }
+
+                function dtDeleteRow(row) {
+                    var rowKey = getRowKey(row);
+                    if (!rowKey || Object.keys(rowKey).length === 0) { dtNotify('Tidak dapat menghapus: data kunci tidak ditemukan.', true); return; }
+                    var deleteUrl = root.getAttribute('data-delete-url') || (payload.deleteUrl || '');
+                    if (!deleteUrl) { dtNotify('Tidak dapat menghapus: URL hapus tidak tersedia.', true); return; }
+                    dtConfirm('Hapus baris ini?', function() {
+                        var csrfParam = root.getAttribute('data-csrf-param') || payload.csrfParam || '_csrf';
+                        var csrfToken = root.getAttribute('data-csrf-token') || payload.csrfToken || '';
+                        var formData = new URLSearchParams();
+                        formData.set(csrfParam, csrfToken);
+                        formData.set('row_key', JSON.stringify(rowKey));
+                        fetch(deleteUrl, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                            credentials: 'same-origin'
+                        }).then(function(r) { return r.json(); })
+                        .then(function(result) {
+                            console.log('[Delete] Response:', result);
+                            if (result && result.success) {
+                                dtNotify('Data berhasil dihapus.', false);
+                                if (reloadUrl) reloadTable(reloadUrl);
+                            } else {
+                                dtNotify((result && result.message) ? result.message : 'Gagal menghapus data', true);
+                            }
+                        }).catch(function(err) {
+                            console.error('[Delete] Error:', err);
+                            dtNotify('Gagal menghapus data. Cek koneksi atau coba lagi.', true);
+                        });
+                    });
+                }
+
+                function dtApproveRow(row) {
+                    var rowKey = getRowKey(row);
+                    if (!rowKey || Object.keys(rowKey).length === 0) { dtNotify('Tidak dapat memproses: data kunci tidak ditemukan.', true); return; }
+                    var approveUrl = root.getAttribute('data-approve-url') || '';
+                    if (!approveUrl) { dtNotify('Tidak dapat memproses: URL tidak tersedia.', true); return; }
+                    dtConfirm('Proses baris ini?', function() {
+                        var csrfParam = root.getAttribute('data-csrf-param') || payload.csrfParam || '_csrf';
+                        var csrfToken = root.getAttribute('data-csrf-token') || payload.csrfToken || '';
+                        var formData = new URLSearchParams();
+                        formData.set(csrfParam, csrfToken);
+                        formData.set('row_key', JSON.stringify(rowKey));
+                        fetch(approveUrl, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                            credentials: 'same-origin'
+                        }).then(function(r) { return r.json(); })
+                        .then(function(result) {
+                            if (result && result.success) {
+                                dtNotify('Data berhasil diproses.', false);
+                                if (reloadUrl) reloadTable(reloadUrl);
+                            } else {
+                                dtNotify((result && result.message) ? result.message : 'Gagal memproses data', true);
+                            }
+                        }).catch(function() {
+                            dtNotify('Gagal memproses data. Cek koneksi atau coba lagi.', true);
+                        });
+                    });
+                }
+
                 root.addEventListener('click', function(event) {
-                    const actionButton = event.target && event.target.closest ? event.target.closest('[data-row-action]') : null;
+                    var actionButton = event.target && event.target.closest ? event.target.closest('[data-row-action]') : null;
                     if (actionButton && root.contains(actionButton)) {
-                        const row = actionButton.closest('tr');
-                        if (!row) {
-                            return;
+                        var action = actionButton.getAttribute('data-row-action');
+                        var row = actionButton.closest('tr');
+                        if (!row) return;
+                        if (action === 'delete') {
+                            dtDeleteRow(row);
+                        } else if (action === 'approve') {
+                            dtApproveRow(row);
+                        } else {
+                            openRow(row, action === 'edit' ? 'edit' : 'view');
                         }
-                        openRow(row, actionButton.getAttribute('data-row-action') === 'edit' ? 'edit' : 'view');
                         return;
                     }
 
@@ -2058,6 +2187,8 @@ class MasterDatatableRenderService
                         closeModal();
                     }
                 });
+
+                root.addEventListener('click', dtHandlePageClick, true);
 
                 if (modal) {
                     modal.addEventListener('click', function(event) {
@@ -2178,7 +2309,7 @@ class MasterDatatableRenderService
                         closeModal();
                         syncRowActionBindings();
                     }).catch(function(error) {
-                        alert(error && error.message ? error.message : 'Gagal menyimpan data');
+                        dtNotify(error && error.message ? error.message : 'Gagal menyimpan data', true);
                     }).finally(function() {
                         saveButton.disabled = false;
                         saveButton.textContent = previousLabel;
@@ -2203,14 +2334,24 @@ class MasterDatatableRenderService
                     });
                 });
 
-                // === AJAX interceptors for iframe (srcdoc) compatibility ===
-                // When rendered inside an iframe (custom code mode), form
-                // submissions and link clicks would navigate the iframe away
-                // from srcdoc, breaking the page. These interceptors convert
-                // those navigation actions to AJAX/fetch calls.
+                // === AJAX interceptors: convert form submissions and link
+                // clicks to AJAX/fetch calls so Search, Filter, Pagination,
+                // and Delete never cause a full page reload.
 
-                var inIframe = window !== window.top;
                 var reloadUrl = root.getAttribute('data-reload-url') || '';
+
+                function addQueryParam(url, name, value) {
+                    var sep = url.indexOf('?') >= 0 ? '&' : '?';
+                    return url + sep + encodeURIComponent(name) + '=' + encodeURIComponent(value);
+                }
+
+                function dtUpdatePagination(newSection) {
+                    var currentFoot = root.querySelector('.dt-foot');
+                    var newFoot = newSection ? newSection.querySelector('.dt-foot') : null;
+                    if (currentFoot && newFoot) {
+                        currentFoot.innerHTML = newFoot.innerHTML;
+                    }
+                }
 
                 function reloadTable(url) {
                     if (!url) return;
@@ -2225,9 +2366,21 @@ class MasterDatatableRenderService
                         return r.text().then(function(html) {
                             var parser = new DOMParser();
                             var doc = parser.parseFromString(html, 'text/html');
+                            var currentTbody = root.querySelector('tbody');
                             var newSection = doc.querySelector('.master-datatable');
                             if (newSection) {
-                                root.outerHTML = newSection.outerHTML;
+                                var newTbody = newSection.querySelector('tbody');
+                                if (currentTbody && newTbody) {
+                                    currentTbody.innerHTML = newTbody.innerHTML;
+                                }
+                                var newSubtitle = newSection.querySelector('[data-datatable-subtitle]');
+                                if (newSubtitle) {
+                                    var currentSubtitle = root.querySelector('[data-datatable-subtitle]');
+                                    if (currentSubtitle) {
+                                        currentSubtitle.textContent = newSubtitle.textContent;
+                                    }
+                                }
+                                dtUpdatePagination(newSection);
                             }
                             return null;
                         });
@@ -2241,91 +2394,107 @@ class MasterDatatableRenderService
                             if (subtitle && result.subtitle) {
                                 subtitle.textContent = result.subtitle;
                             }
+                            if (result.footHtml) {
+                                var currentFoot = root.querySelector('.dt-foot');
+                                if (currentFoot) {
+                                    currentFoot.innerHTML = result.footHtml;
+                                }
+                            }
                         }
                     }).catch(function() {});
                 }
 
-                if (inIframe) {
-                    // Intercept search form submission
-                    var searchForm = root.querySelector('.dt-search-form');
-                    if (searchForm) {
-                        searchForm.addEventListener('submit', function(e) {
-                            e.preventDefault();
-                            var searchInput = searchForm.querySelector('input[type="search"]');
-                            if (!searchInput) return;
-                            var param = searchInput.getAttribute('name') || 'search';
-                            var value = encodeURIComponent(searchInput.value);
-                            if (reloadUrl) {
-                                reloadTable(reloadUrl + '&' + param + '=' + value);
-                            } else {
-                                reloadTable(searchForm.action + '&' + param + '=' + value);
-                            }
-                        });
-                    }
-
-                    // Intercept filter select changes
-                    var filterForm = root.querySelector('.dt-filters');
-                    if (filterForm) {
-                        filterForm.addEventListener('change', function(e) {
-                            var selects = filterForm.querySelectorAll('select');
-                            var params = '';
-                            selects.forEach(function(sel) {
-                                var name = sel.getAttribute('name') || '';
-                                if (name) {
-                                    params += '&' + encodeURIComponent(name) + '=' + encodeURIComponent(sel.value);
-                                }
-                            });
-                            if (reloadUrl) {
-                                reloadTable(reloadUrl + params);
-                            } else {
-                                var action = filterForm.getAttribute('action') || '';
-                                if (action) reloadTable(action + params);
-                            }
-                        });
-                    }
-
-                    // Intercept pagination link clicks
-                    root.querySelectorAll('.dt-page a').forEach(function(link) {
-                        link.addEventListener('click', function(e) {
-                            e.preventDefault();
-                            var href = link.getAttribute('href') || '';
-                            var pageMatch = href.match(/[?&](dt_page_\d+)=(\d+)/);
-                            if (pageMatch && reloadUrl) {
-                                reloadTable(reloadUrl + '&' + pageMatch[1] + '=' + pageMatch[2]);
-                            } else if (pageMatch) {
-                                var action = searchForm ? (searchForm.getAttribute('action') || '') : '';
-                                if (action) reloadTable(action + '&' + pageMatch[1] + '=' + pageMatch[2]);
-                            }
-                        });
+                var dtState = {};
+                function dtGetBaseUrl() {
+                    if (reloadUrl) return reloadUrl;
+                    var form = root.querySelector('.dt-search-form');
+                    return form ? (form.getAttribute('action') || '') : '';
+                }
+                function dtBuildReloadUrl(extraParams) {
+                    var base = dtGetBaseUrl();
+                    if (!base) return '';
+                    Object.keys(extraParams).forEach(function(k) {
+                        dtState[k] = extraParams[k];
                     });
-
-                    // Intercept delete form submissions (delegated).
-                    // The inline onsubmit="return confirm(...)" fires first;
-                    // if the user cancels, the event is already prevented and
-                    // this listener never fires. If confirmed, we take over
-                    // with an AJAX POST to avoid navigating the iframe.
-                    root.addEventListener('submit', function(e) {
-                        var form = e.target;
-                        if (!form || form.tagName !== 'FORM') return;
-                        if (!form.action || form.action.indexOf('/master-datatable/delete-row') === -1) return;
-                        e.preventDefault();
-                        var formData = new FormData(form);
-                        fetch(form.action, {
-                            method: 'POST',
-                            body: formData,
-                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                            credentials: 'same-origin'
-                        }).then(function(r) { return r.json(); })
-                        .then(function(result) {
-                            if (result && result.success) {
-                                if (reloadUrl) reloadTable(reloadUrl);
-                            } else {
-                                alert((result && result.message) ? result.message : 'Gagal menghapus data');
-                            }
-                        }).catch(function() {
-                            alert('Gagal menghapus data');
-                        });
+                    Object.keys(dtState).forEach(function(k) {
+                        base = addQueryParam(base, k, dtState[k]);
                     });
+                    return base;
+                }
+
+                // Intercept search form submission via delegation (capture phase to beat dynamic runtime)
+                // Component Builder (reloadUrl set) → AJAX; Custom Code → let native form submit handle it
+                root.addEventListener('submit', function(e) {
+                    var form = e.target && e.target.closest ? e.target.closest('.dt-search-form') : null;
+                    if (!form || !root.contains(form)) return;
+                    if (!reloadUrl) return; // native full-page navigation for Custom Code
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var searchInput = form.querySelector('input[type="search"]');
+                    if (!searchInput) return;
+                    var param = searchInput.getAttribute('name') || 'search';
+                    var extra = {};
+                    extra[param] = searchInput.value;
+                    var url = dtBuildReloadUrl(extra);
+                    if (url) reloadTable(url);
+                }, true);
+
+                // Intercept filter select changes via delegation (capture phase)
+                root.addEventListener('change', function(e) {
+                    var sel = e.target && e.target.closest ? e.target.closest('.dt-filters select') : null;
+                    if (!sel || !root.contains(sel)) return;
+                    if (!reloadUrl) {
+                        // Custom Code: navigate top window (form.submit() ignores target="_top" inside iframe)
+                        e.stopPropagation();
+                        var url = window.top ? window.top.location.href : window.location.href;
+                        root.querySelectorAll('.dt-filters select').forEach(function(s) {
+                            var name = s.getAttribute('name') || '';
+                            if (name) url = addQueryParam(url, name, s.value);
+                        });
+                        (window.top || window).location.href = url;
+                        return;
+                    }
+                    e.stopPropagation();
+                    var extra = {};
+                    root.querySelectorAll('.dt-filters select').forEach(function(s) {
+                        var name = s.getAttribute('name') || '';
+                        if (name) extra[name] = s.value;
+                    });
+                    var url = dtBuildReloadUrl(extra);
+                    if (url) reloadTable(url);
+                }, true);
+
+                // Intercept pagination link clicks via delegation (survives DOM replacement)
+                // Component Builder → AJAX; Custom Code → let native link navigation handle it
+                function dtHandlePageClick(e) {
+                    var link = e.target && e.target.closest ? e.target.closest('.dt-page a') : null;
+                    if (!link || !root.contains(link)) return;
+                    if (!reloadUrl) return; // native full-page navigation for Custom Code
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var href = link.getAttribute('href') || '';
+                    var pageMatch = href.match(/[?&](dt_page_\d+)=(\d+)/);
+                    if (pageMatch) {
+                        var extra = {};
+                        extra[pageMatch[1]] = pageMatch[2];
+                        var url = dtBuildReloadUrl(extra);
+                        if (url) reloadTable(url);
+                    }
+                }
+
+                function dtNotify(message, isError) {
+                    var existing = document.getElementById('dt-notify');
+                    if (existing) existing.remove();
+                    var el = document.createElement('div');
+                    el.id = 'dt-notify';
+                    el.textContent = message;
+                    el.style.cssText = 'position:fixed;top:20px;right:20px;z-index:99999;padding:14px 22px;border-radius:12px;font-size:14px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,0.18);cursor:pointer;max-width:400px;' +
+                        (isError
+                            ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;'
+                            : 'background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;');
+                    el.addEventListener('click', function() { el.remove(); });
+                    setTimeout(function() { if (el.parentNode) el.remove(); }, 6000);
+                    document.body.appendChild(el);
                 }
 
             })();
@@ -2361,18 +2530,10 @@ class MasterDatatableRenderService
                                     <button type="button" class="dt-btn" data-row-action="edit">Edit</button>
                                 <?php endif; ?>
                                 <?php if ($actions['delete']): ?>
-                                    <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/delete-row', 'table_id' => $table->id])) ?>" onsubmit="return confirm('Delete this row?');">
-                                        <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
-                                        <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
-                                        <button class="dt-btn dt-btn-danger" type="submit">Delete</button>
-                                    </form>
+                                    <button class="dt-btn dt-btn-danger" type="button" data-row-action="delete">Delete</button>
                                 <?php endif; ?>
                                 <?php if ($hasWorkflowAction && (string)($row[$workflow['status_field']] ?? '') !== (string)$workflow['approved_value']): ?>
-                                    <form method="post" action="<?= Html::encode(Url::to(['/master-datatable/approve-row', 'id' => $presetId])) ?>" onsubmit="return confirm('Proses data ini?');">
-                                        <input type="hidden" name="<?= Html::encode(Yii::$app->request->csrfParam) ?>" value="<?= Html::encode(Yii::$app->request->csrfToken) ?>">
-                                        <input type="hidden" name="row_key" value="<?= Html::encode(Json::encode($rowKey)) ?>">
-                                        <button class="dt-btn" type="submit"><?= Html::encode((string)$workflow['button_label']) ?></button>
-                                    </form>
+                                    <button class="dt-btn" type="button" data-row-action="approve"><?= Html::encode((string)$workflow['button_label']) ?></button>
                                 <?php endif; ?>
                             </div>
                         </td>
@@ -2856,7 +3017,12 @@ class MasterDatatableRenderService
 
     private function pageUrl(string $pageParam, int $page): string
     {
-        $params = Yii::$app->request->get();
+        $params = [];
+        foreach (Yii::$app->request->get() as $key => $value) {
+            if (strpos((string)$key, 'dt_') === 0) {
+                $params[$key] = $value;
+            }
+        }
         $params[$pageParam] = $page;
         return Url::current($params);
     }

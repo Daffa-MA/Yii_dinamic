@@ -2522,7 +2522,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                             srcdoc="${srcDoc}"
                             style="width:100%;border:none;display:block;min-height:160px;pointer-events:none;"
                             onload="this.style.height=(this.contentWindow.document.documentElement.scrollHeight + 8) + 'px'"
-                            sandbox="allow-scripts"
+                            sandbox="allow-scripts allow-same-origin"
                         ></iframe>
                     </div>`;
                 }
@@ -5881,7 +5881,7 @@ ${jsContent}
         iframe.id = 'full-page-source-preview';
         iframe.srcdoc = fullPageSource || getDefaultFullPageSource();
         iframe.style.cssText = 'width:100%;min-height:calc(100vh - 180px);border:0;display:block;background:#fff;';
-        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-modals');
 
         wrap.appendChild(iframe);
         canvas.appendChild(wrap);
@@ -6290,10 +6290,16 @@ ${html || ''}
 
     // Message handler for iframe resizing
     window.addEventListener('message', (e) => {
-        if (e.data && e.type === 'resize' && e.data.blockId) {
+        if (e.data && e.data.type === 'resize' && e.data.blockId) {
             const iframe = document.getElementById(`iframe-${e.data.blockId}`);
             if (iframe) {
                 iframe.style.height = e.data.height + 'px';
+            }
+        }
+        if (e.data && e.data.type === 'formPreviewResize' && e.data.height) {
+            const iframes = document.querySelectorAll('.dynamic-form-preview-wrap iframe');
+            if (iframes.length > 0) {
+                iframes[iframes.length - 1].style.height = e.data.height + 'px';
             }
         }
     });

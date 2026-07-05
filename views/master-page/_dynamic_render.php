@@ -296,6 +296,58 @@ foreach ($state as $block) {
 <div class="dynamic-page-container" id="dynamic-content"></div>
 
 <?php
+// Extract chart IDs from layout_json for inline rendering
+$inlineChartIds = [];
+$layoutBlocks = json_decode($layoutJson, true);
+if (is_array($layoutBlocks)) {
+    foreach ($layoutBlocks as $block) {
+        if (isset($block['type'], $block['props']['chartId']) && $block['type'] === 'chart' && !empty($block['props']['chartId'])) {
+            $inlineChartIds[] = (int)$block['props']['chartId'];
+        }
+    }
+}
+
+// Also query charts by page_id (legacy approach)
+$charts = \app\models\MasterPageChart::find()
+    ->where(['page_id' => $pageId, 'is_active' => 1])
+    ->orderBy(['position' => SORT_ASC])
+    ->all();
+
+// Merge: ensure inline chart IDs are also included even if page_id not yet set
+$chartsById = [];
+foreach ($charts as $c) { $chartsById[$c->id] = $c; }
+if (!empty($inlineChartIds)) {
+    $inlineCharts = \app\models\MasterPageChart::find()
+        ->where(['id' => $inlineChartIds, 'is_active' => 1])
+        ->all();
+    foreach ($inlineCharts as $c) { $chartsById[$c->id] = $c; }
+}
+$charts = array_values($chartsById);
+
+if (!empty($charts) && !$isCustomCode):
+?>
+<div class="dynamic-page-container" id="master-chart-section" style="margin-top:24px;">
+    <div class="grid gap-6" style="<?= count($charts) > 1 ? 'grid-template-columns:repeat(auto-fit,minmax(400px,1fr));' : '' ?>">
+        <?php foreach ($charts as $chart): ?>
+            <?php $cfg = $chart->getRenderConfig(); ?>
+            <div class="chart-container" style="border:1px solid #e2e8f0;border-radius:16px;background:#fff;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,0.05);">
+                <div style="border-bottom:1px solid #eef2f7;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                        <div style="font-weight:700;color:#0f172a;font-size:15px;"><?= \yii\helpers\Html::encode($cfg['title']) ?></div>
+                        <?php if (!empty($cfg['subtitle'])): ?>
+                            <div style="font-size:12px;color:#64748b;margin-top:2px;"><?= \yii\helpers\Html::encode($cfg['subtitle']) ?></div>
+                        <?php endif; ?>
+                    </div>
+                    <span style="font-size:11px;font-weight:700;color:#4f46e5;background:#eef2ff;padding:4px 10px;border-radius:999px;text-transform:uppercase;"><?= \yii\helpers\Html::encode($cfg['chart_type']) ?></span>
+                </div>
+                <div data-master-chart="<?= (int)$chart->id ?>" data-chart-height="<?= (int)$cfg['height'] ?>" style="min-height:200px;"></div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+<?php endif; ?>
+
+<?php
 $dynamicFormRuntimeJs = <<<'JS'
 window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
     const pickerDataUrl = '/master-form/relation-picker-data';
@@ -469,8 +521,10 @@ window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
             })
             .catch((error) => {
                 content.innerHTML = '<div style="padding:14px;border:1px solid #fecaca;background:#fff1f2;color:#9f1239;border-radius:12px;">' + escapeHtml(error.message || 'Gagal memuat data.') + '</div>';
-            });
-    }
+    });
+    });
+}
+
 
     function bindForm(form) {
         if (!form || form.dataset.dynamicRuntimeBound === '1') return;
@@ -1014,7 +1068,96 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     hydrateDynamicForms(container);
+    renderPageCharts();
 });
+
+function ensurePageApexCharts(callback) {
+    if (typeof ApexCharts !== 'undefined') { callback(); return; }
+    window._pageChartRetryCount = (window._pageChartRetryCount || 0) + 1;
+    if (window._pageChartRetryCount > 15) return;
+    if (!window._pageChartApexLoading) {
+        window._pageChartApexLoading = true;
+        var origDefine = window.define;
+        window.define = void 0;
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/apexcharts@4.5.0/dist/apexcharts.min.js';
+        s.async = true;
+        s.onload = function() { window.define = origDefine; setTimeout(callback, 300); };
+        s.onerror = function() { window.define = origDefine; };
+        document.body.appendChild(s);
+    } else {
+        setTimeout(callback, 500);
+    }
+}
+
+function renderPageCharts() {
+    var containers = document.querySelectorAll('[data-master-chart]');
+    if (!containers.length) return;
+    ensurePageApexCharts(function() {
+        containers.forEach(function(container) {
+        var chartId = container.getAttribute('data-master-chart');
+        if (!chartId || container._chartRendered) return;
+        container._chartRendered = true;
+        var chartHeight = container.getAttribute('data-chart-height') || '300';
+        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#f8fafc;color:#94a3b8;font-size:13px;">Memuat chart...</div>';
+        var dataUrl = '/master-chart/data?id=' + encodeURIComponent(chartId);
+        fetch(dataUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(function(data) {
+            if (!data || !data.success || !data.config) {
+                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal memuat chart</div>';
+                return;
+            }
+            renderPageChart(container, chartId, data, chartHeight);
+        })
+        .catch(function() {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal terhubung ke server</div>';
+        });
+        });
+    });
+}
+
+function renderPageChart(container, chartId, data, chartHeight) {
+    var config = data.config;
+    var chartData = data.chart;
+    var palette = data.palette || [];
+    var chartType = config.chart_type || 'bar';
+    var apexType = mapPageChartType(chartType);
+    var height = parseInt(chartHeight || config.height || 300);
+    var theme = config.theme || 'light';
+    var isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var series = chartData.series || [];
+    var labels = chartData.labels || [];
+    var options = {
+        chart: { type: apexType, height: height, toolbar: { show: !!config.show_toolbar }, animations: { enabled: config.animation !== 'none' }, background: 'transparent', foreColor: isDark ? '#e2e8f0' : '#64748b' },
+        series: series, labels: labels, colors: palette.length ? palette : undefined,
+        dataLabels: { enabled: !!config.show_label },
+        legend: { show: !!config.show_legend, position: 'bottom', fontSize: '12px', labels: { colors: isDark ? '#e2e8f0' : '#64748b' } },
+        grid: { show: !!config.show_grid, borderColor: isDark ? '#334155' : '#e2e8f0' },
+        stroke: { show: true, curve: 'smooth', width: chartType === 'line' || chartType === 'area' ? 2 : 0 },
+        fill: { opacity: chartType === 'area' || chartType === 'stacked_area' ? 0.5 : 1 },
+        plotOptions: {
+            bar: { horizontal: chartType === 'bar_horizontal', barHeight: '70%', columnWidth: '60%', borderRadius: 4 },
+            pie: { donut: { labels: { show: !!config.show_total, total: { show: !!config.show_total, label: 'Total', formatter: function() { return chartData.total || 0; } } } } }
+        },
+        tooltip: { enabled: true, theme: isDark ? 'dark' : 'light' },
+        noData: { text: 'Tidak ada data', align: 'center', verticalAlign: 'middle', style: { fontSize: '14px', color: '#94a3b8' } }
+    };
+    if (chartType === 'radar') { options.plotOptions = { radar: { polygons: { strokeColors: isDark ? '#334155' : '#e2e8f0', connectorColors: isDark ? '#334155' : '#e2e8f0' } } }; options.stroke.colors = palette; options.fill.opacity = 0.3; options.markers = { size: 4 }; }
+    if (chartType === 'polar_area') { options.chart.type = 'polarArea'; options.stroke.show = false; options.fill.opacity = 0.8; }
+    if (chartType === 'bubble' || chartType === 'scatter') { options.chart.zoom = { enabled: true, type: 'xy' }; }
+    if (chartType === 'stacked_bar' || chartType === 'stacked_area') { options.chart.stacked = true; if (options.plotOptions && options.plotOptions.bar) options.plotOptions.bar.stacked = true; }
+    var chartEl = document.createElement('div');
+    chartEl.id = 'chart-' + (config.id || chartId);
+    container.innerHTML = '';
+    container.appendChild(chartEl);
+    try { new ApexCharts(chartEl, options).render(); } catch (e) { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart: ' + e.message + '</div>'; }
+}
+
+function mapPageChartType(type) {
+    var map = { bar:'bar', bar_horizontal:'bar', line:'line', area:'area', pie:'pie', donut:'donut', radar:'radar', polar_area:'polarArea', bubble:'bubble', scatter:'scatter', stacked_bar:'bar', stacked_area:'area', mixed:'line', multi_series:'bar' };
+    return map[type] || 'bar';
+}
 
 function hydrateDynamicForms(root) {
     const slots = root.querySelectorAll('.dynamic-form-slot[data-form-id]');

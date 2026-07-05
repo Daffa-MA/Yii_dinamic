@@ -35,7 +35,7 @@ class MasterPageController extends Controller
     public function beforeAction($action)
     {
         // Disable CSRF for specific actions
-        if (in_array($action->id, ['preview-layout', 'dynamic-create', 'dynamic-update'])) {
+        if (in_array($action->id, ['preview-layout', 'dynamic-create', 'dynamic-update', 'ajax-save'])) {
             $this->enableCsrfValidation = false;
         }
 
@@ -209,6 +209,32 @@ class MasterPageController extends Controller
         }
 
         return $slug;
+    }
+
+    private function updateOrphanChartPageIds(int $pageId, ?string $layoutJson): void
+    {
+        if (empty($layoutJson)) return;
+        $blocks = json_decode($layoutJson, true);
+        if (!is_array($blocks)) return;
+
+        $chartIds = [];
+        foreach ($blocks as $block) {
+            if (isset($block['type'], $block['props']['chartId']) && $block['type'] === 'chart' && !empty($block['props']['chartId'])) {
+                $chartIds[] = (int)$block['props']['chartId'];
+            }
+        }
+        if (empty($chartIds)) return;
+
+        try {
+            $db = \app\models\MasterPageChart::getDb();
+            $db->createCommand()->update(
+                'master_page_chart',
+                ['page_id' => $pageId],
+                ['and', ['id' => $chartIds], ['page_id' => null]]
+            )->execute();
+        } catch (\Throwable $e) {
+            Yii::error('updateOrphanChartPageIds: ' . $e->getMessage(), __METHOD__);
+        }
     }
 
     private function applyPageCustomCodePost(MasterPage $model, array $postData): void
@@ -440,28 +466,57 @@ class MasterPageController extends Controller
         Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
 
         $pageId = Yii::$app->request->post('page_id');
-        $page = MasterPage::findOne($pageId);
         
-        if (!$page) {
-            return ['success' => false, 'message' => 'Page not found'];
+        if ($pageId) {
+            $page = MasterPage::findOne($pageId);
+            if (!$page) {
+                return ['success' => false, 'message' => 'Page not found'];
+            }
+        } else {
+            $page = new MasterPage();
+            $page->name = Yii::$app->request->post('title', 'Untitled Page');
+            $slug = $this->generateSlug($page->name);
+            // Ensure unique slug
+            $counter = 0;
+            $baseSlug = $slug;
+            while (MasterPage::find()->where(['slug' => $slug])->exists()) {
+                $counter++;
+                $slug = $baseSlug . '-' . $counter;
+            }
+            $page->slug = $slug;
+            $page->layout = 'dynamic';
+            $page->is_active = 1;
         }
 
-        $page->layout_json = Yii::$app->request->post('layout_json');
-        $this->applyPageCustomCodePost($page, [
-            'MasterPage' => [
-                'custom_html' => Yii::$app->request->post('custom_html'),
-                'custom_css' => Yii::$app->request->post('custom_css'),
-                'custom_js' => Yii::$app->request->post('custom_js'),
-                'page_type' => Yii::$app->request->post('page_type', 'builder'),
-                'use_page_custom_code' => Yii::$app->request->post('use_page_custom_code', 0),
-            ],
-        ]);
+        $page->layout_json = Yii::$app->request->post('layout_json', '[]');
 
-        if ($page->save(false)) {
-            return ['success' => true, 'message' => 'Page published successfully'];
+        if ($page->isNewRecord) {
+            if (!$page->save(false)) {
+                return ['success' => false, 'message' => 'Failed to create page: ' . json_encode($page->getErrors())];
+            }
+            $this->updateOrphanChartPageIds($page->id, $page->layout_json);
+        } else {
+            $this->applyPageCustomCodePost($page, [
+                'MasterPage' => [
+                    'custom_html' => Yii::$app->request->post('custom_html'),
+                    'custom_css' => Yii::$app->request->post('custom_css'),
+                    'custom_js' => Yii::$app->request->post('custom_js'),
+                    'page_type' => Yii::$app->request->post('page_type', 'builder'),
+                    'use_page_custom_code' => Yii::$app->request->post('use_page_custom_code', 0),
+                ],
+            ]);
+
+            if (!$page->save(false)) {
+                return ['success' => false, 'message' => 'Failed to save page'];
+            }
+            $this->updateOrphanChartPageIds($page->id, $page->layout_json);
         }
 
-        return ['success' => false, 'message' => 'Failed to save page'];
+        return [
+            'success' => true,
+            'page_id' => (int)$page->id,
+            'message' => 'Page saved successfully',
+        ];
     }
 
     /**
@@ -598,6 +653,28 @@ class MasterPageController extends Controller
                 ]),
                 'search' => (bool)$row->search_enabled,
                 'pagination' => (bool)$row->pagination_enabled,
+            ];
+        }
+
+        return $items;
+    }
+
+    private function findAvailableCharts(): array
+    {
+        $rows = \app\models\MasterPageChart::find()
+            ->select(['id', 'page_id', 'title', 'chart_type', 'table_id'])
+            ->andWhere(['is_active' => 1])
+            ->orderBy(['title' => SORT_ASC])
+            ->all();
+
+        $items = [];
+        foreach ($rows as $row) {
+            $items[] = [
+                'id' => (int)$row->id,
+                'page_id' => $row->page_id ? (int)$row->page_id : null,
+                'title' => (string)$row->title,
+                'chart_type' => (string)$row->chart_type,
+                'table_id' => (int)$row->table_id,
             ];
         }
 
@@ -759,6 +836,7 @@ class MasterPageController extends Controller
                 $this->applyPageCustomCodePost($model, $postData);
 
                 if ($model->save(false)) {
+                    $this->updateOrphanChartPageIds($model->id, $model->layout_json);
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                     return $this->redirect(['index']);
                 } else {
@@ -781,6 +859,7 @@ class MasterPageController extends Controller
                 $this->applyPageCustomCodePost($model, $postData);
 
                 if ($model->save(false)) {
+                    $this->updateOrphanChartPageIds($model->id, $model->layout_json);
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                     return $this->redirect(['index']);
                 } else {
@@ -795,6 +874,7 @@ class MasterPageController extends Controller
             'forms' => $this->findAvailableForms(),
             'datatables' => $this->findAvailableDatatables(),
             'tables' => $this->findAvailableTablesForBuilder(),
+            'availableCharts' => $this->findAvailableCharts(),
             'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
     }
@@ -822,6 +902,7 @@ class MasterPageController extends Controller
             $this->applyPageCustomCodePost($model, $postData);
 
 if ($model->save(false)) {
+                    $this->updateOrphanChartPageIds($model->id, $model->layout_json);
                     Yii::$app->session->setFlash('success', 'Halaman berhasil diperbarui!');
                     return $this->redirect(['index']);
                 } else {
@@ -837,6 +918,7 @@ if ($model->save(false)) {
             'forms' => $this->findAvailableForms(),
             'datatables' => $this->findAvailableDatatables(),
             'tables' => $this->findAvailableTablesForBuilder(),
+            'availableCharts' => $this->findAvailableCharts(),
             'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
     }

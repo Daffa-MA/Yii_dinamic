@@ -1934,6 +1934,373 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     #properties-panel>* {
         flex-shrink: 0;
     }
+
+    .chart-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.45);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 13000;
+        padding: 16px;
+    }
+    .chart-modal-overlay.open { display: flex; }
+    .chart-modal {
+        width: min(720px, 100%);
+        max-height: 92vh;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .chart-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 22px;
+        border-bottom: 1px solid #e5e7eb;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        flex-shrink: 0;
+    }
+    .chart-modal-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .chart-modal-close {
+        background: none;
+        border: none;
+        font-size: 22px;
+        cursor: pointer;
+        color: #6b7280;
+        padding: 4px 8px;
+        border-radius: 6px;
+        line-height: 1;
+    }
+    .chart-modal-close:hover { background: #f1f5f9; color: #0f172a; }
+    .chart-modal-body {
+        padding: 20px 22px;
+        overflow-y: auto;
+        flex: 1;
+    }
+    .chart-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 14px 22px;
+        border-top: 1px solid #e5e7eb;
+        background: #f8fafc;
+        flex-shrink: 0;
+    }
+    .chart-modal-field {
+        margin-bottom: 16px;
+    }
+    .chart-modal-field label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 5px;
+    }
+    .chart-modal-field label .field-tip {
+        font-weight: 400;
+        color: #94a3b8;
+        font-size: 11px;
+        cursor: help;
+    }
+    .chart-modal-field select,
+    .chart-modal-field input[type="text"],
+    .chart-modal-field input[type="number"] {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 13px;
+        box-sizing: border-box;
+        background: #fff;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .chart-modal-field select:focus,
+    .chart-modal-field input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    .chart-modal-field select:disabled {
+        background: #f1f5f9;
+        cursor: not-allowed;
+        opacity: .6;
+    }
+    .chart-modal-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+    .chart-modal-grid-3 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 14px;
+    }
+    @media (max-width: 640px) {
+        .chart-modal-grid, .chart-modal-grid-3 { grid-template-columns: 1fr; }
+    }
+
+    /* ── Section Cards ── */
+    .chart-section-card {
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 16px 18px;
+        margin-bottom: 18px;
+        background: #fff;
+    }
+    .chart-section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0 0 14px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .chart-section-title .sec-icon {
+        font-size: 16px;
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eef2ff;
+        border-radius: 6px;
+        color: #6366f1;
+    }
+
+    /* ── Chart Type Picker ── */
+    .chart-type-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+        gap: 8px;
+        margin-bottom: 4px;
+    }
+    .chart-type-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 10px 6px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        cursor: pointer;
+        background: #fff;
+        transition: all .15s;
+        text-align: center;
+        font-size: 11px;
+        font-weight: 500;
+        color: #475569;
+    }
+    .chart-type-card:hover {
+        border-color: #a5b4fc;
+        background: #f8faff;
+    }
+    .chart-type-card.selected {
+        border-color: #6366f1;
+        background: #eef2ff;
+        color: #4338ca;
+        box-shadow: 0 0 0 2px rgba(99,102,241,.15);
+    }
+    .chart-type-card .ct-icon {
+        font-size: 22px;
+        line-height: 1;
+    }
+
+    /* ── Preview ── */
+    .chart-preview-area {
+        min-height: 180px;
+        border: 1px dashed #d1d5db;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        font-size: 13px;
+        padding: 20px;
+        background: #fafbfc;
+        transition: all .2s;
+        position: relative;
+    }
+    .chart-preview-area.has-data {
+        border-style: solid;
+        border-color: #e5e7eb;
+        background: #fff;
+    }
+    .chart-preview-area .preview-skeleton {
+        width: 100%;
+    }
+    .chart-preview-area .preview-skeleton .sk-bar {
+        height: 12px;
+        background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+        background-size: 200% 100%;
+        animation: sk-shimmer 1.5s infinite;
+        border-radius: 4px;
+        margin-bottom: 8px;
+    }
+    @keyframes sk-shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+    .chart-preview-area .preview-empty-icon {
+        font-size: 36px;
+        margin-bottom: 6px;
+        opacity: .4;
+    }
+    .chart-preview-area .preview-empty-text {
+        font-weight: 500;
+    }
+    .chart-preview-area .preview-empty-sub {
+        font-size: 12px;
+        margin-top: 4px;
+    }
+
+    /* ── SQL Preview ── */
+    .chart-sql-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 12px;
+        color: #6366f1;
+        cursor: pointer;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        background: #fff;
+        margin-top: 8px;
+        transition: all .15s;
+    }
+    .chart-sql-toggle:hover { background: #f8faff; border-color: #a5b4fc; }
+    .chart-sql-box {
+        display: none;
+        margin-top: 8px;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 12px;
+        line-height: 1.6;
+        overflow-x: auto;
+        white-space: pre-wrap;
+    }
+    .chart-sql-box.open { display: block; }
+
+    /* ── Empty state ── */
+    .chart-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        color: #94a3b8;
+        text-align: center;
+    }
+    .chart-empty-state .es-icon { font-size: 40px; margin-bottom: 10px; opacity: .35; }
+    .chart-empty-state .es-title { font-weight: 600; font-size: 14px; color: #64748b; }
+    .chart-empty-state .es-sub { font-size: 12px; margin-top: 4px; }
+
+    /* ── Searchable Select Wrapper ── */
+    .chart-search-wrap {
+        position: relative;
+    }
+    .chart-search-wrap .search-input {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 13px;
+        box-sizing: border-box;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") right 10px center no-repeat;
+        padding-right: 32px;
+        transition: border-color .15s, box-shadow .15s;
+    }
+    .chart-search-wrap .search-input:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+    }
+    .chart-search-wrap .search-select {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        max-height: 200px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #d1d5db;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 8px 24px rgba(15,23,42,.12);
+    }
+    .chart-search-wrap .search-select.open { display: block; }
+    .chart-search-wrap .search-option {
+        padding: 8px 12px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background .1s;
+    }
+    .chart-search-wrap .search-option:hover { background: #eef2ff; }
+    .chart-search-wrap .search-option.selected { background: #eef2ff; color: #4338ca; font-weight: 600; }
+    .chart-search-wrap .search-no-result {
+        padding: 10px 12px;
+        font-size: 12px;
+        color: #94a3b8;
+        text-align: center;
+    }
+
+    /* ── Validation ── */
+    .chart-validation {
+        display: none;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 12px;
+        color: #b91c1c;
+        margin-bottom: 12px;
+    }
+    .chart-validation.show { display: block; }
+    .chart-validation ul { margin: 4px 0 0 16px; padding: 0; }
+    .chart-validation li { margin-bottom: 2px; }
+
+    /* ── Utils ── */
+    .chart-btn-primary, .chart-btn-secondary {
+        padding: 9px 20px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .15s;
+        border: none;
+    }
+    .chart-btn-primary {
+        background: #6366f1;
+        color: #fff;
+    }
+    .chart-btn-primary:hover { background: #4f46e5; }
+    .chart-btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+    .chart-btn-secondary {
+        background: #fff;
+        color: #475569;
+        border: 1px solid #d1d5db;
+    }
+    .chart-btn-secondary:hover { background: #f8fafc; border-color: #a5b4fc; }
 </style>
 
 <!-- BUILDER INTERFACE -->
@@ -1998,6 +2365,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         <div class="component-item" data-type="datatable">
             <span class="material-symbols-outlined">table_chart</span>
             <span>Datatable</span>
+        </div>
+        <div class="component-item" data-type="chart">
+            <span class="material-symbols-outlined">bar_chart</span>
+            <span>Chart</span>
         </div>
         <div class="component-item" data-type="card">
             <span class="material-symbols-outlined">square</span>
@@ -2198,6 +2569,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             search: true,
             pagination: true
         },
+        chart: {
+            chartId: '',
+            height: '300',
+            showTitle: true,
+        },
         card: {
             title: 'Card Title',
             content: 'Konten card',
@@ -2295,6 +2671,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             html: '<div class="video-{id}">\n  <iframe src="{url}" frameborder="0" allowfullscreen></iframe>\n</div>',
             css: '.video-{id} {\n  position: relative;\n  padding-bottom: 56.25%;\n  height: 0;\n}\n.video-{id} iframe {\n  position: absolute;\n  top: 0;\n  left: 0;\n  width: 100%;\n  height: 100%;\n}',
             js: ''
+        },
+        chart: {
+            html: '<div class="chart-{id}" data-master-chart="{chartId}" style="min-height:{height}px;"></div>',
+            css: '.chart-{id} {\n  width: 100%;\n  min-height: 300px;\n}\n.chart-{id} .chart-error {\n  padding: 40px;\n  text-align: center;\n}',
+            js: ''
         }
     };
 
@@ -2302,6 +2683,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     window.availableForms = <?= json_encode($forms ?? []) ?>;
     window.availableDatatables = <?= json_encode($datatables ?? []) ?>;
     window.availableTables = <?= json_encode($tables ?? []) ?>;
+    window.availableCharts = <?= json_encode($availableCharts ?? []) ?>;
+    window.currentPageId = <?= json_encode($model->id ?? null) ?>;
+    window.chartCreateUrl = '<?= Url::to(['/master-chart/create']) ?>';
+    window.chartQuickCreateUrl = '<?= Url::to(['/master-chart/quick-create']) ?>';
     window.dynamicFormPreviewEndpoint = <?= json_encode(Url::to(['master-page/form-preview'])) ?>;
     window.dynamicFormPreviewCache = {};
     window.dynamicFormPreviewPending = {};
@@ -2358,6 +2743,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
     function renderBuilder(state) {
         const canvas = document.getElementById('canvas');
+
+        // Destroy existing chart instances before clearing DOM
+        destroyBuilderChartInstances();
+
         canvas.innerHTML = '';
 
         if (activeCodeScope === 'page') {
@@ -2395,6 +2784,181 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         scheduleLivePreviewUpdate();
         scheduleFullPageSourceSyncFromBuilder();
+
+        // Initialize chart previews on the canvas
+        initBuilderChartPreviews();
+    }
+
+    function destroyBuilderChartInstances() {
+        if (window._builderChartInstances) {
+            Object.keys(window._builderChartInstances).forEach(function(key) {
+                try {
+                    window._builderChartInstances[key].destroy();
+                } catch(e) {}
+                delete window._builderChartInstances[key];
+            });
+        }
+        window._builderChartInstances = {};
+    }
+
+    function initBuilderChartPreviews() {
+        var canvas = document.getElementById('canvas');
+        if (!canvas) return;
+
+        if (typeof ApexCharts === 'undefined') {
+            if (!window._builderChartInitRetry) {
+                if (!window._builderChartApexLoaded) {
+                    window._builderChartApexLoaded = true;
+                    window._builderChartRetryCount = 0;
+                    var origDefine = window.define;
+                    window.define = void 0;
+                    var s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/apexcharts@4.5.0/dist/apexcharts.min.js';
+                    s.async = true;
+                    s.onload = function() { window.define = origDefine; window._builderChartInitRetry = setTimeout(function() { window._builderChartInitRetry = null; initBuilderChartPreviews(); }, 300); };
+                    s.onerror = function() { window.define = origDefine; window._builderChartApexFailed = true; console.warn('ApexCharts gagal dimuat'); };
+                    document.body.appendChild(s);
+                } else {
+                    window._builderChartRetryCount = (window._builderChartRetryCount || 0) + 1;
+                    if (window._builderChartRetryCount > 10) {
+                        document.querySelectorAll('[data-master-chart]').forEach(function(c) { c.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + (c.getAttribute('data-chart-height')||'300') + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal memuat chart</div>'; });
+                        return;
+                    }
+                    window._builderChartInitRetry = setTimeout(function() {
+                        window._builderChartInitRetry = null;
+                        initBuilderChartPreviews();
+                    }, 1500);
+                }
+            }
+            return;
+        }
+
+        var containers = canvas.querySelectorAll('[data-master-chart]');
+        if (!containers.length) return;
+
+        if (!window._builderChartInstances) {
+            window._builderChartInstances = {};
+        }
+
+        containers.forEach(function(container) {
+            var chartId = container.getAttribute('data-master-chart');
+            if (!chartId || window._builderChartInstances[chartId]) return;
+
+            var chartHeight = container.getAttribute('data-chart-height') || '300';
+
+            container.innerHTML =
+                '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#f8fafc;color:#94a3b8;">' +
+                    '<div style="text-align:center;">' +
+                        '<div style="font-size:12px;margin-bottom:4px;">Memuat chart...</div>' +
+                    '</div>' +
+                '</div>';
+
+            var dataUrl = '/master-chart/data?id=' + encodeURIComponent(chartId);
+            fetch(dataUrl, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function(r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function(data) {
+                if (!data || !data.success || !data.config) {
+                    var errMsg = 'Gagal memuat chart';
+                    if (data && data.message) errMsg += ': ' + data.message;
+                    container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">' + errMsg + '</div>';
+                    return;
+                }
+                renderBuilderChart(container, chartId, data, chartHeight);
+            })
+            .catch(function() {
+                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal terhubung ke server</div>';
+            });
+        });
+    }
+
+    function renderBuilderChart(container, chartId, data, chartHeight) {
+        var config = data.config;
+        var chartData = data.chart;
+        var palette = data.palette || [];
+        var chartType = config.chart_type || 'bar';
+        var apexType = mapBuilderChartType(chartType);
+        var height = parseInt(chartHeight || config.height || 300);
+
+        var series = chartData.series || [];
+        var labels = chartData.labels || [];
+
+        var options = {
+            chart: {
+                type: apexType,
+                height: height,
+                toolbar: { show: false },
+                animations: { enabled: true },
+                background: 'transparent',
+                foreColor: '#64748b',
+                zoom: { enabled: chartType === 'scatter' || chartType === 'bubble' },
+            },
+            series: series,
+            labels: labels,
+            colors: palette.length ? palette : undefined,
+            dataLabels: { enabled: false },
+            legend: { show: true, position: 'bottom', fontSize: '12px' },
+            grid: { show: true, borderColor: '#e2e8f0' },
+            stroke: { show: true, curve: 'smooth', width: chartType === 'line' || chartType === 'area' ? 2 : 0 },
+            fill: { opacity: chartType === 'area' ? 0.5 : 1 },
+            plotOptions: {
+                bar: {
+                    horizontal: chartType === 'bar_horizontal',
+                    columnWidth: '60%',
+                    borderRadius: 4,
+                },
+                pie: {
+                    donut: { labels: { show: false } },
+                },
+            },
+            tooltip: { enabled: true },
+            noData: { text: 'Tidak ada data', align: 'center', verticalAlign: 'middle', style: { fontSize: '14px', color: '#94a3b8' } },
+            responsive: [{ breakpoint: 768, options: { chart: { height: Math.min(height, 250) } } }],
+        };
+
+        if (chartType === 'stacked_bar' || chartType === 'stacked_area') {
+            if (options.plotOptions && options.plotOptions.bar) options.plotOptions.bar.stacked = true;
+            if (options.chart) options.chart.stacked = true;
+        }
+        if (chartType === 'radar') {
+            options.chart.type = 'radar';
+            options.plotOptions = { radar: { polygons: { strokeColors: '#e2e8f0', connectorColors: '#e2e8f0' } } };
+            options.stroke = { show: true, width: 2, colors: palette };
+            options.fill = { opacity: 0.3 };
+            options.markers = { size: 4 };
+        }
+        if (chartType === 'polar_area') {
+            options.chart.type = 'polarArea';
+            options.stroke = { show: false };
+            options.fill = { opacity: 0.8 };
+        }
+
+        container.innerHTML = '';
+        var chartEl = document.createElement('div');
+        chartEl.id = 'builder-chart-' + chartId;
+        container.appendChild(chartEl);
+
+        try {
+            var chart = new ApexCharts(chartEl, options);
+            chart.render();
+            window._builderChartInstances[chartId] = chart;
+        } catch (e) {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart</div>';
+        }
+    }
+
+    function mapBuilderChartType(type) {
+        var map = {
+            bar: 'bar', bar_horizontal: 'bar', line: 'line', area: 'area',
+            pie: 'pie', donut: 'donut', radar: 'radar', polar_area: 'polarArea',
+            bubble: 'bubble', scatter: 'scatter', stacked_bar: 'bar',
+            stacked_area: 'area', mixed: 'line', multi_series: 'bar'
+        };
+        return map[type] || 'bar';
     }
 
     function createBlockElement(block) {
@@ -2534,6 +3098,22 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 </div>`;
             case 'datatable':
                 return renderDatatableBuilderPreview(props);
+            case 'chart':
+                var chartId = props.chartId || '';
+                if (!chartId) {
+                    return '<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">' +
+                        '<div style="font-size:32px;margin-bottom:12px">📊</div>' +
+                        '<div style="font-weight:700;color:#1e293b;font-size:16px">Chart Belum Dipilih</div>' +
+                        '<div style="font-size:13px;color:#64748b;margin-top:4px">Pilih konfigurasi chart di panel kanan</div>' +
+                    '</div>';
+                }
+                var chartHeight = props.height || '300';
+                return '<div style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:white;">' +
+                    '<div style="border-bottom:1px solid #eef2f7;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;background:#f8fafc;">' +
+                        '<span style="font-size:12px;font-weight:700;color:#2563eb;background:#eff6ff;border-radius:999px;padding:4px 10px">Chart #' + chartId + '</span>' +
+                    '</div>' +
+                    '<div data-master-chart="' + chartId + '" data-chart-height="' + chartHeight + '" style="min-height:' + chartHeight + 'px;"></div>' +
+                '</div>';
             case 'section':
                 return `<div style="padding:${props.padding || '40'}px;margin:${props.margin || '0'}px;background:${props.background || '#fff'};border-radius:8px;border:1px dashed #cbd5e1;color:#94a3b8;text-align:center;">📦 Section</div>`;
             default:
@@ -2768,6 +3348,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             button: 'smart_button',
             form: 'dynamic_form',
             datatable: 'table_chart',
+            chart: 'bar_chart',
             card: 'square',
             spacer: 'space_bar',
             divider: 'horizontal_rule',
@@ -3128,6 +3709,42 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                         <input type="checkbox" class="prop-checkbox" ${(props.exports || {}).print !== false ? 'checked' : ''} onchange="updateDatatableExport('${blockId}', 'print', this.checked)">
                         <label style="margin: 0; cursor: pointer;">Print</label>
                     </div>
+                </div>
+            </div>`;
+                break;
+
+            case 'chart':
+                const charts = window.availableCharts || [];
+                const chartOptions = charts.length > 0
+                    ? charts.map(c => `<option value="${c.id}" ${String(props.chartId || '') === String(c.id) ? 'selected' : ''}>${c.title} (${c.chart_type})</option>`).join('')
+                    : '';
+                html += `<div class="prop-section">
+                <div class="prop-section-title">📊 Konfigurasi Chart</div>
+                <div class="prop-group">
+                    <label>Pilih Chart</label>
+                    ${charts.length > 0
+                        ? `<select class="prop-select" onchange="updateProp('${blockId}', 'chartId', this.value)">
+                            <option value="">-- Pilih Chart --</option>
+                            ${chartOptions}
+                        </select>`
+                        : `<div style="color:#6b7280;font-size:13px;padding:8px 0;">Belum ada chart tersedia.</div>`
+                    }
+                </div>
+                <div style="margin-bottom:12px;">
+                    <button type="button" class="btn btn-sm btn-primary" onclick="openChartModal()">
+                        + Buat Chart Baru
+                    </button>
+                </div>
+                <div style="margin-bottom:12px;font-size:12px;color:#6b7280;">
+                    <span>Chart akan langsung tertaut dengan halaman saat kamu menyimpan halaman ini.</span>
+                </div>
+                <div class="prop-group">
+                    <label>Tinggi (px)</label>
+                    <input type="number" class="prop-input" value="${props.height || '300'}" onchange="updateProp('${blockId}', 'height', this.value)">
+                </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${props.showTitle !== false ? 'checked' : ''} onchange="updateProp('${blockId}', 'showTitle', this.checked)">
+                    <label style="margin: 0; cursor: pointer;">Tampilkan Judul Chart</label>
                 </div>
             </div>`;
                 break;
@@ -6341,6 +6958,76 @@ ${html || ''}
     </div>
 </div>
 
+<!-- Chart Quick Create Modal -->
+<div id="chartModalOverlay" class="chart-modal-overlay" onclick="if(event.target===this)closeChartModal()">
+    <div class="chart-modal">
+        <div class="chart-modal-header">
+            <h3 class="chart-modal-title"><span class="material-symbols-outlined" style="font-size:20px;">bar_chart</span> Buat Chart Baru</h3>
+            <button type="button" class="chart-modal-close" onclick="closeChartModal()">&times;</button>
+        </div>
+        <div class="chart-modal-body">
+
+            <!-- ═══ Section 1: Informasi Chart ═══ -->
+            <div class="chart-section-card">
+                <div class="chart-section-title"><span class="sec-icon material-symbols-outlined">info</span> Informasi Chart</div>
+                <div class="chart-modal-field">
+                    <label>Nama Chart</label>
+                    <input type="text" id="chartQuickName" placeholder="Contoh: Penjualan per Bulan" />
+                </div>
+                <div class="chart-modal-grid">
+                    <div class="chart-modal-field">
+                        <label>Sumber Data <span class="field-tip">(Tabel)</span></label>
+                        <div class="chart-search-wrap" id="chartTableWrap">
+                            <input type="text" class="search-input" id="chartTableSearch" placeholder="Cari tabel..." autocomplete="off" onfocus="openChartTableDropdown()" oninput="filterChartTableOptions()" onblur="setTimeout(function(){closeChartTableDropdown()},200)" />
+                            <div class="search-select" id="chartTableDropdown"></div>
+                            <input type="hidden" id="chartQuickTable" value="" />
+                        </div>
+                    </div>
+                    <div class="chart-modal-field">
+                        <label>Jenis Chart</label>
+                        <div class="chart-type-grid" id="chartTypePicker"></div>
+                        <input type="hidden" id="chartQuickType" value="bar" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ Section 2: Konfigurasi Data ═══ -->
+            <div class="chart-section-card" id="chartConfigSection">
+                <div class="chart-section-title"><span class="sec-icon material-symbols-outlined">tune</span> Konfigurasi Data</div>
+                <div id="chartConfigFields"></div>
+            </div>
+
+            <!-- ═══ Section 3: Preview ═══ -->
+            <div class="chart-section-card">
+                <div class="chart-section-title"><span class="sec-icon material-symbols-outlined">visibility</span> Preview</div>
+                <div class="chart-preview-area" id="chartPreviewArea">
+                    <div class="chart-empty-state" id="chartPreviewEmpty">
+                        <div class="preview-empty-icon material-symbols-outlined">monitoring</div>
+                        <div class="preview-empty-text">Silakan pilih sumber data terlebih dahulu</div>
+                        <div class="preview-empty-sub">Lengkapi konfigurasi untuk melihat preview chart</div>
+                    </div>
+                    <div id="chartPreviewContent" style="display:none;width:100%;"></div>
+                </div>
+                <div style="margin-top:6px;text-align:right;">
+                    <span class="chart-sql-toggle" onclick="toggleSqlPreview()">
+                        <span class="material-symbols-outlined" style="font-size:14px;">code</span> Lihat Query SQL
+                    </span>
+                </div>
+                <div class="chart-sql-box" id="chartSqlBox"></div>
+            </div>
+
+            <!-- Validation -->
+            <div class="chart-validation" id="chartValidation"></div>
+            <div id="chartQuickError" style="color:#dc2626;font-size:13px;display:none;padding:8px 0;"></div>
+
+        </div>
+        <div class="chart-modal-footer">
+            <button type="button" class="chart-btn-secondary" onclick="closeChartModal()">Batal</button>
+            <button type="button" class="chart-btn-primary" id="chartSubmitBtn" onclick="submitQuickChart()" disabled>Buat Chart</button>
+        </div>
+    </div>
+</div>
+
 <!-- Warning Modal for Button URL Validation -->
 <div id="warningModalOverlay" class="warning-modal-overlay">
     <div class="warning-modal">
@@ -6649,4 +7336,483 @@ ${html || ''}
 
         window.setTimeout(runIfNeeded, 1200);
     })();
+
+    /* ─── Chart Quick Create Modal ─── */
+    var chartModalState = { tableId: null, chartType: 'bar', labelField: '', valueField: '', agg: 'count', groupField: '' };
+
+    function openChartModal(pendingData) {
+        var overlay = document.getElementById('chartModalOverlay');
+        if (!overlay) return;
+        document.getElementById('chartQuickName').value = (pendingData && pendingData.title) || '';
+        document.getElementById('chartQuickError').style.display = 'none';
+        document.getElementById('chartValidation').className = 'chart-validation';
+        document.getElementById('chartSubmitBtn').disabled = true;
+        if (pendingData) {
+            chartModalState = {
+                tableId: pendingData.tableId || null,
+                chartType: pendingData.chartType || 'bar',
+                labelField: pendingData.labelField || '',
+                valueField: pendingData.valueField || '',
+                agg: pendingData.agg || 'count',
+                groupField: pendingData.groupField || ''
+            };
+        } else {
+            chartModalState = { tableId: null, chartType: 'bar', labelField: '', valueField: '', agg: 'count', groupField: '' };
+        }
+        overlay.classList.add('open');
+        renderChartTypePicker();
+        populateTableDropdown();
+        renderChartConfig();
+        updatePreviewEmpty();
+        validateChartForm();
+    }
+
+    function closeChartModal() {
+        var overlay = document.getElementById('chartModalOverlay');
+        if (overlay) overlay.classList.remove('open');
+    }
+
+    // Restore pending chart config setelah page selesai disimpan & reload
+    (function() {
+        try {
+            var pending = sessionStorage.getItem('pendingChartConfig');
+            if (pending) {
+                sessionStorage.removeItem('pendingChartConfig');
+                var data = JSON.parse(pending);
+                if (data) {
+                    setTimeout(function() {
+                        openChartModal(data);
+                    }, 500);
+                }
+            }
+        } catch(e) {}
+    })();
+
+    /* ── Chart Type Picker ── */
+    function renderChartTypePicker() {
+        var container = document.getElementById('chartTypePicker');
+        if (!container) return;
+        var types = [
+            {id:'bar', icon:'📊', label:'Bar'},
+            {id:'bar_horizontal', icon:'📊', label:'Bar Horizontal'},
+            {id:'line', icon:'📈', label:'Line'},
+            {id:'area', icon:'📉', label:'Area'},
+            {id:'pie', icon:'🥧', label:'Pie'},
+            {id:'donut', icon:'🍩', label:'Donut'},
+            {id:'radar', icon:'🕸', label:'Radar'},
+            {id:'polar_area', icon:'🎯', label:'Polar'},
+            {id:'scatter', icon:'📍', label:'Scatter'},
+            {id:'bubble', icon:'🫧', label:'Bubble'},
+            {id:'stacked_bar', icon:'📊', label:'Stacked'},
+            {id:'mixed', icon:'🔀', label:'Mixed'},
+        ];
+        container.innerHTML = types.map(function(t) {
+            var sel = t.id === chartModalState.chartType ? ' selected' : '';
+            return '<div class="chart-type-card' + sel + '" data-value="' + t.id + '" onclick="selectChartType(\'' + t.id + '\')"><span class="ct-icon">' + t.icon + '</span>' + t.label + '</div>';
+        }).join('');
+        document.getElementById('chartQuickType').value = chartModalState.chartType;
+    }
+
+    function selectChartType(typeId) {
+        chartModalState.chartType = typeId;
+        document.getElementById('chartQuickType').value = typeId;
+        var cards = document.querySelectorAll('.chart-type-card');
+        cards.forEach(function(c) { c.classList.toggle('selected', c.dataset.value === typeId); });
+        renderChartConfig();
+        validateChartForm();
+        triggerChartPreview();
+    }
+
+    /* ── Searchable Table Dropdown ── */
+    function populateTableDropdown() {
+        var dropdown = document.getElementById('chartTableDropdown');
+        var input = document.getElementById('chartTableSearch');
+        if (!dropdown) return;
+        var tables = window.availableTables || [];
+        if (!Array.isArray(tables)) { dropdown.innerHTML = '<div class="search-no-result">Tidak ada tabel tersedia</div>'; return; }
+        dropdown.innerHTML = tables.map(function(t) {
+            var sel = String(t.id) === String(chartModalState.tableId) ? ' selected' : '';
+            return '<div class="search-option' + sel + '" data-value="' + t.id + '" onmousedown="selectChartTable(' + t.id + ',\'' + (t.label || t.name).replace(/'/g,"\\'") + '\')">' + (t.label || t.name) + '</div>';
+        }).join('');
+        if (chartModalState.tableId) {
+            var table = tables.find(function(t) { return String(t.id) === String(chartModalState.tableId); });
+            input.value = table ? (table.label || table.name) : '';
+        }
+    }
+
+    function filterChartTableOptions() {
+        var input = document.getElementById('chartTableSearch');
+        var dropdown = document.getElementById('chartTableDropdown');
+        var q = input.value.toLowerCase();
+        var options = dropdown.querySelectorAll('.search-option');
+        var visibleCount = 0;
+        options.forEach(function(opt) {
+            var match = opt.textContent.toLowerCase().indexOf(q) !== -1;
+            opt.style.display = match ? '' : 'none';
+            if (match) visibleCount++;
+        });
+        var noResult = dropdown.querySelector('.search-no-result');
+        if (!visibleCount && options.length) {
+            if (!noResult) {
+                noResult = document.createElement('div');
+                noResult.className = 'search-no-result';
+                noResult.textContent = 'Tidak ditemukan';
+                dropdown.appendChild(noResult);
+            }
+            noResult.style.display = '';
+        } else if (noResult) {
+            noResult.style.display = 'none';
+        }
+    }
+
+    function openChartTableDropdown() {
+        document.getElementById('chartTableDropdown').classList.add('open');
+    }
+    function closeChartTableDropdown() {
+        document.getElementById('chartTableDropdown').classList.remove('open');
+    }
+
+    function selectChartTable(id, label) {
+        chartModalState.tableId = id;
+        document.getElementById('chartQuickTable').value = id;
+        document.getElementById('chartTableSearch').value = label;
+        document.getElementById('chartTableDropdown').classList.remove('open');
+        chartModalState.labelField = '';
+        chartModalState.valueField = '';
+        chartModalState.groupField = '';
+        renderChartConfig();
+        validateChartForm();
+        updatePreviewEmpty();
+    }
+
+    /* ── Dynamic Config Fields ── */
+    function renderChartConfig() {
+        var container = document.getElementById('chartConfigFields');
+        if (!container) return;
+        var type = chartModalState.chartType;
+        var hasTable = !!chartModalState.tableId;
+        var fields = [];
+
+        if (!hasTable) {
+            container.innerHTML = '<div class="chart-empty-state"><div class="es-icon material-symbols-outlined">table_chart</div><div class="es-title">Pilih sumber data terlebih dahulu</div><div class="es-sub">Pilih tabel pada bagian Informasi Chart</div></div>';
+            return;
+        }
+
+        var tables = window.availableTables || [];
+        var table = tables.find(function(t) { return String(t.id) === String(chartModalState.tableId); });
+        var cols = table && Array.isArray(table.columns) ? table.columns : [];
+        var stringFields = cols.filter(function(f) { return ['string','text','varchar','char','date','datetime','timestamp'].indexOf(f.type) !== -1; });
+        var numericFields = cols.filter(function(f) { return ['integer','decimal','float','double','bigint','smallint','tinyint'].indexOf(f.type) !== -1; });
+        var allFields = cols;
+
+        function fieldOpts(list, selected) {
+            return '<option value="">-- Pilih --</option>' + list.map(function(f) { return '<option value="' + f.field + '"' + (f.field === selected ? ' selected' : '') + '>' + f.label + ' (' + f.type + ')</option>'; }).join('');
+        }
+
+        function makeGroup(selId, selVal, selLabel, opts) {
+            return '<div class="chart-modal-field"><label>' + selLabel + '</label><select id="' + selId + '" onchange="onChartConfigChange(\'' + selId + '\',this.value)">' + opts + '</select></div>';
+        }
+
+        // Determine config fields based on chart type
+        var showAgg = true, showGroup = true;
+        var labelLabel = 'Kategori', valueLabel = 'Nilai';
+
+        if (type === 'pie' || type === 'donut' || type === 'radar' || type === 'polar_area') {
+            showGroup = false;
+        }
+        if (type === 'scatter') {
+            labelLabel = 'Sumbu X';
+            valueLabel = 'Sumbu Y';
+            showAgg = false;
+            showGroup = false;
+        }
+        if (type === 'bubble') {
+            labelLabel = 'Sumbu X';
+            valueLabel = 'Sumbu Y';
+            showAgg = false;
+            showGroup = false;
+        }
+        if (type === 'bar_horizontal') {
+            labelLabel = 'Kategori';
+        }
+        if (type === 'line' || type === 'area') {
+            labelLabel = 'Sumbu X';
+        }
+        if (type === 'stacked_bar' || type === 'stacked_area') {
+            labelLabel = 'Kategori';
+        }
+        if (type === 'mixed') {
+            labelLabel = 'Kategori';
+        }
+        if (type === 'bar') {
+            labelLabel = 'Kategori';
+        }
+
+        // Label field
+        var labelOpts = fieldOpts(allFields, chartModalState.labelField);
+        fields.push(makeGroup('chartConfigLabel', chartModalState.labelField, labelLabel, labelOpts));
+
+        // Value field
+        var valOpts = fieldOpts(numericFields.length ? numericFields : allFields, chartModalState.valueField);
+        var valueDisabled = chartModalState.agg === 'count' ? ' disabled' : '';
+        var valueHtml = '<div class="chart-modal-field"><label>' + valueLabel + '</label><select id="chartConfigValue" onchange="onChartConfigChange(\'chartConfigValue\',this.value)"' + valueDisabled + '>' + valOpts + '</select></div>';
+        fields.push(valueHtml);
+
+        // Aggregation (hidden for scatter/bubble)
+        if (showAgg) {
+            var aggOpts = [
+                {v:'count',l:'Count (Jumlah Data)'},
+                {v:'sum',l:'Sum (Total)'},
+                {v:'avg',l:'Average (Rata-rata)'},
+                {v:'min',l:'Minimum (Nilai Terendah)'},
+                {v:'max',l:'Maximum (Nilai Tertinggi)'},
+            ];
+            var aggHtml = aggOpts.map(function(a) { return '<option value="' + a.v + '"' + (a.v === chartModalState.agg ? ' selected' : '') + '>' + a.l + '</option>'; }).join('');
+            fields.push('<div class="chart-modal-field"><label>Cara Menghitung <span class="field-tip">(Agregasi)</span></label><select id="chartConfigAgg" onchange="onChartConfigChange(\'chartConfigAgg\',this.value)">' + aggHtml + '</select></div>');
+        }
+
+        // Group By (hidden for certain types)
+        if (showGroup) {
+            var groupOpts = fieldOpts(stringFields.length ? stringFields : allFields, chartModalState.groupField);
+            fields.push(makeGroup('chartConfigGroup', chartModalState.groupField, 'Kelompokkan Berdasarkan', groupOpts));
+        }
+
+        container.innerHTML = fields.join('');
+    }
+
+    function onChartConfigChange(fieldId, value) {
+        if (fieldId === 'chartConfigLabel') chartModalState.labelField = value;
+        else if (fieldId === 'chartConfigValue') chartModalState.valueField = value;
+        else if (fieldId === 'chartConfigAgg') { chartModalState.agg = value; renderChartConfig(); }
+        else if (fieldId === 'chartConfigGroup') chartModalState.groupField = value;
+        validateChartForm();
+        triggerChartPreview();
+    }
+
+    /* ── Validation ── */
+    function validateChartForm() {
+        var errors = [];
+        if (!chartModalState.tableId) errors.push('Pilih sumber data');
+        if (!chartModalState.labelField) errors.push('Pilih kategori/sumbu X');
+        if (chartModalState.agg !== 'count' && !chartModalState.valueField && !['scatter','bubble'].includes(chartModalState.chartType)) errors.push('Pilih nilai/data yang ditampilkan');
+        var btn = document.getElementById('chartSubmitBtn');
+        var valEl = document.getElementById('chartValidation');
+        if (errors.length) {
+            btn.disabled = true;
+            valEl.className = 'chart-validation show';
+            valEl.innerHTML = '<strong>Lengkapi konfigurasi:</strong><ul>' + errors.map(function(e) { return '<li>' + e + '</li>'; }).join('') + '</ul>';
+        } else {
+            btn.disabled = false;
+            valEl.className = 'chart-validation';
+        }
+    }
+
+    /* ── Preview ── */
+    function updatePreviewEmpty() {
+        var area = document.getElementById('chartPreviewArea');
+        var empty = document.getElementById('chartPreviewEmpty');
+        var content = document.getElementById('chartPreviewContent');
+        if (!chartModalState.tableId) {
+            empty.style.display = 'flex';
+            content.style.display = 'none';
+            area.className = 'chart-preview-area';
+            area.querySelector('.preview-empty-text').textContent = 'Silakan pilih sumber data terlebih dahulu';
+            area.querySelector('.preview-empty-sub').textContent = 'Lengkapi konfigurasi untuk melihat preview chart';
+        } else if (!chartModalState.labelField || (chartModalState.agg !== 'count' && !chartModalState.valueField && !['scatter','bubble'].includes(chartModalState.chartType))) {
+            empty.style.display = 'flex';
+            content.style.display = 'none';
+            area.className = 'chart-preview-area';
+            area.querySelector('.preview-empty-text').textContent = 'Lengkapi konfigurasi data';
+            area.querySelector('.preview-empty-sub').textContent = 'Pilih kategori dan nilai untuk melihat preview';
+        } else {
+            empty.style.display = 'none';
+            content.style.display = 'block';
+            area.className = 'chart-preview-area has-data';
+        }
+    }
+
+    var previewTimer = null;
+    function triggerChartPreview() {
+        updatePreviewEmpty();
+        if (!chartModalState.tableId || !chartModalState.labelField) return;
+        if (chartModalState.agg !== 'count' && !chartModalState.valueField && !['scatter','bubble'].includes(chartModalState.chartType)) return;
+        if (previewTimer) clearTimeout(previewTimer);
+        previewTimer = setTimeout(fetchChartPreview, 400);
+    }
+
+    function fetchChartPreview() {
+        var area = document.getElementById('chartPreviewContent');
+        if (!area) return;
+        // Show skeleton
+        area.innerHTML = '<div class="preview-skeleton"><div class="sk-bar" style="width:80%"></div><div class="sk-bar" style="width:60%"></div><div class="sk-bar" style="width:70%"></div><div class="sk-bar" style="width:45%"></div><div class="sk-bar" style="width:55%"></div></div>';
+
+        var tables = window.availableTables || [];
+        var table = tables.find(function(t) { return String(t.id) === String(chartModalState.tableId); });
+        if (!table) return;
+
+        // Build a simple preview query and display
+        var tableName = table.name;
+        var labelField = chartModalState.labelField;
+        var valueField = chartModalState.valueField;
+        var agg = chartModalState.agg;
+        var groupField = chartModalState.groupField;
+
+        // Show a simple bar preview using inline SVG/CSS (no external lib needed)
+        var previewHtml = buildChartPreviewHtml(tableName, labelField, valueField, agg, groupField, chartModalState.chartType);
+        area.innerHTML = previewHtml;
+
+        // Update SQL preview
+        updateSqlPreview(tableName, labelField, valueField, agg, groupField);
+    }
+
+    function buildChartPreviewHtml(tableName, labelField, valueField, agg, groupField, chartType) {
+        var sampleCategories = ['Sample A', 'Sample B', 'Sample C', 'Sample D', 'Sample E'];
+        var sampleValues = [42, 78, 35, 91, 56];
+        var maxVal = Math.max.apply(null, sampleValues);
+
+        if (chartType === 'pie' || chartType === 'donut') {
+            var colors = ['#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6'];
+            var total = sampleValues.reduce(function(a,b){return a+b;}, 0);
+            var segs = sampleValues.map(function(v,i) {
+                var pct = (v / total) * 360;
+                return '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:' + colors[i] + ';margin-right:4px;"></span> ' + sampleCategories[i] + ' (' + v + ')';
+            }).join('<br>');
+            return '<div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;"><div style="font-size:48px;">' + (chartType === 'donut' ? '🍩' : '🥧') + '</div><div style="font-size:12px;color:#374151;">' + segs + '</div></div>';
+        }
+
+        var bars = sampleValues.map(function(v, i) {
+            var pct = (v / maxVal) * 100;
+            var hue = 220 + i * 25;
+            return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span style="width:80px;text-align:right;font-size:11px;color:#64748b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + sampleCategories[i] + '</span><div style="flex:1;background:#f1f5f9;border-radius:4px;height:20px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:hsl(' + hue + ',70%,60%);border-radius:4px;transition:width .3s;"></div></div><span style="width:30px;font-size:11px;font-weight:600;color:#0f172a;">' + v + '</span></div>';
+        }).join('');
+
+        return '<div style="font-size:12px;color:#64748b;margin-bottom:8px;">Preview (5 data pertama)</div><div style="max-width:100%;">' + bars + '</div>';
+    }
+
+    function updateSqlPreview(tableName, labelField, valueField, agg, groupField) {
+        var box = document.getElementById('chartSqlBox');
+        var sql = 'SELECT ' + labelField;
+        if (agg === 'count') {
+            sql += ',\n       COUNT(*)';
+        } else {
+            sql += ',\n       ' + agg.toUpperCase() + '(' + valueField + ')';
+        }
+        sql += '\nFROM ' + tableName;
+        if (groupField) {
+            sql += '\nGROUP BY ' + groupField;
+            if (labelField !== groupField) sql += ', ' + labelField;
+        } else {
+            sql += '\nGROUP BY ' + labelField;
+        }
+        sql += '\nORDER BY ' + (groupField || labelField) + ' ASC';
+        sql += '\nLIMIT 20';
+        box.textContent = sql;
+    }
+
+    var sqlPreviewOpen = false;
+    function toggleSqlPreview() {
+        sqlPreviewOpen = !sqlPreviewOpen;
+        document.getElementById('chartSqlBox').className = 'chart-sql-box' + (sqlPreviewOpen ? ' open' : '');
+    }
+
+    /* ── Submit ── */
+    function submitQuickChart() {
+        var btn = document.getElementById('chartSubmitBtn');
+        if (!btn || btn.disabled) return;
+        btn.disabled = true;
+        btn.textContent = 'Menyimpan...';
+
+        var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        var csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        var data = new URLSearchParams();
+        data.set('page_id', window.currentPageId || '');
+        data.set('title', document.getElementById('chartQuickName').value || 'Untitled Chart');
+        data.set('chart_type', chartModalState.chartType);
+        data.set('table_id', chartModalState.tableId);
+        data.set('label_field', chartModalState.labelField);
+        data.set('value_field', chartModalState.valueField);
+        data.set('aggregation', chartModalState.agg);
+        data.set('group_by_field', chartModalState.groupField);
+        if (csrfToken) data.set('_csrf-frontend', csrfToken);
+
+        var quickUrl = window.chartQuickCreateUrl || '/master-chart/quick-create';
+        fetch(quickUrl, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: data.toString()
+        })
+        .then(function(r) {
+            if (!r.ok) {
+                return r.text().then(function(text) {
+                    throw new Error('HTTP ' + r.status + ': ' + text.substring(0, 200));
+                });
+            }
+            return r.json();
+        })
+        .then(function(res) {
+            if (res.success && res.chart) {
+                // Tambah ke daftar chart
+                var charts = window.availableCharts || [];
+                charts.push(res.chart);
+                window.availableCharts = charts;
+
+                // Set chartId ke block chart yg sedang dipilih, atau buat block baru
+                var block = selectedBlockId ? window.pageState.find(function(b) { return b.id === selectedBlockId; }) : null;
+                if (block && block.type === 'chart') {
+                    block.props.chartId = String(res.chart.id);
+                } else {
+                    // Buat block chart baru
+                    var newBlock = {
+                        id: generateId(),
+                        type: 'chart',
+                        props: JSON.parse(JSON.stringify(COMPONENT_DEFAULTS.chart || {}))
+                    };
+                    newBlock.props.chartId = String(res.chart.id);
+                    window.pageState.push(newBlock);
+                    selectedBlockId = newBlock.id;
+                }
+
+                closeChartModal();
+                renderBuilder(window.pageState);
+                if (typeof renderProperties === 'function') {
+                    renderProperties(selectedBlockId);
+                }
+            } else {
+                var errMsg = 'Gagal membuat chart.';
+                if (res.errors) {
+                    var parts = [];
+                    for (var k in res.errors) {
+                        if (res.errors.hasOwnProperty(k)) {
+                            parts.push(res.errors[k].join ? res.errors[k].join(', ') : res.errors[k]);
+                        }
+                    }
+                    if (parts.length) errMsg += ' ' + parts.join(' ');
+                } else if (res.message) {
+                    errMsg += ' ' + res.message;
+                }
+                showChartError(errMsg);
+            }
+        })
+        .catch(function(err) {
+            showChartError('Error: ' + (err && err.message ? err.message : 'Gagal terhubung ke server'));
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.textContent = 'Buat Chart';
+        });
+    }
+
+    function showChartError(msg) {
+        var el = document.getElementById('chartQuickError');
+        if (el) { el.textContent = msg; el.style.display = 'block'; }
+    }
+
+    function refreshChartDropdowns() {
+        if (typeof renderProperties === 'function' && selectedBlockId) {
+            renderProperties(selectedBlockId);
+        }
+    }
 </script>

@@ -633,52 +633,60 @@ class MasterPageController extends Controller
 
     private function findAvailableDatatables(): array
     {
-        MasterDatatable::ensureStructure();
-        $rows = MasterDatatable::findScoped()
-            ->select(['id', 'name', 'table_id', 'columns_config', 'actions_config', 'search_enabled', 'pagination_enabled'])
-            ->andWhere(['is_active' => 1])
-            ->all();
+        try {
+            MasterDatatable::ensureStructure();
+            $rows = MasterDatatable::findScoped()
+                ->select(['id', 'name', 'table_id', 'columns_config', 'actions_config', 'search_enabled', 'pagination_enabled'])
+                ->andWhere(['is_active' => 1])
+                ->all();
 
-        $items = [];
-        foreach ($rows as $row) {
-            $actions = $row->getActionsConfigArray();
-            $items[] = [
-                'id' => (int)$row->id,
-                'name' => (string)$row->name,
-                'tableId' => (int)$row->table_id,
-                'columns' => $row->getColumnsConfigArray(),
-                'actions' => array_merge($actions, [
-                    'editMode' => $actions['edit_mode'] ?? 'custom',
-                    'editFormId' => $actions['edit_form_id'] ?? '',
-                ]),
-                'search' => (bool)$row->search_enabled,
-                'pagination' => (bool)$row->pagination_enabled,
-            ];
+            $items = [];
+            foreach ($rows as $row) {
+                $actions = $row->getActionsConfigArray();
+                $items[] = [
+                    'id' => (int)$row->id,
+                    'name' => (string)$row->name,
+                    'tableId' => (int)$row->table_id,
+                    'columns' => $row->getColumnsConfigArray(),
+                    'actions' => array_merge($actions, [
+                        'editMode' => $actions['edit_mode'] ?? 'custom',
+                        'editFormId' => $actions['edit_form_id'] ?? '',
+                    ]),
+                    'search' => (bool)$row->search_enabled,
+                    'pagination' => (bool)$row->pagination_enabled,
+                ];
+            }
+
+            return $items;
+        } catch (\yii\db\Exception $e) {
+            return [];
         }
-
-        return $items;
     }
 
     private function findAvailableCharts(): array
     {
-        $rows = \app\models\MasterPageChart::find()
-            ->select(['id', 'page_id', 'title', 'chart_type', 'table_id'])
-            ->andWhere(['is_active' => 1])
-            ->orderBy(['title' => SORT_ASC])
-            ->all();
+        try {
+            $rows = \app\models\MasterPageChart::find()
+                ->select(['id', 'page_id', 'title', 'chart_type', 'table_id'])
+                ->andWhere(['is_active' => 1])
+                ->orderBy(['title' => SORT_ASC])
+                ->all();
 
-        $items = [];
-        foreach ($rows as $row) {
-            $items[] = [
-                'id' => (int)$row->id,
-                'page_id' => $row->page_id ? (int)$row->page_id : null,
-                'title' => (string)$row->title,
-                'chart_type' => (string)$row->chart_type,
-                'table_id' => (int)$row->table_id,
-            ];
+            $items = [];
+            foreach ($rows as $row) {
+                $items[] = [
+                    'id' => (int)$row->id,
+                    'page_id' => $row->page_id ? (int)$row->page_id : null,
+                    'title' => (string)$row->title,
+                    'chart_type' => (string)$row->chart_type,
+                    'table_id' => (int)$row->table_id,
+                ];
+            }
+
+            return $items;
+        } catch (\yii\db\Exception $e) {
+            return [];
         }
-
-        return $items;
     }
 
     private function findAvailableTablesForBuilder(): array

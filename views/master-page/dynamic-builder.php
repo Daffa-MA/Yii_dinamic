@@ -16,9 +16,16 @@ $this->params['breadcrumbs'][] = $this->title;
 
 // Register Assets
 $this->registerJsFile('https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js', ['position' => \yii\web\View::POS_END]);
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/css/phosphor.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js', ['position' => \yii\web\View::POS_END]);
+
+// Register Card Widget Assets (loaded in HEAD so available before inline builder code)
+\app\assets\CardWidgetAsset::register($this);
 
 $initialState = $initialState ?? [];
 $forms = $forms ?? [];
@@ -2486,6 +2493,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         'canEditPage' => $canEditPage,
     ]) ?>;
 
+    window.cardConfigBaseUrl = '<?= \yii\helpers\Url::to(['/card']) ?>';
+
     function selectTemplate(id) {
         selectedTemplateId = id;
         renderTemplates();
@@ -2576,10 +2585,62 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         },
         card: {
             title: 'Card Title',
+            subtitle: '',
+            description: '',
             content: 'Konten card',
             showShadow: true,
             bgColor: '#ffffff',
-            padding: '20'
+            padding: '24',
+            borderRadius: '12',
+            shadow: 'md',
+            border: 'none',
+            borderColor: '#e2e8f0',
+            textColor: '#1e293b',
+            fontSize: '16',
+            fontWeight: '400',
+            fontFamily: '',
+            lineHeight: '1.5',
+            width: '100',
+            height: 'auto',
+            alignment: 'left',
+            icon: '',
+            iconLibrary: 'material-symbols',
+            iconSize: '48',
+            iconColor: '#6366f1',
+            iconWeight: '400',
+            iconStroke: '1.5',
+            iconFill: false,
+            iconBackground: '',
+            iconShape: 'none',
+            iconOpacity: '100',
+            iconRotation: '0',
+            bgType: 'solid',
+            bgGradient: '',
+            bgImage: '',
+            bgPattern: '',
+            bgBlur: '0',
+            datasource: 'static',
+            tableId: '',
+            tableName: '',
+            aggregate: 'COUNT',
+            column: '',
+            filterJson: '[]',
+            outputFormat: 'auto',
+            numberDecimal: '0',
+            numberSeparator: ',',
+            numberPrefix: '',
+            numberSuffix: '',
+            numberLocale: 'id-ID',
+            refresh: 'page_load',
+            refreshInterval: '30',
+            cacheTtl: '300',
+            cacheKey: '',
+            showIcon: true,
+            showTitle: true,
+            showSubtitle: true,
+            showDescription: true,
+            showValue: true,
+            _previewValue: null
         },
         spacer: {
             height: '32'
@@ -2944,7 +3005,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         try {
             var chart = new ApexCharts(chartEl, options);
-            chart.render();
+            chart.render().catch(function() {});
             window._builderChartInstances[chartId] = chart;
         } catch (e) {
             container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart</div>';
@@ -3057,7 +3118,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 }
                 return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
             case 'card':
-                return `<div style="border-radius:12px;padding:${props.padding || '20'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
+                if (typeof window.cardWidgetInstance !== 'undefined' && window.cardWidgetInstance.config) {
+                    return window.cardWidgetInstance.buildCardPreviewHtml(props);
+                }
+                return `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
             case 'spacer':
                 return `<div style="height:${props.height || '32'}px;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#94a3b8">Spacer</span></div>`;
             case 'divider':
@@ -3514,36 +3578,21 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 break;
 
             case 'card':
-                html += `<div class="prop-section">
-                <div class="prop-section-title">📋 Konten</div>
-                <div class="prop-group">
-                    <label>Judul Card</label>
-                    <input type="text" class="prop-input" value="${props.title || ''}" onchange="updateProp('${blockId}', 'title', this.value)">
-                </div>
-                <div class="prop-group">
-                    <label>Deskripsi</label>
-                    <textarea class="prop-textarea" onchange="updateProp('${blockId}', 'content', this.value)">${props.content || ''}</textarea>
-                </div>
-            </div>
-            <div class="prop-section">
-                <div class="prop-section-title">🎨 Styling</div>
-                <div class="prop-group">
-                    <label>Padding Dalam</label>
-                    <input type="range" class="prop-slider" min="0" max="40" value="${props.padding || '20'}" onchange="updateProp('${blockId}', 'padding', this.value)">
-                    <span class="prop-slider-value">${props.padding || '20'}px</span>
-                </div>
-                <div class="prop-group">
-                    <label>Warna Background</label>
-                    <div class="prop-color-picker">
-                        <input type="color" class="prop-color-input" value="${props.bgColor || '#ffffff'}" onchange="updateProp('${blockId}', 'bgColor', this.value)">
-                        <input type="text" class="prop-color-value" value="${props.bgColor || '#ffffff'}" onchange="updateProp('${blockId}', 'bgColor', this.value)">
-                    </div>
-                </div>
-                <div class="prop-checkbox-group">
-                    <input type="checkbox" class="prop-checkbox" ${props.showShadow ? 'checked' : ''} onchange="updateProp('${blockId}', 'showShadow', this.checked)">
-                    <label style="margin: 0; cursor: pointer;">Tampilkan Shadow</label>
-                </div>
-            </div>`;
+                if (typeof window.CardPropertiesEngine !== 'undefined') {
+                    html += window.CardPropertiesEngine.render(blockId, props);
+                } else {
+                    html += `<div class="card-prop-section" style="padding:16px;text-align:center;">
+                        <div style="font-size:32px;margin-bottom:8px;">⬜</div>
+                        <div style="font-weight:600;color:#1e293b;font-size:14px;margin-bottom:4px;">Card Widget</div>
+                        <div style="font-size:12px;color:#94a3b8;">
+                            <span class="card-loading-inline" style="display:inline-flex;align-items:center;gap:6px;">
+                                <span class="card-spinner" style="width:14px;height:14px;border:2px solid #e2e8f0;border-top-color:#6366f1;border-radius:50%;display:inline-block;animation:cardSpin 0.6s linear infinite;"></span>
+                                Loading Card Widget...
+                            </span>
+                        </div>
+                        <style>@keyframes cardSpin{to{transform:rotate(360deg)}}</style>
+                    </div>`;
+                }
                 break;
 
             case 'spacer':

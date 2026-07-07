@@ -196,43 +196,44 @@ class MasterChartController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $post = Yii::$app->request->post();
-        $pageId = $post['page_id'] ?? null;
+        try {
+            $post = Yii::$app->request->post();
+            $pageId = $post['page_id'] ?? null;
 
-        $model = new MasterPageChart();
-        $model->page_id = $pageId ? (int)$pageId : null;
-        $model->title = $post['title'] ?? 'Untitled Chart';
-        $model->chart_type = $post['chart_type'] ?? 'bar';
-        $model->table_id = $post['table_id'] ?? null;
-        $model->label_field = $post['label_field'] ?? '';
-        $model->value_field = $post['value_field'] ?? '';
-        $model->aggregation = $post['aggregation'] ?? 'count';
-        $model->group_by_field = $post['group_by_field'] ?? '';
-        $model->is_active = 1;
-        $model->position = 0;
-
-        if ($model->save()) {
-            if ($pageId) {
-                $this->refreshChartCache((int)$pageId);
+            if (!$pageId) {
+                return ['success' => false, 'errors' => ['page_id' => ['Halaman tidak ditemukan. Simpan halaman terlebih dahulu.']]];
             }
-            return [
-                'success' => true,
-                'chart' => [
-                    'id' => (int)$model->id,
-                    'page_id' => $model->page_id ? (int)$model->page_id : null,
-                    'title' => $model->title,
-                    'chart_type' => $model->chart_type,
-                    'table_id' => (int)$model->table_id,
-                ],
-            ];
+
+            $model = new MasterPageChart();
+            $model->page_id = (int)$pageId;
+            $model->title = $post['title'] ?? 'Untitled Chart';
+            $model->chart_type = $post['chart_type'] ?? 'bar';
+            $model->table_id = $post['table_id'] ?? null;
+            $model->label_field = $post['label_field'] ?? '';
+            $model->value_field = $post['value_field'] ?? '';
+            $model->aggregation = $post['aggregation'] ?? 'count';
+            $model->group_by_field = $post['group_by_field'] ?? '';
+            $model->is_active = 1;
+            $model->position = 0;
+
+            if ($model->save()) {
+                return [
+                    'success' => true,
+                    'chart' => [
+                        'id' => (int)$model->id,
+                        'page_id' => (int)$model->page_id,
+                        'title' => $model->title,
+                        'chart_type' => $model->chart_type,
+                        'table_id' => $model->table_id ? (int)$model->table_id : null,
+                    ],
+                ];
+            }
+
+            return ['success' => false, 'errors' => $model->getErrors()];
+        } catch (\Throwable $e) {
+            Yii::error('quick-create error: ' . $e->getMessage() . "\n" . $e->getTraceAsString(), __METHOD__);
+            return ['success' => false, 'message' => 'Gagal membuat chart: ' . $e->getMessage()];
         }
-
-        return ['success' => false, 'errors' => $model->getErrors()];
-    }
-
-    private function refreshChartCache($pageId): void
-    {
-        // Force refresh for any subsequent queries within same request
     }
 
     private function getTableList(): array

@@ -14,6 +14,15 @@ $pageId = (int)($pageId ?? 0);
 $menuId = (int)($menuId ?? 0);
 $permissionRegistry = new \app\components\ProjectPermissionRegistry();
 
+// Load icon CDN CSS for card widget icons
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/css/phosphor.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+$this->registerCssFile(\yii\helpers\Url::to('@web/css/card-widget.css'));
+
 // Prioritize persisted full-page custom source when available.
 $customHtml = trim((string) ($customHtml ?? ''));
 $customCss = trim((string) ($customCss ?? ''));
@@ -273,6 +282,10 @@ foreach ($state as $block) {
     .dynamic-page-container .bg-gray-600 { background-color: #4b5563; }
     .dynamic-page-container .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
     .dynamic-page-container .font-bold { font-weight: 700; }
+    .card-widget { position:relative; overflow:hidden; transition:all 0.3s ease; }
+    .card-widget .card-icon-wrapper { display:inline-flex; align-items:center; justify-content:center; }
+    .card-widget .card-value { font-variant-numeric:tabular-nums; }
+    .card-glass { backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); }
     .relation-picker-wrapper { width:100%; }
     .relation-picker-input-group,
     .relation-picker-row { display:flex; gap:8px; align-items:stretch; width:100%; }
@@ -604,6 +617,7 @@ $this->registerJs($dynamicFormRuntimeJs, \yii\web\View::POS_END);
 $js = "
 window.dynamicPageState = " . \yii\helpers\Json::htmlEncode($state) . ";
 window.dynamicDatatableHtml = " . \yii\helpers\Json::htmlEncode($datatableHtmlByBlock) . ";
+window.cardPreviewUrl = '" . \yii\helpers\Url::to(['/card/preview']) . "';
 
 function renderBlockSafe(block) {
     const props = (block && block.props) ? block.props : {};
@@ -902,24 +916,130 @@ function renderBlockSafe(block) {
         }
         case 'card': {
             const el = document.createElement('div');
-            el.className = 'mb-4 p-6 bg-white border rounded-xl shadow-sm';
-            el.style.backgroundColor = props.bgColor || '#ffffff';
-            el.style.padding = (props.padding || '20') + 'px';
-            
-            const h4 = document.createElement('h4');
-            h4.className = 'font-bold mb-2';
-            h4.style.color = '#1e293b';
-            h4.style.fontSize = '18px';
-            h4.textContent = props.title || '';
-            
-            const p = document.createElement('p');
-            p.style.color = '#64748b';
-            p.style.fontSize = '15px';
-            p.style.margin = '0';
-            p.textContent = props.content || '';
-            
-            el.appendChild(h4);
-            el.appendChild(p);
+            el.className = 'card-widget';
+            if (block && block.id) el.dataset.cardId = block.id;
+
+            const shadowMap = {
+                'none': 'none',
+                'sm': '0 1px 2px rgba(0,0,0,0.05)',
+                'md': '0 4px 6px -1px rgba(0,0,0,0.1)',
+                'lg': '0 10px 15px -3px rgba(0,0,0,0.1)',
+                'xl': '0 20px 25px -5px rgba(0,0,0,0.1)',
+                '2xl': '0 25px 50px -12px rgba(0,0,0,0.25)',
+                'inner': 'inset 0 2px 4px rgba(0,0,0,0.05)',
+            };
+
+            const padding = (props.padding || '24') + 'px';
+            const borderRadius = (props.borderRadius || '12') + 'px';
+            const shadow = shadowMap[props.shadow] || shadowMap['md'];
+            const align = props.alignment || 'left';
+            const width = props.width ? (props.width + '%') : '100%';
+            const textColor = props.textColor || '#1e293b';
+            const fontSize = (props.fontSize || '16') + 'px';
+            const fontWeight = props.fontWeight || '400';
+            const fontFamily = props.fontFamily || '';
+
+            // Background
+            let bg = props.bgColor || '#ffffff';
+            if (props.bgType === 'gradient' && props.bgGradient) {
+                bg = props.bgGradient;
+            } else if (props.bgType === 'image' && props.bgImage) {
+                bg = 'url(' + props.bgImage + ') center/cover no-repeat';
+            } else if (props.bgType === 'glass') {
+                bg = 'rgba(255,255,255,0.15)';
+                el.classList.add('card-glass');
+            } else if (props.bgType === 'transparent') {
+                bg = 'transparent';
+            }
+
+            const borderStyle = props.border && props.border !== 'none'
+                ? '1px ' + props.border + ' ' + (props.borderColor || '#e2e8f0')
+                : 'none';
+
+            el.style.cssText = [
+                'width:' + width,
+                'padding:' + padding,
+                'background:' + bg,
+                'border-radius:' + borderRadius,
+                'box-shadow:' + shadow,
+                'border:' + borderStyle,
+                'text-align:' + align,
+            ].join(';');
+
+            // Icon
+            if (props.showIcon !== false && props.icon) {
+                const iconWrapper = document.createElement('div');
+                iconWrapper.style.cssText = 'margin-bottom:12px;text-align:' + align + ';opacity:' + ((parseInt(props.iconOpacity) || 100) / 100);
+
+                const iconEl = document.createElement('span');
+                const iconLib = props.iconLibrary || 'material-symbols';
+                const iconSize = props.iconSize || '48';
+
+                let iconCssClass = 'material-symbols-outlined';
+                if (iconLib === 'tabler') iconCssClass = 'ti ti-' + props.icon;
+                else if (iconLib === 'heroicons') iconCssClass = 'hero-icon hero-' + props.icon;
+                else if (iconLib === 'lucide') iconCssClass = 'lucide lucide-' + props.icon;
+                else if (iconLib === 'phosphor') iconCssClass = 'ph ph-' + props.icon;
+                else if (iconLib === 'remix') iconCssClass = 'ri ri-' + props.icon;
+                else if (iconLib === 'font-awesome') iconCssClass = 'fa-solid fa-' + props.icon;
+                else if (iconLib === 'bootstrap-icons') iconCssClass = 'bi bi-' + props.icon;
+
+                iconEl.className = iconCssClass + ' card-icon-wrapper';
+                iconEl.textContent = props.icon;
+
+                if (iconLib === 'material-symbols') {
+                    iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
+                }
+                iconEl.style.cssText += ';font-size:' + iconSize + 'px;color:' + (props.iconColor || '#6366f1') + ';';
+
+                if (props.iconBackground) {
+                    let shapeCss = '';
+                    if (props.iconShape === 'circle') shapeCss = 'border-radius:50%;';
+                    else if (props.iconShape === 'rounded') shapeCss = 'border-radius:12px;';
+                    else if (props.iconShape === 'square') shapeCss = 'border-radius:4px;';
+                    iconEl.style.cssText += ';background:' + props.iconBackground + ';padding:12px;display:inline-flex;align-items:center;justify-content:center;' + shapeCss;
+                }
+                if (props.iconRotation) {
+                    iconEl.style.transform = 'rotate(' + props.iconRotation + 'deg)';
+                }
+
+                iconWrapper.appendChild(iconEl);
+                el.appendChild(iconWrapper);
+            }
+
+            // Title
+            if (props.showTitle !== false && props.title) {
+                const titleEl = document.createElement('div');
+                titleEl.style.cssText = 'font-size:' + fontSize + ';font-weight:700;color:' + textColor + ';line-height:' + (props.lineHeight || '1.5') + ';margin-bottom:' + (props.subtitle ? '4px' : '8px') + ';' + (fontFamily ? 'font-family:' + fontFamily + ';' : '');
+                titleEl.textContent = props.title;
+                el.appendChild(titleEl);
+            }
+
+            // Subtitle
+            if (props.showSubtitle !== false && props.subtitle) {
+                const subEl = document.createElement('div');
+                subEl.style.cssText = 'font-size:' + Math.max(parseInt(fontSize) - 2, 12) + 'px;color:' + textColor + 'cc;margin-bottom:8px;' + (fontFamily ? 'font-family:' + fontFamily + ';' : '');
+                subEl.textContent = props.subtitle;
+                el.appendChild(subEl);
+            }
+
+            // Description
+            if (props.showDescription !== false && props.description) {
+                const descEl = document.createElement('div');
+                descEl.style.cssText = 'font-size:' + Math.max(parseInt(fontSize) - 4, 12) + 'px;color:' + textColor + '99;margin-bottom:8px;' + (fontFamily ? 'font-family:' + fontFamily + ';' : '');
+                descEl.textContent = props.description;
+                el.appendChild(descEl);
+            }
+
+            // Value (from data source)
+            if (props.showValue !== false && props.datasource === 'database') {
+                const valEl = document.createElement('div');
+                valEl.className = 'card-value';
+                valEl.style.cssText = 'font-size:' + Math.max(parseInt(fontSize) + 8, 24) + 'px;font-weight:700;color:' + textColor + ';margin-top:8px;line-height:1.2;';
+                valEl.textContent = props.__liveValue || props._previewValue || '--';
+                el.appendChild(valEl);
+            }
+
             return el;
         }
         case 'spacer': {
@@ -1023,6 +1143,40 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(renderBlockSafe(block));
     }
     executeScripts(container);
+
+    // Load card data for all card blocks with database datasource
+    (function loadCardData() {
+        const cardBlocks = [];
+        (function collectCards(blocks) {
+            (blocks || []).forEach(function(b) {
+                if (b.type === 'card' && b.props && b.props.datasource === 'database') {
+                    cardBlocks.push(b);
+                }
+                if (b.children) collectCards(b.children);
+            });
+        })(window.dynamicPageState);
+        console.log('[CardWidget] Card blocks', cardBlocks.length, JSON.parse(JSON.stringify(cardBlocks)));
+
+        cardBlocks.forEach(function(block) {
+            var url = window.cardPreviewUrl || '/card/preview';
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ config: block.props })
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (result.success && result.data) {
+                    block.props.__liveValue = result.data.formatted || result.data.value;
+                    var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
+                    if (valueEl) {
+                        valueEl.textContent = block.props.__liveValue;
+                    }
+                }
+            })
+            .catch(function(err) { console.warn('[CardWidget] Data fetch error:', err); });
+        });
+    })();
 
     const showEmptyDestinationToast = function(message) {
         const existing = document.getElementById('empty-action-toast');
@@ -1151,7 +1305,7 @@ function renderPageChart(container, chartId, data, chartHeight) {
     chartEl.id = 'chart-' + (config.id || chartId);
     container.innerHTML = '';
     container.appendChild(chartEl);
-    try { new ApexCharts(chartEl, options).render(); } catch (e) { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart: ' + e.message + '</div>'; }
+    try { var ch = new ApexCharts(chartEl, options); ch.render().catch(function(){}); } catch (e) { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart: ' + e.message + '</div>'; }
 }
 
 function mapPageChartType(type) {

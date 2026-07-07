@@ -13,7 +13,7 @@ class MasterDatatable extends ActiveRecord
 {
     public static function getDb()
     {
-        return Yii::$app->get('metadataDb', false) ?: parent::getDb();
+        return Yii::$app->db;
     }
 
     public static function tableName(): string

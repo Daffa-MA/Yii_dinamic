@@ -25,6 +25,9 @@ class CardWidget {
     async init() {
         await this.loadConfig();
         this.setupCardPreview();
+        if (this.config) {
+            this.refreshAllCardPreviews();
+        }
     }
 
     async loadConfig() {

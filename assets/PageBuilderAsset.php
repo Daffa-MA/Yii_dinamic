@@ -25,10 +25,12 @@ class PageBuilderAsset extends AssetBundle
         'js/page-builder/form-builder.js',       // Form builder
         'js/page-builder/frontend-renderer.js',  // Frontend rendering
         'js/page-builder/builder.js',            // Main builder
+        'js/page-builder/card-widget.js',        // Card Widget (metadata-driven)
     ];
 
     public $css = [
         'css/page-builder.css',
+        'css/card-widget.css',
     ];
 
     public $depends = [

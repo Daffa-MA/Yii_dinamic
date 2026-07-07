@@ -287,6 +287,14 @@ $config = [
                 'dashboard' => 'site/dashboard',
                 'profile' => 'site/profile',
 
+                // Card Widget routes
+                'card/get-config' => 'card/get-config',
+                'card/get-tables' => 'card/get-tables',
+                'card/get-columns' => 'card/get-columns',
+                'card/preview' => 'card/preview',
+                'card/search-icons' => 'card/search-icons',
+                'card/get-registries' => 'card/get-registries',
+
                 // Master Page routes
                 'master-page' => 'master-page/index',
                 'master-page/create' => 'master-page/create',

@@ -38,6 +38,17 @@ $emptyStateDescription = $isWorkspaceAdmin
 
 $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => \yii\web\View::POS_END]);
 
+// Icon CDN CSS for card widget icons
+$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200', ['position' => \yii\web\View::POS_HEAD]);
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/css/phosphor.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+$this->registerCssFile(\yii\helpers\Url::to('@web/css/card-widget.css'));
+
+$cardPreviewUrl = \yii\helpers\Url::to(['/card/preview']);
+
 $layoutClasses = 'grid gap-5';
 if ($page->layout_type === MasterPage::LAYOUT_DASHBOARD) {
     $layoutClasses = 'grid gap-5 xl:grid-cols-2';
@@ -684,15 +695,107 @@ if ($hasCustomPageSource): ?>
                         break;
                         
                     case 'card':
-                        $title = $props['title'] ?? '';
-                        $content = $props['content'] ?? '';
-                        $bgColor = $props['bgColor'] ?? '#ffffff';
-                        $padding = $props['padding'] ?? '20';
-                        $showShadow = $props['showShadow'] ?? true;
-                        $shadow = $showShadow ? 'box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);' : '';
-                        echo "<div style='border-radius:12px;padding:{$padding}px;background:{$bgColor};border:1px solid #e2e8f0;{$shadow}margin:0.5rem 0;'>";
-                        if ($title) echo "<h4 style='margin:0 0 8px;font-weight:700;font-size:16px;color:#1e293b;'>{$title}</h4>";
-                        if ($content) echo "<p style='margin:0;color:#64748b;font-size:14px;'>{$content}</p>";
+                        $blockId = $item['id'] ?? '';
+                        $cardTitle = $props['title'] ?? '';
+                        $cardSubtitle = $props['subtitle'] ?? '';
+                        $cardDesc = $props['description'] ?? '';
+                        $cardBgColor = $props['bgColor'] ?? '#ffffff';
+                        $cardPadding = ($props['padding'] ?? '24') . 'px';
+                        $cardRadius = ($props['borderRadius'] ?? '12') . 'px';
+                        $cardWidth = ($props['width'] ?? '100') . '%';
+                        $cardAlign = $props['alignment'] ?? 'left';
+                        $cardTextColor = $props['textColor'] ?? '#1e293b';
+                        $cardFontSize = ($props['fontSize'] ?? '16') . 'px';
+                        $cardFontWeight = $props['fontWeight'] ?? '400';
+                        $cardFontFamily = $props['fontFamily'] ?? '';
+                        $cardShadowMap = ['none' => 'none', 'sm' => '0 1px 2px rgba(0,0,0,0.05)', 'md' => '0 4px 6px -1px rgba(0,0,0,0.1)', 'lg' => '0 10px 15px -3px rgba(0,0,0,0.1)', 'xl' => '0 20px 25px -5px rgba(0,0,0,0.1)', '2xl' => '0 25px 50px -12px rgba(0,0,0,0.25)', 'inner' => 'inset 0 2px 4px rgba(0,0,0,0.05)'];
+                        $cardShadow = $cardShadowMap[$props['shadow'] ?? 'md'] ?? $cardShadowMap['md'];
+                        $cardBorder = ($props['border'] ?? 'none') !== 'none' ? '1px ' . ($props['border'] ?? 'none') . ' ' . ($props['borderColor'] ?? '#e2e8f0') : 'none';
+
+                        // Background
+                        $cardBg = $cardBgColor;
+                        $cardGlass = false;
+                        if (($props['bgType'] ?? 'solid') === 'gradient' && !empty($props['bgGradient'])) {
+                            $cardBg = $props['bgGradient'];
+                        } elseif (($props['bgType'] ?? 'solid') === 'image' && !empty($props['bgImage'])) {
+                            $cardBg = 'url(' . $props['bgImage'] . ') center/cover no-repeat';
+                        } elseif (($props['bgType'] ?? 'solid') === 'glass') {
+                            $cardBg = 'rgba(255,255,255,0.15)';
+                            $cardGlass = true;
+                        } elseif (($props['bgType'] ?? 'solid') === 'transparent') {
+                            $cardBg = 'transparent';
+                        }
+
+                        $cardStyles = "width:{$cardWidth};padding:{$cardPadding};background:{$cardBg};border-radius:{$cardRadius};box-shadow:{$cardShadow};border:{$cardBorder};text-align:{$cardAlign};";
+                        if ($cardFontFamily) $cardStyles .= "font-family:{$cardFontFamily};";
+                        $cardCssClasses = 'card-widget' . ($cardGlass ? ' card-glass' : '');
+                        echo "<div class=\"{$cardCssClasses}\" style=\"{$cardStyles}\"" . ($blockId ? " data-card-id=\"" . htmlspecialchars($blockId) . "\"" : "") . ">";
+
+                        // Icon
+                        if (($props['showIcon'] ?? true) !== false && !empty($props['icon'])) {
+                            $iconLib = $props['iconLibrary'] ?? 'material-symbols';
+                            $iconName = $props['icon'];
+                            $iconSize = ($props['iconSize'] ?? '48') . 'px';
+                            $iconColor = $props['iconColor'] ?? '#6366f1';
+                            $iconOpacity = (intval($props['iconOpacity'] ?? 100) / 100);
+                            $iconBg = $props['iconBackground'] ?? '';
+                            $iconShape = $props['iconShape'] ?? 'none';
+                            $iconRotation = $props['iconRotation'] ?? '0';
+                            $iconWeight = $props['iconWeight'] ?? '400';
+                            $iconFill = !empty($props['iconFill']);
+
+                            $iconCssClass = 'material-symbols-outlined';
+                            if ($iconLib === 'tabler') $iconCssClass = 'ti ti-' . $iconName;
+                            elseif ($iconLib === 'heroicons') $iconCssClass = 'hero-icon hero-' . $iconName;
+                            elseif ($iconLib === 'lucide') $iconCssClass = 'lucide lucide-' . $iconName;
+                            elseif ($iconLib === 'phosphor') $iconCssClass = 'ph ph-' . $iconName;
+                            elseif ($iconLib === 'remix') $iconCssClass = 'ri ri-' . $iconName;
+                            elseif ($iconLib === 'font-awesome') $iconCssClass = 'fa-solid fa-' . $iconName;
+                            elseif ($iconLib === 'bootstrap-icons') $iconCssClass = 'bi bi-' . $iconName;
+
+                            $iconExtraStyle = "font-size:{$iconSize};color:{$iconColor};opacity:{$iconOpacity};";
+                            if ($iconLib === 'material-symbols') {
+                                $iconExtraStyle .= "font-variation-settings:'FILL' " . ($iconFill ? 1 : 0) . ", 'wght' " . $iconWeight . ", 'GRAD' 0;";
+                            }
+                            if ($iconBg) {
+                                $shapeCss = '';
+                                if ($iconShape === 'circle') $shapeCss = 'border-radius:50%;';
+                                elseif ($iconShape === 'rounded') $shapeCss = 'border-radius:12px;';
+                                elseif ($iconShape === 'square') $shapeCss = 'border-radius:4px;';
+                                $iconExtraStyle .= "background:{$iconBg};padding:12px;display:inline-flex;align-items:center;justify-content:center;{$shapeCss}";
+                            }
+                            $iconWrapStyle = "margin-bottom:12px;text-align:{$cardAlign};opacity:{$iconOpacity};";
+                            if ($iconRotation && $iconRotation !== '0') {
+                                $iconExtraStyle .= "transform:rotate({$iconRotation}deg);";
+                            }
+                            echo "<div style=\"{$iconWrapStyle}\"><span class=\"{$iconCssClass} card-icon-wrapper\" style=\"{$iconExtraStyle}\">" . htmlspecialchars($iconName) . "</span></div>";
+                        }
+
+                        // Title
+                        if (($props['showTitle'] ?? true) !== false && $cardTitle) {
+                            $titleStyle = "font-size:{$cardFontSize};font-weight:700;color:{$cardTextColor};line-height:" . ($props['lineHeight'] ?? '1.5') . ";margin-bottom:" . ($cardSubtitle ? '4px' : '8px') . ";";
+                            echo "<div style=\"{$titleStyle}\">" . htmlspecialchars($cardTitle) . "</div>";
+                        }
+
+                        // Subtitle
+                        if (($props['showSubtitle'] ?? true) !== false && $cardSubtitle) {
+                            $subStyle = "font-size:" . max(intval($cardFontSize) - 2, 12) . "px;color:{$cardTextColor}cc;margin-bottom:8px;";
+                            echo "<div style=\"{$subStyle}\">" . htmlspecialchars($cardSubtitle) . "</div>";
+                        }
+
+                        // Description
+                        if (($props['showDescription'] ?? true) !== false && $cardDesc) {
+                            $descStyle = "font-size:" . max(intval($cardFontSize) - 4, 12) . "px;color:{$cardTextColor}99;margin-bottom:8px;";
+                            echo "<div style=\"{$descStyle}\">" . htmlspecialchars($cardDesc) . "</div>";
+                        }
+
+                        // Value (from data source) - show placeholder initially, JS will update
+                        if (($props['showValue'] ?? true) !== false && ($props['datasource'] ?? '') === 'database') {
+                            $valStyle = "font-size:" . max(intval($cardFontSize) + 8, 24) . "px;font-weight:700;color:{$cardTextColor};margin-top:8px;line-height:1.2;";
+                            $previewVal = $props['_previewValue'] ?? '';
+                            echo "<div class=\"card-value\" style=\"{$valStyle}\">" . ($previewVal ? htmlspecialchars($previewVal) : '--') . "</div>";
+                        }
+
                         echo "</div>";
                         break;
                         
@@ -901,6 +1004,20 @@ JS);
 ?>
 
 <?php
+// Collect card configs for live data loading
+$cardConfigs = [];
+if ($hasBuilderContent && is_array($layoutData)) {
+    foreach ($layoutData as $item) {
+        if (is_array($item) && ($item['type'] ?? '') === 'card' && ($item['props']['datasource'] ?? '') === 'database') {
+            $cardConfigs[] = [
+                'id' => $item['id'] ?? '',
+                'props' => $item['props'] ?? [],
+            ];
+        }
+    }
+}
+$cardConfigsJson = \yii\helpers\Json::htmlEncode($cardConfigs);
+
 $chartRenderJs = <<<'CHARTJS'
 (function() {
     function ensureApexCharts(callback) {
@@ -982,7 +1099,7 @@ $chartRenderJs = <<<'CHARTJS'
         chartEl.id = 'chart-' + (config.id || chartId);
         container.innerHTML = '';
         container.appendChild(chartEl);
-        try { new ApexCharts(chartEl, options).render(); } catch (e) { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart</div>'; }
+        try { var ch = new ApexCharts(chartEl, options); ch.render().catch(function(){}); } catch (e) { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart</div>'; }
     }
 
     function mapPageChartType(type) {
@@ -1030,4 +1147,38 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 JS;
 $this->registerJs($iframeResizeScript, \yii\web\View::POS_END);
+
+// Card widget live data loading
+$cardDataJs = <<<CARDJS
+(function() {
+    var cardConfigs = {$cardConfigsJson};
+    var previewUrl = '{$cardPreviewUrl}';
+
+    if (!cardConfigs || !cardConfigs.length) return;
+
+    cardConfigs.forEach(function(config) {
+        if (!config.id || !config.props) return;
+
+        fetch(previewUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ config: config.props })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success && result.data) {
+                var value = result.data.formatted || result.data.value;
+                var valueEl = document.querySelector('.card-widget[data-card-id="' + config.id + '"] .card-value');
+                if (valueEl) {
+                    valueEl.textContent = value;
+                }
+            }
+        })
+        .catch(function(err) { console.warn('[CardWidget] Data fetch error:', err); });
+    });
+})();
+CARDJS;
+if (!empty($cardConfigs)) {
+    $this->registerJs($cardDataJs, \yii\web\View::POS_END);
+}
 ?>

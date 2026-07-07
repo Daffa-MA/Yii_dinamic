@@ -14,8 +14,7 @@ class MasterPageChart extends ActiveRecord
 
     public static function getDb()
     {
-        $metaDb = Yii::$app->get('metadataDb', false);
-        return $metaDb ?: Yii::$app->db;
+        return Yii::$app->db;
     }
 
     public function rules()

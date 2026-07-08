@@ -2562,6 +2562,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             datatableId: '',
             tableId: '',
             columns: [],
+            filters: [],
             actions: {
                 view: true,
                 edit: true,
@@ -2588,6 +2589,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             subtitle: '',
             description: '',
             content: 'Konten card',
+            columns: '1',
             showShadow: true,
             bgColor: '#ffffff',
             padding: '24',
@@ -2820,10 +2822,52 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             return;
         }
 
-        state.forEach(block => {
-            const el = createBlockElement(block);
-            canvas.appendChild(el);
-        });
+        // Group consecutive card blocks with same columns value
+        let i = 0;
+        while (i < state.length) {
+            const block = state[i];
+            const cardColumns = (block.type === 'card') ? parseInt(block.props?.columns || '1', 10) : 1;
+
+            if (block.type === 'card' && cardColumns > 1) {
+                // Find all consecutive cards with same columns value
+                let j = i;
+                while (j < state.length &&
+                    state[j].type === 'card' &&
+                    parseInt(state[j].props?.columns || '1', 10) === cardColumns) {
+                    j++;
+                }
+                const group = state.slice(i, j);
+                const cols = cardColumns;
+                const gap = '16px';
+                const wrap = document.createElement('div');
+                wrap.className = 'card-grid-row';
+                wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:' + gap + ';width:100%;box-sizing:border-box;';
+                group.forEach(function(card) {
+                    const el = createBlockElement(card);
+                    el.style.cssText = 'width:calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);flex:0 0 calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);max-width:calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);flex-grow:1;box-sizing:border-box;';
+                    // Uniform card styling inside grid
+                    el.style.textAlign = 'left';
+                    const cardContent = el.querySelector('.card-widget, [class*="card"]');
+                    if (cardContent) {
+                        cardContent.style.width = '100%';
+                        cardContent.style.textAlign = 'left';
+                    } else {
+                        const firstChild = el.querySelector('div');
+                        if (firstChild) {
+                            firstChild.style.width = '100%';
+                            firstChild.style.textAlign = 'left';
+                        }
+                    }
+                    wrap.appendChild(el);
+                });
+                canvas.appendChild(wrap);
+                i = j;
+            } else {
+                const el = createBlockElement(block);
+                canvas.appendChild(el);
+                i++;
+            }
+        }
 
         if (window.sortableInstance) {
             window.sortableInstance.destroy();
@@ -3117,11 +3161,22 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<button${buttonAttrs} style="${buttonStyles}">${label}</button>${uiHint}${urlWarning}</div>`;
                 }
                 return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
-            case 'card':
+            case 'card': {
+                const cardColumns = parseInt(props.columns || '1', 10);
+                const cardWidth = cardColumns > 1 ? (100 / cardColumns) + '%' : (props.width ? props.width + '%' : '100%');
                 if (typeof window.cardWidgetInstance !== 'undefined' && window.cardWidgetInstance.config) {
-                    return window.cardWidgetInstance.buildCardPreviewHtml(props);
+                    const cardHtml = window.cardWidgetInstance.buildCardPreviewHtml(props);
+                    if (cardColumns > 1) {
+                        return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardHtml}</div></div>`;
+                    }
+                    return cardHtml;
                 }
-                return `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
+                const cardInner = `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
+                if (cardColumns > 1) {
+                    return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardInner}</div></div>`;
+                }
+                return cardInner;
+            }
             case 'spacer':
                 return `<div style="height:${props.height || '32'}px;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#94a3b8">Spacer</span></div>`;
             case 'divider':
@@ -3702,6 +3757,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 <div class="prop-section-title">Kolom & Header</div>
                 ${renderDatatableColumnEditor(blockId, props)}
             </div>
+            <div class="prop-section">
+                <div class="prop-section-title">Filter Kolom</div>
+                ${renderDatatableFilterEditor(blockId, props)}
+            </div>
                 <div class="prop-section">
                     <div class="prop-section-title">Fitur & Action</div>
                     <div class="prop-checkbox-group">
@@ -3993,6 +4052,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const existingActions = normalizeDatatableActions(block.props.actions || {});
         block.props.tableId = tableId;
         block.props.datatableId = '';
+        block.props.filters = [];
         block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => normalizeDatatableColumnConfig({
             field: col.field,
             label: col.label || col.field,
@@ -4074,6 +4134,114 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         block.props.actions = normalizeDatatableActions(block.props.actions || {});
         block.props.actions.editFormId = value || '';
         block.props.actions.editMode = 'custom';
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function renderDatatableFilterEditor(blockId, props = {}) {
+        const table = getDatatableTable(props);
+        if (!table) {
+            return '<p style="font-size:12px;color:#64748b;margin:0;">Pilih source table untuk mengatur filter kolom.</p>';
+        }
+        const columns = (table.columns || []).filter(col => !col.primary);
+        const activeFilters = Array.isArray(props.filters) ? props.filters : [];
+        const activeSet = new Set(activeFilters.map(f => f.field));
+
+        return columns.map(col => {
+            const isActive = activeSet.has(col.field);
+            const activeFilter = activeFilters.find(f => f.field === col.field);
+            const label = (activeFilter && activeFilter.label) || col.label || col.field;
+            const isFK = col.isForeignKey || col.is_foreign_key;
+            const displayMode = activeFilter ? (activeFilter.display_mode || activeFilter.fkDisplayMode || 'raw_id') : 'raw_id';
+            const relatedDisplayColumn = activeFilter ? (activeFilter.related_display_column || activeFilter.relatedDisplayColumn || '') : '';
+            const relatedColumns = Array.isArray(col.relatedColumns) ? col.relatedColumns : [];
+            return `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 8px;border:1px solid ${isActive ? '#93c5fd' : '#e2e8f0'};border-radius:8px;background:${isActive ? '#eff6ff' : '#fff'};">
+                    <input type="checkbox" ${isActive ? 'checked' : ''} onchange="updateDatatableFilter('${blockId}', '${escapeAttr(col.field)}', this.checked)" style="accent-color:#3b82f6;">
+                    <span style="flex:1;font-size:12px;font-weight:${isActive ? '700' : '400'};color:#334155;">${escapeAttr(col.label || col.field)}</span>
+                    ${isActive ? `<input type="text" class="prop-input" style="flex:0.8;font-size:11px;padding:4px 6px;" value="${escapeAttr(label)}" onchange="updateDatatableFilterLabel('${blockId}', '${escapeAttr(col.field)}', this.value)" placeholder="Label filter">` : ''}
+                    <span style="font-size:11px;color:#64748b;white-space:nowrap;">${escapeAttr(col.type || '')}</span>
+                </div>
+                ${isActive && isFK ? `
+                <div style="margin:-4px 0 8px 28px;padding:6px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <span style="font-size:11px;color:#64748b;white-space:nowrap;">Display:</span>
+                        <select class="prop-select" style="flex:1;font-size:11px;padding:4px 6px;" onchange="updateDatatableFilterDisplay('${blockId}', '${escapeAttr(col.field)}', this.value)">
+                            <option value="raw_id" ${displayMode === 'raw_id' ? 'selected' : ''}>Raw ID</option>
+                            <option value="related_column" ${displayMode === 'related_column' ? 'selected' : ''}>Related Column</option>
+                        </select>
+                    </div>
+                    ${displayMode === 'related_column' && relatedColumns.length > 0 ? `
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:11px;color:#64748b;white-space:nowrap;">Kolom:</span>
+                        <select class="prop-select" style="flex:1;font-size:11px;padding:4px 6px;" onchange="updateDatatableFilterRelatedColumn('${blockId}', '${escapeAttr(col.field)}', this.value)">
+                            <option value="">-- Pilih --</option>
+                            ${relatedColumns.map(rc => `<option value="${escapeAttr(String(rc.field || ''))}" ${relatedDisplayColumn === String(rc.field || '') ? 'selected' : ''}>${escapeAttr(rc.label || rc.field)}</option>`).join('')}
+                        </select>
+                    </div>` : ''}
+                </div>` : ''}
+            `;
+        }).join('');
+    }
+
+    function updateDatatableFilter(blockId, field, enabled) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const table = getDatatableTable(block.props);
+        const col = table ? (table.columns || []).find(c => String(c.field) === String(field)) : null;
+        if (enabled && col) {
+            if (!block.props.filters.find(f => f.field === field)) {
+                block.props.filters.push({ field: field, label: col.label || col.field });
+            }
+        } else {
+            block.props.filters = block.props.filters.filter(f => f.field !== field);
+        }
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableFilterLabel(blockId, field, label) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const existing = block.props.filters.find(f => f.field === field);
+        if (existing) existing.label = label;
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableFilterDisplay(blockId, field, displayMode) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const existing = block.props.filters.find(f => f.field === field);
+        if (existing) {
+            existing.display_mode = displayMode;
+            existing.fkDisplayMode = displayMode;
+            if (displayMode !== 'related_column') {
+                existing.related_display_column = '';
+                delete existing.relatedDisplayColumn;
+            }
+        }
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableFilterRelatedColumn(blockId, field, relatedColumn) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const existing = block.props.filters.find(f => f.field === field);
+        if (existing) {
+            existing.related_display_column = relatedColumn;
+            existing.display_mode = 'related_column';
+            existing.fkDisplayMode = 'related_column';
+        }
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }

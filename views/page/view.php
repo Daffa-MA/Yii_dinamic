@@ -623,11 +623,37 @@ if ($hasCustomPageSource): ?>
     <?php if (!$hasCustomPageSource && $hasBuilderContent): ?>
         <div class="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
             <h2 class="mb-4 text-lg font-bold text-slate-900">Konten Halaman</h2>
-            <?php foreach ($layoutData as $item): ?>
-                <?php
+            <?php
+            $cardGroupStart = null;
+            $cardGroupColumns = 0;
+            foreach ($layoutData as $idx => $item):
                 $type = $item['type'] ?? '';
                 $props = $item['props'] ?? [];
-                
+                $cardCols = $type === 'card' ? intval($props['columns'] ?? '1') : 1;
+                if ($type === 'card' && $cardCols > 1 && $cardGroupColumns === $cardCols && $cardGroupStart !== null) {
+                    // continue group
+                } elseif ($type === 'card' && $cardCols > 1) {
+                    // start new group
+                    if ($cardGroupStart !== null) {
+                        echo '</div>';
+                    }
+                    $cardGroupStart = $idx;
+                    $cardGroupColumns = $cardCols;
+                    echo '<div style="display:flex;flex-wrap:wrap;gap:16px;width:100%;box-sizing:border-box;">';
+                } else {
+                    // end any open group
+                    if ($cardGroupStart !== null) {
+                        echo '</div>';
+                        $cardGroupStart = null;
+                        $cardGroupColumns = 0;
+                    }
+                }
+                if ($type === 'card' && $cardCols > 1 && $cardGroupStart !== null):
+                    $cardWidthPct = 100 / $cardCols;
+                    $cardGap = 16;
+                    $cardWidth = 'calc(' . number_format($cardWidthPct, 4) . '% - ' . (($cardCols - 1) * $cardGap / $cardCols) . 'px)';
+                    echo '<div style="width:' . $cardWidth . ';flex:0 0 ' . $cardWidth . ';max-width:' . $cardWidth . ';flex-grow:1;box-sizing:border-box;">';
+                endif;
                 // Render based on type - matching dynamic builder
                 switch ($type) {
                     case 'heading':
@@ -702,7 +728,8 @@ if ($hasCustomPageSource): ?>
                         $cardBgColor = $props['bgColor'] ?? '#ffffff';
                         $cardPadding = ($props['padding'] ?? '24') . 'px';
                         $cardRadius = ($props['borderRadius'] ?? '12') . 'px';
-                        $cardWidth = ($props['width'] ?? '100') . '%';
+                        $cardColumns = intval($props['columns'] ?? '1');
+                        $cardWidth = ($cardColumns > 1 && $cardGroupStart !== null ? '100%' : ($cardColumns > 1 ? (100 / $cardColumns) . '%' : ($props['width'] ?? '100') . '%'));
                         $cardAlign = $props['alignment'] ?? 'left';
                         $cardTextColor = $props['textColor'] ?? '#1e293b';
                         $cardFontSize = ($props['fontSize'] ?? '16') . 'px';
@@ -726,7 +753,7 @@ if ($hasCustomPageSource): ?>
                             $cardBg = 'transparent';
                         }
 
-                        $cardStyles = "width:{$cardWidth};padding:{$cardPadding};background:{$cardBg};border-radius:{$cardRadius};box-shadow:{$cardShadow};border:{$cardBorder};text-align:{$cardAlign};";
+                        $cardStyles = "width:{$cardWidth};padding:{$cardPadding};background:{$cardBg};border-radius:{$cardRadius};box-shadow:{$cardShadow};border:{$cardBorder};text-align:" . ($cardColumns > 1 && $cardGroupStart !== null ? 'left' : $cardAlign) . ";";
                         if ($cardFontFamily) $cardStyles .= "font-family:{$cardFontFamily};";
                         $cardCssClasses = 'card-widget' . ($cardGlass ? ' card-glass' : '');
                         echo "<div class=\"{$cardCssClasses}\" style=\"{$cardStyles}\"" . ($blockId ? " data-card-id=\"" . htmlspecialchars($blockId) . "\"" : "") . ">";
@@ -797,6 +824,9 @@ if ($hasCustomPageSource): ?>
                         }
 
                         echo "</div>";
+                        if ($type === 'card' && $cardCols > 1 && $cardGroupStart !== null) {
+                            echo '</div>';
+                        }
                         break;
                         
                     case 'form':
@@ -861,8 +891,14 @@ if ($hasCustomPageSource): ?>
                     default:
                         echo "<!-- Unknown type: {$type} -->";
                 }
+                if ($cardGroupStart !== null && !($type === 'card' && intval($props['columns'] ?? '1') > 1)) {
+                    echo '</div>';
+                    $cardGroupStart = null;
+                    $cardGroupColumns = 0;
+                }
                 ?>
             <?php endforeach; ?>
+            <?php if ($cardGroupStart !== null): echo '</div>'; endif; ?>
         </div>
     <?php endif; ?>
 

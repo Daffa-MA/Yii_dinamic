@@ -222,7 +222,7 @@ class MasterDatatableRenderService
             if ($value !== '') {
                 $query->andWhere([$field => $value]);
             }
-            $filters[$index]['options'] = $this->buildFilterOptions($table, $field);
+            $filters[$index]['options'] = $this->buildFilterOptions($table, $field, $filter);
         }
 
         $total = (int)(clone $query)->count('*', Yii::$app->db);
@@ -312,6 +312,8 @@ class MasterDatatableRenderService
                 'param' => '',
                 'value' => '',
                 'options' => [],
+                'display_mode' => trim((string)($item['display_mode'] ?? $item['fkDisplayMode'] ?? '')),
+                'related_display_column' => trim((string)($item['related_display_column'] ?? $item['relatedDisplayColumn'] ?? '')),
             ];
         }
 
@@ -362,7 +364,7 @@ class MasterDatatableRenderService
         ];
     }
 
-    private function buildFilterOptions(DbTable $table, string $field): array
+    private function buildFilterOptions(DbTable $table, string $field, array $filterConfig = []): array
     {
         try {
             $rows = (new Query())
@@ -378,7 +380,7 @@ class MasterDatatableRenderService
         }
 
         $options = [];
-        $displayLookup = $this->buildFilterDisplayLookup($table, $field, $rows);
+        $displayLookup = $this->buildFilterDisplayLookup($table, $field, $rows, $filterConfig);
         foreach ($rows as $value) {
             if ($value === null || $value === '') {
                 continue;
@@ -392,7 +394,7 @@ class MasterDatatableRenderService
         return $options;
     }
 
-    private function buildFilterDisplayLookup(DbTable $table, string $field, array $values): array
+    private function buildFilterDisplayLookup(DbTable $table, string $field, array $values, array $filterConfig = []): array
     {
         $metadataColumn = DbTableColumn::find()
             ->where(['table_id' => (int)$table->id, 'name' => $field])
@@ -414,7 +416,15 @@ class MasterDatatableRenderService
         if ($referencedColumn === '' || !isset($schema->columns[$referencedColumn])) {
             $referencedColumn = !empty($schema->primaryKey) ? (string)$schema->primaryKey[0] : (string)array_key_first($schema->columns);
         }
-        $displayColumn = $this->guessForeignKeyLabelColumn($schema, $referencedColumn);
+
+        $displayColumn = '';
+        $displayMode = trim((string)($filterConfig['display_mode'] ?? $filterConfig['fkDisplayMode'] ?? ''));
+        if ($displayMode === 'related_column') {
+            $displayColumn = trim((string)($filterConfig['related_display_column'] ?? $filterConfig['relatedDisplayColumn'] ?? ''));
+        }
+        if ($displayColumn === '' || !isset($schema->columns[$displayColumn])) {
+            $displayColumn = $this->guessForeignKeyLabelColumn($schema, $referencedColumn);
+        }
 
         try {
             $rows = (new Query())

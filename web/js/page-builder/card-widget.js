@@ -1441,6 +1441,15 @@ class CardPropertiesEngine {
 
         return `
             <div class="prop-group">
+                <label class="prop-label">Kolom per Baris</label>
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'columns', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">
+                    <option value="1" ${(props.columns || '1') === '1' ? 'selected' : ''}>1 Kolom (Full)</option>
+                    <option value="2" ${props.columns === '2' ? 'selected' : ''}>2 Kolom</option>
+                    <option value="3" ${props.columns === '3' ? 'selected' : ''}>3 Kolom</option>
+                    <option value="4" ${props.columns === '4' ? 'selected' : ''}>4 Kolom</option>
+                </select>
+            </div>
+            <div class="prop-group">
                 <label class="prop-label">Width: ${props.width || '100'}%</label>
                 <input type="range" class="prop-slider" min="25" max="100" step="5" value="${props.width || '100'}" onchange="CardPropertiesEngine.update('${blockId}', 'width', this.value);this.previousElementSibling.textContent='Width: '+this.value+'%';CardPropertiesEngine.refreshPreview('${blockId}')">
             </div>

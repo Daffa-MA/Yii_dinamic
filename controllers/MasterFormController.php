@@ -1236,11 +1236,8 @@ class MasterFormController extends Controller
                     return $this->redirect(['view', 'id' => $model->id]);
                 }
             } catch (IntegrityException $e) {
-                if (stripos($e->getMessage(), 'form_name') !== false || stripos($e->getMessage(), 'slug') !== false || stripos($e->getMessage(), 'duplicate') !== false) {
-                    $model->addError('form_name', 'Nama form sudah dipakai. Gunakan nama form lain.');
-                } else {
-                    throw $e;
-                }
+                Yii::error('Integrity constraint violation on create: ' . $e->getMessage(), 'master-form');
+                $model->addError('form_name', 'Terjadi kesalahan integrasi data. Silakan coba lagi atau hubungi administrator.');
             }
         }
 
@@ -1294,11 +1291,8 @@ class MasterFormController extends Controller
                     return $this->redirect(['view', 'id' => $model->id]);
                 }
             } catch (IntegrityException $e) {
-                if (stripos($e->getMessage(), 'form_name') !== false || stripos($e->getMessage(), 'slug') !== false || stripos($e->getMessage(), 'duplicate') !== false) {
-                    $model->addError('form_name', 'Nama form sudah dipakai. Gunakan nama form lain.');
-                } else {
-                    throw $e;
-                }
+                Yii::error('Integrity constraint violation on update: ' . $e->getMessage(), 'master-form');
+                $model->addError('form_name', 'Terjadi kesalahan integrasi data. Silakan coba lagi atau hubungi administrator.');
             }
         }
 

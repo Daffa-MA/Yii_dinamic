@@ -317,20 +317,6 @@ if ($isRootDomain) {
     </div>
     
     <div class="app-topnav-right">
-        <div class="app-topnav-search">
-            <span class="material-symbols-outlined">search</span>
-            <input type="text" placeholder="Search..." />
-        </div>
-        
-        <a href="#" class="app-topnav-btn" title="Notifications">
-            <span class="material-symbols-outlined">notifications</span>
-            <span class="badge">3</span>
-        </a>
-        
-        <a href="#" class="app-topnav-btn" title="Help">
-            <span class="material-symbols-outlined">help</span>
-        </a>
-        
         <div class="app-topnav-divider"></div>
         
         <a href="<?= \yii\helpers\Url::to(['settings/workspace']) ?>" class="app-topnav-btn" title="Workspace Settings">

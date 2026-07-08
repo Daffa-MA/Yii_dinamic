@@ -17,7 +17,16 @@ class FormActivityLogService
 
         $log = new MasterFormActivityLog();
         $log->form_id = (int)$form->id;
-        $log->project_id = $form->hasAttribute('project_id') ? (int)$form->project_id : null;
+        $projectId = $form->hasAttribute('project_id') ? (int)$form->project_id : null;
+        if ($projectId !== null) {
+            $projectExists = (new \yii\db\Query())
+                ->from('projects')
+                ->where(['id' => $projectId])
+                ->exists();
+            $log->project_id = $projectExists ? $projectId : null;
+        } else {
+            $log->project_id = null;
+        }
         $log->database_context = $form->database_context;
         $log->event_type = $eventType;
         $log->status = $status;

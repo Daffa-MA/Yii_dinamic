@@ -104,7 +104,7 @@ class MasterForm extends ActiveRecord
         ];
     }
 
-    public function validateUniqueFormName($attribute, $params): void
+public function validateUniqueFormName($attribute, $params): void
     {
         $formName = trim((string)$this->$attribute);
         if ($formName === '') {
@@ -116,7 +116,7 @@ class MasterForm extends ActiveRecord
             $candidateSlug = strtolower(preg_replace('/[^\w\s-]/', '', preg_replace('/[\s_-]+/', '-', $formName)));
         }
 
-        $query = self::findScoped();
+        $query = self::find();
         if ((int)$this->id > 0) {
             $query->andWhere(['!=', 'id', (int)$this->id]);
         }

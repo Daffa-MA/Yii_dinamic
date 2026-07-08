@@ -2589,6 +2589,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             subtitle: '',
             description: '',
             content: 'Konten card',
+            columns: '1',
             showShadow: true,
             bgColor: '#ffffff',
             padding: '24',
@@ -2821,10 +2822,52 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             return;
         }
 
-        state.forEach(block => {
-            const el = createBlockElement(block);
-            canvas.appendChild(el);
-        });
+        // Group consecutive card blocks with same columns value
+        let i = 0;
+        while (i < state.length) {
+            const block = state[i];
+            const cardColumns = (block.type === 'card') ? parseInt(block.props?.columns || '1', 10) : 1;
+
+            if (block.type === 'card' && cardColumns > 1) {
+                // Find all consecutive cards with same columns value
+                let j = i;
+                while (j < state.length &&
+                    state[j].type === 'card' &&
+                    parseInt(state[j].props?.columns || '1', 10) === cardColumns) {
+                    j++;
+                }
+                const group = state.slice(i, j);
+                const cols = cardColumns;
+                const gap = '16px';
+                const wrap = document.createElement('div');
+                wrap.className = 'card-grid-row';
+                wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:' + gap + ';width:100%;box-sizing:border-box;';
+                group.forEach(function(card) {
+                    const el = createBlockElement(card);
+                    el.style.cssText = 'width:calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);flex:0 0 calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);max-width:calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);flex-grow:1;box-sizing:border-box;';
+                    // Uniform card styling inside grid
+                    el.style.textAlign = 'left';
+                    const cardContent = el.querySelector('.card-widget, [class*="card"]');
+                    if (cardContent) {
+                        cardContent.style.width = '100%';
+                        cardContent.style.textAlign = 'left';
+                    } else {
+                        const firstChild = el.querySelector('div');
+                        if (firstChild) {
+                            firstChild.style.width = '100%';
+                            firstChild.style.textAlign = 'left';
+                        }
+                    }
+                    wrap.appendChild(el);
+                });
+                canvas.appendChild(wrap);
+                i = j;
+            } else {
+                const el = createBlockElement(block);
+                canvas.appendChild(el);
+                i++;
+            }
+        }
 
         if (window.sortableInstance) {
             window.sortableInstance.destroy();
@@ -3118,11 +3161,22 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<button${buttonAttrs} style="${buttonStyles}">${label}</button>${uiHint}${urlWarning}</div>`;
                 }
                 return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
-            case 'card':
+            case 'card': {
+                const cardColumns = parseInt(props.columns || '1', 10);
+                const cardWidth = cardColumns > 1 ? (100 / cardColumns) + '%' : (props.width ? props.width + '%' : '100%');
                 if (typeof window.cardWidgetInstance !== 'undefined' && window.cardWidgetInstance.config) {
-                    return window.cardWidgetInstance.buildCardPreviewHtml(props);
+                    const cardHtml = window.cardWidgetInstance.buildCardPreviewHtml(props);
+                    if (cardColumns > 1) {
+                        return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardHtml}</div></div>`;
+                    }
+                    return cardHtml;
                 }
-                return `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
+                const cardInner = `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
+                if (cardColumns > 1) {
+                    return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardInner}</div></div>`;
+                }
+                return cardInner;
+            }
             case 'spacer':
                 return `<div style="height:${props.height || '32'}px;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#94a3b8">Spacer</span></div>`;
             case 'divider':

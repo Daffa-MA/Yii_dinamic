@@ -919,6 +919,8 @@ function renderBlockSafe(block) {
             el.className = 'card-widget';
             if (block && block.id) el.dataset.cardId = block.id;
 
+            const cardColumns = parseInt(props.columns || '1', 10);
+
             const shadowMap = {
                 'none': 'none',
                 'sm': '0 1px 2px rgba(0,0,0,0.05)',
@@ -933,7 +935,7 @@ function renderBlockSafe(block) {
             const borderRadius = (props.borderRadius || '12') + 'px';
             const shadow = shadowMap[props.shadow] || shadowMap['md'];
             const align = props.alignment || 'left';
-            const width = props.width ? (props.width + '%') : '100%';
+            const width = cardColumns > 1 ? '100%' : (props.width ? (props.width + '%') : '100%');
             const textColor = props.textColor || '#1e293b';
             const fontSize = (props.fontSize || '16') + 'px';
             const fontWeight = props.fontWeight || '400';
@@ -1139,8 +1141,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     container.innerHTML = '';
-    for (const block of window.dynamicPageState) {
-        container.appendChild(renderBlockSafe(block));
+    for (let i = 0; i < window.dynamicPageState.length; i++) {
+        const block = window.dynamicPageState[i];
+        const cardColumns = (block.type === 'card') ? parseInt(block.props?.columns || '1', 10) : 1;
+        if (block.type === 'card' && cardColumns > 1) {
+            let j = i;
+            while (j < window.dynamicPageState.length &&
+                window.dynamicPageState[j].type === 'card' &&
+                parseInt(window.dynamicPageState[j].props?.columns || '1', 10) === cardColumns) {
+                j++;
+            }
+            const wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:16px;width:100%;box-sizing:border-box;';
+            for (let k = i; k < j; k++) {
+                const cardEl = renderBlockSafe(window.dynamicPageState[k]);
+                cardEl.style.cssText = 'width:calc(' + (100 / cardColumns) + '% - ' + ((cardColumns - 1) * 16 / cardColumns) + 'px);flex:0 0 calc(' + (100 / cardColumns) + '% - ' + ((cardColumns - 1) * 16 / cardColumns) + 'px);max-width:calc(' + (100 / cardColumns) + '% - ' + ((cardColumns - 1) * 16 / cardColumns) + 'px);flex-grow:1;box-sizing:border-box;';
+                cardEl.style.textAlign = 'left';
+                const cardInner = cardEl.querySelector('.card-widget, [class*="card"]');
+                if (cardInner) {
+                    cardInner.style.width = '100%';
+                    cardInner.style.textAlign = 'left';
+                }
+                wrap.appendChild(cardEl);
+            }
+            container.appendChild(wrap);
+            i = j - 1;
+        } else {
+            container.appendChild(renderBlockSafe(block));
+        }
     }
     executeScripts(container);
 

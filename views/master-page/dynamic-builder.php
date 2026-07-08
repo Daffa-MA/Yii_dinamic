@@ -2562,6 +2562,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             datatableId: '',
             tableId: '',
             columns: [],
+            filters: [],
             actions: {
                 view: true,
                 edit: true,
@@ -3702,6 +3703,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 <div class="prop-section-title">Kolom & Header</div>
                 ${renderDatatableColumnEditor(blockId, props)}
             </div>
+            <div class="prop-section">
+                <div class="prop-section-title">Filter Kolom</div>
+                ${renderDatatableFilterEditor(blockId, props)}
+            </div>
                 <div class="prop-section">
                     <div class="prop-section-title">Fitur & Action</div>
                     <div class="prop-checkbox-group">
@@ -3993,6 +3998,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const existingActions = normalizeDatatableActions(block.props.actions || {});
         block.props.tableId = tableId;
         block.props.datatableId = '';
+        block.props.filters = [];
         block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => normalizeDatatableColumnConfig({
             field: col.field,
             label: col.label || col.field,
@@ -4074,6 +4080,114 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         block.props.actions = normalizeDatatableActions(block.props.actions || {});
         block.props.actions.editFormId = value || '';
         block.props.actions.editMode = 'custom';
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function renderDatatableFilterEditor(blockId, props = {}) {
+        const table = getDatatableTable(props);
+        if (!table) {
+            return '<p style="font-size:12px;color:#64748b;margin:0;">Pilih source table untuk mengatur filter kolom.</p>';
+        }
+        const columns = (table.columns || []).filter(col => !col.primary);
+        const activeFilters = Array.isArray(props.filters) ? props.filters : [];
+        const activeSet = new Set(activeFilters.map(f => f.field));
+
+        return columns.map(col => {
+            const isActive = activeSet.has(col.field);
+            const activeFilter = activeFilters.find(f => f.field === col.field);
+            const label = (activeFilter && activeFilter.label) || col.label || col.field;
+            const isFK = col.isForeignKey || col.is_foreign_key;
+            const displayMode = activeFilter ? (activeFilter.display_mode || activeFilter.fkDisplayMode || 'raw_id') : 'raw_id';
+            const relatedDisplayColumn = activeFilter ? (activeFilter.related_display_column || activeFilter.relatedDisplayColumn || '') : '';
+            const relatedColumns = Array.isArray(col.relatedColumns) ? col.relatedColumns : [];
+            return `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:6px 8px;border:1px solid ${isActive ? '#93c5fd' : '#e2e8f0'};border-radius:8px;background:${isActive ? '#eff6ff' : '#fff'};">
+                    <input type="checkbox" ${isActive ? 'checked' : ''} onchange="updateDatatableFilter('${blockId}', '${escapeAttr(col.field)}', this.checked)" style="accent-color:#3b82f6;">
+                    <span style="flex:1;font-size:12px;font-weight:${isActive ? '700' : '400'};color:#334155;">${escapeAttr(col.label || col.field)}</span>
+                    ${isActive ? `<input type="text" class="prop-input" style="flex:0.8;font-size:11px;padding:4px 6px;" value="${escapeAttr(label)}" onchange="updateDatatableFilterLabel('${blockId}', '${escapeAttr(col.field)}', this.value)" placeholder="Label filter">` : ''}
+                    <span style="font-size:11px;color:#64748b;white-space:nowrap;">${escapeAttr(col.type || '')}</span>
+                </div>
+                ${isActive && isFK ? `
+                <div style="margin:-4px 0 8px 28px;padding:6px 10px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <span style="font-size:11px;color:#64748b;white-space:nowrap;">Display:</span>
+                        <select class="prop-select" style="flex:1;font-size:11px;padding:4px 6px;" onchange="updateDatatableFilterDisplay('${blockId}', '${escapeAttr(col.field)}', this.value)">
+                            <option value="raw_id" ${displayMode === 'raw_id' ? 'selected' : ''}>Raw ID</option>
+                            <option value="related_column" ${displayMode === 'related_column' ? 'selected' : ''}>Related Column</option>
+                        </select>
+                    </div>
+                    ${displayMode === 'related_column' && relatedColumns.length > 0 ? `
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span style="font-size:11px;color:#64748b;white-space:nowrap;">Kolom:</span>
+                        <select class="prop-select" style="flex:1;font-size:11px;padding:4px 6px;" onchange="updateDatatableFilterRelatedColumn('${blockId}', '${escapeAttr(col.field)}', this.value)">
+                            <option value="">-- Pilih --</option>
+                            ${relatedColumns.map(rc => `<option value="${escapeAttr(String(rc.field || ''))}" ${relatedDisplayColumn === String(rc.field || '') ? 'selected' : ''}>${escapeAttr(rc.label || rc.field)}</option>`).join('')}
+                        </select>
+                    </div>` : ''}
+                </div>` : ''}
+            `;
+        }).join('');
+    }
+
+    function updateDatatableFilter(blockId, field, enabled) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const table = getDatatableTable(block.props);
+        const col = table ? (table.columns || []).find(c => String(c.field) === String(field)) : null;
+        if (enabled && col) {
+            if (!block.props.filters.find(f => f.field === field)) {
+                block.props.filters.push({ field: field, label: col.label || col.field });
+            }
+        } else {
+            block.props.filters = block.props.filters.filter(f => f.field !== field);
+        }
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableFilterLabel(blockId, field, label) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const existing = block.props.filters.find(f => f.field === field);
+        if (existing) existing.label = label;
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableFilterDisplay(blockId, field, displayMode) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const existing = block.props.filters.find(f => f.field === field);
+        if (existing) {
+            existing.display_mode = displayMode;
+            existing.fkDisplayMode = displayMode;
+            if (displayMode !== 'related_column') {
+                existing.related_display_column = '';
+                delete existing.relatedDisplayColumn;
+            }
+        }
+        renderBuilder(window.pageState);
+        renderProperties(blockId);
+    }
+
+    function updateDatatableFilterRelatedColumn(blockId, field, relatedColumn) {
+        const block = window.pageState.find(b => b.id === blockId);
+        if (!block) return;
+        block.props = block.props || {};
+        block.props.filters = Array.isArray(block.props.filters) ? block.props.filters : [];
+        const existing = block.props.filters.find(f => f.field === field);
+        if (existing) {
+            existing.related_display_column = relatedColumn;
+            existing.display_mode = 'related_column';
+            existing.fkDisplayMode = 'related_column';
+        }
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }

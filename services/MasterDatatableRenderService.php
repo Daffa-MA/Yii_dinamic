@@ -1005,8 +1005,8 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-subtitle { color:#64748b; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-badge { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-badge { background:#eff6ff; color:#1d4ed8; font-weight:800; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-close { border:1px solid #dbe3ef; border-radius:12px; background:#fff; color:#334155; padding:8px 12px; font-weight:700; cursor:pointer; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border-color:#cbd5e1; background:#fff; color:#0f172a; border-radius:12px; width:auto; height:auto; padding:8px 12px; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(15,23,42,.05); }
+                #<?= Html::encode($uid) ?> .dt-row-modal-close,
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-close { border:1px solid #94a3b8; border-radius:12px; background:#cbd5e1; color:#1e293b; padding:8px 12px; font-weight:700; cursor:pointer; width:auto; height:auto; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(15,23,42,.05); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body { padding:22px; overflow:auto; background:linear-gradient(180deg,#fbfdff 0%,#fff 18%); }
                 #<?= Html::encode($uid) ?> .dt-row-modal-body.view-mode { padding:18px 22px 22px; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-row-modal-body,
@@ -1078,7 +1078,7 @@ class MasterDatatableRenderService
                 #<?= Html::encode($uid) ?> .dt-row-modal-footer .dt-btn { min-width:120px; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary { border:0.5px solid rgba(0,0,0,0.15); background:#111; color:#fff; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-btn-primary:hover { opacity:.85; }
-                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn { border-color:#5a554e; background:transparent; color:#e5dfd2; font-weight:500; }
+                #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn:not(.dt-row-modal-close) { border-color:#5a554e; background:transparent; color:#e5dfd2; font-weight:500; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn-primary { background:#f4efe6; color:#111; border-color:#f4efe6; }
                 #<?= Html::encode($uid) ?> .dt-row-modal-card.view-theme .dt-btn-primary:hover { opacity:1; background:#fff; }
                 #<?= Html::encode($uid) ?> .dt-row-mode { display:none; }
@@ -1236,8 +1236,6 @@ class MasterDatatableRenderService
                             1 record
                         </span>
                         <div class="dt-row-modal-footer-actions">
-                            <button type="button" class="dt-btn" data-row-modal-close>Batal</button>
-                            <button type="button" class="dt-btn dt-btn-primary" data-row-modal-close>Tutup</button>
                             <button type="submit" class="dt-btn" data-row-save-btn form="<?= Html::encode($uid) ?>-row-form">Simpan Perubahan</button>
                         </div>
                     </div>

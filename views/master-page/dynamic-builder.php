@@ -3929,6 +3929,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         }
 
         panel.innerHTML = html;
+
+        if (block.type === 'card' && typeof window.CardPropertiesEngine !== 'undefined') {
+            CardPropertiesEngine.loadColumns(blockId);
+        }
     }
 
     function escapeAttr(value) {

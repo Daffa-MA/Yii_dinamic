@@ -1594,7 +1594,7 @@ class CardPropertiesEngine {
             </div>
             <div class="prop-group" id="card-aggregate-group-${blockId}" ${props.datasource === 'database' ? '' : 'style="display:none;"'}>
                 <label class="prop-label">Aggregate</label>
-                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'aggregate', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">${aggOptions}</select>
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'aggregate', this.value);CardPropertiesEngine.loadColumns('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">${aggOptions}</select>
             </div>
             <div class="prop-group" id="card-column-group-${blockId}" ${props.datasource === 'database' && props.aggregate !== 'COUNT' ? '' : 'style="display:none;"'}>
                 <label class="prop-label">Column</label>

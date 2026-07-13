@@ -126,7 +126,7 @@ class CardConfigService
                 return ['value' => null, 'formatted' => 'Tabel tidak ditemukan', 'aggregate' => null, 'rawValue' => null];
             }
 
-            $value = $this->executeAggregateQuery($table->name, $aggregate, $config['column'] ?? null, $config['filterJson'] ?? '[]');
+            $value = $this->executeAggregateQuery($table->name, $aggregate, $config['column'] ?? null, $config['filterJson'] ?? '[]', $config['customSql'] ?? '');
             $formatted = $this->formatValue($value, $config);
 
             return [
@@ -145,7 +145,7 @@ class CardConfigService
         }
     }
 
-    private function executeAggregateQuery($tableName, $aggregate, $column, $filterJson)
+    private function executeAggregateQuery($tableName, $aggregate, $column, $filterJson, $customSql = '')
     {
         $db = Yii::$app->db;
         $schema = $db->schema;
@@ -160,7 +160,10 @@ class CardConfigService
 
         $sqlFunction = $aggConfig['sqlFunction'];
 
-        if ($aggregate === 'COUNT') {
+        if ($aggregate === 'CUSTOM' && !empty(trim($customSql))) {
+            $expression = trim($customSql);
+            $sql = "SELECT {$expression} AS value FROM {$tableName}";
+        } elseif ($aggregate === 'COUNT') {
             $sql = "SELECT COUNT(*) AS value FROM {$tableName}";
         } elseif ($aggregate === 'DISTINCT_COUNT' && $column) {
             $col = $schema->quoteColumnName($column);

@@ -64,6 +64,7 @@ class WidgetRegistry extends Component
                 'aggregate' => 'COUNT',
                 'column' => '',
                 'filterJson' => '[]',
+                'customSql' => '',
                 'outputFormat' => 'auto',
                 'numberDecimal' => '0',
                 'numberSeparator' => ',',

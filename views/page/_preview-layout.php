@@ -471,11 +471,36 @@ foreach ($neededLibs as $lib) {
             });
         }
 
+        function renderBlocks(blocks) {
+            var html = '';
+            var i = 0;
+            while (i < blocks.length) {
+                var block = blocks[i];
+                var cardColumns = (block.type === 'card') ? parseInt(block.props?.columns || '1', 10) : 1;
+                if (block.type === 'card' && cardColumns > 1) {
+                    var j = i;
+                    while (j < blocks.length && blocks[j].type === 'card' && parseInt(blocks[j].props?.columns || '1', 10) === cardColumns) { j++; }
+                    var gap = 16;
+                    var colWidth = (100 / cardColumns) - (gap * (cardColumns - 1) / cardColumns);
+                    html += '<div class="card-row" style="display:flex;flex-wrap:wrap;gap:' + gap + 'px;width:100%;box-sizing:border-box;margin-bottom:12px;">';
+                    for (var k = i; k < j; k++) {
+                        html += '<div style="width:' + colWidth + '%;flex:0 0 ' + colWidth + '%;max-width:' + colWidth + '%;box-sizing:border-box;">' + renderBlock(blocks[k]) + '</div>';
+                    }
+                    html += '</div>';
+                    i = j;
+                } else {
+                    html += renderBlock(block);
+                    i++;
+                }
+            }
+            return html;
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             if (window.DynamicFormRuntime && window.DynamicFormRuntime.__assetRuntime) {
                 const container = document.getElementById("preview-content");
                 if (container && window.pageState) {
-                    container.innerHTML = window.pageState.map(renderBlock).join("");
+                    container.innerHTML = renderBlocks(window.pageState);
                     hydrateDynamicForms(container);
                     executeScripts(container);
                     loadCardData(container);
@@ -485,7 +510,7 @@ foreach ($neededLibs as $lib) {
 
             const container = document.getElementById("preview-content");
             if (container && window.pageState) {
-                container.innerHTML = window.pageState.map(renderBlock).join("");
+                container.innerHTML = renderBlocks(window.pageState);
                 hydrateDynamicForms(container);
                 executeScripts(container);
                 loadCardData(container);

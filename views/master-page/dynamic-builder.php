@@ -2379,6 +2379,14 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             <span class="material-symbols-outlined">square</span>
             <span>Card</span>
         </div>
+        <div class="component-item" data-type="card-row-2">
+            <span class="material-symbols-outlined">view_column_2</span>
+            <span>Card Row (2 kolom)</span>
+        </div>
+        <div class="component-item" data-type="card-row-3">
+            <span class="material-symbols-outlined">view_column_3</span>
+            <span>Card Row (3 kolom)</span>
+        </div>
         <div class="component-item" data-type="video">
             <span class="material-symbols-outlined">videocam</span>
             <span>Video</span>
@@ -2624,6 +2632,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             aggregate: 'COUNT',
             column: '',
             filterJson: '[]',
+            customSql: '',
             outputFormat: 'auto',
             numberDecimal: '0',
             numberSeparator: ',',
@@ -2838,11 +2847,14 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 const gap = '16px';
                 const wrap = document.createElement('div');
                 wrap.className = 'card-grid-row';
-                wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:' + gap + ';width:100%;box-sizing:border-box;';
+                wrap.style.cssText = 'position:relative;display:flex;flex-wrap:wrap;gap:' + gap + ';width:100%;box-sizing:border-box;padding:12px;border:2px dashed #cbd5e1;border-radius:12px;background:#f8fafc;margin-bottom:8px;';
+                var rowLabel = document.createElement('div');
+                rowLabel.style.cssText = 'position:absolute;top:-10px;left:16px;background:#6366f1;color:#fff;font-size:11px;font-weight:700;padding:2px 10px;border-radius:999px;z-index:5;';
+                rowLabel.textContent = 'Baris ' + cols + ' kolom';
+                wrap.appendChild(rowLabel);
                 group.forEach(function(card) {
                     const el = createBlockElement(card);
                     el.style.cssText = 'width:calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);flex:0 0 calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);max-width:calc(' + (100 / cols) + '% - ' + (16 * (cols - 1) / cols) + 'px);flex-grow:1;box-sizing:border-box;';
-                    // Uniform card styling inside grid
                     el.style.textAlign = 'left';
                     const cardContent = el.querySelector('.card-widget, [class*="card"]');
                     if (cardContent) {
@@ -2857,6 +2869,23 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     }
                     wrap.appendChild(el);
                 });
+                var addCardBtn = document.createElement('button');
+                addCardBtn.textContent = '+ Tambah Card';
+                addCardBtn.style.cssText = 'margin-top:8px;padding:6px 14px;border:1px dashed #94a3b8;border-radius:8px;background:transparent;color:#64748b;font-size:12px;cursor:pointer;width:100%;';
+                addCardBtn.onclick = function() {
+                    var defaultCard = COMPONENT_DEFAULTS['card'] || {};
+                    var newCard = {
+                        id: generateId(),
+                        type: 'card',
+                        props: JSON.parse(JSON.stringify(defaultCard))
+                    };
+                    newCard.props.columns = String(cols);
+                    newCard.props.title = 'Card ' + (group.length + 1);
+                    state.splice(j, 0, newCard);
+                    fullPageSourceDerivedFromBuilder = true;
+                    renderBuilder(state);
+                };
+                wrap.appendChild(addCardBtn);
                 canvas.appendChild(wrap);
                 i = j;
             } else {
@@ -3160,21 +3189,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 }
                 return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
             case 'card': {
-                const cardColumns = parseInt(props.columns || '1', 10);
-                const cardWidth = cardColumns > 1 ? (100 / cardColumns) + '%' : (props.width ? props.width + '%' : '100%');
                 if (typeof window.cardWidgetInstance !== 'undefined' && window.cardWidgetInstance.config) {
-                    const cardHtml = window.cardWidgetInstance.buildCardPreviewHtml(props);
-                    if (cardColumns > 1) {
-                        return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardHtml}</div></div>`;
-                    }
-                    return cardHtml;
+                    return window.cardWidgetInstance.buildCardPreviewHtml(props);
                 }
                 const cardDesc = props.description || props.content || '';
-                const cardInner = `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${cardDesc}</p></div>`;
-                if (cardColumns > 1) {
-                    return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardInner}</div></div>`;
-                }
-                return cardInner;
+                return `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${cardDesc}</p></div>`;
             }
             case 'spacer':
                 return `<div style="height:${props.height || '32'}px;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#94a3b8">Spacer</span></div>`;
@@ -3421,6 +3440,29 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         if (isAddingBlock) return;
         isAddingBlock = true;
 
+        if (type === 'card-row-2' || type === 'card-row-3') {
+            var numCards = type === 'card-row-2' ? 2 : 3;
+            var defaultCard = COMPONENT_DEFAULTS['card'] || {};
+            var lastId = null;
+            for (var ci = 0; ci < numCards; ci++) {
+                var cardBlock = {
+                    id: generateId(),
+                    type: 'card',
+                    props: JSON.parse(JSON.stringify(defaultCard))
+                };
+                cardBlock.props.columns = String(numCards);
+                cardBlock.props.title = 'Card ' + (ci + 1);
+                window.pageState.push(cardBlock);
+                lastId = cardBlock.id;
+            }
+            fullPageSourceDerivedFromBuilder = true;
+            selectedBlockId = lastId;
+            renderBuilder(window.pageState);
+            renderProperties(lastId);
+            setTimeout(function() { isAddingBlock = false; }, 100);
+            return;
+        }
+
         const newBlock = {
             id: generateId(),
             type: type,
@@ -3646,6 +3688,67 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 break;
 
             case 'card':
+                if (parseInt(props.columns || '1', 10) > 1) {
+                    html += `<div class="prop-section" style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;">
+                        <div class="prop-section-title" style="color:#4338ca;">📐 Baris Kolom</div>
+                        <div class="prop-group">
+                            <label>Jumlah kolom dalam baris</label>
+                            <select class="prop-input" onchange="
+                                var cols = parseInt(this.value, 10);
+                                var state = window.pageState;
+                                var idx = state.findIndex(function(b){ return b.id === '${blockId}'; });
+                                if (idx > -1) {
+                                    var start = idx;
+                                    while (start > 0 && state[start-1].type === 'card' && parseInt(state[start-1].props.columns || '1', 10) === parseInt(state[idx].props.columns || '1', 10)) { start--; }
+                                    var end = idx + 1;
+                                    while (end < state.length && state[end].type === 'card' && parseInt(state[end].props.columns || '1', 10) === parseInt(state[idx].props.columns || '1', 10)) { end++; }
+                                    for (var ci = start; ci < end; ci++) { state[ci].props.columns = String(cols); }
+                                }
+                                fullPageSourceDerivedFromBuilder = true;
+                                renderBuilder(state);
+                                renderProperties('${blockId}');
+                            ">
+                                <option value="1">1 kolom (sendiri)</option>
+                                <option value="2"${props.columns === '2' ? ' selected' : ''}>2 kolom</option>
+                                <option value="3"${props.columns === '3' ? ' selected' : ''}>3 kolom</option>
+                                <option value="4"${props.columns === '4' ? ' selected' : ''}>4 kolom</option>
+                            </select>
+                        </div>
+                        <div class="prop-group">
+                            <button class="prop-btn" style="width:100%;background:#fee2e2;color:#991b1b;border:1px solid #fecaca;" onclick="
+                                var state = window.pageState;
+                                var idx = state.findIndex(function(b){ return b.id === '${blockId}'; });
+                                if (idx > -1) { state[idx].props.columns = '1'; }
+                                fullPageSourceDerivedFromBuilder = true;
+                                renderBuilder(state);
+                                renderProperties('${blockId}');
+                            ">Pisahkan dari baris</button>
+                        </div>
+                    </div>`;
+                } else {
+                    html += `<div class="prop-section" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;">
+                        <div class="prop-section-title">📐 Baris Kolom</div>
+                        <div class="prop-group">
+                            <label>Gabung dalam baris</label>
+                            <select class="prop-input" onchange="
+                                var cols = parseInt(this.value, 10);
+                                if (cols > 1) {
+                                    var state = window.pageState;
+                                    var idx = state.findIndex(function(b){ return b.id === '${blockId}'; });
+                                    if (idx > -1) { state[idx].props.columns = String(cols); }
+                                    fullPageSourceDerivedFromBuilder = true;
+                                    renderBuilder(state);
+                                    renderProperties('${blockId}');
+                                }
+                            ">
+                                <option value="1">Sendiri (1 kolom)</option>
+                                <option value="2">2 kolom</option>
+                                <option value="3">3 kolom</option>
+                                <option value="4">4 kolom</option>
+                            </select>
+                        </div>
+                    </div>`;
+                }
                 if (typeof window.CardPropertiesEngine !== 'undefined') {
                     html += window.CardPropertiesEngine.render(blockId, props);
                 } else {

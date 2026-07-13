@@ -39,6 +39,19 @@ class MasterPageController extends Controller
             $this->enableCsrfValidation = false;
         }
 
+        // Handle CORS for actions called from srcdoc/blob iframes (origin: null)
+        if (Yii::$app->request->isOptions) {
+            Yii::$app->response->headers->set('Access-Control-Allow-Origin', '*');
+            Yii::$app->response->headers->set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            Yii::$app->response->headers->set('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept');
+            Yii::$app->response->setStatusCode(200);
+            Yii::$app->end();
+        }
+        // Add CORS header to actual responses for iframe-source requests
+        if (in_array($action->id, ['form-preview', 'preview-layout', 'card-preview'])) {
+            Yii::$app->response->headers->set('Access-Control-Allow-Origin', '*');
+        }
+
         $dbContext = new ActiveDatabaseContext();
         $result = $dbContext->resolveAndApply();
 
@@ -544,9 +557,9 @@ class MasterPageController extends Controller
     }
 
     /**
-     * Strip a JavaScript object variable assignment from HTML by counting braces
-     * and properly skipping quoted strings. This handles semicolons, braces,
-     * and other special characters that may appear inside JSON string values.
+     * Strip a JavaScript object/array variable assignment from HTML by
+     * counting braces/brackets and properly skipping quoted strings.
+     * Handles both {...} objects and [...] arrays, including nested values.
      */
     private function stripJsObjectAssignment(string $html, string $varName): string
     {
@@ -554,15 +567,25 @@ class MasterPageController extends Controller
         if ($pos === false) {
             return $html;
         }
+        $start = '{';
+        $end = '}';
         $bracePos = strpos($html, '{', $pos);
-        if ($bracePos === false) {
+        $bracketPos = strpos($html, '[', $pos);
+        if ($bracePos === false && $bracketPos === false) {
             return $html;
+        }
+        if ($bracePos !== false && ($bracketPos === false || $bracePos < $bracketPos)) {
+            $openPos = $bracePos;
+        } else {
+            $start = '[';
+            $end = ']';
+            $openPos = $bracketPos;
         }
         $depth = 0;
         $inString = false;
         $len = strlen($html);
-        $endPos = $bracePos;
-        for ($i = $bracePos; $i < $len; $i++) {
+        $endPos = $openPos;
+        for ($i = $openPos; $i < $len; $i++) {
             $ch = $html[$i];
             if ($inString) {
                 if ($ch === '\\') { $i++; continue; }
@@ -570,8 +593,8 @@ class MasterPageController extends Controller
                 continue;
             }
             if ($ch === '"') { $inString = true; continue; }
-            if ($ch === '{') { $depth++; continue; }
-            if ($ch === '}') {
+            if ($ch === $start) { $depth++; continue; }
+            if ($ch === $end) {
                 $depth--;
                 if ($depth === 0) { $endPos = $i; break; }
             }

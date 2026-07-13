@@ -352,6 +352,15 @@ $config = [
         ],
     ],
     'params' => $params,
+    'on beforeRequest' => function () {
+        if (Yii::$app->request->isOptions) {
+            Yii::$app->response->headers->set('Access-Control-Allow-Origin', '*');
+            Yii::$app->response->headers->set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            Yii::$app->response->headers->set('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept, Authorization');
+            Yii::$app->response->setStatusCode(200);
+            Yii::$app->end();
+        }
+    },
 ];
 
 if (!empty($dbBundle['dbBackup']) && is_array($dbBundle['dbBackup'])) {

@@ -109,11 +109,18 @@ class CardWidget {
                 iconShape === 'square' ? 'border-radius:4px;' : '';
             const bgCss = iconBg ? `background:${iconBg};padding:12px;${shapeCss}` : '';
 
+            const iconLib = props.iconLibrary || 'material-symbols';
+            let iconClass = this.getIconCssClass(iconLib, props.icon);
+            let iconContent = props.icon;
+            if (iconLib !== 'material-symbols') {
+                iconContent = '';
+            }
+
             iconHtml = `
                 <div style="text-align:${align};margin-bottom:12px;opacity:${iconOpacity};">
                     <span style="display:inline-flex;align-items:center;justify-content:center;${bgCss}transform:rotate(${iconRotation}deg);">
-                        <span class="${this.getIconCssClass(props.iconLibrary)}" style="font-size:${iconSize}px;color:${iconColor};font-weight:${props.iconWeight || '400'}">
-                            ${props.icon}
+                        <span class="${iconClass}" style="font-size:${iconSize}px;color:${iconColor};font-weight:${props.iconWeight || '400'}">
+                            ${iconContent}
                         </span>
                     </span>
                 </div>
@@ -127,8 +134,9 @@ class CardWidget {
         if (props.showSubtitle !== false && props.subtitle) {
             contentHtml += `<div style="font-size:${Math.max(parseInt(fontSize) - 2, 12)}px;color:${textColor}cc;margin-bottom:8px">${this.escapeHtml(props.subtitle)}</div>`;
         }
-        if (props.showDescription !== false && props.description) {
-            contentHtml += `<div style="font-size:${Math.max(parseInt(fontSize) - 4, 12)}px;color:${textColor}99;margin-bottom:8px">${this.escapeHtml(props.description)}</div>`;
+        const descText = props.description || props.content || '';
+        if (props.showDescription !== false && descText) {
+            contentHtml += `<div style="font-size:${Math.max(parseInt(fontSize) - 4, 12)}px;color:${textColor}99;margin-bottom:8px">${this.escapeHtml(descText)}</div>`;
         }
         if (props.showValue !== false && props.datasource !== 'static') {
             const valueDisplay = props._previewValue || '--';
@@ -168,19 +176,21 @@ class CardWidget {
         }
     }
 
-    getIconCssClass(library) {
+    getIconCssClass(library, iconName) {
+        const icon = iconName || '';
         const map = {
             'material-symbols': 'material-symbols-outlined',
-            'tabler': 'ti',
-            'heroicons': 'hero-icon',
-            'lucide': 'lucide',
-            'phosphor': 'ph',
-            'remix': 'ri',
-            'font-awesome': 'fa-solid',
-            'bootstrap-icons': 'bi',
-            'feather': 'feather',
+            'tabler': icon ? 'ti ti-' + icon : 'ti',
+            'heroicons': icon ? 'hero-icon hero-' + icon : 'hero-icon',
+            'lucide': icon ? 'lucide lucide-' + icon : 'lucide',
+            'phosphor': icon ? 'ph ph-' + icon : 'ph',
+            'remix': icon ? 'ri ri-' + icon : 'ri',
+            'font-awesome': icon ? 'fa-solid fa-' + icon : 'fa-solid',
+            'bootstrap-icons': icon ? 'bi bi-' + icon : 'bi',
+            'feather': icon ? 'feather feather-' + icon : 'feather',
         };
-        return map[library] || 'material-symbols-outlined';
+        const base = map[library] || 'material-symbols-outlined';
+        return base;
     }
 
     buildCardPreviewHtml(props) {
@@ -1377,7 +1387,7 @@ class CardPropertiesEngine {
             <div class="prop-group">
                 <label class="prop-label">Icon</label>
                 <div class="icon-picker-trigger" onclick="CardPropertiesEngine.openIconPicker('${blockId}')" style="padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color 0.2s;">
-                    <span class="${CardPropertiesEngine.getIconCssClass(props.iconLibrary)}" style="font-size:28px;color:${props.iconColor || '#6366f1'};">${props.icon || 'add_circle'}</span>
+                    <span class="${CardPropertiesEngine.getIconCssClass(props.iconLibrary, props.icon)}" style="font-size:28px;color:${props.iconColor || '#6366f1'};">${(props.iconLibrary || 'material-symbols') === 'material-symbols' ? (props.icon || 'add_circle') : ''}</span>
                     <div>
                         <div style="font-size:13px;font-weight:600;color:#1e293b;">${props.icon || 'Click to select icon'}</div>
                         <div style="font-size:11px;color:#94a3b8;">Click to browse icons</div>
@@ -1901,17 +1911,18 @@ class CardPropertiesEngine {
         }
     }
 
-    static getIconCssClass(library) {
+    static getIconCssClass(library, iconName) {
+        const icon = iconName || '';
         const map = {
             'material-symbols': 'material-symbols-outlined',
-            'tabler': 'ti',
-            'heroicons': 'hero-icon',
-            'lucide': 'lucide',
-            'phosphor': 'ph',
-            'remix': 'ri',
-            'font-awesome': 'fa-solid',
-            'bootstrap-icons': 'bi',
-            'feather': 'feather',
+            'tabler': icon ? 'ti ti-' + icon : 'ti',
+            'heroicons': icon ? 'hero-icon hero-' + icon : 'hero-icon',
+            'lucide': icon ? 'lucide lucide-' + icon : 'lucide',
+            'phosphor': icon ? 'ph ph-' + icon : 'ph',
+            'remix': icon ? 'ri ri-' + icon : 'ri',
+            'font-awesome': icon ? 'fa-solid fa-' + icon : 'fa-solid',
+            'bootstrap-icons': icon ? 'bi bi-' + icon : 'bi',
+            'feather': icon ? 'feather feather-' + icon : 'feather',
         };
         return map[library] || 'material-symbols-outlined';
     }

@@ -22,8 +22,6 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/cs
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
-$this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js', ['position' => \yii\web\View::POS_END]);
-
 // Register Card Widget Assets (loaded in HEAD so available before inline builder code)
 \app\assets\CardWidgetAsset::register($this);
 
@@ -2588,7 +2586,6 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             title: 'Card Title',
             subtitle: '',
             description: '',
-            content: 'Konten card',
             columns: '1',
             showShadow: true,
             bgColor: '#ffffff',
@@ -2696,8 +2693,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             js: ''
         },
         card: {
-            html: '<div class="card-{id}">\n  <h3 class="card-title">{title}</h3>\n  <p class="card-content">{content}</p>\n</div>',
-            css: '.card-{id} {\n  padding: 24px;\n  background: white;\n  border-radius: 12px;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.08);\n}\n.card-title {\n  margin: 0 0 8px;\n  font-size: 18px;\n  font-weight: 600;\n  color: #1e293b;\n}\n.card-content {\n  margin: 0;\n  color: #64748b;\n  font-size: 14px;\n}',
+            html: '<div class="card-{id}">\n  <span class="material-symbols-outlined card-icon-{id}">{icon}</span>\n  <h3 class="card-title-{id}">{title}</h3>\n  <p class="card-content-{id}">{description}</p>\n</div>',
+            css: '.card-{id} {\n  padding: 24px;\n  background: white;\n  border-radius: 12px;\n  box-shadow: 0 4px 12px rgba(0,0,0,0.08);\n  text-align: left;\n}\n.card-icon-{id} {\n  font-size: 48px;\n  color: #6366f1;\n  margin-bottom: 12px;\n  display: block;\n}\n.card-title-{id} {\n  margin: 0 0 8px;\n  font-size: 18px;\n  font-weight: 700;\n  color: #1e293b;\n}\n.card-content-{id} {\n  margin: 0;\n  color: #64748b;\n  font-size: 14px;\n}',
             js: ''
         },
         form: {
@@ -2882,6 +2879,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 onEnd: function(evt) {
                     const item = window.pageState.splice(evt.oldIndex, 1)[0];
                     window.pageState.splice(evt.newIndex, 0, item);
+                    fullPageSourceDerivedFromBuilder = true;
                     renderBuilder(window.pageState);
                 }
             });
@@ -3171,7 +3169,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     }
                     return cardHtml;
                 }
-                const cardInner = `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${props.content || ''}</p></div>`;
+                const cardDesc = props.description || props.content || '';
+                const cardInner = `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${cardDesc}</p></div>`;
                 if (cardColumns > 1) {
                     return `<div style="display:flex;flex-wrap:wrap;gap:16px;"><div style="width:${cardWidth};flex:0 0 ${cardWidth};box-sizing:border-box;">${cardInner}</div></div>`;
                 }
@@ -3200,12 +3199,25 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 const cachedPreview = window.dynamicFormPreviewCache[cacheKey];
                 if (cachedPreview) {
                     const srcDoc = buildDynamicFormPreviewSrcDoc(cachedPreview);
+                    const blob = new Blob([srcDoc], { type: 'text/html' });
+                    const blobUrl = URL.createObjectURL(blob);
+                    const iframeId = 'form-preview-' + (block.id || Math.random().toString(36).slice(2));
+                    setTimeout(function() {
+                        var f = document.getElementById(iframeId);
+                        if (f) {
+                            f.onload = function() {
+                                try {
+                                    f.style.height = (f.contentWindow.document.documentElement.scrollHeight + 8) + 'px';
+                                } catch(e) {}
+                            };
+                        }
+                    }, 50);
                     return `<div class="dynamic-form-preview-wrap" style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
                         <iframe
-                            srcdoc="${srcDoc}"
+                            id="${iframeId}"
+                            src="${blobUrl}"
                             style="width:100%;border:none;display:block;min-height:160px;pointer-events:none;"
-                            onload="this.style.height=(this.contentWindow.document.documentElement.scrollHeight + 8) + 'px'"
-                            sandbox="allow-scripts allow-same-origin"
+                            sandbox="allow-scripts allow-same-origin allow-forms"
                         ></iframe>
                     </div>`;
                 }
@@ -3391,20 +3403,18 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     }
 
     function buildDynamicFormPreviewSrcDoc(contentHtml) {
-        const doc = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <style>
-                    html, body { margin: 0; padding: 0; background: #fff; }
-                    body { font-family: Inter, Segoe UI, Arial, sans-serif; }
-                </style>
-            </head>
-            <body>${contentHtml}</body>
-            </html>
-        `;
-        return doc.replace(/"/g, '&quot;');
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <style>
+        html, body { margin: 0; padding: 0; background: #fff; }
+        body { font-family: Inter, Segoe UI, Arial, sans-serif; }
+    </style>
+</head>
+<body>${contentHtml}</body>
+</html>`;
     }
 
     function addBlock(type) {
@@ -3418,6 +3428,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         };
 
         window.pageState.push(newBlock);
+        fullPageSourceDerivedFromBuilder = true;
         selectedBlockId = newBlock.id;
         renderBuilder(window.pageState);
         renderProperties(newBlock.id);
@@ -3437,6 +3448,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
     function deleteBlock(blockId) {
         window.pageState = window.pageState.filter(b => b.id !== blockId);
+        fullPageSourceDerivedFromBuilder = true;
         if (selectedBlockId === blockId) {
             selectedBlockId = null;
             document.getElementById('properties-panel').innerHTML = '<div class="no-selection"><span class="material-symbols-outlined">touch_app</span><p>Pilih komponen untuk edit</p></div>';
@@ -3452,6 +3464,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         };
         const index = window.pageState.findIndex(b => b.id === block.id);
         window.pageState.splice(index + 1, 0, newBlock);
+        fullPageSourceDerivedFromBuilder = true;
         renderBuilder(window.pageState);
     }
 
@@ -4266,6 +4279,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         block.props = block.props || {};
         Object.assign(block.props, updates);
+        fullPageSourceDerivedFromBuilder = true;
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }
@@ -6909,12 +6923,51 @@ ${html || ''}
             return;
         }
 
-        require.config({
+        if (window.__monacoLoading) {
+            waitMonacoLoader();
+            return;
+        }
+
+        if (window.__monacoRequire) {
+            createMonacoEditorWith(window.__monacoRequire);
+            return;
+        }
+
+        window.__monacoLoading = true;
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js';
+        s.onload = function() {
+            window.__monacoRequire = window.require;
+            window.__monacoDefine = window.define;
+            createMonacoEditorWith(window.__monacoRequire);
+        };
+        document.head.appendChild(s);
+    }
+
+    function waitMonacoLoader() {
+        var check = setInterval(function() {
+            if (monacoEditor || window.__monacoReady) {
+                clearInterval(check);
+                if (!monacoEditor && window.__monacoRequire) {
+                    createMonacoEditorWith(window.__monacoRequire);
+                }
+            }
+        }, 50);
+    }
+
+    function createMonacoEditorWith(r) {
+        if (!r || typeof r.config !== 'function') {
+            window.__monacoLoading = false;
+            delete window.__monacoRequire;
+            setTimeout(initMonacoEditor, 300);
+            return;
+        }
+        r.config({
             paths: {
                 vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs'
             }
         });
-        require(['vs/editor/editor.main'], function() {
+        r(['vs/editor/editor.main'], function() {
             monacoEditor = monaco.editor.create(document.getElementById('monaco-editor-container'), {
                 value: '',
                 language: 'html',
@@ -6939,6 +6992,8 @@ ${html || ''}
                     updateCodeInState();
                 }
             });
+
+            window.__monacoReady = true;
 
             applyCodeEditorLanguage();
             if (activeCodeScope === 'page') {
@@ -7000,8 +7055,10 @@ ${html || ''}
                 baseCode = baseCode
                     .replace(/{id}/g, block.id)
                     .replace(/{text}/g, props.text || 'Teks')
-                    .replace(/{content}/g, props.content || 'Konten')
+                    .replace(/{content}/g, props.content || props.description || 'Konten')
+                    .replace(/{description}/g, props.description || props.content || '')
                     .replace(/{title}/g, props.title || 'Judul')
+                    .replace(/{icon}/g, props.icon || '')
                     .replace(/{src}/g, props.src || '')
                     .replace(/{alt}/g, props.alt || 'Image')
                     .replace(/{url}/g, props.url || '')
@@ -7993,6 +8050,7 @@ ${html || ''}
                     };
                     newBlock.props.chartId = String(res.chart.id);
                     window.pageState.push(newBlock);
+                    fullPageSourceDerivedFromBuilder = true;
                     selectedBlockId = newBlock.id;
                 }
 

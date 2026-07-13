@@ -14,13 +14,30 @@ $pageId = (int)($pageId ?? 0);
 $menuId = (int)($menuId ?? 0);
 $permissionRegistry = new \app\components\ProjectPermissionRegistry();
 
-// Load icon CDN CSS for card widget icons
-$this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200', ['position' => \yii\web\View::POS_HEAD]);
-$this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css');
-$this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/css/phosphor.css');
-$this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
-$this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
-$this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+// Icon CDN CSS — only load libraries actually used by card blocks in this page
+$iconCssUrls = [
+    'material-symbols' => 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200',
+    'tabler' => 'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css',
+    'phosphor' => 'https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/css/phosphor.css',
+    'remix' => 'https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css',
+    'font-awesome' => 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css',
+    'bootstrap-icons' => 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
+];
+$usedLibraries = ['material-symbols'];
+$layoutData = json_decode($layoutJson ?? '[]', true);
+if (is_array($layoutData)) {
+    foreach ($layoutData as $block) {
+        if (is_array($block) && ($block['type'] ?? '') === 'card' && !empty($block['props']['iconLibrary'])) {
+            $usedLibraries[] = $block['props']['iconLibrary'];
+        }
+    }
+}
+$usedLibraries = array_unique($usedLibraries);
+foreach ($usedLibraries as $lib) {
+    if (isset($iconCssUrls[$lib])) {
+        $this->registerCssFile($iconCssUrls[$lib], ['position' => \yii\web\View::POS_HEAD]);
+    }
+}
 $this->registerCssFile(\yii\helpers\Url::to('@web/css/card-widget.css'));
 
 // Prioritize persisted full-page custom source when available.
@@ -159,7 +176,7 @@ HTML;
         }
     }
     if (!empty($dtHtmlByBlock)) {
-        $dtScript = '<script>window.dynamicDatatableHtml = ' . \yii\helpers\Json::htmlEncode($dtHtmlByBlock) . ';</script>';
+        $dtScript = '<script>window.dynamicDatatableHtml = ' . \yii\helpers\Json::htmlEncode((object)$dtHtmlByBlock) . ';</script>';
         // Inject right after <head> to ensure availability before DOMContentLoaded
         $customHtml = preg_replace('/<head\b[^>]*>/i', '$0' . $dtScript, $customHtml, 1);
     }
@@ -616,7 +633,7 @@ $this->registerJs($dynamicFormRuntimeJs, \yii\web\View::POS_END);
 
 $js = "
 window.dynamicPageState = " . \yii\helpers\Json::htmlEncode($state) . ";
-window.dynamicDatatableHtml = " . \yii\helpers\Json::htmlEncode($datatableHtmlByBlock) . ";
+window.dynamicDatatableHtml = " . \yii\helpers\Json::htmlEncode((object)$datatableHtmlByBlock) . ";
 window.cardPreviewUrl = '" . \yii\helpers\Url::to(['/card/preview']) . "';
 
 function renderBlockSafe(block) {
@@ -987,7 +1004,9 @@ function renderBlockSafe(block) {
                 else if (iconLib === 'bootstrap-icons') iconCssClass = 'bi bi-' + props.icon;
 
                 iconEl.className = iconCssClass + ' card-icon-wrapper';
-                iconEl.textContent = props.icon;
+                if (iconLib === 'material-symbols') {
+                    iconEl.textContent = props.icon;
+                }
 
                 if (iconLib === 'material-symbols') {
                     iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
@@ -1026,10 +1045,11 @@ function renderBlockSafe(block) {
             }
 
             // Description
-            if (props.showDescription !== false && props.description) {
+            const descText = props.description || props.content || '';
+            if (props.showDescription !== false && descText) {
                 const descEl = document.createElement('div');
                 descEl.style.cssText = 'font-size:' + Math.max(parseInt(fontSize) - 4, 12) + 'px;color:' + textColor + '99;margin-bottom:8px;' + (fontFamily ? 'font-family:' + fontFamily + ';' : '');
-                descEl.textContent = props.description;
+                descEl.textContent = descText;
                 el.appendChild(descEl);
             }
 

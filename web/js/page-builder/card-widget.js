@@ -1606,11 +1606,16 @@ class CardPropertiesEngine {
                 <label class="prop-label">Aggregate</label>
                 <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'aggregate', this.value);CardPropertiesEngine.loadColumns('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">${aggOptions}</select>
             </div>
-            <div class="prop-group" id="card-column-group-${blockId}" ${props.datasource === 'database' && props.aggregate !== 'COUNT' ? '' : 'style="display:none;"'}>
+            <div class="prop-group" id="card-column-group-${blockId}" ${props.datasource === 'database' && props.aggregate !== 'COUNT' && props.aggregate !== 'CUSTOM' ? '' : 'style="display:none;"'}>
                 <label class="prop-label">Column</label>
                 <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'column', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">
                     <option value="">-- Select Column --</option>
                 </select>
+            </div>
+            <div class="prop-group" id="card-customsql-group-${blockId}" ${props.datasource === 'database' && props.aggregate === 'CUSTOM' ? '' : 'style="display:none;"'}>
+                <label class="prop-label">Custom SQL Expression</label>
+                <textarea class="prop-input prop-textarea" rows="3" placeholder="COUNT(CASE WHEN status = 'hadir' THEN 1 END)" onchange="CardPropertiesEngine.update('${blockId}', 'customSql', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">${this.esc(props.customSql || '')}</textarea>
+                <small style="color:#64748b;font-size:11px;display:block;margin-top:4px;">Gunakan ekspresi SQL valid, misal: <code>COUNT(CASE WHEN status = 'hadir' THEN 1 END)</code> atau <code>SUM(CASE WHEN status = 'telat' THEN 1 ELSE 0 END)</code></small>
             </div>
         `;
     }
@@ -1813,7 +1818,11 @@ class CardPropertiesEngine {
 
         const colGroup = document.getElementById(`card-column-group-${blockId}`);
         if (colGroup) {
-            colGroup.style.display = block.props.datasource === 'database' && block.props.aggregate !== 'COUNT' ? '' : 'none';
+            colGroup.style.display = block.props.datasource === 'database' && block.props.aggregate !== 'COUNT' && block.props.aggregate !== 'CUSTOM' ? '' : 'none';
+        }
+        const customSqlGroup = document.getElementById(`card-customsql-group-${blockId}`);
+        if (customSqlGroup) {
+            customSqlGroup.style.display = block.props.datasource === 'database' && block.props.aggregate === 'CUSTOM' ? '' : 'none';
         }
         const tableGroup = document.getElementById(`card-table-group-${blockId}`);
         if (tableGroup) {

@@ -41,6 +41,30 @@ if (is_array($layoutJson)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preview Halaman</title>
     <script src="https://cdn.tailwindcss.com"></script>
+<?php
+$iconCssMap = [
+    'material-symbols' => 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap',
+    'tabler' => 'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css',
+    'phosphor' => 'https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/css/phosphor.css',
+    'remix' => 'https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css',
+    'font-awesome' => 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css',
+    'bootstrap-icons' => 'https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css',
+];
+$neededLibs = ['material-symbols']; // always include fallback
+if (is_array($layoutJson)) {
+    foreach ($layoutJson as $blk) {
+        if (is_array($blk) && ($blk['type'] ?? '') === 'card' && !empty($blk['props']['iconLibrary'])) {
+            $neededLibs[] = $blk['props']['iconLibrary'];
+        }
+    }
+}
+$neededLibs = array_unique($neededLibs);
+foreach ($neededLibs as $lib) {
+    if (isset($iconCssMap[$lib])) {
+        echo '    <link rel="stylesheet" href="' . htmlspecialchars($iconCssMap[$lib]) . '">' . "\n";
+    }
+}
+?>
     <script src="/js/dynamic-form-runtime.js"></script>
     <style>
         .relation-picker-wrapper { width:100%; }
@@ -73,7 +97,7 @@ if (is_array($layoutJson)) {
 
     <script>
         window.pageState = <?= Json::encode($layoutJson) ?>;
-        window.dynamicDatatableHtml = <?= Json::htmlEncode($datatableHtmlByBlock) ?>;
+        window.dynamicDatatableHtml = <?= Json::htmlEncode((object)$datatableHtmlByBlock) ?>;
         
         function renderBlock(block) {
             const props = block.props || {};
@@ -113,9 +137,19 @@ if (is_array($layoutJson)) {
                     }
                     return `<div class="text-${props.align || 'center'} my-6"><a href="${href}" class="inline-block px-6 py-3 rounded font-medium ${colors[props.style] || colors.primary} ${props.fullWidth ? 'w-full' : ''}"${target ? ' target="' + target + '"' : ''}${target === '_blank' ? ' rel="noopener noreferrer"' : ''}>${props.text || ''}</a></div>`;
                 case "card":
-                    return `<div class="bg-white rounded-lg shadow-md p-6 ${props.bgColor && props.bgColor !== '#ffffff' ? 'bg-' + props.bgColor.replace('#', '') : ''} ${props.showShadow ? 'shadow' : 'border'} ${props.showShadow ? '' : 'border border-gray-200'}">
-                        <h3 class="text-lg font-bold mb-3 text-gray-900">${props.title || ''}</h3>
-                        <p class="text-gray-700">${props.content || ''}</p>
+                    const blockId = block.id || ('card-' + Math.random().toString(36).slice(2));
+                    const iconLib = props.iconLibrary || 'material-symbols';
+                    const iconClass = ({'material-symbols':'material-symbols-outlined','tabler':'ti ti-' + (props.icon||''),'heroicons':'hero-icon hero-' + (props.icon||''),'lucide':'lucide lucide-' + (props.icon||''),'phosphor':'ph ph-' + (props.icon||''),'remix':'ri ri-' + (props.icon||''),'font-awesome':'fa-solid fa-' + (props.icon||''),'bootstrap-icons':'bi bi-' + (props.icon||''),'feather':'feather feather-' + (props.icon||'')})[iconLib] || 'material-symbols-outlined';
+                    const iconContent = iconLib === 'material-symbols' ? (props.icon || '') : '';
+                    const cardIcon = props.icon ? `<span class="${iconClass}" style="font-size:${props.iconSize || '48'}px;color:${props.iconColor || '#6366f1'};margin-bottom:12px;display:block;">${iconContent}</span>` : '';
+                    const cardContent = props.description || props.content || '';
+                    const cardValue = (props.showValue !== false && props.datasource === 'database') ? (props._previewValue || '--') : '';
+                    return `<div data-card-id="${blockId}" data-datasource="${props.datasource || ''}" class="bg-white rounded-lg shadow-md p-6" style="text-align:${props.alignment || 'left'};${props.bgColor && props.bgColor !== '#ffffff' ? 'background:' + props.bgColor + ';' : ''}${props.showShadow ? '' : 'border:1px solid #e2e8f0;'}box-shadow:${props.showShadow ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'};">
+                        ${cardIcon}
+                        <h3 class="text-lg font-bold mb-1" style="color:${props.textColor || '#1e293b'};">${props.title || ''}</h3>
+                        ${props.subtitle ? `<div style="font-size:14px;color:${props.textColor || '#1e293b'}cc;margin-bottom:8px;">${props.subtitle}</div>` : ''}
+                        ${cardValue ? `<div class="card-value" style="font-size:${Math.max(parseInt(props.fontSize || '16') + 8, 24)}px;font-weight:700;color:${props.textColor || '#1e293b'};margin-top:8px;line-height:1.2;">${cardValue}</div>` : ''}
+                        ${cardContent ? `<p style="margin:0;color:${props.textColor || '#1e293b'}99;font-size:14px;">${cardContent}</p>` : ''}
                     </div>`;
                 case "spacer":
                     return `<div class="h-${props.height || '8'} my-4"></div>`;
@@ -405,6 +439,38 @@ if (is_array($layoutJson)) {
             });
         }
 
+        function loadCardData(container) {
+            var cardBlocks = [];
+            (function collectCards(blocks) {
+                (blocks || []).forEach(function(b) {
+                    if (b.type === 'card' && b.props && b.props.datasource === 'database') {
+                        cardBlocks.push(b);
+                    }
+                    if (b.children) collectCards(b.children);
+                });
+            })(window.pageState);
+
+            cardBlocks.forEach(function(block) {
+                var url = window.cardPreviewUrl || '/card/preview';
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: JSON.stringify({ config: block.props })
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (result.success && result.data) {
+                        block.props.__liveValue = result.data.formatted || result.data.value;
+                        var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
+                        if (valueEl) {
+                            valueEl.textContent = block.props.__liveValue;
+                        }
+                    }
+                })
+                .catch(function(err) { console.warn('[CardWidget] Data fetch error:', err); });
+            });
+        }
+
         document.addEventListener("DOMContentLoaded", function() {
             if (window.DynamicFormRuntime && window.DynamicFormRuntime.__assetRuntime) {
                 const container = document.getElementById("preview-content");
@@ -412,6 +478,7 @@ if (is_array($layoutJson)) {
                     container.innerHTML = window.pageState.map(renderBlock).join("");
                     hydrateDynamicForms(container);
                     executeScripts(container);
+                    loadCardData(container);
                 }
                 return;
             }
@@ -421,6 +488,7 @@ if (is_array($layoutJson)) {
                 container.innerHTML = window.pageState.map(renderBlock).join("");
                 hydrateDynamicForms(container);
                 executeScripts(container);
+                loadCardData(container);
             }
         });
 

@@ -1576,16 +1576,30 @@
             if (!field) return '';
             field = normalizeFieldState(field);
 
+            const componentType = String(field.type || field.field_type || '').toLowerCase();
+            console.log('[RENDER] Preview for type:', componentType, 'customHtml:', !!field.customHtml, 'customCss:', !!field.customCss, 'customJs:', !!field.customJs, 'baseTemplate:', !!getFieldBaseCode(componentType, 'js', field));
+
             // Check for custom code
             if (field.customHtml || field.customCss || field.customJs) {
                 const id = 'preview-' + field.id;
-                const srcDoc = '<!DOCTYPE html><html><head><style>' + (field.customCss || '') + '</style></head><body>' + (field.customHtml || '') + '<script>' + (field.customJs || '') + '<\/script></body></html>';
+                const jsCode = field.customJs || getFieldBaseCode(componentType, 'js', field) || '';
+                const srcDoc = '<!DOCTYPE html><html><head><style>' + (field.customCss || '') + '</style></head><body>' + (field.customHtml || '') + '<script>' + jsCode + '<\/script></body></html>';
                 return `<div class="field-preview" style="padding:0;background:transparent;border:none;">` +
-                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts"></iframe>` +
+                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>` +
                     `</div>`;
             }
 
-            const componentType = String(field.type || field.field_type || '').toLowerCase();
+            // Use interactive iframe for field types with base JS template
+            const baseTemplate = getFieldBaseCode(componentType, 'js', field);
+            if (baseTemplate) {
+                const id = 'preview-' + (field.id || field.field_id || 'field_' + Math.random().toString(36).slice(2, 9));
+                const baseHtml = getFieldBaseCode(componentType, 'html', field);
+                const baseCss = getFieldBaseCode(componentType, 'css', field);
+                const srcDoc = '<!DOCTYPE html><html><head><style>' + (baseCss || '') + '</style></head><body>' + (baseHtml || '') + '<script>' + baseTemplate + '<\/script></body></html>';
+                return `<div class="field-preview" style="padding:0;background:transparent;border:none;">` +
+                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>` +
+                    `</div>`;
+            }
             const type = componentType === 'checkboxes' ?
                 'checkboxes' :
                 String(field.inputType || field.type || 'text').toLowerCase();
@@ -2631,7 +2645,7 @@
         };
 
         // Base code templates per field type
-        function getFieldBaseCode(fieldType, lang) {
+        function getFieldBaseCode(fieldType, lang, fieldOverride) {
             var baseCodeTemplates = {
                 text: {
                     html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="text" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
@@ -2673,10 +2687,15 @@
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                     js: ''
                 },
+                camera: {
+                    html: '<div class="field-wrapper camera-field" data-camera-component="1">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" value="" data-camera-payload />\n  <input type="file" name="__camera_file_{name}" accept="image/*" capture="environment" class="camera-file" hidden />\n  <div class="camera-box">\n    <button type="button" class="camera-trigger" id="camera-trigger-{name}">Ambil Foto</button>\n    <button type="button" class="camera-clear" id="camera-clear-{name}">Reset</button>\n    <span class="camera-status">Foto akan disiapkan otomatis.</span>\n  </div>\n  <img class="camera-preview" alt="Preview foto" hidden />\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.camera-box {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 10px;\n  align-items: center;\n  padding: 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 12px;\n  background: #f8fafc;\n}\n.camera-trigger,\n.camera-clear {\n  padding: 10px 14px;\n  border-radius: 10px;\n  border: 1px solid #cbd5e1;\n  background: #fff;\n  font-weight: 700;\n}\n.camera-trigger {\n  background: #4f46e5;\n  border-color: #4f46e5;\n  color: #fff;\n}\n.camera-preview {\n  display: block;\n  max-width: 100%;\n  margin-top: 10px;\n  border-radius: 12px;\n}\n.camera-status {\n  font-size: 12px;\n  color: #64748b;\n}',
+                    js: '(function(){try{console.log("[CAMERA] Template executing");window.parent.console.log("[CAMERA] Template executing (parent)");}catch(e){}if(window.__cameraComponentBinder)return;window.__cameraComponentBinder=true;function setPayload(wrapper,payload){var input=wrapper.querySelector("[data-camera-payload]");if(input){input.value=JSON.stringify(payload||{});}var status=wrapper.querySelector(".camera-status");if(status){var text=[];if(payload.photo_name)text.push(payload.photo_name);status.textContent=text.join(" | ")||"Foto akan disiapkan otomatis.";}}function setPreview(wrapper,src){var preview=wrapper.querySelector(".camera-preview");if(!preview)return;if(src){preview.src=src;preview.hidden=false;}else{preview.removeAttribute("src");preview.hidden=true;}}function fileToDataUrl(file){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||""));};reader.onerror=function(){reject(reader.error||new Error("read_error"));};reader.readAsDataURL(file);});}async function handleFile(wrapper,file){if(!file){setPayload(wrapper,{});setPreview(wrapper,"");return;}var imageSrc="";try{imageSrc=await fileToDataUrl(file);}catch(e){}var payload={photo_name:file.name||"",photo_mime:file.type||"",photo_size:file.size||0,photo_data:imageSrc,captured_date:"",captured_time:"",captured_at_server:""};setPayload(wrapper,payload);if(imageSrc){setPreview(wrapper,imageSrc);}}function gw(el){return el?el.closest("[data-camera-component]"):null;}document.addEventListener("click",function(e){var trigger=e.target.closest(".camera-trigger");if(trigger){try{console.log("[CAMERA] Trigger clicked");window.parent.console.log("[CAMERA] Trigger clicked (parent)");}catch(e){}var w=gw(trigger);if(w){var fi=w.querySelector(".camera-file");if(fi)fi.click();}return;}var cb=e.target.closest(".camera-clear");if(cb){try{console.log("[CAMERA] Clear clicked");}catch(e){}var w=gw(cb);if(w){var fi=w.querySelector(".camera-file");if(fi)fi.value="";setPayload(w,{});setPreview(w,"");}}});document.addEventListener("change",function(e){var fi=e.target.closest(".camera-file");if(fi){var w=gw(fi);if(w){handleFile(w,fi.files?fi.files[0]:null);}}});})();'
+                },
                 gps_camera: {
                     html: '<div class="field-wrapper gps-camera-field" data-gps-camera-component="1">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" value="" data-gps-camera-payload />\n  <input type="file" name="__gps_camera_file_{name}" accept="image/*" capture="environment" class="gps-camera-file" hidden />\n  <div class="gps-camera-box">\n    <button type="button" class="gps-camera-trigger">Ambil Foto</button>\n    <button type="button" class="gps-camera-clear">Reset</button>\n    <span class="gps-camera-status">Foto dan GPS akan disiapkan otomatis.</span>\n  </div>\n  <img class="gps-camera-preview" alt="Preview foto" hidden />\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.gps-camera-box {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 10px;\n  align-items: center;\n  padding: 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 12px;\n  background: #f8fafc;\n}\n.gps-camera-trigger,\n.gps-camera-clear {\n  padding: 10px 14px;\n  border-radius: 10px;\n  border: 1px solid #cbd5e1;\n  background: #fff;\n  font-weight: 700;\n}\n.gps-camera-trigger {\n  background: #4f46e5;\n  border-color: #4f46e5;\n  color: #fff;\n}\n.gps-camera-preview {\n  display: block;\n  max-width: 100%;\n  margin-top: 10px;\n  border-radius: 12px;\n}\n.gps-camera-status {\n  font-size: 12px;\n  color: #64748b;\n}',
-                    js: '(function(){if(window.__gpsCameraComponentBinder)return;window.__gpsCameraComponentBinder=true;function setPayload(wrapper,payload){var input=wrapper.querySelector(\"[data-gps-camera-payload]\");if(input){input.value=JSON.stringify(payload||{});}var status=wrapper.querySelector(\".gps-camera-status\");if(status){var text=[];if(payload.photo_name)text.push(payload.photo_name);if(payload.latitude||payload.longitude)text.push((payload.latitude||\"-\") + \", \" + (payload.longitude||\"-\"));status.textContent=text.join(\" | \")||\"Foto dan GPS akan disiapkan otomatis.\";}}function setPreview(wrapper,src){var preview=wrapper.querySelector(\".gps-camera-preview\");if(!preview)return;if(src){preview.src=src;preview.hidden=false;}else{preview.removeAttribute(\"src\");preview.hidden=true;}}function fileToDataUrl(file){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||\"\"));};reader.onerror=function(){reject(reader.error||new Error(\"read_error\"));};reader.readAsDataURL(file);});}function captureGps(){if(!navigator.geolocation){return Promise.resolve({});}return new Promise(function(resolve){navigator.geolocation.getCurrentPosition(function(position){resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,gps_accuracy:position.coords.accuracy});},function(){resolve({});},{enableHighAccuracy:true,maximumAge:0,timeout:10000});});}async function handleFile(wrapper,file){if(!file){setPayload(wrapper,{});setPreview(wrapper,\"\");return;}var imageSrc=\"\";try{imageSrc=await fileToDataUrl(file);}catch(e){}var gps=await captureGps();var payload={photo_name:file.name||\"\",photo_mime:file.type||\"\",photo_size:file.size||0,photo_data:imageSrc,latitude:gps.latitude||\"\",longitude:gps.longitude||\"\",gps_accuracy:gps.gps_accuracy||\"\",captured_date:\"\",captured_time:\"\",captured_at_server:\"\"};setPayload(wrapper,payload);if(imageSrc){setPreview(wrapper,imageSrc);}}document.addEventListener(\"click\",function(event){var trigger=event.target.closest(\".gps-camera-trigger\");if(trigger){var wrapper=trigger.closest(\".gps-camera-field\");var input=wrapper&&wrapper.querySelector(\".gps-camera-file\");if(input){input.click();}event.preventDefault();return;}var clearBtn=event.target.closest(\".gps-camera-clear\");if(clearBtn){var clearWrapper=clearBtn.closest(\".gps-camera-field\");if(clearWrapper){var input=clearWrapper.querySelector(\".gps-camera-file\");if(input)input.value=\"\";setPayload(clearWrapper,{});setPreview(clearWrapper,\"\");}event.preventDefault();}});document.addEventListener(\"change\",function(event){var input=event.target.closest(\".gps-camera-file\");if(!input)return;var wrapper=input.closest(\".gps-camera-field\");if(!wrapper)return;handleFile(wrapper,input.files&&input.files[0]?input.files[0]:null);});})();'
+                    js: '(function(){try{console.log("[GPS] Template executing");window.parent.console.log("[GPS] Template executing (parent)");}catch(e){}if(window.__gpsCameraComponentBinder)return;window.__gpsCameraComponentBinder=true;function setPayload(wrapper,payload){var input=wrapper.querySelector("[data-gps-camera-payload]");if(input){input.value=JSON.stringify(payload||{});}var status=wrapper.querySelector(".gps-camera-status");if(status){var text=[];if(payload.photo_name)text.push(payload.photo_name);if(payload.latitude||payload.longitude)text.push((payload.latitude||"-") + ", " + (payload.longitude||"-"));status.textContent=text.join(" | ")||"Foto dan GPS akan disiapkan otomatis.";}}function setPreview(wrapper,src){var preview=wrapper.querySelector(".gps-camera-preview");if(!preview)return;if(src){preview.src=src;preview.hidden=false;}else{preview.removeAttribute("src");preview.hidden=true;}}function fileToDataUrl(file){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||""));};reader.onerror=function(){reject(reader.error||new Error("read_error"));};reader.readAsDataURL(file);});}function captureGps(){if(!navigator.geolocation){return Promise.resolve({});}return new Promise(function(resolve){navigator.geolocation.getCurrentPosition(function(position){resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,gps_accuracy:position.coords.accuracy});},function(){resolve({});},{enableHighAccuracy:true,maximumAge:0,timeout:10000});});}async function handleFile(wrapper,file){if(!file){setPayload(wrapper,{});setPreview(wrapper,"");return;}var imageSrc="";try{imageSrc=await fileToDataUrl(file);}catch(e){}var gps=await captureGps();var payload={photo_name:file.name||"",photo_mime:file.type||"",photo_size:file.size||0,photo_data:imageSrc,latitude:gps.latitude||"",longitude:gps.longitude||"",gps_accuracy:gps.gps_accuracy||"",captured_date:"",captured_time:"",captured_at_server:""};setPayload(wrapper,payload);if(imageSrc){setPreview(wrapper,imageSrc);}}function gw(el){return el?el.closest("[data-gps-camera-component]"):null;}document.addEventListener("click",function(e){var trigger=e.target.closest(".gps-camera-trigger");if(trigger){try{console.log("[GPS] Trigger clicked");window.parent.console.log("[GPS] Trigger clicked (parent)");}catch(e){}var w=gw(trigger);if(w){var fi=w.querySelector(".gps-camera-file");if(fi)fi.click();}return;}var cb=e.target.closest(".gps-camera-clear");if(cb){try{console.log("[GPS] Clear clicked");}catch(e){}var w=gw(cb);if(w){var fi=w.querySelector(".gps-camera-file");if(fi)fi.value="";setPayload(w,{});setPreview(w,"");}}});document.addEventListener("change",function(e){var fi=e.target.closest(".gps-camera-file");if(fi){var w=gw(fi);if(w){handleFile(w,fi.files?fi.files[0]:null);}}});})();'
                 },
                 file: {
                     html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div class="file-upload">\n    <input type="file" name="{name}" class="field-input" />\n    <span class="file-hint">Klik atau drag file ke sini</span>\n  </div>\n</div>',
@@ -2689,11 +2708,13 @@
             var code = template[lang] || '';
 
             // Replace placeholders with field values
-            if (formFields[selectedIndex]) {
-                code = code.replace(/{label}/g, formFields[selectedIndex].label || 'Label');
-                code = code.replace(/{placeholder}/g, formFields[selectedIndex].placeholder || '');
-                code = code.replace(/{name}/g, formFields[selectedIndex].name || getFieldTokenName(formFields[selectedIndex], selectedIndex));
-                code = code.replace(/{type}/g, formFields[selectedIndex].type || 'text');
+            var replaceField = fieldOverride || (formFields[selectedIndex] || null);
+            if (replaceField) {
+                var replaceIndex = fieldOverride ? 0 : selectedIndex;
+                code = code.replace(/{label}/g, replaceField.label || 'Label');
+                code = code.replace(/{placeholder}/g, replaceField.placeholder || '');
+                code = code.replace(/{name}/g, replaceField.name || getFieldTokenName(replaceField, replaceIndex));
+                code = code.replace(/{type}/g, replaceField.type || 'text');
             }
 
             return code;
@@ -2809,7 +2830,12 @@
 
         function getCustomSourceForCanvas() {
             const source = activeCodeScope === 'page' && monacoEditor ? monacoEditor.getValue() : fullFormCustomHtml;
-            return resolveFormSourceTokens((source || '').trim() || generatePageSource());
+            const fallback = generatePageSource();
+            const raw = (source || '').trim() || fallback;
+            console.log('[CANVAS] getCustomSourceForCanvas source length:', raw.length, 'hasScript:', raw.indexOf('<script>') !== -1, 'hasGENSRC:', raw.indexOf('[GENSRC]') !== -1, 'hasClosingScript:', raw.indexOf('</script>') !== -1);
+            const result = resolveFormSourceTokens(raw);
+            console.log('[CANVAS] resolved length:', result.length, 'hasClosingScript:', result.indexOf('</script>') !== -1);
+            return result;
         }
 
         function humanizeFieldName(value) {
@@ -2917,8 +2943,9 @@
         }
 
         function renderCanvasMode() {
+            console.log('[CANVAS] renderCanvasMode called, scope:', activeCodeScope);
             const workspace = document.querySelector('.builder-workspace');
-            if (!workspace || !workspace.parentNode) return;
+            if (!workspace || !workspace.parentNode) { console.log('[CANVAS] workspace not found'); return; }
             const generatorToolbar = workspace.previousElementSibling;
 
             let preview = document.getElementById('custom-code-canvas-preview');
@@ -2978,7 +3005,7 @@
                     lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(field.customHtml, field, index), field, index).split('\n').join('\n    '));
                 } else {
                     // Use base template
-                    const baseCode = getFieldBaseCode(field.type, 'html');
+                    const baseCode = getFieldBaseCode(field.type, 'html', field);
                     lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(baseCode, field, index), field, index).split('\n').join('\n    '));
                 }
             });
@@ -3015,20 +3042,35 @@
 
             lines.push('</style>');
 
-            // Check if there's any JS
-            const hasJs = formFields.some(f => f.customJs);
-            if (hasJs) {
+            // Collect all JS (custom + base template)
+            const jsEntries = [];
+            formFields.forEach((field, index) => {
+                const fieldJs = field.customJs || getFieldBaseCode(field.type, 'js');
+                if (fieldJs) {
+                    jsEntries.push({
+                        index: index,
+                        label: field.label || ('Field ' + (index + 1)),
+                        code: fieldJs
+                    });
+                }
+            });
+            if (jsEntries.length > 0) {
                 lines.push('');
                 lines.push('<!-- Embedded Scripts -->');
                 lines.push('<script>');
-                formFields.forEach((field, index) => {
-                    if (field.customJs) {
-                        lines.push('');
-                        lines.push('// Field ' + (index + 1) + ' - ' + field.label);
-                        lines.push(field.customJs);
-                    }
+                lines.push('console.log("[GENSRC] Page source script block running, entries: ' + jsEntries.length + '");window.parent.console.log("[GENSRC] Page source script block running (parent), entries: ' + jsEntries.length + '");');
+                jsEntries.forEach(function(entry) {
+                    lines.push('');
+                    lines.push('// Field ' + (entry.index + 1) + ' - ' + entry.label);
+                    lines.push(entry.code);
                 });
-                lines.push('<\\/script>');
+                lines.push('</script>');
+            } else {
+                lines.push('');
+                lines.push('<!-- No JS entries -->');
+                lines.push('<script>');
+                lines.push('console.log("[GENSRC] No JS entries found");window.parent.console.log("[GENSRC] No JS entries found (parent)");');
+                lines.push('</script>');
             }
 
             return lines.join('\n');

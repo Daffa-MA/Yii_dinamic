@@ -66,6 +66,7 @@ foreach ($neededLibs as $lib) {
 }
 ?>
     <script src="/js/dynamic-form-runtime.js"></script>
+    <script src="/js/page-builder/icon-registry.js"></script>
     <style>
         .relation-picker-wrapper { width:100%; }
         .relation-picker-input-group,
@@ -139,9 +140,18 @@ foreach ($neededLibs as $lib) {
                 case "card":
                     const blockId = block.id || ('card-' + Math.random().toString(36).slice(2));
                     const iconLib = props.iconLibrary || 'material-symbols';
-                    const iconClass = ({'material-symbols':'material-symbols-outlined','tabler':'ti ti-' + (props.icon||''),'heroicons':'hero-icon hero-' + (props.icon||''),'lucide':'lucide lucide-' + (props.icon||''),'phosphor':'ph ph-' + (props.icon||''),'remix':'ri ri-' + (props.icon||''),'font-awesome':'fa-solid fa-' + (props.icon||''),'bootstrap-icons':'bi bi-' + (props.icon||''),'feather':'feather feather-' + (props.icon||'')})[iconLib] || 'material-symbols-outlined';
+                    const iconClass = ({'material-symbols':'material-symbols-outlined','tabler':'ti ti-' + (props.icon||''),'heroicons':'','lucide':'','phosphor':'ph ph-' + (props.icon||''),'remix':'ri ri-' + (props.icon||''),'font-awesome':'fa-solid fa-' + (props.icon||''),'bootstrap-icons':'bi bi-' + (props.icon||''),'feather':'feather feather-' + (props.icon||'')})[iconLib] || 'material-symbols-outlined';
                     const iconContent = iconLib === 'material-symbols' ? (props.icon || '') : '';
-                    const cardIcon = props.icon ? `<span class="${iconClass}" style="font-size:${props.iconSize || '48'}px;color:${props.iconColor || '#6366f1'};margin-bottom:12px;display:block;">${iconContent}</span>` : '';
+                    let cardIcon = '';
+                    if (props.icon) {
+                        if (iconLib === 'heroicons' && window.IconRegistry) {
+                            cardIcon = window.IconRegistry.renderIcon(iconLib, props.icon, { size: parseInt(props.iconSize || 48), color: props.iconColor || '#6366f1' });
+                        } else if (iconLib === 'lucide' && window.IconRegistry) {
+                            cardIcon = window.IconRegistry.renderIcon(iconLib, props.icon, { size: parseInt(props.iconSize || 48), color: props.iconColor || '#6366f1' });
+                        } else {
+                            cardIcon = `<span class="${iconClass}" style="font-size:${props.iconSize || '48'}px;color:${props.iconColor || '#6366f1'};margin-bottom:12px;display:block;">${iconContent}</span>`;
+                        }
+                    }
                     const cardContent = props.description || props.content || '';
                     const cardValue = (props.showValue !== false && props.datasource === 'database') ? (props._previewValue || '--') : '';
                     return `<div data-card-id="${blockId}" data-datasource="${props.datasource || ''}" class="bg-white rounded-lg shadow-md p-6" style="text-align:${props.alignment || 'left'};${props.bgColor && props.bgColor !== '#ffffff' ? 'background:' + props.bgColor + ';' : ''}${props.showShadow ? '' : 'border:1px solid #e2e8f0;'}box-shadow:${props.showShadow ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'};">
@@ -501,6 +511,7 @@ foreach ($neededLibs as $lib) {
                 const container = document.getElementById("preview-content");
                 if (container && window.pageState) {
                     container.innerHTML = renderBlocks(window.pageState);
+                    if (window.IconRegistry) window.IconRegistry.afterRender(container);
                     hydrateDynamicForms(container);
                     executeScripts(container);
                     loadCardData(container);
@@ -511,6 +522,7 @@ foreach ($neededLibs as $lib) {
             const container = document.getElementById("preview-content");
             if (container && window.pageState) {
                 container.innerHTML = renderBlocks(window.pageState);
+                if (window.IconRegistry) window.IconRegistry.afterRender(container);
                 hydrateDynamicForms(container);
                 executeScripts(container);
                 loadCardData(container);

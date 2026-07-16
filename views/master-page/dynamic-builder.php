@@ -22,6 +22,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/cs
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+$this->registerJsFile('https://unpkg.com/lucide@latest', ['position' => \yii\web\View::POS_HEAD]);
 // Register Card Widget Assets (loaded in HEAD so available before inline builder code)
 \app\assets\CardWidgetAsset::register($this);
 
@@ -2611,7 +2612,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             height: 'auto',
             alignment: 'left',
             icon: '',
-            iconLibrary: 'material-symbols',
+            iconLibrary: 'heroicons',
             iconSize: '48',
             iconColor: '#6366f1',
             iconWeight: '400',
@@ -2913,6 +2914,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 }
             });
         }
+
+        if (window.IconRegistry) window.IconRegistry.afterRender(canvas);
 
         scheduleLivePreviewUpdate();
         scheduleFullPageSourceSyncFromBuilder();

@@ -42,7 +42,6 @@ class CardWidget {
                 window.cardWidgetConfig = this.config;
             }
         } catch (e) {
-            console.warn('Card config load failed, using defaults', e);
         }
     }
 
@@ -64,6 +63,7 @@ class CardWidget {
             const block = this.findBlock(state, blockId);
             if (block) {
                 el.innerHTML = this.renderCardPreview(block.props);
+                if (window.IconRegistry) window.IconRegistry.afterRender(el);
             }
         });
     }
@@ -109,19 +109,20 @@ class CardWidget {
                 iconShape === 'square' ? 'border-radius:4px;' : '';
             const bgCss = iconBg ? `background:${iconBg};padding:12px;${shapeCss}` : '';
 
-            const iconLib = props.iconLibrary || 'material-symbols';
-            let iconClass = this.getIconCssClass(iconLib, props.icon);
-            let iconContent = props.icon;
-            if (iconLib !== 'material-symbols') {
-                iconContent = '';
-            }
+            const iconLib = props.iconLibrary || 'heroicons';
+            const iconHtmlContent = window.IconRegistry
+                ? window.IconRegistry.renderIcon(iconLib, props.icon, {
+                    size: parseInt(iconSize),
+                    color: iconColor,
+                    fill: props.iconFill,
+                    weight: props.iconWeight
+                  })
+                : `<span style="font-size:${iconSize}px;color:${iconColor}">${props.icon}</span>`;
 
             iconHtml = `
                 <div style="text-align:${align};margin-bottom:12px;opacity:${iconOpacity};">
                     <span style="display:inline-flex;align-items:center;justify-content:center;${bgCss}transform:rotate(${iconRotation}deg);">
-                        <span class="${iconClass}" style="font-size:${iconSize}px;color:${iconColor};font-weight:${props.iconWeight || '400'}">
-                            ${iconContent}
-                        </span>
+                        ${iconHtmlContent}
                     </span>
                 </div>
             `;
@@ -177,20 +178,7 @@ class CardWidget {
     }
 
     getIconCssClass(library, iconName) {
-        const icon = iconName || '';
-        const map = {
-            'material-symbols': 'material-symbols-outlined',
-            'tabler': icon ? 'ti ti-' + icon : 'ti',
-            'heroicons': icon ? 'hero-icon hero-' + icon : 'hero-icon',
-            'lucide': icon ? 'lucide lucide-' + icon : 'lucide',
-            'phosphor': icon ? 'ph ph-' + icon : 'ph',
-            'remix': icon ? 'ri ri-' + icon : 'ri',
-            'font-awesome': icon ? 'fa-solid fa-' + icon : 'fa-solid',
-            'bootstrap-icons': icon ? 'bi bi-' + icon : 'bi',
-            'feather': icon ? 'feather feather-' + icon : 'feather',
-        };
-        const base = map[library] || 'material-symbols-outlined';
-        return base;
+        return window.IconRegistry ? window.IconRegistry.getCssClass(library, iconName) : 'hero-icon';
     }
 
     buildCardPreviewHtml(props) {
@@ -210,7 +198,6 @@ class CardWidget {
         try {
             const baseUrl = window.cardConfigBaseUrl || '/card';
             const url = `${baseUrl}/preview`;
-            console.log('[CardWidget] Fetching card data from:', url, 'props:', JSON.stringify(block.props));
             const resp = await fetch(url, {
                 method: 'POST',
                 headers: {
@@ -220,11 +207,9 @@ class CardWidget {
                 body: JSON.stringify({ config: block.props })
             });
             if (!resp.ok) {
-                console.warn('[CardWidget] HTTP error:', resp.status, resp.statusText);
                 return;
             }
             const result = await resp.json();
-            console.log('[CardWidget] Response:', result);
             if (result.success && result.data) {
                 block.props._previewValue = result.data.formatted || result.data.value;
                 this.triggerRender(blockId);
@@ -234,7 +219,6 @@ class CardWidget {
                 this.triggerRender(blockId);
             }
         } catch (e) {
-            console.warn('[CardWidget] Data fetch error:', e);
         }
     }
 
@@ -256,6 +240,7 @@ class CardWidget {
             const block = this.findBlock(state, blockId);
             if (block) {
                 el.innerHTML = this.renderCardPreview(block.props);
+                if (window.IconRegistry) window.IconRegistry.afterRender(el);
             }
         }
     }
@@ -278,7 +263,7 @@ class IconPicker {
         this.container = options.container || null;
         this.onSelect = options.onSelect || (() => {});
         this.currentValue = options.value || '';
-        this.currentLibrary = options.library || 'material-symbols';
+        this.currentLibrary = options.library || 'heroicons';
         this.recentlyUsed = JSON.parse(localStorage.getItem('iconPicker_recent') || '[]');
         this.favorites = JSON.parse(localStorage.getItem('iconPicker_favorites') || '[]');
         this.searchResults = [];
@@ -393,7 +378,7 @@ class IconPicker {
         <div class="ip-footer">
             <div class="ip-preview">
                 <div class="ip-preview-box">
-                    ${this._renderPreviewIcon(this.currentLibrary, this.currentValue || 'add_circle')}
+                    ${this._renderPreviewIcon(this.currentLibrary, this.currentValue || 'star')}
                 </div>
                 <div class="ip-preview-info">
                     <div class="ip-preview-name">${this.currentValue || 'Belum ada icon dipilih'}</div>
@@ -426,6 +411,16 @@ class IconPicker {
         await this.loadIcons(this.currentLibrary);
         this.renderIcons();
 
+        if (window.IconRegistry && this.currentLibrary === 'heroicons') {
+            var svg = this.previewBox.querySelector('svg');
+            var iconName = this.currentValue || 'star';
+            if (svg && iconName) {
+                window.IconRegistry.fetchAndRender(iconName, svg);
+            }
+        } else if (window.IconRegistry) {
+            window.IconRegistry.afterRender(this.previewBox);
+        }
+
         setTimeout(() => this.searchInput.focus(), 150);
     }
 
@@ -454,7 +449,14 @@ class IconPicker {
     }
 
     setupLibBar() {
-        const libs = window.cardWidgetConfig?.iconLibraries || [];
+        const allowed = ['heroicons', 'lucide'];
+        const libs = (window.cardWidgetConfig?.iconLibraries || []).filter(lib => allowed.includes(lib.value));
+        if (libs.length === 0) {
+            libs.push({ value: 'heroicons', label: 'Heroicons' }, { value: 'lucide', label: 'Lucide' });
+        }
+        if (!libs.find(l => l.value === this.currentLibrary)) {
+            this.currentLibrary = libs[0]?.value || 'heroicons';
+        }
         this.libBar.innerHTML = libs.map(lib => `
             <button class="ip-lib-btn ${lib.value === this.currentLibrary ? 'active' : ''}" data-lib="${lib.value}">${lib.label}</button>
         `).join('');
@@ -530,34 +532,15 @@ class IconPicker {
         let innerHtml = '';
 
         const lib = this.currentLibrary;
-        if (lib === 'material-symbols') {
-            innerHtml = `<span class="material-symbols-outlined" style="font-size:24px;font-variation-settings:'FILL' 0,'wght' 400">${icon.name}</span>`;
-        } else if (lib === 'tabler') {
-            innerHtml = `<i class="ti ti-${icon.name}" style="font-size:22px;"></i>`;
-        } else if (lib === 'phosphor') {
-            innerHtml = `<i class="ph ph-${icon.name}" style="font-size:22px;"></i>`;
-        } else if (lib === 'remix') {
-            innerHtml = `<i class="ri ri-${icon.name}" style="font-size:22px;"></i>`;
-        } else if (lib === 'font-awesome') {
-            innerHtml = `<i class="fa-solid fa-${icon.name}" style="font-size:20px;"></i>`;
-        } else if (lib === 'bootstrap-icons') {
-            innerHtml = `<i class="bi bi-${icon.name}" style="font-size:20px;"></i>`;
+        if (lib === 'lucide') {
+            innerHtml = `<i data-lucide="${icon.name}" style="width:24px;height:24px;"></i>`;
         } else if (lib === 'heroicons') {
-            innerHtml = `<span style="font-size:11px;opacity:0.6;">${icon.name}</span>`;
-        } else if (lib === 'lucide') {
-            innerHtml = `<span style="font-size:11px;opacity:0.6;">${icon.name}</span>`;
-        } else if (lib === 'feather') {
-            innerHtml = `<span style="font-size:11px;opacity:0.6;">${icon.name}</span>`;
+            innerHtml = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" data-heroicon="${icon.name}"><rect x="2" y="2" width="20" height="20" rx="4" fill="currentColor" opacity="0.1"/><circle cx="12" cy="12" r="7" stroke="currentColor" stroke-dasharray="4 3" opacity="0.4"/><path d="M12 7v5m0 4h.01" stroke="currentColor" stroke-width="2" opacity="0.5"/></svg>`;
         } else {
-            innerHtml = `<span style="font-size:22px;">${icon.name.charAt(0).toUpperCase()}</span>`;
+            innerHtml = `<span style="font-size:22px;">${icon.name}</span>`;
         }
 
-        return `
-        <div class="ip-icon-item ${isSelected ? 'selected' : ''} ${isFav ? 'is-fav' : ''}" data-icon="${icon.name}" title="${icon.name}">
-            ${innerHtml}
-            <span class="ip-fav-star">★</span>
-            <span class="ip-tooltip">${icon.name}</span>
-        </div>`;
+        return `<div class="ip-icon-item${isSelected ? ' selected' : ''}${isFav ? ' favorite' : ''}" data-icon="${icon.name}" title="${icon.name}">${innerHtml}</div>`;
     }
 
     renderIcons() {
@@ -587,6 +570,7 @@ class IconPicker {
 
         this.gridEl.innerHTML = icons.map(icon => this._buildIconHtml(icon)).join('');
         this._attachIconEvents();
+        if (window.IconRegistry) window.IconRegistry.afterRender(this.gridEl);
     }
 
     _attachIconEvents() {
@@ -609,32 +593,57 @@ class IconPicker {
     _updatePreview(iconName) {
         if (!iconName) return;
         const lib = this.currentLibrary;
-        this.previewBox.innerHTML = this._renderPreviewIcon(lib, iconName);
         this.previewName.textContent = iconName;
         this.previewLib.textContent = this.getLibraryLabel(lib);
+
+        if (lib === 'heroicons') {
+            var url = 'https://cdn.jsdelivr.net/npm/heroicons@2/24/outline/' + encodeURIComponent(iconName) + '.svg';
+            var self = this;
+            fetch(url)
+                .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+                .then(function(svg) {
+                    var match = svg.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
+                    var inner = match ? match[1].trim() : '';
+                    if (inner) {
+                        self.previewBox.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
+                    } else {
+                        self.previewBox.innerHTML = '<span style="color:#ff9800;font-weight:bold;">?</span>';
+                    }
+                })
+                .catch(function(err) {
+                    self.previewBox.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="9" stroke="#ef4444" stroke-dasharray="3 3"/><path d="M12 8v4m0 4h.01" stroke="#ef4444" stroke-width="2.5"/></svg>';
+                });
+            return;
+        }
+
+        try {
+            var html = this._renderPreviewIcon(lib, iconName);
+            if (!html || html.length < 10) {
+                html = '<span style="color:red;font-size:28px;">?</span>';
+            }
+            this.previewBox.innerHTML = html;
+            if (window.IconRegistry && lib !== 'heroicons') {
+                window.IconRegistry.afterRender(this.previewBox);
+            }
+        } catch (e) {
+            this.previewBox.innerHTML = '<span style="color:red;font-size:28px;">ERR</span>';
+        }
     }
 
     _renderPreviewIcon(lib, name) {
-        if (lib === 'material-symbols') {
-            return `<span class="material-symbols-outlined" style="font-size:28px;font-variation-settings:'FILL' 0,'wght' 400">${name}</span>`;
-        } else if (lib === 'tabler') {
-            return `<i class="ti ti-${name}" style="font-size:26px;"></i>`;
-        } else if (lib === 'phosphor') {
-            return `<i class="ph ph-${name}" style="font-size:26px;"></i>`;
-        } else if (lib === 'remix') {
-            return `<i class="ri ri-${name}" style="font-size:26px;"></i>`;
-        } else if (lib === 'font-awesome') {
-            return `<i class="fa-solid fa-${name}" style="font-size:24px;"></i>`;
-        } else if (lib === 'bootstrap-icons') {
-            return `<i class="bi bi-${name}" style="font-size:24px;"></i>`;
-        } else if (lib === 'heroicons') {
-            return `<span style="font-size:14px;">${name}</span>`;
-        } else if (lib === 'lucide') {
-            return `<span style="font-size:14px;">${name}</span>`;
-        } else if (lib === 'feather') {
-            return `<span style="font-size:14px;">${name}</span>`;
+        if (lib === 'heroicons') {
+            if (window.IconRegistry && window.IconRegistry.isHeroiconCached(name)) {
+                var cached = window.IconRegistry.getCachedHeroicon(name);
+                if (cached) {
+                    return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' + cached + '</svg>';
+                }
+            }
+            return '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-heroicon="' + name + '"><rect x="2" y="2" width="20" height="20" rx="4" fill="#6366f1" opacity="0.08"/><circle cx="12" cy="12" r="7" stroke="#6366f1" stroke-dasharray="4 3" opacity="0.3"/><path d="M12 7v5m0 4h.01" stroke="#6366f1" stroke-width="2" opacity="0.5"/></svg>';
         }
-        return `<span style="font-size:18px;">${name.charAt(0).toUpperCase()}</span>`;
+        if (lib === 'lucide' && window.IconRegistry) {
+            return window.IconRegistry.renderIcon(lib, name, { size: 28, color: '#6366f1' });
+        }
+        return `<span style="font-size:18px;">${name ? name.charAt(0).toUpperCase() : '?'}</span>`;
     }
 
     _updateCategories(categories) {
@@ -1365,8 +1374,9 @@ class CardPropertiesEngine {
 
     renderIconFields(blockId, props) {
         const config = window.cardWidgetConfig;
-        const libOptions = (config?.iconLibraries || []).map(lib =>
-            `<option value="${lib.value}" ${(props.iconLibrary || 'material-symbols') === lib.value ? 'selected' : ''}>${lib.label}</option>`
+        const allowed = ['heroicons', 'lucide'];
+        const libOptions = (config?.iconLibraries || []).filter(lib => allowed.includes(lib.value)).map(lib =>
+            `<option value="${lib.value}" ${(props.iconLibrary || 'heroicons') === lib.value ? 'selected' : ''}>${lib.label}</option>`
         ).join('');
 
         const shapeOptions = (config?.iconShapes || []).map(s =>
@@ -1382,12 +1392,14 @@ class CardPropertiesEngine {
             </div>
             <div class="prop-group">
                 <label class="prop-label">Library</label>
-                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'iconLibrary', this.value);CardPropertiesEngine.refreshIconPicker('${blockId}')">${libOptions}</select>
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'iconLibrary', this.value);CardPropertiesEngine.update('${blockId}', 'icon', 'star');CardPropertiesEngine.refreshIconPicker('${blockId}')">${libOptions}</select>
             </div>
             <div class="prop-group">
                 <label class="prop-label">Icon</label>
                 <div class="icon-picker-trigger" onclick="CardPropertiesEngine.openIconPicker('${blockId}')" style="padding:10px 14px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:border-color 0.2s;">
-                    <span class="${CardPropertiesEngine.getIconCssClass(props.iconLibrary, props.icon)}" style="font-size:28px;color:${props.iconColor || '#6366f1'};">${(props.iconLibrary || 'material-symbols') === 'material-symbols' ? (props.icon || 'add_circle') : ''}</span>
+                    ${(window.IconRegistry && (props.iconLibrary === 'heroicons' || props.iconLibrary === 'lucide'))
+                        ? window.IconRegistry.renderIcon(props.iconLibrary, props.icon || 'star', { size: 28, color: props.iconColor || '#6366f1' })
+                        : `<span style="font-size:28px;color:${props.iconColor || '#6366f1'};">${props.icon || ''}</span>`}
                     <div>
                         <div style="font-size:13px;font-weight:600;color:#1e293b;">${props.icon || 'Click to select icon'}</div>
                         <div style="font-size:11px;color:#94a3b8;">Click to browse icons</div>
@@ -1745,21 +1757,26 @@ class CardPropertiesEngine {
 
         await picker.open(document.body, {
             value: block.props.icon || '',
-            library: block.props.iconLibrary || 'material-symbols',
+            library: block.props.iconLibrary || 'heroicons',
             onSelect: (iconName) => {
                 CardPropertiesEngine.update(blockId, 'icon', iconName);
                 const trigger = document.querySelector('.icon-picker-trigger');
                 if (trigger) {
-                    const lib = block.props.iconLibrary || 'material-symbols';
+                    const lib = block.props.iconLibrary || 'heroicons';
                     const iconEl = trigger.querySelector('span');
                     const nameEl = trigger.querySelector('div div:first-child');
                     if (iconEl) {
-                        iconEl.className = CardPropertiesEngine.getIconCssClass(lib);
-                        iconEl.textContent = iconName || 'add_circle';
+                        if (window.IconRegistry && (lib === 'heroicons' || lib === 'lucide')) {
+                            iconEl.outerHTML = window.IconRegistry.renderIcon(lib, iconName || 'star', { size: 28, color: block.props.iconColor || '#6366f1' });
+                        } else {
+                            iconEl.className = CardPropertiesEngine.getIconCssClass(lib, iconName);
+                            iconEl.textContent = iconName || 'add_circle';
+                        }
                     }
                     if (nameEl) {
                         nameEl.textContent = iconName || 'Click to select icon';
                     }
+                    if (window.IconRegistry) window.IconRegistry.afterRender(trigger);
                 }
             }
         });
@@ -1807,7 +1824,6 @@ class CardPropertiesEngine {
 
             CardPropertiesEngine._updateColumnVisibility(blockId);
         } catch (e) {
-            console.warn('Load columns error:', e);
         }
     }
 
@@ -1914,26 +1930,21 @@ class CardPropertiesEngine {
         if (trigger) {
             const iconEl = trigger.querySelector('span');
             if (iconEl) {
-                iconEl.className = CardPropertiesEngine.getIconCssClass(block.props.iconLibrary);
-                iconEl.textContent = block.props.icon || 'add_circle';
+                const lib = block.props.iconLibrary || 'heroicons';
+                const iconName = block.props.icon || 'star';
+                if (window.IconRegistry && (lib === 'heroicons' || lib === 'lucide')) {
+                    iconEl.outerHTML = window.IconRegistry.renderIcon(lib, iconName, { size: 28, color: block.props.iconColor || '#6366f1' });
+                } else {
+                    iconEl.className = CardPropertiesEngine.getIconCssClass(lib, iconName);
+                    iconEl.textContent = iconName;
+                }
+                if (window.IconRegistry) window.IconRegistry.afterRender(trigger);
             }
         }
     }
 
     static getIconCssClass(library, iconName) {
-        const icon = iconName || '';
-        const map = {
-            'material-symbols': 'material-symbols-outlined',
-            'tabler': icon ? 'ti ti-' + icon : 'ti',
-            'heroicons': icon ? 'hero-icon hero-' + icon : 'hero-icon',
-            'lucide': icon ? 'lucide lucide-' + icon : 'lucide',
-            'phosphor': icon ? 'ph ph-' + icon : 'ph',
-            'remix': icon ? 'ri ri-' + icon : 'ri',
-            'font-awesome': icon ? 'fa-solid fa-' + icon : 'fa-solid',
-            'bootstrap-icons': icon ? 'bi bi-' + icon : 'bi',
-            'feather': icon ? 'feather feather-' + icon : 'feather',
-        };
-        return map[library] || 'material-symbols-outlined';
+        return window.IconRegistry ? window.IconRegistry.getCssClass(library, iconName) : 'hero-icon';
     }
 
     static _findBlock(state, blockId) {

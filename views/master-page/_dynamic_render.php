@@ -38,7 +38,10 @@ foreach ($usedLibraries as $lib) {
         $this->registerCssFile($iconCssUrls[$lib], ['position' => \yii\web\View::POS_HEAD]);
     }
 }
+// Pre-load Lucide JS for SVG icon rendering (also loaded dynamically by IconRegistry)
+$this->registerJsFile('https://unpkg.com/lucide@latest', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile(\yii\helpers\Url::to('@web/css/card-widget.css'));
+$this->registerJsFile(\yii\helpers\Url::to('@web/js/page-builder/icon-registry.js'), ['position' => \yii\web\View::POS_HEAD]);
 
 // Prioritize persisted full-page custom source when available.
 $customHtml = trim((string) ($customHtml ?? ''));
@@ -990,28 +993,42 @@ function renderBlockSafe(block) {
                 const iconWrapper = document.createElement('div');
                 iconWrapper.style.cssText = 'margin-bottom:12px;text-align:' + align + ';opacity:' + ((parseInt(props.iconOpacity) || 100) / 100);
 
-                const iconEl = document.createElement('span');
                 const iconLib = props.iconLibrary || 'material-symbols';
                 const iconSize = props.iconSize || '48';
+                var iconEl;
 
-                let iconCssClass = 'material-symbols-outlined';
-                if (iconLib === 'tabler') iconCssClass = 'ti ti-' + props.icon;
-                else if (iconLib === 'heroicons') iconCssClass = 'hero-icon hero-' + props.icon;
-                else if (iconLib === 'lucide') iconCssClass = 'lucide lucide-' + props.icon;
-                else if (iconLib === 'phosphor') iconCssClass = 'ph ph-' + props.icon;
-                else if (iconLib === 'remix') iconCssClass = 'ri ri-' + props.icon;
-                else if (iconLib === 'font-awesome') iconCssClass = 'fa-solid fa-' + props.icon;
-                else if (iconLib === 'bootstrap-icons') iconCssClass = 'bi bi-' + props.icon;
+                if (window.IconRegistry && (iconLib === 'heroicons' || iconLib === 'lucide')) {
+                    var iconHtml = window.IconRegistry.renderIcon(iconLib, props.icon, {
+                        size: parseInt(iconSize),
+                        color: props.iconColor || '#6366f1',
+                        fill: props.iconFill,
+                        weight: props.iconWeight
+                    });
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = iconHtml;
+                    iconEl = tmp.firstElementChild;
+                    if (iconEl) {
+                        var existingClass = iconEl.getAttribute('class') || '';
+                        iconEl.setAttribute('class', existingClass + ' card-icon-wrapper');
+                    } else {
+                        iconEl = document.createElement('span');
+                    }
+                } else {
+                    iconEl = document.createElement('span');
+                    let iconCssClass = 'material-symbols-outlined';
+                    if (iconLib === 'tabler') iconCssClass = 'ti ti-' + props.icon;
+                    else if (iconLib === 'phosphor') iconCssClass = 'ph ph-' + props.icon;
+                    else if (iconLib === 'remix') iconCssClass = 'ri ri-' + props.icon;
+                    else if (iconLib === 'font-awesome') iconCssClass = 'fa-solid fa-' + props.icon;
+                    else if (iconLib === 'bootstrap-icons') iconCssClass = 'bi bi-' + props.icon;
 
-                iconEl.className = iconCssClass + ' card-icon-wrapper';
-                if (iconLib === 'material-symbols') {
-                    iconEl.textContent = props.icon;
+                    iconEl.className = iconCssClass + ' card-icon-wrapper';
+                    if (iconLib === 'material-symbols') {
+                        iconEl.textContent = props.icon;
+                        iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
+                    }
+                    iconEl.style.cssText += ';font-size:' + iconSize + 'px;color:' + (props.iconColor || '#6366f1') + ';';
                 }
-
-                if (iconLib === 'material-symbols') {
-                    iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
-                }
-                iconEl.style.cssText += ';font-size:' + iconSize + 'px;color:' + (props.iconColor || '#6366f1') + ';';
 
                 if (props.iconBackground) {
                     let shapeCss = '';
@@ -1191,6 +1208,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     executeScripts(container);
+    if (window.IconRegistry) window.IconRegistry.afterRender(container);
 
     // Load card data for all card blocks with database datasource
     (function loadCardData() {

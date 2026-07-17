@@ -128,9 +128,10 @@ class CardConfigService
         } catch (\Exception $e) {
             return [
                 'value' => null,
-                'formatted' => 'Error: ' . $e->getMessage(),
+                'formatted' => null,
                 'aggregate' => null,
                 'rawValue' => null,
+                'error' => $e->getMessage(),
             ];
         }
     }

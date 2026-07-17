@@ -230,12 +230,14 @@ class CardWidget {
             }
             const result = await resp.json();
             if (result.success && result.data) {
-                block.props._previewValue = result.data.formatted || result.data.value;
-                this.triggerRender(blockId);
-            } else if (result.data && result.data.formatted) {
-                block.props._previewValue = result.data.formatted;
-                block.props._previewError = null;
-                this.triggerRender(blockId);
+                if (result.data.error) {
+                    block.props._previewValue = null;
+                    CardWidget.showToast(result.data.error, 'error');
+                    this.triggerRender(blockId);
+                } else {
+                    block.props._previewValue = result.data.formatted || result.data.value;
+                    this.triggerRender(blockId);
+                }
             }
         } catch (e) {
         }
@@ -269,6 +271,38 @@ class CardWidget {
         const div = document.createElement('div');
         div.textContent = String(text);
         return div.innerHTML;
+    }
+
+    static showToast(message, type) {
+        const id = 'cw-toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = id;
+        toast.setAttribute('role', 'alert');
+        const bg = type === 'error' ? '#dc2626' : '#0f172a';
+        toast.style.cssText = [
+            'position:fixed',
+            'right:20px',
+            'bottom:20px',
+            'z-index:99999',
+            'max-width:380px',
+            'padding:14px 18px',
+            'border-radius:14px',
+            'background:' + bg,
+            'color:#fff',
+            'box-shadow:0 18px 40px rgba(15,23,42,.22)',
+            'font-size:14px',
+            'line-height:1.5',
+            'animation:cwFadeIn 0.25s ease',
+        ].join(';');
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) toast.remove(); }, 4000);
+        if (!document.getElementById('cw-toast-style')) {
+            const style = document.createElement('style');
+            style.id = 'cw-toast-style';
+            style.textContent = '@keyframes cwFadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+            document.head.appendChild(style);
+        }
     }
 }
 
@@ -1646,8 +1680,11 @@ class CardPropertiesEngine {
             </div>
             <div class="prop-group" id="card-customsql-group-${blockId}" ${props.datasource === 'database' && props.aggregate === 'CUSTOM' ? '' : 'style="display:none;"'}>
                 <label class="prop-label">Custom SQL Expression</label>
-                <textarea class="prop-input prop-textarea" rows="3" placeholder="COUNT(CASE WHEN status = 'hadir' THEN 1 END)" onchange="CardPropertiesEngine.update('${blockId}', 'customSql', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">${this.esc(props.customSql || '')}</textarea>
-                <small style="color:#64748b;font-size:11px;display:block;margin-top:4px;">Gunakan ekspresi SQL valid, misal: <code>COUNT(CASE WHEN status = 'hadir' THEN 1 END)</code> atau <code>SUM(CASE WHEN status = 'telat' THEN 1 ELSE 0 END)</code></small>
+                <textarea class="prop-input prop-textarea" rows="3" placeholder="COUNT(CASE WHEN status = 'hadir' THEN 1 END)" oninput="CardPropertiesEngine.setProp('${blockId}', 'customSql', this.value)">${this.esc(props.customSql || '')}</textarea>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                    <button type="button" class="prop-btn prop-btn-primary" onclick="CardPropertiesEngine.refreshPreview('${blockId}')" style="padding:6px 16px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer;">Apply</button>
+                    <small style="color:#64748b;font-size:11px;line-height:1.4;">Gunakan ekspresi SQL valid, misal: <code>COUNT(CASE WHEN status = 'hadir' THEN 1 END)</code></small>
+                </div>
             </div>
         `;
     }
@@ -1782,7 +1819,7 @@ class CardPropertiesEngine {
         `;
     }
 
-    static update(blockId, key, value) {
+    static setProp(blockId, key, value) {
         if (typeof updateProp === 'function') {
             updateProp(blockId, key, value);
         } else if (window.pageState) {
@@ -1795,6 +1832,10 @@ class CardPropertiesEngine {
                 if (window.renderProperties) renderProperties(blockId);
             }
         }
+    }
+
+    static update(blockId, key, value) {
+        CardPropertiesEngine.setProp(blockId, key, value);
         if (window.cardWidgetInstance) {
             clearTimeout(window.cardWidgetInstance.previewTimeout);
             window.cardWidgetInstance.previewTimeout = setTimeout(() => {

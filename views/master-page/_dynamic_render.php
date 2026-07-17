@@ -1118,10 +1118,14 @@ function renderBlockSafe(block) {
                             .then(function(r) { return r.json(); })
                             .then(function(result) {
                                 if (result.success && result.data) {
-                                    var v = result.data.formatted || result.data.value;
-                                    var valueEl = el.querySelector('.card-value');
-                                    if (valueEl) valueEl.textContent = v;
-                                    props.__liveValue = v;
+                                    if (result.data.error) {
+                                        showCardToast(result.data.error, 'error');
+                                    } else {
+                                        var v = result.data.formatted || result.data.value;
+                                        var valueEl = el.querySelector('.card-value');
+                                        if (valueEl) valueEl.textContent = v;
+                                        props.__liveValue = v;
+                                    }
                                 }
                             });
                         })();
@@ -1262,6 +1266,21 @@ document.addEventListener('DOMContentLoaded', function() {
     executeScripts(container);
     if (window.IconRegistry) window.IconRegistry.afterRender(container);
 
+    function showCardToast(message, type) {
+        var bg = type === 'error' ? '#dc2626' : '#0f172a';
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:99999;max-width:380px;padding:14px 18px;border-radius:14px;background:' + bg + ';color:#fff;box-shadow:0 18px 40px rgba(15,23,42,.22);font-size:13px;line-height:1.5;animation:toastIn 0.25s ease;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) toast.remove(); }, 4000);
+        if (!document.getElementById('dyn-toast-style')) {
+            var st = document.createElement('style');
+            st.id = 'dyn-toast-style';
+            st.textContent = '@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+            document.head.appendChild(st);
+        }
+    }
+
     // Load card data for all card blocks with database datasource
     (function loadCardData() {
         const cardBlocks = [];
@@ -1283,10 +1302,14 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(r) { return r.json(); })
             .then(function(result) {
                 if (result.success && result.data) {
-                    block.props.__liveValue = result.data.formatted || result.data.value;
-                    var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
-                    if (valueEl) {
-                        valueEl.textContent = block.props.__liveValue;
+                    if (result.data.error) {
+                        showCardToast(result.data.error, 'error');
+                    } else {
+                        block.props.__liveValue = result.data.formatted || result.data.value;
+                        var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
+                        if (valueEl) {
+                            valueEl.textContent = block.props.__liveValue;
+                        }
                     }
                 }
             })

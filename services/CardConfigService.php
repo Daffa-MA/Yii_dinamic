@@ -78,11 +78,11 @@ class CardConfigService
                 ->all();
 
             return array_map(function ($c) {
-                $dataType = strtolower($c['data_type'] ?? '');
+                $dataType = strtolower($c['type'] ?? '');
                 $isNumeric = in_array($dataType, [
                     'int', 'tinyint', 'smallint', 'mediumint', 'bigint',
                     'float', 'double', 'decimal', 'numeric',
-                    'real', 'number'
+                    'real', 'bit', 'boolean', 'serial'
                 ]);
 
                 return [
@@ -126,7 +126,7 @@ class CardConfigService
                 return ['value' => null, 'formatted' => 'Tabel tidak ditemukan', 'aggregate' => null, 'rawValue' => null];
             }
 
-            $value = $this->executeAggregateQuery($table->name, $aggregate, $config['column'] ?? null, $config['filterJson'] ?? '[]', $config['customSql'] ?? '');
+            $value = $this->executeAggregateQuery($table->name, $aggregate, $config['column'] ?? null, $config['filterJson'] ?? '[]', $config['customSql'] ?? '', !empty($config['timeFilterEnabled']), $config['timeFilterPeriod'] ?? 'all', $config['timeFilterColumn'] ?? '');
             $formatted = $this->formatValue($value, $config);
 
             return [
@@ -145,7 +145,7 @@ class CardConfigService
         }
     }
 
-    private function executeAggregateQuery($tableName, $aggregate, $column, $filterJson, $customSql = '')
+    public function executeAggregateQuery($tableName, $aggregate, $column, $filterJson, $customSql = '', $timeFilterEnabled = false, $timeFilterPeriod = 'all', $timeFilterColumn = '')
     {
         $db = Yii::$app->db;
         $schema = $db->schema;
@@ -183,12 +183,66 @@ class CardConfigService
             $this->buildWhereClause($filters, $whereClauses, $params, $schema);
         }
 
+        if ($timeFilterEnabled) {
+            if (!$timeFilterColumn) {
+                $timeFilterColumn = $this->detectDateColumn($tableName);
+            }
+            if ($timeFilterColumn) {
+                $col = $schema->quoteColumnName($timeFilterColumn);
+                $timeSql = $this->getTimeFilterSql($timeFilterPeriod, $col);
+                if ($timeSql) {
+                    $whereClauses[] = $timeSql;
+                }
+            }
+        }
+
         if (!empty($whereClauses)) {
             $sql .= ' WHERE ' . implode(' AND ', $whereClauses);
         }
 
         $result = $db->createCommand($sql, $params)->queryOne();
         return $result['value'] ?? 0;
+    }
+
+    private function getTimeFilterSql($period, $quotedColumn)
+    {
+        switch ($period) {
+            case 'today':
+                return "DATE({$quotedColumn}) = CURDATE()";
+            case 'yesterday':
+                return "DATE({$quotedColumn}) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+            case 'last_7_days':
+                return "DATE({$quotedColumn}) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+            case 'last_30_days':
+                return "DATE({$quotedColumn}) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
+            case 'this_month':
+                return "DATE({$quotedColumn}) >= DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+            case 'last_month':
+                return "DATE({$quotedColumn}) >= DATE_SUB(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH) AND DATE({$quotedColumn}) < DATE_FORMAT(CURDATE(), '%Y-%m-01')";
+            case 'this_year':
+                return "YEAR({$quotedColumn}) = YEAR(CURDATE())";
+            default:
+                return '';
+        }
+    }
+
+    private function detectDateColumn($tableName)
+    {
+        try {
+            $tableName = trim($tableName, '`"');
+            $tableSchema = Yii::$app->db->schema->getTableSchema($tableName);
+            if (!$tableSchema) return '';
+
+            $dateTypes = ['date', 'datetime', 'timestamp'];
+            foreach ($tableSchema->columns as $column) {
+                $type = strtolower($column->type);
+                if (in_array($type, $dateTypes)) {
+                    return $column->name;
+                }
+            }
+        } catch (\Exception $e) {
+        }
+        return '';
     }
 
     private function buildWhereClause($filters, &$clauses, &$params, $schema, $groupOperator = 'AND')

@@ -86,6 +86,9 @@ class WidgetRegistry extends Component
                 'iconRotation' => '0',
                 'iconFill' => false,
                 'iconStroke' => '1.5',
+                'timeFilterEnabled' => false,
+                'timeFilterPeriod' => 'all',
+                'timeFilterColumn' => '',
             ],
             'propsMeta' => [
                 'general' => [
@@ -119,6 +122,10 @@ class WidgetRegistry extends Component
                 'refresh' => [
                     'label' => 'Refresh',
                     'fields' => ['refresh', 'refreshInterval', 'cacheTtl']
+                ],
+                'timefilter' => [
+                    'label' => 'Time Filter',
+                    'fields' => ['timeFilterEnabled', 'timeFilterColumn', 'timeFilterPeriod']
                 ],
             ]
         ]);

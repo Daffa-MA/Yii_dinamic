@@ -154,7 +154,15 @@ foreach ($neededLibs as $lib) {
                     }
                     const cardContent = props.description || props.content || '';
                     const cardValue = (props.showValue !== false && props.datasource === 'database') ? (props._previewValue || '--') : '';
-                    return `<div data-card-id="${blockId}" data-datasource="${props.datasource || ''}" class="bg-white rounded-lg shadow-md p-6" style="text-align:${props.alignment || 'left'};${props.bgColor && props.bgColor !== '#ffffff' ? 'background:' + props.bgColor + ';' : ''}${props.showShadow ? '' : 'border:1px solid #e2e8f0;'}box-shadow:${props.showShadow ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'};">
+                    const tfEnabled = props.timeFilterEnabled === true || props.timeFilterEnabled === '1';
+                    const tfPeriod = props.timeFilterPeriod || 'all';
+                    const periodLabels = {'all':'Semua','today':'Hari Ini','yesterday':'Kemarin','last_7_days':'7 Hari','last_30_days':'30 Hari','this_month':'Bulan Ini','last_month':'Bulan Lalu','this_year':'Tahun Ini'};
+                    const periods = ['all','today','yesterday','last_7_days','last_30_days','this_month','last_month','this_year'];
+                    const tfHtml = tfEnabled && props.timeFilterColumn
+                        ? `<div style="position:absolute;top:8px;right:8px;z-index:5;"><select class="card-time-filter" data-card-id="${blockId}" style="font-size:11px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;background:rgba(255,255,255,0.9);cursor:pointer;color:#475569;outline:none;max-width:110px;">${periods.map(function(p){return '<option value="'+p+'"'+(p===tfPeriod?' selected':'')+'>'+(periodLabels[p]||p)+'</option>';}).join('')}</select></div>`
+                        : '';
+                    return `<div data-card-id="${blockId}" data-datasource="${props.datasource || ''}" class="bg-white rounded-lg shadow-md p-6" style="position:relative;text-align:${props.alignment || 'left'};${props.bgColor && props.bgColor !== '#ffffff' ? 'background:' + props.bgColor + ';' : ''}${props.showShadow ? '' : 'border:1px solid #e2e8f0;'}box-shadow:${props.showShadow ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'};">
+                        ${tfHtml}
                         ${cardIcon}
                         <h3 class="text-lg font-bold mb-1" style="color:${props.textColor || '#1e293b'};">${props.title || ''}</h3>
                         ${props.subtitle ? `<div style="font-size:14px;color:${props.textColor || '#1e293b'}cc;margin-bottom:8px;">${props.subtitle}</div>` : ''}
@@ -460,7 +468,7 @@ foreach ($neededLibs as $lib) {
                 });
             })(window.pageState);
 
-            cardBlocks.forEach(function(block) {
+            function fetchCardData(block) {
                 var url = window.cardPreviewUrl || '/card/preview';
                 fetch(url, {
                     method: 'POST',
@@ -477,7 +485,29 @@ foreach ($neededLibs as $lib) {
                         }
                     }
                 })
-                .catch(function(err) { console.warn('[CardWidget] Data fetch error:', err); });
+                .catch(function(err) {  });
+            }
+
+            cardBlocks.forEach(function(block) {
+                fetchCardData(block);
+            });
+
+            container.querySelectorAll('.card-time-filter').forEach(function(sel) {
+                sel.addEventListener('change', function() {
+                    var cardId = this.dataset.cardId;
+                    var period = this.value;
+                    var block = null;
+                    for (var i = 0; i < cardBlocks.length; i++) {
+                        if (cardBlocks[i].id === cardId) {
+                            block = cardBlocks[i];
+                            break;
+                        }
+                    }
+                    if (block) {
+                        block.props.timeFilterPeriod = period;
+                        fetchCardData(block);
+                    }
+                });
             });
         }
 

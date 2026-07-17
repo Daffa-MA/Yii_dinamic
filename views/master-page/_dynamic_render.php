@@ -986,6 +986,7 @@ function renderBlockSafe(block) {
                 'box-shadow:' + shadow,
                 'border:' + borderStyle,
                 'text-align:' + align,
+                'position:relative',
             ].join(';');
 
             // Icon
@@ -1077,6 +1078,57 @@ function renderBlockSafe(block) {
                 valEl.style.cssText = 'font-size:' + Math.max(parseInt(fontSize) + 8, 24) + 'px;font-weight:700;color:' + textColor + ';margin-top:8px;line-height:1.2;';
                 valEl.textContent = props.__liveValue || props._previewValue || '--';
                 el.appendChild(valEl);
+            }
+
+            // Time Filter dropdown
+            if ((props.timeFilterEnabled === true || props.timeFilterEnabled === '1') && props.timeFilterColumn) {
+                const periodLabels = {
+                    'all': 'Semua', 'today': 'Hari Ini', 'yesterday': 'Kemarin',
+                    'last_7_days': '7 Hari', 'last_30_days': '30 Hari',
+                    'this_month': 'Bulan Ini', 'last_month': 'Bulan Lalu', 'this_year': 'Tahun Ini'
+                };
+                const periods = ['all','today','yesterday','last_7_days','last_30_days','this_month','last_month','this_year'];
+                const tfWrap = document.createElement('div');
+                tfWrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;';
+                var tfSel = document.createElement('select');
+                tfSel.style.cssText = 'font-size:11px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;background:rgba(255,255,255,0.9);cursor:pointer;color:#475569;outline:none;max-width:110px;';
+                periods.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p;
+                    opt.textContent = periodLabels[p] || p;
+                    if (p === (props.timeFilterPeriod || 'all')) opt.selected = true;
+                    tfSel.appendChild(opt);
+                });
+                tfSel.addEventListener('change', function() {
+                    var blockId = el.dataset.cardId;
+                    if (blockId && window.dynamicPageState) {
+                        (function findAndUpdate(blocks) {
+                            (blocks || []).forEach(function(b) {
+                                if (b.id === blockId) { b.props.timeFilterPeriod = tfSel.value; }
+                                if (b.children) findAndUpdate(b.children);
+                            });
+                        })(window.dynamicPageState);
+                        (function reloadCard() {
+                            var url = window.cardPreviewUrl || '/card/preview';
+                            fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                body: JSON.stringify({ config: props })
+                            })
+                            .then(function(r) { return r.json(); })
+                            .then(function(result) {
+                                if (result.success && result.data) {
+                                    var v = result.data.formatted || result.data.value;
+                                    var valueEl = el.querySelector('.card-value');
+                                    if (valueEl) valueEl.textContent = v;
+                                    props.__liveValue = v;
+                                }
+                            });
+                        })();
+                    }
+                });
+                tfWrap.appendChild(tfSel);
+                el.appendChild(tfWrap);
             }
 
             return el;
@@ -1221,8 +1273,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (b.children) collectCards(b.children);
             });
         })(window.dynamicPageState);
-        console.log('[CardWidget] Card blocks', cardBlocks.length, JSON.parse(JSON.stringify(cardBlocks)));
-
         cardBlocks.forEach(function(block) {
             var url = window.cardPreviewUrl || '/card/preview';
             fetch(url, {

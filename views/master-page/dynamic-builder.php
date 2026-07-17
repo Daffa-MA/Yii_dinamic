@@ -2649,7 +2649,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             showSubtitle: true,
             showDescription: true,
             showValue: true,
-            _previewValue: null
+            _previewValue: null,
+            timeFilterEnabled: false,
+            timeFilterPeriod: 'all',
+            timeFilterColumn: ''
         },
         spacer: {
             height: '32'
@@ -3192,11 +3195,42 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 }
                 return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
             case 'card': {
-                if (typeof window.cardWidgetInstance !== 'undefined' && window.cardWidgetInstance.config) {
+                if (typeof window.cardWidgetInstance !== 'undefined') {
                     return window.cardWidgetInstance.buildCardPreviewHtml(props);
                 }
-                const cardDesc = props.description || props.content || '';
-                return `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${cardDesc}</p></div>`;
+                const shadowMap = {
+                    'none': 'none', 'sm': '0 1px 2px rgba(0,0,0,0.05)', 'md': '0 4px 6px -1px rgba(0,0,0,0.1)',
+                    'lg': '0 10px 15px -3px rgba(0,0,0,0.1)', 'xl': '0 20px 25px -5px rgba(0,0,0,0.1)',
+                    '2xl': '0 25px 50px -12px rgba(0,0,0,0.25)', 'inner': 'inset 0 2px 4px rgba(0,0,0,0.05)',
+                };
+                const s = shadowMap[props.shadow] || shadowMap['md'];
+                let bg = props.bgColor || '#ffffff';
+                if (props.bgType === 'gradient' && props.bgGradient) bg = props.bgGradient;
+                else if (props.bgType === 'transparent') bg = 'transparent';
+                const border = props.border && props.border !== 'none' ? '1px ' + props.border + ' ' + (props.borderColor || '#e2e8f0') : 'none';
+                const align = props.alignment || 'left';
+                const tc = props.textColor || '#1e293b';
+                const fs = (props.fontSize || '16') + 'px';
+                const ff = props.fontFamily || '';
+                let iconHtml = '';
+                if (props.showIcon !== false && props.icon) {
+                    const isz = props.iconSize || '48';
+                    const ic = props.iconColor || '#6366f1';
+                    const lib = props.iconLibrary || 'heroicons';
+                    let inner = '';
+                    if (window.IconRegistry && (lib === 'heroicons' || lib === 'lucide')) {
+                        inner = window.IconRegistry.renderIcon(lib, props.icon, { size: parseInt(isz), color: ic, fill: props.iconFill, weight: props.iconWeight });
+                    } else {
+                        inner = '<span style="font-size:' + isz + 'px;color:' + ic + '">' + (props.icon || '') + '</span>';
+                    }
+                    iconHtml = '<div style="text-align:' + align + ';margin-bottom:12px;">' + inner + '</div>';
+                }
+                const titleHtml = props.showTitle !== false && props.title ? '<div style="font-size:' + fs + ';font-weight:700;color:' + tc + ';line-height:' + (props.lineHeight || '1.5') + ';margin-bottom:' + (props.subtitle ? '4px' : '8px') + ';' + (ff ? 'font-family:' + ff + ';' : '') + '">' + escapeAttr(props.title) + '</div>' : '';
+                const subHtml = props.showSubtitle !== false && props.subtitle ? '<div style="font-size:' + Math.max(parseInt(fs) - 2, 12) + 'px;color:' + tc + 'cc;margin-bottom:8px;">' + escapeAttr(props.subtitle) + '</div>' : '';
+                const descText = props.description || props.content || '';
+                const descHtml = props.showDescription !== false && descText ? '<div style="font-size:' + Math.max(parseInt(fs) - 4, 12) + 'px;color:' + tc + '99;margin-bottom:8px;">' + escapeAttr(descText) + '</div>' : '';
+                const valHtml = props.showValue !== false && props.datasource !== 'static' ? '<div style="font-size:' + Math.max(parseInt(fs) + 8, 24) + 'px;font-weight:700;color:' + tc + ';margin-top:8px">' + (props._previewValue || '--') + '</div>' : '';
+                return '<div style="position:relative;width:' + (props.width || '100') + '%;padding:' + (props.padding || '24') + 'px;background:' + bg + ';border-radius:' + (props.borderRadius || '12') + 'px;box-shadow:' + s + ';border:' + border + ';text-align:' + align + ';">' + iconHtml + titleHtml + subHtml + descHtml + valHtml + '</div>';
             }
             case 'spacer':
                 return `<div style="height:${props.height || '32'}px;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#94a3b8">Spacer</span></div>`;
@@ -4051,6 +4085,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         if (block.type === 'card' && typeof window.CardPropertiesEngine !== 'undefined') {
             CardPropertiesEngine.loadColumns(blockId);
+            CardPropertiesEngine.refreshTimeFilterColumns(blockId);
+            CardPropertiesEngine._updateTimeFilterVisibility(blockId);
         }
     }
 

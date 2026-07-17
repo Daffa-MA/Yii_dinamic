@@ -772,7 +772,7 @@ if ($hasCustomPageSource): ?>
                             $cardBg = 'transparent';
                         }
 
-                        $cardStyles = "width:{$cardWidth};padding:{$cardPadding};background:{$cardBg};border-radius:{$cardRadius};box-shadow:{$cardShadow};border:{$cardBorder};text-align:" . ($cardColumns > 1 && $cardGroupStart !== null ? 'left' : $cardAlign) . ";";
+                        $cardStyles = "width:{$cardWidth};padding:{$cardPadding};background:{$cardBg};border-radius:{$cardRadius};box-shadow:{$cardShadow};border:{$cardBorder};text-align:" . ($cardColumns > 1 && $cardGroupStart !== null ? 'left' : $cardAlign) . ";position:relative;";
                         if ($cardFontFamily) $cardStyles .= "font-family:{$cardFontFamily};";
                         $cardCssClasses = 'card-widget' . ($cardGlass ? ' card-glass' : '');
                         echo "<div class=\"{$cardCssClasses}\" style=\"{$cardStyles}\"" . ($blockId ? " data-card-id=\"" . htmlspecialchars($blockId) . "\"" : "") . ">";
@@ -781,7 +781,7 @@ if ($hasCustomPageSource): ?>
                         if (($props['showIcon'] ?? true) !== false && !empty($props['icon'])) {
                             $iconLib = $props['iconLibrary'] ?? 'material-symbols';
                             $iconName = $props['icon'];
-                            $iconSize = ($props['iconSize'] ?? '48') . 'px';
+                            $iconSize = ($props['iconSize'] ?? '48');
                             $iconColor = $props['iconColor'] ?? '#6366f1';
                             $iconOpacity = (intval($props['iconOpacity'] ?? 100) / 100);
                             $iconBg = $props['iconBackground'] ?? '';
@@ -790,32 +790,37 @@ if ($hasCustomPageSource): ?>
                             $iconWeight = $props['iconWeight'] ?? '400';
                             $iconFill = !empty($props['iconFill']);
 
-                            $iconCssClass = 'material-symbols-outlined';
-                            if ($iconLib === 'tabler') $iconCssClass = 'ti ti-' . $iconName;
-                            elseif ($iconLib === 'heroicons') $iconCssClass = 'hero-icon hero-' . $iconName;
-                            elseif ($iconLib === 'lucide') $iconCssClass = 'lucide lucide-' . $iconName;
-                            elseif ($iconLib === 'phosphor') $iconCssClass = 'ph ph-' . $iconName;
-                            elseif ($iconLib === 'remix') $iconCssClass = 'ri ri-' . $iconName;
-                            elseif ($iconLib === 'font-awesome') $iconCssClass = 'fa-solid fa-' . $iconName;
-                            elseif ($iconLib === 'bootstrap-icons') $iconCssClass = 'bi bi-' . $iconName;
+                            if ($iconLib === 'heroicons') {
+                                $iconContent = '<svg width="' . $iconSize . '" height="' . $iconSize . '" viewBox="0 0 24 24" fill="none" stroke="' . $iconColor . '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-heroicon="' . htmlspecialchars($iconName) . '"><rect x="2" y="2" width="20" height="20" rx="5" fill="' . $iconColor . '" opacity="0.15"/><circle cx="12" cy="12" r="8" stroke="' . $iconColor . '" stroke-dasharray="3 3" opacity="0.6"/><path d="M12 8v4m0 4h.01" stroke="' . $iconColor . '" stroke-width="2.5" opacity="0.7"/></svg>';
+                            } elseif ($iconLib === 'lucide') {
+                                $iconContent = '<i class="lucide lucide-' . htmlspecialchars($iconName) . '" style="display:inline-block;width:' . $iconSize . 'px;height:' . $iconSize . 'px;color:' . $iconColor . '" data-lucide="' . htmlspecialchars($iconName) . '"></i>';
+                            } else {
+                                $iconCssClass = 'material-symbols-outlined';
+                                if ($iconLib === 'tabler') $iconCssClass = 'ti ti-' . $iconName;
+                                elseif ($iconLib === 'phosphor') $iconCssClass = 'ph ph-' . $iconName;
+                                elseif ($iconLib === 'remix') $iconCssClass = 'ri ri-' . $iconName;
+                                elseif ($iconLib === 'font-awesome') $iconCssClass = 'fa-solid fa-' . $iconName;
+                                elseif ($iconLib === 'bootstrap-icons') $iconCssClass = 'bi bi-' . $iconName;
 
-                            $iconExtraStyle = "font-size:{$iconSize};color:{$iconColor};opacity:{$iconOpacity};";
-                            if ($iconLib === 'material-symbols') {
-                                $iconExtraStyle .= "font-variation-settings:'FILL' " . ($iconFill ? 1 : 0) . ", 'wght' " . $iconWeight . ", 'GRAD' 0;";
+                                $iconExtraStyle = "font-size:{$iconSize}px;color:{$iconColor};opacity:{$iconOpacity};";
+                                if ($iconLib === 'material-symbols') {
+                                    $iconExtraStyle .= "font-variation-settings:'FILL' " . ($iconFill ? 1 : 0) . ", 'wght' " . $iconWeight . ", 'GRAD' 0;";
+                                }
+                                $iconContent = '<span class="' . $iconCssClass . ' card-icon-wrapper" style="' . $iconExtraStyle . '">' . ($iconLib === 'material-symbols' ? htmlspecialchars($iconName) : '') . '</span>';
                             }
+
                             if ($iconBg) {
                                 $shapeCss = '';
                                 if ($iconShape === 'circle') $shapeCss = 'border-radius:50%;';
                                 elseif ($iconShape === 'rounded') $shapeCss = 'border-radius:12px;';
                                 elseif ($iconShape === 'square') $shapeCss = 'border-radius:4px;';
-                                $iconExtraStyle .= "background:{$iconBg};padding:12px;display:inline-flex;align-items:center;justify-content:center;{$shapeCss}";
+                                $iconContent = '<span style="display:inline-flex;align-items:center;justify-content:center;background:' . $iconBg . ';padding:12px;' . $shapeCss . '">' . $iconContent . '</span>';
+                            }
+                            if ($iconRotation && $iconRotation !== '0') {
+                                $iconContent = '<span style="display:inline-block;transform:rotate(' . $iconRotation . 'deg)">' . $iconContent . '</span>';
                             }
                             $iconWrapStyle = "margin-bottom:12px;text-align:{$cardAlign};opacity:{$iconOpacity};";
-                            if ($iconRotation && $iconRotation !== '0') {
-                                $iconExtraStyle .= "transform:rotate({$iconRotation}deg);";
-                            }
-                            $iconContent = ($iconLib === 'material-symbols') ? htmlspecialchars($iconName) : '';
-                            echo "<div style=\"{$iconWrapStyle}\"><span class=\"{$iconCssClass} card-icon-wrapper\" style=\"{$iconExtraStyle}\">{$iconContent}</span></div>";
+                            echo "<div style=\"{$iconWrapStyle}\">{$iconContent}</div>";
                         }
 
                         // Title
@@ -841,6 +846,24 @@ if ($hasCustomPageSource): ?>
                             $valStyle = "font-size:" . max(intval($cardFontSize) + 8, 24) . "px;font-weight:700;color:{$cardTextColor};margin-top:8px;line-height:1.2;";
                             $previewVal = $props['_previewValue'] ?? '';
                             echo "<div class=\"card-value\" style=\"{$valStyle}\">" . ($previewVal ? htmlspecialchars($previewVal) : '--') . "</div>";
+                        }
+
+                        // Time Filter dropdown
+                        $tfEnabled = !empty($props['timeFilterEnabled']);
+                        $tfPeriod = $props['timeFilterPeriod'] ?? 'all';
+                        if ($tfEnabled && !empty($props['timeFilterColumn'])) {
+                            $periodLabels = [
+                                'all' => 'Semua', 'today' => 'Hari Ini', 'yesterday' => 'Kemarin',
+                                'last_7_days' => '7 Hari', 'last_30_days' => '30 Hari',
+                                'this_month' => 'Bulan Ini', 'last_month' => 'Bulan Lalu', 'this_year' => 'Tahun Ini'
+                            ];
+                            echo '<div style="position:absolute;top:8px;right:8px;z-index:5;">';
+                            echo '<select class="card-time-filter" data-card-id="' . htmlspecialchars($blockId) . '" style="font-size:11px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;background:rgba(255,255,255,0.9);cursor:pointer;color:#475569;outline:none;max-width:110px;">';
+                            foreach (['all', 'today', 'yesterday', 'last_7_days', 'last_30_days', 'this_month', 'last_month', 'this_year'] as $p) {
+                                $sel = $p === $tfPeriod ? ' selected' : '';
+                                echo "<option value=\"{$p}\"{$sel}>" . ($periodLabels[$p] ?? $p) . "</option>";
+                            }
+                            echo '</select></div>';
                         }
 
                         echo "</div>";
@@ -1212,9 +1235,7 @@ $cardDataJs = <<<CARDJS
 
     if (!cardConfigs || !cardConfigs.length) return;
 
-    cardConfigs.forEach(function(config) {
-        if (!config.id || !config.props) return;
-
+    function fetchCardData(config) {
         fetch(previewUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -1230,11 +1251,44 @@ $cardDataJs = <<<CARDJS
                 }
             }
         })
-        .catch(function(err) { console.warn('[CardWidget] Data fetch error:', err); });
+        .catch(function(err) {  });
+    }
+
+    cardConfigs.forEach(function(config) {
+        if (!config.id || !config.props) return;
+        fetchCardData(config);
+    });
+
+    document.querySelectorAll('.card-time-filter').forEach(function(sel) {
+        sel.addEventListener('change', function() {
+            var cardId = this.dataset.cardId;
+            var period = this.value;
+            var cardConfig = null;
+            for (var i = 0; i < cardConfigs.length; i++) {
+                if (cardConfigs[i].id === cardId) {
+                    cardConfig = cardConfigs[i];
+                    break;
+                }
+            }
+            if (!cardConfig) return;
+            cardConfig.props.timeFilterPeriod = period;
+            fetchCardData(cardConfig);
+        });
     });
 })();
 CARDJS;
 if (!empty($cardConfigs)) {
     $this->registerJs($cardDataJs, \yii\web\View::POS_END);
 }
+
+// Load icon registry for heroicons/lucide SVGs on published page
+$this->registerJsFile(Url::to('@web/js/page-builder/icon-registry.js'), ['position' => \yii\web\View::POS_HEAD]);
+$iconRenderJs = <<<ICONJS
+(function() {
+    if (window.IconRegistry) {
+        window.IconRegistry.afterRender(document.body);
+    }
+})();
+ICONJS;
+$this->registerJs($iconRenderJs, \yii\web\View::POS_END);
 ?>

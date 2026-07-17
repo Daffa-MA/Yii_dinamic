@@ -144,8 +144,27 @@ class CardWidget {
             contentHtml += `<div style="font-size:${Math.max(parseInt(fontSize) + 8, 24)}px;font-weight:700;color:${textColor};margin-top:8px">${valueDisplay}</div>`;
         }
 
+        const timeFilterEnabled = props.timeFilterEnabled === true || props.timeFilterEnabled === '1';
+        const timeFilterPeriod = props.timeFilterPeriod || 'all';
+        const periodLabels = {
+            'all': 'Semua', 'today': 'Hari Ini', 'yesterday': 'Kemarin',
+            'last_7_days': '7 Hari', 'last_30_days': '30 Hari',
+            'this_month': 'Bulan Ini', 'last_month': 'Bulan Lalu', 'this_year': 'Tahun Ini'
+        };
+        const timeFilterPeriods = ['all', 'today', 'yesterday', 'last_7_days', 'last_30_days', 'this_month', 'last_month', 'this_year'];
+        const timeFilterHtml = timeFilterEnabled ? `
+            <div data-tf-dropdown style="position:absolute;top:8px;right:8px;z-index:5;">
+                <select data-tf-select
+                    style="font-size:11px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;background:rgba(255,255,255,0.9);cursor:pointer;color:#475569;outline:none;max-width:110px;"
+                    onchange="var bId=this.closest('[data-card-preview]')?.dataset?.cardPreview;if(bId&&window.CardPropertiesEngine){CardPropertiesEngine.update(bId,'timeFilterPeriod',this.value);}">
+                    ${timeFilterPeriods.map(p => `<option value="${p}" ${timeFilterPeriod === p ? 'selected' : ''}>${periodLabels[p] || p}</option>`).join('')}
+                </select>
+            </div>
+        ` : '';
+
         return `
-            <div style="width:${width};height:${height};padding:${padding};background:${bg};border-radius:${borderRadius};box-shadow:${shadow};border:${border};text-align:${align};">
+            <div style="position:relative;width:${width};height:${height};padding:${padding};background:${bg};border-radius:${borderRadius};box-shadow:${shadow};border:${border};text-align:${align};">
+                ${timeFilterHtml}
                 ${iconHtml}
                 ${contentHtml}
                 <div style="margin-top:12px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px;">
@@ -1308,6 +1327,7 @@ class CardPropertiesEngine {
                 ${this.renderSection('Typography', this.renderTypographyFields(blockId, props))}
                 ${this.renderSection('Background', this.renderBackgroundFields(blockId, props))}
                 ${this.renderSection('Data Source', this.renderDataSourceFields(blockId, props))}
+                ${this.renderSection('Time Filter', this.renderTimeFilterFields(blockId, props))}
                 ${this.renderFilterSection(blockId, props)}
                 ${this.renderSection('Output Format', this.renderOutputFormatFields(blockId, props))}
                 ${this.renderSection('Refresh', this.renderRefreshFields(blockId, props))}
@@ -1605,11 +1625,11 @@ class CardPropertiesEngine {
         return `
             <div class="prop-group">
                 <label class="prop-label">Data Source</label>
-                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'datasource', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">${dsOptions}</select>
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'datasource', this.value);CardPropertiesEngine._updateColumnVisibility('${blockId}');CardPropertiesEngine._updateTimeFilterVisibility('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">${dsOptions}</select>
             </div>
             <div class="prop-group" id="card-table-group-${blockId}" ${props.datasource === 'database' ? '' : 'style="display:none;"'}>
                 <label class="prop-label">Table</label>
-                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'tableId', this.value);CardPropertiesEngine.update('${blockId}', 'tableName', this.options[this.selectedIndex].text.split(' (')[0]);CardPropertiesEngine.loadColumns('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'tableId', this.value);CardPropertiesEngine.update('${blockId}', 'tableName', this.options[this.selectedIndex].text.split(' (')[0]);CardPropertiesEngine.loadColumns('${blockId}');CardPropertiesEngine.refreshTimeFilterColumns('${blockId}');CardPropertiesEngine._updateTimeFilterVisibility('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">
                     <option value="">-- Select Table --</option>
                     ${tableOptions}
                 </select>
@@ -1628,6 +1648,45 @@ class CardPropertiesEngine {
                 <label class="prop-label">Custom SQL Expression</label>
                 <textarea class="prop-input prop-textarea" rows="3" placeholder="COUNT(CASE WHEN status = 'hadir' THEN 1 END)" onchange="CardPropertiesEngine.update('${blockId}', 'customSql', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">${this.esc(props.customSql || '')}</textarea>
                 <small style="color:#64748b;font-size:11px;display:block;margin-top:4px;">Gunakan ekspresi SQL valid, misal: <code>COUNT(CASE WHEN status = 'hadir' THEN 1 END)</code> atau <code>SUM(CASE WHEN status = 'telat' THEN 1 ELSE 0 END)</code></small>
+            </div>
+        `;
+    }
+
+    renderTimeFilterFields(blockId, props) {
+        const periodLabels = {
+            'all': 'Semua Waktu',
+            'today': 'Hari Ini',
+            'yesterday': 'Kemarin',
+            'last_7_days': '7 Hari Terakhir',
+            'last_30_days': '30 Hari Terakhir',
+            'this_month': 'Bulan Ini',
+            'last_month': 'Bulan Lalu',
+            'this_year': 'Tahun Ini',
+        };
+        const periodOptions = Object.entries(periodLabels).map(([v, l]) =>
+            `<option value="${v}" ${(props.timeFilterPeriod || 'all') === v ? 'selected' : ''}>${l}</option>`
+        ).join('');
+        const isDb = props.datasource === 'database';
+        const enabled = props.timeFilterEnabled === true || props.timeFilterEnabled === '1';
+
+        return `
+            <div class="prop-checkbox-group">
+                <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;">
+                    <input type="checkbox" ${enabled ? 'checked' : ''} ${isDb ? '' : 'disabled'}
+                        onchange="CardPropertiesEngine.update('${blockId}', 'timeFilterEnabled', this.checked);CardPropertiesEngine.refreshTimeFilterColumns('${blockId}');CardPropertiesEngine._updateTimeFilterVisibility('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">
+                    Aktifkan Time Filter
+                </label>
+                ${!isDb ? '<small style="color:#94a3b8;font-size:11px;">Aktifkan Data Source database terlebih dahulu</small>' : ''}
+            </div>
+            <div class="prop-group" id="timefilter-column-group-${blockId}" ${enabled && isDb ? '' : 'style="display:none;"'}>
+                <label class="prop-label">Kolom Tanggal</label>
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'timeFilterColumn', this.value);CardPropertiesEngine._updateTimeFilterVisibility('${blockId}');CardPropertiesEngine.refreshPreview('${blockId}')">
+                    <option value="">-- Pilih kolom tanggal --</option>
+                </select>
+            </div>
+            <div class="prop-group" id="timefilter-period-group-${blockId}" ${enabled && isDb && props.timeFilterColumn ? '' : 'style="display:none;"'}>
+                <label class="prop-label">Periode</label>
+                <select class="prop-select" onchange="CardPropertiesEngine.update('${blockId}', 'timeFilterPeriod', this.value);CardPropertiesEngine.refreshPreview('${blockId}')">${periodOptions}</select>
             </div>
         `;
     }
@@ -1847,6 +1906,60 @@ class CardPropertiesEngine {
         const aggGroup = document.getElementById(`card-aggregate-group-${blockId}`);
         if (aggGroup) {
             aggGroup.style.display = block.props.datasource === 'database' ? '' : 'none';
+        }
+    }
+
+    static async refreshTimeFilterColumns(blockId) {
+        const state = window.pageState || [];
+        const block = CardPropertiesEngine._findBlock(state, blockId);
+        if (!block || !block.props.tableId) return;
+
+        try {
+            const baseUrl = window.cardConfigBaseUrl || '/card';
+            const resp = await fetch(`${baseUrl}/get-columns?tableId=${block.props.tableId}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const result = await resp.json();
+            const columns = result.success ? result.data : [];
+
+            const select = document.querySelector(`#timefilter-column-group-${blockId} select`);
+            if (!select) return;
+
+            const dateColumns = columns.filter(c => {
+                const dt = (c.dataType || '').toLowerCase();
+                return dt.includes('date') || dt.includes('timestamp') || dt.includes('datetime') || c.name.toLowerCase().includes('tanggal') || c.name.toLowerCase().includes('date') || c.name.toLowerCase().includes('tgl') || c.name.toLowerCase().includes('waktu') || c.name.toLowerCase().includes('time');
+            });
+
+            const cols = dateColumns.length ? dateColumns : columns;
+            select.innerHTML = '<option value="">-- Pilih kolom tanggal --</option>' +
+                cols.map(c => `<option value="${c.name}" ${block.props.timeFilterColumn === c.name ? 'selected' : ''}>${c.label || c.name}</option>`).join('');
+
+            const enabled = block.props.timeFilterEnabled === true || block.props.timeFilterEnabled === '1';
+            if (enabled && !block.props.timeFilterColumn && dateColumns.length) {
+                const firstCol = dateColumns[0];
+                block.props.timeFilterColumn = firstCol.name;
+                select.value = firstCol.name;
+                CardPropertiesEngine._updateTimeFilterVisibility(blockId);
+            }
+        } catch (e) {
+        }
+    }
+
+    static _updateTimeFilterVisibility(blockId) {
+        const state = window.pageState || [];
+        const block = CardPropertiesEngine._findBlock(state, blockId);
+        if (!block) return;
+
+        const enabled = block.props.timeFilterEnabled === true || block.props.timeFilterEnabled === '1';
+        const isDb = block.props.datasource === 'database';
+
+        const colGroup = document.getElementById(`timefilter-column-group-${blockId}`);
+        if (colGroup) {
+            colGroup.style.display = enabled && isDb ? '' : 'none';
+        }
+        const periodGroup = document.getElementById(`timefilter-period-group-${blockId}`);
+        if (periodGroup) {
+            periodGroup.style.display = enabled && isDb && block.props.timeFilterColumn ? '' : 'none';
         }
     }
 

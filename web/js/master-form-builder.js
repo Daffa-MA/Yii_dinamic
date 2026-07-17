@@ -1288,13 +1288,13 @@
                     if (!field.fk_referenced_column && field.value_column) {
                         field.fk_referenced_column = field.value_column;
                     }
-                    const displayColumn = getPreferredDisplayColumn(columns, field.fk_referenced_table || field.source_table_name, field.value_column || field.fk_referenced_column, field.fk_display_column || field.label_column);
-                    if ((!field.label_column || !hasDisplayColumn) && displayColumn) {
-                        field.label_column = displayColumn;
-                    }
-                    if ((!field.fk_display_column || !hasDisplayColumn) && displayColumn) {
-                        field.fk_display_column = displayColumn;
-                    }
+            const displayColumn = getPreferredDisplayColumn(columns, field.fk_referenced_table || field.source_table_name, field.value_column || field.fk_referenced_column, field.fk_display_column || field.label_column);
+            if (!field.label_column && displayColumn) {
+                field.label_column = displayColumn;
+            }
+            if (!field.fk_display_column && displayColumn) {
+                field.fk_display_column = displayColumn;
+            }
                     syncRelationConfig(field);
                     return columns;
                 });
@@ -1520,7 +1520,11 @@
                             field.value_column = data.value_column || valueColumn;
                             field.dropdown_value_column = field.value_column;
                             field.fk_referenced_column = field.value_column;
-                            field.label_column = data.label_column || labelColumn;
+                            if (data.label_column && data.label_column !== field.value_column) {
+                                field.label_column = data.label_column;
+                            } else {
+                                field.label_column = labelColumn;
+                            }
                             field.dropdown_label_column = field.label_column;
                             field.fk_display_column = field.label_column;
                             field.dynamic_options_loaded = true;
@@ -1777,9 +1781,12 @@
                             field.fk_referenced_table = data.referenced_table;
                             field.fk_referenced_column = data.referenced_column;
                             field.target_columns = data.target_columns;
-                            // Set default display column jika kosong
-                            if (!field.fk_display_column) {
-                                field.fk_display_column = data.referenced_column;
+                            if (!field.fk_display_column && Array.isArray(data.target_columns)) {
+                                var autoDisplay = data.target_columns.find(function(c) {
+                                    var name = (typeof c === 'object' ? c.name : c) || '';
+                                    return ['nama', 'name', 'title', 'label'].includes(name.toLowerCase());
+                                });
+                                field.fk_display_column = autoDisplay ? (typeof autoDisplay === 'object' ? autoDisplay.name : autoDisplay) : data.referenced_column;
                             }
                             syncRelationConfig(field);
                         }

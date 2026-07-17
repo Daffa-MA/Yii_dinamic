@@ -7,6 +7,7 @@ use app\models\DbTable;
 use app\models\DbTableColumn;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
+use app\components\CommanderAuthContext;
 
 class CardConfigService
 {
@@ -44,22 +45,11 @@ class CardConfigService
     public function getAvailableTables()
     {
         try {
-            $db = Yii::$app->db;
-            $tables = DbTable::find()
-                ->select(['id', 'name', 'label'])
-                ->where(['is_system' => 0])
-                ->andWhere(['is_visible_in_builder' => 1])
-                ->orderBy(['label' => SORT_ASC])
-                ->asArray()
-                ->all();
+            $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+            $effectiveUserId = (new CommanderAuthContext())->isSuperAdmin() ? null : (int)(Yii::$app->user->id ?? 0);
+            if ($effectiveUserId === 0) $effectiveUserId = null;
 
-            return array_map(function ($t) {
-                return [
-                    'id' => $t['id'],
-                    'name' => $t['name'],
-                    'label' => $t['label'] ?: $t['name'],
-                ];
-            }, $tables);
+            return \app\services\TableService::getUserTableOptions($effectiveUserId, $activeProjectId);
         } catch (\Exception $e) {
             return [];
         }

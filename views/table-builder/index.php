@@ -3,6 +3,7 @@
 /** @var yii\web\View $this */
 /** @var array $tables */
 /** @var array $databaseInfo */
+/** @var string|null $search */
 
 use yii\bootstrap5\Html;
 
@@ -845,6 +846,16 @@ main#main > .container > .alert {
                         ]) ?>
                     <?php endforeach; ?>
                 </div>
+            </div>
+            <div class="px-6 pt-3 pb-1">
+                <form method="get" action="<?= Yii::$app->urlManager->createUrl(['table-builder/index']) ?>" class="flex gap-2">
+                    <input type="hidden" name="table_category" value="<?= Html::encode($tableCategory) ?>">
+                    <input type="text" name="q" value="<?= Html::encode($search ?? '') ?>" placeholder="Cari table..." class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" autocomplete="off">
+                    <button type="submit" class="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white">Cari</button>
+                    <?php if (!empty($search)): ?>
+                        <?= Html::a('Clear', ['table-builder/index', 'table_category' => $tableCategory], ['class' => 'rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-600 no-underline']) ?>
+                    <?php endif; ?>
+                </form>
             </div>
             <div class="panel-body">
                 <?php if (empty($tables)): ?>

@@ -1567,10 +1567,21 @@ class TableBuilderController extends Controller
             $tablesWithColumns[] = $item;
         }
 
+        $search = Yii::$app->request->get('q');
+        if ($search) {
+            $searchLower = mb_strtolower($search);
+            $tablesWithColumns = array_filter($tablesWithColumns, static function ($item) use ($searchLower) {
+                $name = mb_strtolower((string)($item->table->name ?? ''));
+                $label = mb_strtolower((string)($item->table->label ?? ''));
+                return str_contains($name, $searchLower) || str_contains($label, $searchLower);
+            });
+        }
+
         return $this->render('index', [
             'tables' => $tablesWithColumns,
             'databaseInfo' => $databaseInfo,
             'tableCategory' => $tableCategory,
+            'search' => $search,
         ]);
     }
 

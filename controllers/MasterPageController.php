@@ -690,7 +690,7 @@ class MasterPageController extends Controller
     {
         try {
             $rows = \app\models\MasterPageChart::find()
-                ->select(['id', 'page_id', 'title', 'chart_type', 'table_id'])
+                ->select(['id', 'page_id', 'title', 'chart_type', 'table_id', 'source_type', 'source_query'])
                 ->andWhere(['is_active' => 1])
                 ->orderBy(['title' => SORT_ASC])
                 ->all();
@@ -703,6 +703,8 @@ class MasterPageController extends Controller
                     'title' => (string)$row->title,
                     'chart_type' => (string)$row->chart_type,
                     'table_id' => (int)$row->table_id,
+                    'source_type' => (string)$row->source_type,
+                    'source_query' => (string)$row->source_query,
                 ];
             }
 

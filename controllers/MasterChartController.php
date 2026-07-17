@@ -26,7 +26,7 @@ class MasterChartController extends Controller
 
     public function beforeAction($action)
     {
-        if (in_array($action->id, ['data', 'tables', 'fields', 'chart-data', 'quick-create'], true)) {
+        if (in_array($action->id, ['data', 'tables', 'fields', 'chart-data', 'quick-create', 'delete-json', 'update-source', 'test-query'], true)) {
             $this->enableCsrfValidation = false;
         }
 
@@ -51,7 +51,7 @@ class MasterChartController extends Controller
                     ],
                     [
                         'allow' => true,
-                        'actions' => ['index', 'create', 'update', 'delete', 'tables', 'fields', 'quick-create'],
+                        'actions' => ['index', 'create', 'update', 'delete', 'tables', 'fields', 'quick-create', 'delete-json', 'update-source', 'test-query'],
                         'roles' => ['?', '@'],
                     ],
                 ],
@@ -161,6 +161,81 @@ class MasterChartController extends Controller
         return $this->redirect(['index', 'page_id' => $pageId]);
     }
 
+    public function actionDeleteJson($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = MasterPageChart::findOne($id);
+            if (!$model) {
+                return ['success' => false, 'message' => 'Chart tidak ditemukan.'];
+            }
+            $model->delete();
+            return ['success' => true, 'message' => 'Chart berhasil dihapus.'];
+        } catch (\Throwable $e) {
+            Yii::error('delete-chart error: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'message' => 'Gagal menghapus chart: ' . $e->getMessage()];
+        }
+    }
+
+    public function actionTestQuery()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $sql = Yii::$app->request->post('query', '');
+            if (empty(trim($sql))) {
+                return ['success' => false, 'message' => 'Query kosong.'];
+            }
+
+            // Basic safety check
+            $upper = strtoupper(trim($sql));
+            if (strpos($upper, 'SELECT') !== 0 && strpos($upper, 'SHOW') !== 0) {
+                return ['success' => false, 'message' => 'Hanya query SELECT yang diizinkan.'];
+            }
+
+            $command = Yii::$app->db->createCommand($sql);
+            $rows = $command->queryAll();
+            $columns = $rows ? array_keys($rows[0]) : [];
+
+            return [
+                'success' => true,
+                'rows' => $rows,
+                'columns' => $columns,
+                'count' => count($rows),
+            ];
+        } catch (\Throwable $e) {
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    public function actionUpdateSource($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = MasterPageChart::findOne($id);
+            if (!$model) {
+                return ['success' => false, 'message' => 'Chart tidak ditemukan.'];
+            }
+
+            $sourceType = Yii::$app->request->post('source_type', 'table');
+            $sourceQuery = Yii::$app->request->post('source_query', '');
+
+            $model->source_type = $sourceType;
+            $model->source_query = $sourceQuery;
+
+            if ($model->save()) {
+                return ['success' => true, 'message' => 'Sumber data chart berhasil diperbarui.'];
+            }
+
+            return ['success' => false, 'errors' => $model->getErrors()];
+        } catch (\Throwable $e) {
+            Yii::error('update-source error: ' . $e->getMessage(), __METHOD__);
+            return ['success' => false, 'message' => 'Gagal memperbarui sumber data: ' . $e->getMessage()];
+        }
+    }
+
     public function actionTables()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
@@ -208,6 +283,8 @@ class MasterChartController extends Controller
             $model->page_id = (int)$pageId;
             $model->title = $post['title'] ?? 'Untitled Chart';
             $model->chart_type = $post['chart_type'] ?? 'bar';
+            $model->source_type = $post['source_type'] ?? 'table';
+            $model->source_query = $post['source_query'] ?? '';
             $model->table_id = $post['table_id'] ?? null;
             $model->label_field = $post['label_field'] ?? '';
             $model->value_field = $post['value_field'] ?? '';
@@ -225,6 +302,8 @@ class MasterChartController extends Controller
                         'title' => $model->title,
                         'chart_type' => $model->chart_type,
                         'table_id' => $model->table_id ? (int)$model->table_id : null,
+                        'source_type' => (string)$model->source_type,
+                        'source_query' => (string)$model->source_query,
                     ],
                 ];
             }

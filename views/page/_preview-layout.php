@@ -66,6 +66,7 @@ foreach ($neededLibs as $lib) {
 }
 ?>
     <script src="/js/dynamic-form-runtime.js"></script>
+    <script src="/js/page-builder/icon-registry.js"></script>
     <style>
         .relation-picker-wrapper { width:100%; }
         .relation-picker-input-group,
@@ -139,12 +140,29 @@ foreach ($neededLibs as $lib) {
                 case "card":
                     const blockId = block.id || ('card-' + Math.random().toString(36).slice(2));
                     const iconLib = props.iconLibrary || 'material-symbols';
-                    const iconClass = ({'material-symbols':'material-symbols-outlined','tabler':'ti ti-' + (props.icon||''),'heroicons':'hero-icon hero-' + (props.icon||''),'lucide':'lucide lucide-' + (props.icon||''),'phosphor':'ph ph-' + (props.icon||''),'remix':'ri ri-' + (props.icon||''),'font-awesome':'fa-solid fa-' + (props.icon||''),'bootstrap-icons':'bi bi-' + (props.icon||''),'feather':'feather feather-' + (props.icon||'')})[iconLib] || 'material-symbols-outlined';
+                    const iconClass = ({'material-symbols':'material-symbols-outlined','tabler':'ti ti-' + (props.icon||''),'heroicons':'','lucide':'','phosphor':'ph ph-' + (props.icon||''),'remix':'ri ri-' + (props.icon||''),'font-awesome':'fa-solid fa-' + (props.icon||''),'bootstrap-icons':'bi bi-' + (props.icon||''),'feather':'feather feather-' + (props.icon||'')})[iconLib] || 'material-symbols-outlined';
                     const iconContent = iconLib === 'material-symbols' ? (props.icon || '') : '';
-                    const cardIcon = props.icon ? `<span class="${iconClass}" style="font-size:${props.iconSize || '48'}px;color:${props.iconColor || '#6366f1'};margin-bottom:12px;display:block;">${iconContent}</span>` : '';
+                    let cardIcon = '';
+                    if (props.icon) {
+                        if (iconLib === 'heroicons' && window.IconRegistry) {
+                            cardIcon = window.IconRegistry.renderIcon(iconLib, props.icon, { size: parseInt(props.iconSize || 48), color: props.iconColor || '#6366f1' });
+                        } else if (iconLib === 'lucide' && window.IconRegistry) {
+                            cardIcon = window.IconRegistry.renderIcon(iconLib, props.icon, { size: parseInt(props.iconSize || 48), color: props.iconColor || '#6366f1' });
+                        } else {
+                            cardIcon = `<span class="${iconClass}" style="font-size:${props.iconSize || '48'}px;color:${props.iconColor || '#6366f1'};margin-bottom:12px;display:block;">${iconContent}</span>`;
+                        }
+                    }
                     const cardContent = props.description || props.content || '';
                     const cardValue = (props.showValue !== false && props.datasource === 'database') ? (props._previewValue || '--') : '';
-                    return `<div data-card-id="${blockId}" data-datasource="${props.datasource || ''}" class="bg-white rounded-lg shadow-md p-6" style="text-align:${props.alignment || 'left'};${props.bgColor && props.bgColor !== '#ffffff' ? 'background:' + props.bgColor + ';' : ''}${props.showShadow ? '' : 'border:1px solid #e2e8f0;'}box-shadow:${props.showShadow ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'};">
+                    const tfEnabled = props.timeFilterEnabled === true || props.timeFilterEnabled === '1';
+                    const tfPeriod = props.timeFilterPeriod || 'all';
+                    const periodLabels = {'all':'Semua','today':'Hari Ini','yesterday':'Kemarin','last_7_days':'7 Hari','last_30_days':'30 Hari','this_month':'Bulan Ini','last_month':'Bulan Lalu','this_year':'Tahun Ini'};
+                    const periods = ['all','today','yesterday','last_7_days','last_30_days','this_month','last_month','this_year'];
+                    const tfHtml = tfEnabled && props.timeFilterColumn
+                        ? `<div style="position:absolute;top:8px;right:8px;z-index:5;"><select class="card-time-filter" data-card-id="${blockId}" style="font-size:11px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;background:rgba(255,255,255,0.9);cursor:pointer;color:#475569;outline:none;max-width:110px;">${periods.map(function(p){return '<option value="'+p+'"'+(p===tfPeriod?' selected':'')+'>'+(periodLabels[p]||p)+'</option>';}).join('')}</select></div>`
+                        : '';
+                    return `<div data-card-id="${blockId}" data-datasource="${props.datasource || ''}" class="bg-white rounded-lg shadow-md p-6" style="position:relative;text-align:${props.alignment || 'left'};${props.bgColor && props.bgColor !== '#ffffff' ? 'background:' + props.bgColor + ';' : ''}${props.showShadow ? '' : 'border:1px solid #e2e8f0;'}box-shadow:${props.showShadow ? '0 4px 12px rgba(0,0,0,0.08)' : 'none'};">
+                        ${tfHtml}
                         ${cardIcon}
                         <h3 class="text-lg font-bold mb-1" style="color:${props.textColor || '#1e293b'};">${props.title || ''}</h3>
                         ${props.subtitle ? `<div style="font-size:14px;color:${props.textColor || '#1e293b'}cc;margin-bottom:8px;">${props.subtitle}</div>` : ''}
@@ -439,6 +457,21 @@ foreach ($neededLibs as $lib) {
             });
         }
 
+        function showCardToast(message, type) {
+            var bg = type === 'error' ? '#dc2626' : '#0f172a';
+            var toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:99999;max-width:380px;padding:14px 18px;border-radius:14px;background:' + bg + ';color:#fff;box-shadow:0 18px 40px rgba(15,23,42,.22);font-size:13px;line-height:1.5;animation:pvToastIn 0.25s ease;';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(function() { if (toast.parentNode) toast.remove(); }, 4000);
+            if (!document.getElementById('pv-toast-style')) {
+                var st = document.createElement('style');
+                st.id = 'pv-toast-style';
+                st.textContent = '@keyframes pvToastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+                document.head.appendChild(st);
+            }
+        }
+
         function loadCardData(container) {
             var cardBlocks = [];
             (function collectCards(blocks) {
@@ -450,7 +483,7 @@ foreach ($neededLibs as $lib) {
                 });
             })(window.pageState);
 
-            cardBlocks.forEach(function(block) {
+            function fetchCardData(block) {
                 var url = window.cardPreviewUrl || '/card/preview';
                 fetch(url, {
                     method: 'POST',
@@ -460,14 +493,40 @@ foreach ($neededLibs as $lib) {
                 .then(function(r) { return r.json(); })
                 .then(function(result) {
                     if (result.success && result.data) {
-                        block.props.__liveValue = result.data.formatted || result.data.value;
-                        var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
-                        if (valueEl) {
-                            valueEl.textContent = block.props.__liveValue;
+                        if (result.data.error) {
+                            showCardToast(result.data.error, 'error');
+                        } else {
+                            block.props.__liveValue = result.data.formatted || result.data.value;
+                            var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
+                            if (valueEl) {
+                                valueEl.textContent = block.props.__liveValue;
+                            }
                         }
                     }
                 })
-                .catch(function(err) { console.warn('[CardWidget] Data fetch error:', err); });
+                .catch(function(err) {  });
+            }
+
+            cardBlocks.forEach(function(block) {
+                fetchCardData(block);
+            });
+
+            container.querySelectorAll('.card-time-filter').forEach(function(sel) {
+                sel.addEventListener('change', function() {
+                    var cardId = this.dataset.cardId;
+                    var period = this.value;
+                    var block = null;
+                    for (var i = 0; i < cardBlocks.length; i++) {
+                        if (cardBlocks[i].id === cardId) {
+                            block = cardBlocks[i];
+                            break;
+                        }
+                    }
+                    if (block) {
+                        block.props.timeFilterPeriod = period;
+                        fetchCardData(block);
+                    }
+                });
             });
         }
 
@@ -501,6 +560,7 @@ foreach ($neededLibs as $lib) {
                 const container = document.getElementById("preview-content");
                 if (container && window.pageState) {
                     container.innerHTML = renderBlocks(window.pageState);
+                    if (window.IconRegistry) window.IconRegistry.afterRender(container);
                     hydrateDynamicForms(container);
                     executeScripts(container);
                     loadCardData(container);
@@ -511,6 +571,7 @@ foreach ($neededLibs as $lib) {
             const container = document.getElementById("preview-content");
             if (container && window.pageState) {
                 container.innerHTML = renderBlocks(window.pageState);
+                if (window.IconRegistry) window.IconRegistry.afterRender(container);
                 hydrateDynamicForms(container);
                 executeScripts(container);
                 loadCardData(container);

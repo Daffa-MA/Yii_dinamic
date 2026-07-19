@@ -38,7 +38,10 @@ foreach ($usedLibraries as $lib) {
         $this->registerCssFile($iconCssUrls[$lib], ['position' => \yii\web\View::POS_HEAD]);
     }
 }
+// Pre-load Lucide JS for SVG icon rendering (also loaded dynamically by IconRegistry)
+$this->registerJsFile('https://unpkg.com/lucide@latest', ['position' => \yii\web\View::POS_HEAD]);
 $this->registerCssFile(\yii\helpers\Url::to('@web/css/card-widget.css'));
+$this->registerJsFile(\yii\helpers\Url::to('@web/js/page-builder/icon-registry.js'), ['position' => \yii\web\View::POS_HEAD]);
 
 // Prioritize persisted full-page custom source when available.
 $customHtml = trim((string) ($customHtml ?? ''));
@@ -597,7 +600,7 @@ window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
                 event.stopPropagation();
                 const fieldName = button.getAttribute('data-relation-picker-open') || button.getAttribute('data-field-name') || button.getAttribute('data-picker-field') || '';
                 const input = form.querySelector('.relation-picker-display[data-field-name="' + cssEscape(fieldName) + '"]');
-                openPicker(form, fieldName, input ? (input.getAttribute('data-form-id') || '') : (form.getAttribute('data-form-id') || ''), input ? input.value : '');
+                openPicker(form, fieldName, input ? (input.getAttribute('data-form-id') || form.getAttribute('data-form-id') || '') : (form.getAttribute('data-form-id') || ''), input ? input.value : '');
             });
         });
 
@@ -983,6 +986,7 @@ function renderBlockSafe(block) {
                 'box-shadow:' + shadow,
                 'border:' + borderStyle,
                 'text-align:' + align,
+                'position:relative',
             ].join(';');
 
             // Icon
@@ -990,28 +994,42 @@ function renderBlockSafe(block) {
                 const iconWrapper = document.createElement('div');
                 iconWrapper.style.cssText = 'margin-bottom:12px;text-align:' + align + ';opacity:' + ((parseInt(props.iconOpacity) || 100) / 100);
 
-                const iconEl = document.createElement('span');
                 const iconLib = props.iconLibrary || 'material-symbols';
                 const iconSize = props.iconSize || '48';
+                var iconEl;
 
-                let iconCssClass = 'material-symbols-outlined';
-                if (iconLib === 'tabler') iconCssClass = 'ti ti-' + props.icon;
-                else if (iconLib === 'heroicons') iconCssClass = 'hero-icon hero-' + props.icon;
-                else if (iconLib === 'lucide') iconCssClass = 'lucide lucide-' + props.icon;
-                else if (iconLib === 'phosphor') iconCssClass = 'ph ph-' + props.icon;
-                else if (iconLib === 'remix') iconCssClass = 'ri ri-' + props.icon;
-                else if (iconLib === 'font-awesome') iconCssClass = 'fa-solid fa-' + props.icon;
-                else if (iconLib === 'bootstrap-icons') iconCssClass = 'bi bi-' + props.icon;
+                if (window.IconRegistry && (iconLib === 'heroicons' || iconLib === 'lucide')) {
+                    var iconHtml = window.IconRegistry.renderIcon(iconLib, props.icon, {
+                        size: parseInt(iconSize),
+                        color: props.iconColor || '#6366f1',
+                        fill: props.iconFill,
+                        weight: props.iconWeight
+                    });
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = iconHtml;
+                    iconEl = tmp.firstElementChild;
+                    if (iconEl) {
+                        var existingClass = iconEl.getAttribute('class') || '';
+                        iconEl.setAttribute('class', existingClass + ' card-icon-wrapper');
+                    } else {
+                        iconEl = document.createElement('span');
+                    }
+                } else {
+                    iconEl = document.createElement('span');
+                    let iconCssClass = 'material-symbols-outlined';
+                    if (iconLib === 'tabler') iconCssClass = 'ti ti-' + props.icon;
+                    else if (iconLib === 'phosphor') iconCssClass = 'ph ph-' + props.icon;
+                    else if (iconLib === 'remix') iconCssClass = 'ri ri-' + props.icon;
+                    else if (iconLib === 'font-awesome') iconCssClass = 'fa-solid fa-' + props.icon;
+                    else if (iconLib === 'bootstrap-icons') iconCssClass = 'bi bi-' + props.icon;
 
-                iconEl.className = iconCssClass + ' card-icon-wrapper';
-                if (iconLib === 'material-symbols') {
-                    iconEl.textContent = props.icon;
+                    iconEl.className = iconCssClass + ' card-icon-wrapper';
+                    if (iconLib === 'material-symbols') {
+                        iconEl.textContent = props.icon;
+                        iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
+                    }
+                    iconEl.style.cssText += ';font-size:' + iconSize + 'px;color:' + (props.iconColor || '#6366f1') + ';';
                 }
-
-                if (iconLib === 'material-symbols') {
-                    iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
-                }
-                iconEl.style.cssText += ';font-size:' + iconSize + 'px;color:' + (props.iconColor || '#6366f1') + ';';
 
                 if (props.iconBackground) {
                     let shapeCss = '';
@@ -1060,6 +1078,61 @@ function renderBlockSafe(block) {
                 valEl.style.cssText = 'font-size:' + Math.max(parseInt(fontSize) + 8, 24) + 'px;font-weight:700;color:' + textColor + ';margin-top:8px;line-height:1.2;';
                 valEl.textContent = props.__liveValue || props._previewValue || '--';
                 el.appendChild(valEl);
+            }
+
+            // Time Filter dropdown
+            if ((props.timeFilterEnabled === true || props.timeFilterEnabled === '1') && props.timeFilterColumn) {
+                const periodLabels = {
+                    'all': 'Semua', 'today': 'Hari Ini', 'yesterday': 'Kemarin',
+                    'last_7_days': '7 Hari', 'last_30_days': '30 Hari',
+                    'this_month': 'Bulan Ini', 'last_month': 'Bulan Lalu', 'this_year': 'Tahun Ini'
+                };
+                const periods = ['all','today','yesterday','last_7_days','last_30_days','this_month','last_month','this_year'];
+                const tfWrap = document.createElement('div');
+                tfWrap.style.cssText = 'position:absolute;top:8px;right:8px;z-index:5;';
+                var tfSel = document.createElement('select');
+                tfSel.style.cssText = 'font-size:11px;padding:2px 6px;border:1px solid #e2e8f0;border-radius:6px;background:rgba(255,255,255,0.9);cursor:pointer;color:#475569;outline:none;max-width:110px;';
+                periods.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p;
+                    opt.textContent = periodLabels[p] || p;
+                    if (p === (props.timeFilterPeriod || 'all')) opt.selected = true;
+                    tfSel.appendChild(opt);
+                });
+                tfSel.addEventListener('change', function() {
+                    var blockId = el.dataset.cardId;
+                    if (blockId && window.dynamicPageState) {
+                        (function findAndUpdate(blocks) {
+                            (blocks || []).forEach(function(b) {
+                                if (b.id === blockId) { b.props.timeFilterPeriod = tfSel.value; }
+                                if (b.children) findAndUpdate(b.children);
+                            });
+                        })(window.dynamicPageState);
+                        (function reloadCard() {
+                            var url = window.cardPreviewUrl || '/card/preview';
+                            fetch(url, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                body: JSON.stringify({ config: props })
+                            })
+                            .then(function(r) { return r.json(); })
+                            .then(function(result) {
+                                if (result.success && result.data) {
+                                    if (result.data.error) {
+                                        showCardToast(result.data.error, 'error');
+                                    } else {
+                                        var v = result.data.formatted || result.data.value;
+                                        var valueEl = el.querySelector('.card-value');
+                                        if (valueEl) valueEl.textContent = v;
+                                        props.__liveValue = v;
+                                    }
+                                }
+                            });
+                        })();
+                    }
+                });
+                tfWrap.appendChild(tfSel);
+                el.appendChild(tfWrap);
             }
 
             return el;
@@ -1191,6 +1264,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     executeScripts(container);
+    if (window.IconRegistry) window.IconRegistry.afterRender(container);
+
+    function showCardToast(message, type) {
+        var bg = type === 'error' ? '#dc2626' : '#0f172a';
+        var toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:99999;max-width:380px;padding:14px 18px;border-radius:14px;background:' + bg + ';color:#fff;box-shadow:0 18px 40px rgba(15,23,42,.22);font-size:13px;line-height:1.5;animation:toastIn 0.25s ease;';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(function() { if (toast.parentNode) toast.remove(); }, 4000);
+        if (!document.getElementById('dyn-toast-style')) {
+            var st = document.createElement('style');
+            st.id = 'dyn-toast-style';
+            st.textContent = '@keyframes toastIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}';
+            document.head.appendChild(st);
+        }
+    }
 
     // Load card data for all card blocks with database datasource
     (function loadCardData() {
@@ -1203,8 +1292,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (b.children) collectCards(b.children);
             });
         })(window.dynamicPageState);
-        console.log('[CardWidget] Card blocks', cardBlocks.length, JSON.parse(JSON.stringify(cardBlocks)));
-
         cardBlocks.forEach(function(block) {
             var url = window.cardPreviewUrl || '/card/preview';
             fetch(url, {
@@ -1215,10 +1302,14 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(function(r) { return r.json(); })
             .then(function(result) {
                 if (result.success && result.data) {
-                    block.props.__liveValue = result.data.formatted || result.data.value;
-                    var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
-                    if (valueEl) {
-                        valueEl.textContent = block.props.__liveValue;
+                    if (result.data.error) {
+                        showCardToast(result.data.error, 'error');
+                    } else {
+                        block.props.__liveValue = result.data.formatted || result.data.value;
+                        var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
+                        if (valueEl) {
+                            valueEl.textContent = block.props.__liveValue;
+                        }
                     }
                 }
             })

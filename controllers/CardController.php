@@ -81,12 +81,12 @@ class CardController extends Controller
         ];
     }
 
-    public function actionSearchIcons($query = '', $library = 'material-symbols')
+    public function actionSearchIcons($query = '', $library = 'heroicons')
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $query = $query ?: Yii::$app->request->get('query', '');
-        $library = $library ?: Yii::$app->request->get('library', 'material-symbols');
+        $library = $library ?: Yii::$app->request->get('library', 'heroicons');
 
         $icons = $this->searchIconsFromLibrary($query, $library);
 
@@ -99,7 +99,7 @@ class CardController extends Controller
     private function searchIconsFromLibrary($query, $library)
     {
         $service = new IconDataService();
-        return $service->searchIcons($query, $library, 200);
+        return $service->searchIcons($query, $library, 9999);
     }
 
     public function actionGetRegistries()

@@ -939,7 +939,7 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             var fieldName = button.getAttribute('data-relation-picker-open');
             var input = previewForm.querySelector('.relation-picker-display[data-field-name="' + CSS.escape(fieldName) + '"]');
-            openPicker(fieldName, input ? input.getAttribute('data-form-id') : '', input ? input.value : '');
+            openPicker(fieldName, input ? (input.getAttribute('data-form-id') || previewForm.getAttribute('data-form-id') || '') : (previewForm.getAttribute('data-form-id') || ''), input ? input.value : '');
         });
     });
 

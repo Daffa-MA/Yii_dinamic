@@ -22,6 +22,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/phosphor-icons@2.1.1/src/cs
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css');
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.0/css/all.min.css');
 $this->registerCssFile('https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css');
+$this->registerJsFile('https://unpkg.com/lucide@latest', ['position' => \yii\web\View::POS_HEAD]);
 // Register Card Widget Assets (loaded in HEAD so available before inline builder code)
 \app\assets\CardWidgetAsset::register($this);
 
@@ -2018,6 +2019,28 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         color: #374151;
         margin-bottom: 5px;
     }
+    .chart-src-radio {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #374151;
+        cursor: pointer;
+        transition: all .15s;
+        background: #fff;
+    }
+    .chart-src-radio:hover {
+        border-color: #6366f1;
+        background: #f5f3ff;
+    }
+    .chart-src-radio input[type="radio"] {
+        accent-color: #6366f1;
+        margin: 0;
+    }
     .chart-modal-field label .field-tip {
         font-weight: 400;
         color: #94a3b8;
@@ -2611,7 +2634,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             height: 'auto',
             alignment: 'left',
             icon: '',
-            iconLibrary: 'material-symbols',
+            iconLibrary: 'heroicons',
             iconSize: '48',
             iconColor: '#6366f1',
             iconWeight: '400',
@@ -2648,7 +2671,10 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             showSubtitle: true,
             showDescription: true,
             showValue: true,
-            _previewValue: null
+            _previewValue: null,
+            timeFilterEnabled: false,
+            timeFilterPeriod: 'all',
+            timeFilterColumn: ''
         },
         spacer: {
             height: '32'
@@ -2913,6 +2939,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 }
             });
         }
+
+        if (window.IconRegistry) window.IconRegistry.afterRender(canvas);
 
         scheduleLivePreviewUpdate();
         scheduleFullPageSourceSyncFromBuilder();
@@ -3189,11 +3217,42 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 }
                 return `<div style="text-align:${props.align || 'center'};padding:12px;${wrapperStyle}">${emptyNotice}<a ${linkAttrs}>${label}</a>${uiHint}${urlWarning}</div>`;
             case 'card': {
-                if (typeof window.cardWidgetInstance !== 'undefined' && window.cardWidgetInstance.config) {
+                if (typeof window.cardWidgetInstance !== 'undefined') {
                     return window.cardWidgetInstance.buildCardPreviewHtml(props);
                 }
-                const cardDesc = props.description || props.content || '';
-                return `<div style="border-radius:12px;padding:${props.padding || '24'}px;box-shadow:${props.showShadow ? '0 10px 15px -3px rgba(0,0,0,0.1)' : 'none'};background:${props.bgColor || '#ffffff'};border:${!props.showShadow ? '1px solid #e2e8f0' : 'none'}"><h4 style="margin:0 0 8px;font-weight:700;color:#1e293b;font-size:16px">${props.title || 'Card'}</h4><p style="margin:0;color:#64748b;font-size:14px">${cardDesc}</p></div>`;
+                const shadowMap = {
+                    'none': 'none', 'sm': '0 1px 2px rgba(0,0,0,0.05)', 'md': '0 4px 6px -1px rgba(0,0,0,0.1)',
+                    'lg': '0 10px 15px -3px rgba(0,0,0,0.1)', 'xl': '0 20px 25px -5px rgba(0,0,0,0.1)',
+                    '2xl': '0 25px 50px -12px rgba(0,0,0,0.25)', 'inner': 'inset 0 2px 4px rgba(0,0,0,0.05)',
+                };
+                const s = shadowMap[props.shadow] || shadowMap['md'];
+                let bg = props.bgColor || '#ffffff';
+                if (props.bgType === 'gradient' && props.bgGradient) bg = props.bgGradient;
+                else if (props.bgType === 'transparent') bg = 'transparent';
+                const border = props.border && props.border !== 'none' ? '1px ' + props.border + ' ' + (props.borderColor || '#e2e8f0') : 'none';
+                const align = props.alignment || 'left';
+                const tc = props.textColor || '#1e293b';
+                const fs = (props.fontSize || '16') + 'px';
+                const ff = props.fontFamily || '';
+                let iconHtml = '';
+                if (props.showIcon !== false && props.icon) {
+                    const isz = props.iconSize || '48';
+                    const ic = props.iconColor || '#6366f1';
+                    const lib = props.iconLibrary || 'heroicons';
+                    let inner = '';
+                    if (window.IconRegistry && (lib === 'heroicons' || lib === 'lucide')) {
+                        inner = window.IconRegistry.renderIcon(lib, props.icon, { size: parseInt(isz), color: ic, fill: props.iconFill, weight: props.iconWeight });
+                    } else {
+                        inner = '<span style="font-size:' + isz + 'px;color:' + ic + '">' + (props.icon || '') + '</span>';
+                    }
+                    iconHtml = '<div style="text-align:' + align + ';margin-bottom:12px;">' + inner + '</div>';
+                }
+                const titleHtml = props.showTitle !== false && props.title ? '<div style="font-size:' + fs + ';font-weight:700;color:' + tc + ';line-height:' + (props.lineHeight || '1.5') + ';margin-bottom:' + (props.subtitle ? '4px' : '8px') + ';' + (ff ? 'font-family:' + ff + ';' : '') + '">' + escapeAttr(props.title) + '</div>' : '';
+                const subHtml = props.showSubtitle !== false && props.subtitle ? '<div style="font-size:' + Math.max(parseInt(fs) - 2, 12) + 'px;color:' + tc + 'cc;margin-bottom:8px;">' + escapeAttr(props.subtitle) + '</div>' : '';
+                const descText = props.description || props.content || '';
+                const descHtml = props.showDescription !== false && descText ? '<div style="font-size:' + Math.max(parseInt(fs) - 4, 12) + 'px;color:' + tc + '99;margin-bottom:8px;">' + escapeAttr(descText) + '</div>' : '';
+                const valHtml = props.showValue !== false && props.datasource !== 'static' ? '<div style="font-size:' + Math.max(parseInt(fs) + 8, 24) + 'px;font-weight:700;color:' + tc + ';margin-top:8px">' + (props._previewValue || '--') + '</div>' : '';
+                return '<div style="position:relative;width:' + (props.width || '100') + '%;padding:' + (props.padding || '24') + 'px;background:' + bg + ';border-radius:' + (props.borderRadius || '12') + 'px;box-shadow:' + s + ';border:' + border + ';text-align:' + align + ';">' + iconHtml + titleHtml + subHtml + descHtml + valHtml + '</div>';
             }
             case 'spacer':
                 return `<div style="height:${props.height || '32'}px;background:#f8fafc;border-radius:4px;border:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:center"><span style="font-size:10px;color:#94a3b8">Spacer</span></div>`;
@@ -3489,13 +3548,118 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     }
 
     function deleteBlock(blockId) {
-        window.pageState = window.pageState.filter(b => b.id !== blockId);
+        var block = window.pageState.find(function(b) { return b.id === blockId; });
+        if (block && block.type === 'chart' && block.props && block.props.chartId) {
+            deleteChartFromDb(block.props.chartId, blockId);
+            return;
+        }
+        removeBlockFromState(blockId);
+    }
+
+    function removeBlockFromState(blockId) {
+        window.pageState = window.pageState.filter(function(b) { return b.id !== blockId; });
         fullPageSourceDerivedFromBuilder = true;
         if (selectedBlockId === blockId) {
             selectedBlockId = null;
             document.getElementById('properties-panel').innerHTML = '<div class="no-selection"><span class="material-symbols-outlined">touch_app</span><p>Pilih komponen untuk edit</p></div>';
         }
         renderBuilder(window.pageState);
+    }
+
+    function deleteChartFromDb(chartId, blockId) {
+        if (!confirm('Hapus chart ini dari database?')) return;
+        var url = '/master-chart/delete-json?id=' + encodeURIComponent(chartId);
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                removeBlockFromState(blockId);
+            } else {
+                alert('Gagal: ' + (res.message || 'Terjadi kesalahan'));
+            }
+        })
+        .catch(function() {
+            alert('Gagal terhubung ke server');
+        });
+    }
+
+    function updateChartSource(chartId, blockId) {
+        var chart = (window.availableCharts || []).find(function(c) { return String(c.id) === String(chartId); });
+        if (!chart) return;
+        var sourceType = document.getElementById('chart-source-type-' + blockId);
+        var sourceQuery = document.getElementById('chart-source-query-' + blockId);
+        if (!sourceType) return;
+        var typeVal = sourceType.value;
+        var queryVal = sourceQuery ? sourceQuery.value : '';
+        var url = '/master-chart/update-source?id=' + encodeURIComponent(chartId);
+        var formData = new URLSearchParams();
+        formData.set('source_type', typeVal);
+        formData.set('source_query', queryVal);
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: formData.toString()
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                chart.source_type = typeVal;
+                chart.source_query = queryVal;
+                renderBuilder(window.pageState);
+            } else {
+                alert('Gagal: ' + (res.message || 'Terjadi kesalahan'));
+            }
+        })
+        .catch(function() {
+            alert('Gagal terhubung ke server');
+        });
+    }
+
+    function toggleChartSourceSql(blockId) {
+        var sourceType = document.getElementById('chart-source-type-' + blockId);
+        var sqlGroup = document.getElementById('chart-source-query-group-' + blockId);
+        if (sourceType && sqlGroup) {
+            sqlGroup.style.display = sourceType.value === 'query' ? '' : 'none';
+        }
+    }
+
+    function deleteChartFromProp(chartId, blockId) {
+        var chart = (window.availableCharts || []).find(function(c) { return String(c.id) === String(chartId); });
+        var chartLabel = chart ? (chart.title || 'Chart #' + chartId) : 'Chart #' + chartId;
+        if (!confirm('Hapus chart "' + chartLabel + '" dari database?')) return;
+        var url = '/master-chart/delete-json?id=' + encodeURIComponent(chartId);
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                if (window.availableCharts) {
+                    window.availableCharts = window.availableCharts.filter(function(c) { return String(c.id) !== String(chartId); });
+                }
+                if (String(window.pageState.find(function(b) { return b.id === blockId; })?.props?.chartId || '') === String(chartId)) {
+                    updateProp(blockId, 'chartId', '');
+                }
+                renderProperties(blockId);
+                renderBuilder(window.pageState);
+            } else {
+                alert('Gagal: ' + (res.message || 'Terjadi kesalahan'));
+            }
+        })
+        .catch(function() {
+            alert('Gagal terhubung ke server');
+        });
     }
 
     function duplicateBlock(block) {
@@ -3939,21 +4103,49 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
             case 'chart':
                 const charts = window.availableCharts || [];
+                const currentChartId = String(props.chartId || '');
                 const chartOptions = charts.length > 0
-                    ? charts.map(c => `<option value="${c.id}" ${String(props.chartId || '') === String(c.id) ? 'selected' : ''}>${c.title} (${c.chart_type})</option>`).join('')
+                    ? charts.map(c => `<option value="${c.id}" ${currentChartId === String(c.id) ? 'selected' : ''}>${c.title} (${c.chart_type})</option>`).join('')
                     : '';
+                const isChartSelected = currentChartId && charts.some(c => String(c.id) === currentChartId);
+                const selectedChart = isChartSelected ? charts.find(function(c) { return String(c.id) === currentChartId; }) : null;
+                const currentSourceType = selectedChart ? (selectedChart.source_type || 'table') : 'table';
+                const currentSourceQuery = selectedChart ? (selectedChart.source_query || '') : '';
                 html += `<div class="prop-section">
                 <div class="prop-section-title">📊 Konfigurasi Chart</div>
                 <div class="prop-group">
                     <label>Pilih Chart</label>
-                    ${charts.length > 0
-                        ? `<select class="prop-select" onchange="updateProp('${blockId}', 'chartId', this.value)">
-                            <option value="">-- Pilih Chart --</option>
-                            ${chartOptions}
-                        </select>`
-                        : `<div style="color:#6b7280;font-size:13px;padding:8px 0;">Belum ada chart tersedia.</div>`
-                    }
+                    <div style="display:flex;gap:6px;align-items:center;">
+                        ${charts.length > 0
+                            ? `<select class="prop-select" style="flex:1;" onchange="updateProp('${blockId}', 'chartId', this.value)">
+                                <option value="">-- Pilih Chart --</option>
+                                ${chartOptions}
+                            </select>`
+                            : `<div style="color:#6b7280;font-size:13px;padding:8px 0;">Belum ada chart tersedia.</div>`
+                        }
+                        ${isChartSelected
+                            ? `<button type="button" class="btn btn-sm btn-danger" style="padding:4px 10px;font-size:13px;background:#ef4444;color:white;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;" onclick="deleteChartFromProp('${currentChartId}', '${blockId}')" title="Hapus chart ini">🗑️</button>`
+                            : ''
+                        }
+                    </div>
                 </div>
+                ${isChartSelected ? `
+                <div class="prop-group">
+                    <label>Sumber Data</label>
+                    <select class="prop-select" id="chart-source-type-${blockId}" onchange="toggleChartSourceSql('${blockId}')">
+                        <option value="table" ${currentSourceType === 'table' ? 'selected' : ''}>Table</option>
+                        <option value="query" ${currentSourceType === 'query' ? 'selected' : ''}>Custom SQL</option>
+                    </select>
+                </div>
+                <div class="prop-group" id="chart-source-query-group-${blockId}" style="${currentSourceType === 'query' ? '' : 'display:none;'}">
+                    <label>SQL Query</label>
+                    <textarea class="prop-input prop-textarea" id="chart-source-query-${blockId}" rows="3" placeholder="SELECT status AS label, COUNT(*) AS value FROM tabel GROUP BY status" style="font-family:monospace;font-size:13px;">${escapeAttr(currentSourceQuery)}</textarea>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                        <button type="button" class="btn btn-sm" style="padding:6px 16px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer;" onclick="updateChartSource('${currentChartId}', '${blockId}')">Apply</button>
+                        <small style="color:#64748b;font-size:11px;line-height:1.4;">Query harus SELECT dan mengembalikan kolom label &amp; value</small>
+                    </div>
+                </div>
+                ` : ''}
                 <div style="margin-bottom:12px;">
                     <button type="button" class="btn btn-sm btn-primary" onclick="openChartModal()">
                         + Buat Chart Baru
@@ -4048,6 +4240,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         if (block.type === 'card' && typeof window.CardPropertiesEngine !== 'undefined') {
             CardPropertiesEngine.loadColumns(blockId);
+            CardPropertiesEngine.refreshTimeFilterColumns(blockId);
+            CardPropertiesEngine._updateTimeFilterVisibility(blockId);
         }
     }
 
@@ -7355,7 +7549,18 @@ ${html || ''}
                     <label>Nama Chart</label>
                     <input type="text" id="chartQuickName" placeholder="Contoh: Penjualan per Bulan" />
                 </div>
-                <div class="chart-modal-grid">
+                <div class="chart-modal-field">
+                    <label>Sumber Data</label>
+                    <div style="display:flex;gap:8px;">
+                        <label class="chart-src-radio" onclick="setChartSourceType('table')">
+                            <input type="radio" name="chartSourceType" value="table" onclick="event.stopPropagation();setChartSourceType('table')" /> Table
+                        </label>
+                        <label class="chart-src-radio" onclick="setChartSourceType('query')">
+                            <input type="radio" name="chartSourceType" value="query" onclick="event.stopPropagation();setChartSourceType('query')" /> Custom SQL
+                        </label>
+                    </div>
+                </div>
+                <div class="chart-modal-grid" id="chartModalTableSection">
                     <div class="chart-modal-field">
                         <label>Sumber Data <span class="field-tip">(Tabel)</span></label>
                         <div class="chart-search-wrap" id="chartTableWrap">
@@ -7369,6 +7574,15 @@ ${html || ''}
                         <div class="chart-type-grid" id="chartTypePicker"></div>
                         <input type="hidden" id="chartQuickType" value="bar" />
                     </div>
+                </div>
+                <div class="chart-modal-field" id="chartModalQuerySection" style="display:none;">
+                    <label>SQL Query <span style="font-weight:400;color:#94a3b8;font-size:11px;">— query terhadap tabel yang dipilih</span></label>
+                    <textarea id="chartQuickQuery" rows="4" placeholder="SELECT status AS label, COUNT(*) AS value FROM tabel GROUP BY status" style="width:100%;font-family:monospace;font-size:14px;padding:10px;border:1px solid #d1d5db;border-radius:8px;resize:vertical;box-sizing:border-box;" oninput="onChartConfigChange('chartQuickQuery', this.value)"></textarea>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+                        <button type="button" class="chart-btn-secondary" style="padding:6px 16px;font-size:12px;" onclick="testChartQuery()">▶ Test Query</button>
+                        <span id="chartQueryTestResult" style="font-size:12px;"></span>
+                    </div>
+                    <div style="font-size:12px;color:#64748b;margin-top:6px;">Query harus SELECT dan mengembalikan kolom <strong>label</strong> &amp; <strong>value</strong></div>
                 </div>
             </div>
 
@@ -7719,7 +7933,7 @@ ${html || ''}
     })();
 
     /* ─── Chart Quick Create Modal ─── */
-    var chartModalState = { tableId: null, chartType: 'bar', labelField: '', valueField: '', agg: 'count', groupField: '' };
+    var chartModalState = { tableId: null, chartType: 'bar', labelField: '', valueField: '', agg: 'count', groupField: '', sourceType: 'table', sourceQuery: '' };
 
     function openChartModal(pendingData) {
         var overlay = document.getElementById('chartModalOverlay');
@@ -7735,12 +7949,15 @@ ${html || ''}
                 labelField: pendingData.labelField || '',
                 valueField: pendingData.valueField || '',
                 agg: pendingData.agg || 'count',
-                groupField: pendingData.groupField || ''
+                groupField: pendingData.groupField || '',
+                sourceType: pendingData.sourceType || 'table',
+                sourceQuery: pendingData.sourceQuery || ''
             };
         } else {
-            chartModalState = { tableId: null, chartType: 'bar', labelField: '', valueField: '', agg: 'count', groupField: '' };
+            chartModalState = { tableId: null, chartType: 'bar', labelField: '', valueField: '', agg: 'count', groupField: '', sourceType: 'table', sourceQuery: '' };
         }
         overlay.classList.add('open');
+        setChartSourceType(chartModalState.sourceType);
         renderChartTypePicker();
         populateTableDropdown();
         renderChartConfig();
@@ -7792,6 +8009,79 @@ ${html || ''}
             return '<div class="chart-type-card' + sel + '" data-value="' + t.id + '" onclick="selectChartType(\'' + t.id + '\')"><span class="ct-icon">' + t.icon + '</span>' + t.label + '</div>';
         }).join('');
         document.getElementById('chartQuickType').value = chartModalState.chartType;
+    }
+
+    function syncChartQuerySql() {
+        if (chartModalState.sourceType !== 'query') return;
+        var tables = window.availableTables || [];
+        var table = tables.find(function(t) { return String(t.id) === String(chartModalState.tableId); });
+        var queryEl = document.getElementById('chartQuickQuery');
+        if (table && queryEl) {
+            queryEl.value = 'SELECT *\nFROM ' + table.name + '\nLIMIT 50';
+            chartModalState.sourceQuery = queryEl.value;
+        }
+    }
+
+    function testChartQuery() {
+        var queryEl = document.getElementById('chartQuickQuery');
+        var resultEl = document.getElementById('chartQueryTestResult');
+        if (!queryEl || !resultEl) return;
+        var sql = queryEl.value.trim();
+        if (!sql) { resultEl.innerHTML = '<span style="color:#ef4444;">Isi SQL query dulu</span>'; return; }
+
+        resultEl.innerHTML = '<span style="color:#64748b;">Menjalankan...</span>';
+        var data = new URLSearchParams();
+        data.set('query', sql);
+        data.set('table_id', chartModalState.tableId || '');
+        fetch('/master-chart/test-query', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: data.toString()
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(res) {
+            if (res.success) {
+                var count = res.rows ? res.rows.length : 0;
+                resultEl.innerHTML = '<span style="color:#10b981;">✅ ' + count + ' baris, kolom: ' + (res.columns || []).join(', ') + '</span>';
+                // Show preview in the preview area
+                var area = document.getElementById('chartPreviewContent');
+                if (area && res.rows && res.rows.length) {
+                    var previewHtml = '<div style="font-size:12px;color:#64748b;margin-bottom:6px;">Menampilkan ' + Math.min(count, 5) + ' dari ' + count + ' baris</div>';
+                    previewHtml += '<div style="max-height:200px;overflow:auto;border:1px solid #e5e7eb;border-radius:6px;"><table style="width:100%;font-size:12px;border-collapse:collapse;">';
+                    previewHtml += '<tr>' + res.columns.map(function(c) { return '<th style="padding:6px 8px;background:#f1f5f9;border-bottom:1px solid #e5e7eb;text-align:left;font-weight:600;">' + c + '</th>'; }).join('') + '</tr>';
+                    var previewRows = res.rows.slice(0, 5);
+                    previewRows.forEach(function(row) {
+                        previewHtml += '<tr>' + res.columns.map(function(c) { return '<td style="padding:4px 8px;border-bottom:1px solid #f1f5f9;">' + (row[c] !== undefined ? row[c] : '') + '</td>'; }).join('') + '</tr>';
+                    });
+                    previewHtml += '</table></div>';
+                    area.innerHTML = previewHtml;
+                    document.getElementById('chartPreviewEmpty').style.display = 'none';
+                    document.getElementById('chartPreviewContent').style.display = 'block';
+                    document.getElementById('chartPreviewArea').className = 'chart-preview-area has-data';
+                }
+            } else {
+                resultEl.innerHTML = '<span style="color:#ef4444;">❌ ' + (res.message || 'Error') + '</span>';
+            }
+        })
+        .catch(function() {
+            resultEl.innerHTML = '<span style="color:#ef4444;">❌ Gagal terhubung ke server</span>';
+        });
+    }
+
+    function setChartSourceType(type) {
+        chartModalState.sourceType = type;
+        document.querySelectorAll('input[name="chartSourceType"]').forEach(function(el) { el.checked = el.value === type; });
+        document.getElementById('chartModalTableSection').style.display = type === 'query' ? 'none' : '';
+        document.getElementById('chartModalQuerySection').style.display = type === 'query' ? '' : 'none';
+        document.getElementById('chartConfigSection').style.display = type === 'query' ? 'none' : '';
+        if (type === 'query') {
+            syncChartQuerySql();
+        }
+        validateChartForm();
+        triggerChartPreview();
     }
 
     function selectChartType(typeId) {
@@ -7861,9 +8151,14 @@ ${html || ''}
         chartModalState.labelField = '';
         chartModalState.valueField = '';
         chartModalState.groupField = '';
+        // Update auto-generated SQL if in query mode
+        if (chartModalState.sourceType === 'query') {
+            syncChartQuerySql();
+        }
         renderChartConfig();
         validateChartForm();
         updatePreviewEmpty();
+        if (chartModalState.sourceType === 'query') triggerChartPreview();
     }
 
     /* ── Dynamic Config Fields ── */
@@ -7966,6 +8261,8 @@ ${html || ''}
         else if (fieldId === 'chartConfigValue') chartModalState.valueField = value;
         else if (fieldId === 'chartConfigAgg') { chartModalState.agg = value; renderChartConfig(); }
         else if (fieldId === 'chartConfigGroup') chartModalState.groupField = value;
+        else if (fieldId === 'chartSourceType') { chartModalState.sourceType = value; setChartSourceType(value); return; }
+        else if (fieldId === 'chartQuickQuery') chartModalState.sourceQuery = value;
         validateChartForm();
         triggerChartPreview();
     }
@@ -7973,9 +8270,15 @@ ${html || ''}
     /* ── Validation ── */
     function validateChartForm() {
         var errors = [];
-        if (!chartModalState.tableId) errors.push('Pilih sumber data');
-        if (!chartModalState.labelField) errors.push('Pilih kategori/sumbu X');
-        if (chartModalState.agg !== 'count' && !chartModalState.valueField && !['scatter','bubble'].includes(chartModalState.chartType)) errors.push('Pilih nilai/data yang ditampilkan');
+        if (chartModalState.sourceType === 'query') {
+            if (!chartModalState.tableId) errors.push('Pilih sumber data (tabel)');
+            var query = (document.getElementById('chartQuickQuery') || {}).value || '';
+            if (!query.trim()) errors.push('Isi SQL query');
+        } else {
+            if (!chartModalState.tableId) errors.push('Pilih sumber data');
+            if (!chartModalState.labelField) errors.push('Pilih kategori/sumbu X');
+            if (chartModalState.agg !== 'count' && !chartModalState.valueField && !['scatter','bubble'].includes(chartModalState.chartType)) errors.push('Pilih nilai/data yang ditampilkan');
+        }
         var btn = document.getElementById('chartSubmitBtn');
         var valEl = document.getElementById('chartValidation');
         if (errors.length) {
@@ -7993,6 +8296,21 @@ ${html || ''}
         var area = document.getElementById('chartPreviewArea');
         var empty = document.getElementById('chartPreviewEmpty');
         var content = document.getElementById('chartPreviewContent');
+        if (chartModalState.sourceType === 'query') {
+            var query = (document.getElementById('chartQuickQuery') || {}).value || '';
+            if (query.trim()) {
+                empty.style.display = 'none';
+                content.style.display = 'block';
+                area.className = 'chart-preview-area has-data';
+            } else {
+                empty.style.display = 'flex';
+                content.style.display = 'none';
+                area.className = 'chart-preview-area';
+                area.querySelector('.preview-empty-text').textContent = 'Isi SQL query terlebih dahulu';
+                area.querySelector('.preview-empty-sub').textContent = 'Tulis query untuk melihat preview';
+            }
+            return;
+        }
         if (!chartModalState.tableId) {
             empty.style.display = 'flex';
             content.style.display = 'none';
@@ -8015,6 +8333,13 @@ ${html || ''}
     var previewTimer = null;
     function triggerChartPreview() {
         updatePreviewEmpty();
+        if (chartModalState.sourceType === 'query') {
+            var query = (document.getElementById('chartQuickQuery') || {}).value || '';
+            if (!query.trim()) return;
+            if (previewTimer) clearTimeout(previewTimer);
+            previewTimer = setTimeout(fetchChartPreview, 400);
+            return;
+        }
         if (!chartModalState.tableId || !chartModalState.labelField) return;
         if (chartModalState.agg !== 'count' && !chartModalState.valueField && !['scatter','bubble'].includes(chartModalState.chartType)) return;
         if (previewTimer) clearTimeout(previewTimer);
@@ -8026,6 +8351,17 @@ ${html || ''}
         if (!area) return;
         // Show skeleton
         area.innerHTML = '<div class="preview-skeleton"><div class="sk-bar" style="width:80%"></div><div class="sk-bar" style="width:60%"></div><div class="sk-bar" style="width:70%"></div><div class="sk-bar" style="width:45%"></div><div class="sk-bar" style="width:55%"></div></div>';
+
+        if (chartModalState.sourceType === 'query') {
+            var query = (document.getElementById('chartQuickQuery') || {}).value || '';
+            area.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;font-size:13px;">🔍 Preview tersedia setelah chart dibuat<br><small style="color:#94a3b8;">Gunakan properties panel untuk melihat preview langsung</small></div>';
+            var sqlBox = document.getElementById('chartSqlBox');
+            if (sqlBox) {
+                sqlBox.textContent = query;
+                sqlBox.className = 'chart-sql-box open';
+            }
+            return;
+        }
 
         var tables = window.availableTables || [];
         var table = tables.find(function(t) { return String(t.id) === String(chartModalState.tableId); });
@@ -8109,11 +8445,13 @@ ${html || ''}
         data.set('page_id', window.currentPageId || '');
         data.set('title', document.getElementById('chartQuickName').value || 'Untitled Chart');
         data.set('chart_type', chartModalState.chartType);
+        data.set('source_type', chartModalState.sourceType);
+        data.set('source_query', chartModalState.sourceType === 'query' ? (document.getElementById('chartQuickQuery').value || '') : '');
         data.set('table_id', chartModalState.tableId);
-        data.set('label_field', chartModalState.labelField);
-        data.set('value_field', chartModalState.valueField);
-        data.set('aggregation', chartModalState.agg);
-        data.set('group_by_field', chartModalState.groupField);
+        data.set('label_field', chartModalState.sourceType === 'table' ? chartModalState.labelField : '');
+        data.set('value_field', chartModalState.sourceType === 'table' ? chartModalState.valueField : '');
+        data.set('aggregation', chartModalState.sourceType === 'table' ? chartModalState.agg : '');
+        data.set('group_by_field', chartModalState.sourceType === 'table' ? chartModalState.groupField : '');
         if (csrfToken) data.set('_csrf-frontend', csrfToken);
 
         var quickUrl = window.chartQuickCreateUrl || '/master-chart/quick-create';

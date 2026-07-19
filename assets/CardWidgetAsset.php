@@ -11,6 +11,7 @@ class CardWidgetAsset extends AssetBundle
     public $baseUrl = '@web';
 
     public $js = [
+        'js/page-builder/icon-registry.js',
         'js/page-builder/card-widget.js',
     ];
 

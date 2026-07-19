@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 
 /** @var app\models\MasterDatatable[] $models */
+/** @var string|null $search */
 
 $this->title = 'Master Datatable';
 ?>
@@ -17,12 +18,27 @@ $this->title = 'Master Datatable';
         <?= Html::a('Create Datatable', ['create'], ['class' => 'rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white no-underline']) ?>
     </div>
 
+    <form method="get" action="<?= Url::to(['master-datatable/index']) ?>" class="mb-4">
+        <div class="flex gap-2">
+            <input type="text" name="q" value="<?= Html::encode($search ?? '') ?>" placeholder="Cari datatable..." class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100" autocomplete="off">
+            <button type="submit" class="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-bold text-white">Cari</button>
+            <?php if ($search): ?>
+                <?= Html::a('Clear', ['index'], ['class' => 'rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-600 no-underline']) ?>
+            <?php endif; ?>
+        </div>
+    </form>
+
     <?php if (Yii::$app->session->hasFlash('success')): ?>
         <div class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"><?= Html::encode(Yii::$app->session->getFlash('success')) ?></div>
     <?php endif; ?>
 
     <div class="grid gap-4">
-        <?php if (empty($models)): ?>
+        <?php if ($search && empty($models)): ?>
+            <div class="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
+                <strong class="block text-slate-900">Hasil tidak ditemukan.</strong>
+                Tidak ada datatable yang cocok dengan "<strong><?= Html::encode($search) ?></strong>".
+            </div>
+        <?php elseif (empty($models)): ?>
             <div class="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">
                 <strong class="block text-slate-900">No datatable presets yet.</strong>
                 Buat preset pertama untuk digunakan di halaman dinamis.

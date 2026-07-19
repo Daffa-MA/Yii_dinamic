@@ -43,14 +43,21 @@ class MasterDatatableController extends Controller
 
     public function actionIndex()
     {
+        $query = MasterDatatable::findScoped()
+            ->select(['id', 'name', 'table_id', 'is_active', 'actions_config'])
+            ->with(['table' => static function ($query): void {
+                $query->select(['id', 'name', 'label']);
+            }])
+            ->orderBy(['id' => SORT_DESC]);
+
+        $search = Yii::$app->request->get('q');
+        if ($search) {
+            $query->andWhere(['like', 'name', $search]);
+        }
+
         return $this->render('index', [
-            'models' => MasterDatatable::findScoped()
-                ->select(['id', 'name', 'table_id', 'is_active', 'actions_config'])
-                ->with(['table' => static function ($query): void {
-                    $query->select(['id', 'name', 'label']);
-                }])
-                ->orderBy(['id' => SORT_DESC])
-                ->all(),
+            'models' => $query->all(),
+            'search' => $search,
         ]);
     }
 

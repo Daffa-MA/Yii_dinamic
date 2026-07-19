@@ -600,7 +600,7 @@ window.DynamicFormRuntime = window.DynamicFormRuntime || (function() {
                 event.stopPropagation();
                 const fieldName = button.getAttribute('data-relation-picker-open') || button.getAttribute('data-field-name') || button.getAttribute('data-picker-field') || '';
                 const input = form.querySelector('.relation-picker-display[data-field-name="' + cssEscape(fieldName) + '"]');
-                openPicker(form, fieldName, input ? (input.getAttribute('data-form-id') || '') : (form.getAttribute('data-form-id') || ''), input ? input.value : '');
+                openPicker(form, fieldName, input ? (input.getAttribute('data-form-id') || form.getAttribute('data-form-id') || '') : (form.getAttribute('data-form-id') || ''), input ? input.value : '');
             });
         });
 

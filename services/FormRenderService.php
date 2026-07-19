@@ -357,6 +357,183 @@ JS;
         return $html;
     }
 
+    private static function injectInteractivePickerRuntime(string $html, array $fields, int $formId): string
+    {
+        if ($formId <= 0) {
+            return $html;
+        }
+        if (stripos($html, 'window.__interactivePickerRuntime') !== false) {
+            return $html;
+        }
+        $hasInteractiveFk = false;
+        foreach ($fields as $field) {
+            if (!empty($field['is_foreign_key'])) {
+                $pickerMode = strtolower(trim((string)($field['picker_mode'] ?? 'dropdown')));
+                if ($pickerMode !== '' && $pickerMode !== 'dropdown') {
+                    $hasInteractiveFk = true;
+                    break;
+                }
+            }
+        }
+        if (!$hasInteractiveFk) {
+            return $html;
+        }
+
+        $css = <<<'CSS'
+<style>
+.relation-picker-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:20px;z-index:12000;background:rgba(15,23,42,.48);backdrop-filter:blur(4px)}.relation-picker-modal.open{display:flex}.relation-picker-panel{width:min(860px,100%);max-height:min(680px,88vh);background:#fff;border:1px solid #e2e8f0;border-radius:18px;box-shadow:0 28px 90px rgba(15,23,42,.28);overflow:hidden;display:flex;flex-direction:column}.relation-picker-head,.relation-picker-foot{padding:14px 18px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;gap:12px;align-items:center}.relation-picker-foot{border-bottom:0;border-top:1px solid #e2e8f0}.relation-picker-body{padding:16px 18px;overflow:auto}.relation-picker-table{width:100%;border-collapse:collapse}.relation-picker-table th,.relation-picker-table td{padding:10px 12px;border-bottom:1px solid #eef2f7;text-align:left;font-size:13px}.relation-picker-table tbody tr{cursor:pointer}.relation-picker-table tbody tr:hover{background:#f8fafc}.relation-picker-btn,.relation-picker-button{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 14px;border:1px solid #dbe3ef;background:#fff;color:#334155;border-radius:10px;font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:none}.relation-picker-status{font-size:12px;color:#64748b;margin-top:4px}.relation-picker-row{display:flex;align-items:stretch;gap:8px;width:100%}.relation-picker-row .field-input{flex:1}
+</style>
+CSS;
+
+        $script = <<<'JS'
+<script>
+window.__interactivePickerRuntime = true;
+(function(){
+    var pickerDataUrl = '/master-form/relation-picker-data';
+    var pickerSearchUrl = '/master-form/relation-picker-search';
+    var pickerState = { fieldName: '', formId: '', page: 1, hasNext: false, form: null };
+
+    function cssEscape(v) { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v).replace(/"/g,'\\"'); }
+    function esc(v) { return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function ensureModal() {
+        var m = document.getElementById('dynamicRelationPickerModal');
+        if (m) return m;
+        m = document.createElement('div');
+        m.id = 'dynamicRelationPickerModal';
+        m.className = 'relation-picker-modal';
+        m.innerHTML = '<div class="relation-picker-panel"><div class="relation-picker-head"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center;width:100%;"><strong>Pilih Data</strong><button type="button" class="relation-picker-btn" data-picker-close>Tutup</button></div></div><div class="relation-picker-body"><input type="text" class="relation-picker-search" data-picker-search placeholder="Cari data..." style="width:100%;padding:10px 12px;border:1px solid #e2e8f0;border-radius:8px;box-sizing:border-box;"><div data-picker-content style="margin-top:14px;"></div></div><div class="relation-picker-foot"><button type="button" class="relation-picker-btn" data-picker-prev>Sebelumnya</button><span data-picker-page style="font-size:13px;color:#64748b;"></span><button type="button" class="relation-picker-btn" data-picker-next>Berikutnya</button></div></div>';
+        document.body.appendChild(m);
+        m.querySelector('[data-picker-close]').addEventListener('click', closePicker);
+        m.querySelector('[data-picker-prev]').addEventListener('click',function(){if(pickerState.page>1){pickerState.page--;loadPickerPage();}});
+        m.querySelector('[data-picker-next]').addEventListener('click',function(){if(pickerState.hasNext){pickerState.page++;loadPickerPage();}});
+        m.querySelector('[data-picker-search]').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();pickerState.page=1;loadPickerPage();}});
+        m.querySelector('[data-picker-content]').addEventListener('click',function(e){var row=e.target.closest('tr[data-value]');if(row){setPickerValue(pickerState.form,pickerState.fieldName,row.getAttribute('data-value'),row.getAttribute('data-label'));closePicker();}});
+        return m;
+    }
+
+    function buildUrl(base,formId,fieldName,q,page,limit){
+        var p=new URLSearchParams({form_id:formId,field_name:fieldName,q:q||''});
+        if(page)p.set('page',page);
+        if(limit)p.set('limit',limit);
+        return base+'?'+p.toString();
+    }
+
+    function setPickerStatus(form,fieldName,text){
+        var el=form?form.querySelector('[data-relation-picker-status="'+cssEscape(fieldName)+'"]'):null;
+        if(el)el.textContent=text||'';
+    }
+
+    function setPickerValue(form,fieldName,value,label){
+        if(!form||!fieldName)return;
+        var hidden=form.querySelector('[data-relation-picker-value="'+cssEscape(fieldName)+'"]');
+        var display=form.querySelector('.relation-picker-display[data-field-name="'+cssEscape(fieldName)+'"]');
+        if(hidden){hidden.value=value||'';hidden.dispatchEvent(new Event('change',{bubbles:true}));}
+        if(display)display.value=label||'';
+        setPickerStatus(form,fieldName,value?'Dipilih: '+(label||value):'');
+    }
+
+    function openPicker(form,fieldName,formId,query){
+        pickerState={fieldName:fieldName,formId:formId,page:1,hasNext:false,form:form};
+        var modal=ensureModal();
+        var search=modal.querySelector('[data-picker-search]');
+        if(search)search.value=query||'';
+        modal.classList.add('open');
+        loadPickerPage();
+    }
+
+    function closePicker(){
+        var m=document.getElementById('dynamicRelationPickerModal');
+        if(m)m.classList.remove('open');
+    }
+
+    function loadPickerPage(){
+        var modal=ensureModal();
+        var search=modal.querySelector('[data-picker-search]');
+        var content=modal.querySelector('[data-picker-content]');
+        var pageInfo=modal.querySelector('[data-picker-page]');
+        var query=search?search.value:'';
+        content.innerHTML='<div style="font-size:13px;color:#64748b;">Loading...</div>';
+        fetch(buildUrl(pickerDataUrl,pickerState.formId,pickerState.fieldName,query,pickerState.page),{headers:{'X-Requested-With':'XMLHttpRequest'}})
+            .then(function(r){return r.json();})
+            .then(function(data){
+                if(!data||!data.success)throw new Error((data&&data.message)||'Gagal memuat data');
+                var rows=Array.isArray(data.rows)?data.rows:[];
+                pickerState.hasNext=!!(data.pagination&&data.pagination.has_next);
+                if(pageInfo)pageInfo.textContent='Halaman '+pickerState.page+' - '+((data.pagination&&data.pagination.total)||0)+' data';
+                if(!rows.length){content.innerHTML='<div style="padding:14px;border:1px solid #fde68a;background:#fffbeb;color:#92400e;border-radius:12px;">No data available<br><small>This table does not have any data yet.</small></div>';return;}
+                var keys=Object.keys(rows[0].display||{});
+                content.innerHTML='<table class="relation-picker-table"><thead><tr>'+keys.map(function(k){return '<th>'+esc(k)+'</th>';}).join('')+'</tr></thead><tbody>'+rows.map(function(r){return '<tr data-value="'+esc(r.value)+'" data-label="'+esc(r.label)+'">'+keys.map(function(k){return '<td>'+esc(r.display[k])+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table>';
+            })
+            .catch(function(err){content.innerHTML='<div style="padding:14px;border:1px solid #fecaca;background:#fff1f2;color:#9f1239;border-radius:12px;">'+esc(err.message||'Gagal memuat data.')+'</div>';});
+    }
+
+    function bindForm(form){
+        if(!form||form.dataset.dynamicRuntimeBound==='1')return;
+        form.dataset.dynamicRuntimeBound='1';
+        form.querySelectorAll('.relation-picker-display').forEach(function(input){
+            input.addEventListener('keydown',function(e){
+                if(e.key!=='Enter')return;
+                e.preventDefault();
+                var fn=input.getAttribute('data-field-name')||'';
+                var fid=input.getAttribute('data-form-id')||form.getAttribute('data-form-id')||'';
+                var mode=input.getAttribute('data-picker-mode')||'autocomplete';
+                var q=input.value||'';
+                if(mode==='modal_picker'||mode==='autocomplete_with_modal'){openPicker(form,fn,fid,q);return;}
+                setPickerStatus(form,fn,'Mencari data...');
+                fetch(buildUrl(pickerSearchUrl,fid,fn,q,null,10),{headers:{'X-Requested-With':'XMLHttpRequest'}})
+                    .then(function(r){return r.json();})
+                    .then(function(data){
+                        var matches=data&&Array.isArray(data.matches)?data.matches:[];
+                        if(matches.length===1){setPickerValue(form,fn,matches[0].value,matches[0].label||matches[0].display_text);}
+                        else if(matches.length>1){openPicker(form,fn,fid,q);}
+                        else{setPickerStatus(form,fn,'Data tidak ditemukan.');}
+                    })
+                    .catch(function(){setPickerStatus(form,fn,'Gagal mencari data.');});
+            });
+        });
+        form.querySelectorAll('[data-relation-picker-open],.relation-picker-button').forEach(function(btn){
+            btn.addEventListener('click',function(e){
+                e.preventDefault();
+                e.stopPropagation();
+                var fn=btn.getAttribute('data-relation-picker-open')||btn.getAttribute('data-field-name')||btn.getAttribute('data-picker-field')||'';
+                var inp=form.querySelector('.relation-picker-display[data-field-name="'+cssEscape(fn)+'"]');
+                openPicker(form,fn,inp?(inp.getAttribute('data-form-id')||form.getAttribute('data-form-id')||''):(form.getAttribute('data-form-id')||''),inp?inp.value:'');
+            });
+        });
+        form.addEventListener('submit',function(){
+            form.querySelectorAll('select[data-fk-submit-name]').forEach(function(sel){
+                var sn=sel.getAttribute('data-fk-submit-name');
+                if(!sn)return;
+                var hi=form.querySelector('input[name="__fk_submit_'+sn+'"]');
+                if(!hi){hi=document.createElement('input');hi.type='hidden';hi.name='__fk_submit_'+sn;form.appendChild(hi);}
+                hi.value=sel.value||'';
+            });
+        });
+    }
+
+    function init(scope){
+        var s=scope||document;
+        if(s.matches&&s.matches('form.dynamic-embedded-form')){bindForm(s);}
+        if(s.querySelectorAll)s.querySelectorAll('form.dynamic-embedded-form').forEach(bindForm);
+    }
+
+    if(document.readyState==='loading'){
+        document.addEventListener('DOMContentLoaded',function(){init(document);});
+    }else{
+        init(document);
+    }
+})();
+</script>
+JS;
+
+        if (stripos($html, '</body>') !== false) {
+            return (string)preg_replace('~</body>~i', $css . "\n" . $script . "\n</body>", $html, 1);
+        }
+
+        return $html . $css . $script;
+    }
+
     public function hasCustomCodePayload(array $renderPayload, ?MasterForm $form = null): bool
     {
         $customHtml = trim((string)($renderPayload['customHtml'] ?? ''));
@@ -395,6 +572,7 @@ JS;
             $html .= '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>';
         }
         $html = self::injectGpsCameraHandler($html, $fields);
+        $html = self::injectInteractivePickerRuntime($html, $fields, $formId);
         if ($formId > 0) {
             $html = self::appendCustomFormSubmitCollectorScript($html);
         }
@@ -1021,13 +1199,25 @@ JS;
         }
 
         $hasCsrfInput = stripos($html, 'name="' . $csrfParam . '"') !== false || stripos($html, "name='" . $csrfParam . "'") !== false;
-        $prepared = preg_replace_callback('/<form\b([^>]*)>/i', static function (array $matches) use ($action, $hidden, $hasCsrfInput): string {
+        $prepared = preg_replace_callback('/<form\b([^>]*)>/i', static function (array $matches) use ($action, $hidden, $hasCsrfInput, $formId): string {
             $attrs = $matches[1] ?? '';
             if (!preg_match('/\bmethod\s*=/i', $attrs)) {
                 $attrs .= ' method="post"';
             }
             if (!preg_match('/\baction\s*=\s*([\'"])[^\'"]+\1/i', $attrs)) {
                 $attrs .= ' action="' . Html::encode($action) . '"';
+            }
+            if (!preg_match('/\bdata-form-id\s*=/i', $attrs)) {
+                $attrs .= ' data-form-id="' . (int)$formId . '"';
+            }
+            if (preg_match('/\bclass\s*=\s*([\'"])(.*?)\1/i', $attrs, $classMatch)) {
+                $existingClass = $classMatch[2];
+                if (stripos($existingClass, 'dynamic-embedded-form') === false) {
+                    $newClass = trim($existingClass . ' dynamic-embedded-form');
+                    $attrs = substr_replace($attrs, 'class=' . $classMatch[1] . $newClass . $classMatch[1], strpos($attrs, $classMatch[0]), strlen($classMatch[0]));
+                }
+            } else {
+                $attrs .= ' class="dynamic-embedded-form"';
             }
 
             $openTag = '<form' . $attrs . '>';

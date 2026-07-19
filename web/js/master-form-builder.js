@@ -2653,6 +2653,19 @@
 
         // Base code templates per field type
         function getFieldBaseCode(fieldType, lang, fieldOverride) {
+            var replaceField = fieldOverride || (formFields[selectedIndex] || null);
+            if (replaceField && lang === 'html' && (replaceField.is_foreign_key || replaceField.fk_referenced_table) && replaceField.picker_mode && replaceField.picker_mode !== 'dropdown') {
+                var pickerMode = replaceField.picker_mode;
+                var isModal = pickerMode === 'modal_picker' || pickerMode === 'autocomplete_with_modal';
+                code = '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" class="relation-picker-value" data-relation-picker-value="{name}" />\n  <div class="relation-picker-row">\n    <input type="text" name="__fk_display_{name}" class="field-input relation-picker-display" data-field-name="{name}" data-picker-mode="' + pickerMode + '" placeholder="Cari {label}..." />\n' + (isModal ? '    <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="{name}" data-field-name="{name}" data-picker-field="{name}">Pilih</button>\n' : '') + '  </div>\n  <div class="relation-picker-status" data-relation-picker-status="{name}">Tekan Enter untuk mencari data.</div>\n  <div class="relation-picker-detail" data-relation-picker-detail="{name}" hidden></div>\n</div>';
+                var replaceIndex = fieldOverride ? 0 : selectedIndex;
+                code = code.replace(/{label}/g, replaceField.label || 'Label');
+                code = code.replace(/{name}/g, replaceField.name || getFieldTokenName(replaceField, replaceIndex));
+                return code;
+            }
+            if (replaceField && lang === 'css' && (replaceField.is_foreign_key || replaceField.fk_referenced_table) && replaceField.picker_mode && replaceField.picker_mode !== 'dropdown') {
+                return '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}\n.relation-picker-row {\n  display: flex;\n  align-items: stretch;\n  gap: 8px;\n  width: 100%;\n}\n.relation-picker-row .field-input {\n  flex: 1;\n}\n.relation-picker-btn {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 38px;\n  padding: 0 14px;\n  border: 1px solid #dbe3ef;\n  background: #fff;\n  color: #334155;\n  border-radius: 10px;\n  font-weight: 700;\n  cursor: pointer;\n  white-space: nowrap;\n}\n.relation-picker-status {\n  font-size: 12px;\n  color: #64748b;\n  margin-top: 4px;\n}';
+            }
             var baseCodeTemplates = {
                 text: {
                     html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="text" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
@@ -2714,8 +2727,6 @@
             var template = baseCodeTemplates[fieldType] || baseCodeTemplates.text;
             var code = template[lang] || '';
 
-            // Replace placeholders with field values
-            var replaceField = fieldOverride || (formFields[selectedIndex] || null);
             if (replaceField) {
                 var replaceIndex = fieldOverride ? 0 : selectedIndex;
                 code = code.replace(/{label}/g, replaceField.label || 'Label');

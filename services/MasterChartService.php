@@ -145,20 +145,21 @@ class MasterChartService
             } else {
                 $query->select($selects);
             }
-        } elseif ($groupByField && isset($schema->columns[$groupByField])) {
-            if ($labelField && isset($schema->columns[$labelField]) && $labelField !== $groupByField) {
-                $query->select([
-                    'label' => $labelField,
-                    'group' => $groupByField,
-                    'value' => $this->buildAggregationExpression($aggregation, $valueField, 'value', $schema, false),
-                ]);
-            } else {
-                $query->select([
-                    'label' => $groupByField,
-                    'value' => $this->buildAggregationExpression($aggregation, $valueField, 'value', $schema, false),
-                ]);
-            }
-            $query->groupBy($groupByField);
+            } elseif ($groupByField && isset($schema->columns[$groupByField])) {
+                if ($labelField && isset($schema->columns[$labelField]) && $labelField !== $groupByField) {
+                    $query->select([
+                        'label' => $labelField,
+                        'group' => $groupByField,
+                        'value' => $this->buildAggregationExpression($aggregation, $valueField, 'value', $schema, false),
+                    ]);
+                    $query->groupBy([$groupByField, $labelField]);
+                } else {
+                    $query->select([
+                        'label' => $groupByField,
+                        'value' => $this->buildAggregationExpression($aggregation, $valueField, 'value', $schema, false),
+                    ]);
+                    $query->groupBy($groupByField);
+                }
         } elseif ($valueField && isset($schema->columns[$valueField])) {
             $query->select([
                 'value' => $this->buildAggregationExpression($aggregation, $valueField, 'value', $schema, false),

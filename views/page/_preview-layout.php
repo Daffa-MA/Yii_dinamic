@@ -99,6 +99,79 @@ foreach ($neededLibs as $lib) {
     <script>
         window.pageState = <?= Json::encode($layoutJson) ?>;
         window.dynamicDatatableHtml = <?= Json::htmlEncode((object)$datatableHtmlByBlock) ?>;
+        window.masterChartDataCache = {};
+
+        function loadApexCharts(callback) {
+            if (window.ApexCharts) { if (callback) callback(); return; }
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/apexcharts@4.5.0/dist/apexcharts.min.js';
+            s.onload = function() { if (callback) callback(); };
+            document.head.appendChild(s);
+        }
+
+        function initPreviewCharts(container) {
+            var chartContainers = container.querySelectorAll('[data-master-chart]');
+            if (!chartContainers.length) return;
+            loadApexCharts(function() {
+                chartContainers.forEach(function(el) {
+                    var chartId = el.getAttribute('data-master-chart');
+                    if (!chartId || el._chartInitialized) return;
+                    el._chartInitialized = true;
+                    var chartHeight = el.getAttribute('data-chart-height') || '300';
+                    fetch('/master-chart/data?id=' + encodeURIComponent(chartId), {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (!data || !data.success || !data.config) {
+                            el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal memuat chart</div>';
+                            return;
+                        }
+                        renderPreviewChart(el, data, chartHeight);
+                    })
+                    .catch(function() {
+                        el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal terhubung ke server</div>';
+                    });
+                });
+            });
+        }
+
+        function renderPreviewChart(container, data, chartHeight) {
+            var config = data.config;
+            var chartData = data.chart;
+            var palette = data.palette || [];
+            var chartType = config.chart_type || 'bar';
+            var typeMap = { bar:'bar', bar_horizontal:'bar', line:'line', area:'area', pie:'pie', donut:'donut', radar:'radar', polar_area:'polarArea', bubble:'bubble', scatter:'scatter', stacked_bar:'bar', stacked_area:'area', mixed:'line', multi_series:'bar' };
+            var apexType = typeMap[chartType] || 'bar';
+            var height = parseInt(chartHeight || config.height || 300);
+            var series = chartData.series || [];
+            var labels = chartData.labels || [];
+            var options = {
+                chart: { type: apexType, height: height, toolbar: { show: false }, animations: { enabled: true }, background: 'transparent', foreColor: '#64748b' },
+                series: series,
+                labels: labels,
+                colors: palette.length ? palette : undefined,
+                dataLabels: { enabled: false },
+                legend: { show: true, position: 'bottom', fontSize: '12px' },
+                grid: { show: true, borderColor: '#e2e8f0' },
+                stroke: { show: true, curve: 'smooth', width: (chartType === 'line' || chartType === 'area') ? 2 : 0 },
+                fill: { opacity: (chartType === 'area' || chartType === 'stacked_area') ? 0.5 : 1 },
+                plotOptions: {
+                    bar: { horizontal: chartType === 'bar_horizontal', columnWidth: '60%', borderRadius: 4 },
+                    pie: { donut: { labels: { show: false } } }
+                },
+                tooltip: { enabled: true },
+                noData: { text: 'Tidak ada data', align: 'center', verticalAlign: 'middle', style: { fontSize: '14px', color: '#94a3b8' } }
+            };
+            if (chartType === 'stacked_bar' || chartType === 'stacked_area') { options.chart.stacked = true; if (options.plotOptions && options.plotOptions.bar) options.plotOptions.bar.stacked = true; }
+            if (chartType === 'radar') { options.chart.type = 'radar'; options.plotOptions = { radar: { polygons: { strokeColors: '#e2e8f0', connectorColors: '#e2e8f0' } } }; options.stroke = { show: true, width: 2, colors: palette }; options.fill = { opacity: 0.3 }; options.markers = { size: 4 }; }
+            if (chartType === 'polar_area') { options.chart.type = 'polarArea'; options.stroke = { show: false }; options.fill = { opacity: 0.8 }; }
+            container.innerHTML = '';
+            var chartEl = document.createElement('div');
+            chartEl.id = 'pv-chart-' + (config.id || '0');
+            container.appendChild(chartEl);
+            try { var ch = new ApexCharts(chartEl, options); ch.render().catch(function(){}); } catch(e) { container.innerHTML = '<div>Gagal render chart</div>'; }
+        }
         
         function renderBlock(block) {
             const props = block.props || {};
@@ -184,6 +257,19 @@ foreach ($neededLibs as $lib) {
                     return `<div class="dynamic-form-slot p-3 bg-white rounded-lg border border-slate-200" data-form-id="${props.formId || ''}" data-show-title="${props.showTitle ? '1' : '0'}" data-component-id="${componentId}">
                         <div class="text-xs text-slate-500">Loading form...</div>
                     </div>`;
+                case "chart": {
+                    const chartId = props.chartId || '';
+                    if (!chartId) {
+                        return '<div style="padding:24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">' +
+                            '<div style="font-size:32px;margin-bottom:12px">📊</div>' +
+                            '<div style="font-weight:700;color:#1e293b;font-size:16px">Chart</div>' +
+                        '</div>';
+                    }
+                    const chartHeight = props.height || '300';
+                    return '<div data-master-chart="' + chartId + '" data-chart-height="' + chartHeight + '" style="min-height:' + chartHeight + 'px;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;background:white;">' +
+                        '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#f8fafc;color:#94a3b8;font-size:13px;">Memuat chart...</div>' +
+                    '</div>';
+                }
                 case "datatable": {
                     const blockId = block.id || '';
                     const dtHtml = (window.dynamicDatatableHtml && window.dynamicDatatableHtml[blockId])
@@ -564,6 +650,7 @@ foreach ($neededLibs as $lib) {
                     hydrateDynamicForms(container);
                     executeScripts(container);
                     loadCardData(container);
+                    initPreviewCharts(container);
                 }
                 return;
             }
@@ -575,6 +662,7 @@ foreach ($neededLibs as $lib) {
                 hydrateDynamicForms(container);
                 executeScripts(container);
                 loadCardData(container);
+                initPreviewCharts(container);
             }
         });
 

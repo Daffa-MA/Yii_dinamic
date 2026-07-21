@@ -9,6 +9,7 @@ use app\models\MasterForm;
 use app\models\MasterMenu;
 use app\models\MasterPage;
 use app\models\MasterDatatable;
+use app\models\MasterPageChart;
 use app\models\DbTable;
 use app\services\PageService;
 use app\services\DynamicFormPreviewService;
@@ -222,6 +223,70 @@ class MasterPageController extends Controller
         }
 
         return $slug;
+    }
+
+    private function processInlineChartConfigs(int $pageId, ?string &$layoutJson): void
+    {
+        if (empty($layoutJson)) return;
+        $blocks = json_decode($layoutJson, true);
+        if (!is_array($blocks)) return;
+
+        $changed = false;
+        $transaction = Yii::$app->db->beginTransaction();
+        try {
+            foreach ($blocks as &$block) {
+                if (!isset($block['type'], $block['props']['_chartConfig'])
+                    || $block['type'] !== 'chart') {
+                    continue;
+                }
+
+                $cfg = $block['props']['_chartConfig'];
+                $chartId = isset($block['props']['chartId']) && $block['props']['chartId'] !== ''
+                    ? (int)$block['props']['chartId']
+                    : null;
+
+                if ($chartId) {
+                    $model = MasterPageChart::findOne($chartId);
+                    if (!$model) continue;
+                } else {
+                    $model = new MasterPageChart();
+                    $model->page_id = $pageId;
+                }
+
+                $model->title = $cfg['title'] ?? 'Untitled Chart';
+                $model->chart_type = $cfg['chartType'] ?? 'bar';
+                $model->source_type = $cfg['sourceType'] ?? 'table';
+                $model->source_query = $cfg['sourceQuery'] ?? '';
+                $model->table_id = !empty($cfg['tableId']) ? (int)$cfg['tableId'] : null;
+                $model->label_field = $cfg['labelField'] ?? '';
+                $model->value_field = $cfg['valueField'] ?? '';
+                $model->aggregation = $cfg['agg'] ?? 'count';
+                $model->group_by_field = $cfg['groupField'] ?? '';
+                $model->is_active = 1;
+
+                if (!$model->save()) {
+                    $transaction->rollBack();
+                    return;
+                }
+
+                if (!$chartId) {
+                    $block['props']['chartId'] = (string)$model->id;
+                }
+                unset($block['props']['_chartConfig']);
+                if (isset($block['props']['_chartPreview'])) {
+                    unset($block['props']['_chartPreview']);
+                }
+                $changed = true;
+            }
+
+            if ($changed) {
+                $layoutJson = json_encode($blocks, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            }
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            Yii::error('processInlineChartConfigs: ' . $e->getMessage(), __METHOD__);
+        }
     }
 
     private function updateOrphanChartPageIds(int $pageId, ?string $layoutJson): void
@@ -689,8 +754,9 @@ class MasterPageController extends Controller
     private function findAvailableCharts(): array
     {
         try {
-            $rows = \app\models\MasterPageChart::find()
-                ->select(['id', 'page_id', 'title', 'chart_type', 'table_id', 'source_type', 'source_query'])
+            $rows = MasterPageChart::find()
+                ->select(['id', 'page_id', 'title', 'chart_type', 'table_id', 'source_type', 'source_query',
+                    'label_field', 'value_field', 'aggregation', 'group_by_field'])
                 ->andWhere(['is_active' => 1])
                 ->orderBy(['title' => SORT_ASC])
                 ->all();
@@ -705,6 +771,10 @@ class MasterPageController extends Controller
                     'table_id' => (int)$row->table_id,
                     'source_type' => (string)$row->source_type,
                     'source_query' => (string)$row->source_query,
+                    'label_field' => (string)$row->label_field,
+                    'value_field' => (string)$row->value_field,
+                    'aggregation' => (string)$row->aggregation,
+                    'group_by_field' => (string)$row->group_by_field,
                 ];
             }
 
@@ -869,6 +939,12 @@ class MasterPageController extends Controller
                 $this->applyPageCustomCodePost($model, $postData);
 
                 if ($model->save(false)) {
+                    $layoutJson = $model->layout_json;
+                    $this->processInlineChartConfigs($model->id, $layoutJson);
+                    if ($layoutJson !== $model->layout_json) {
+                        $model->layout_json = $layoutJson;
+                        $model->save(false);
+                    }
                     $this->updateOrphanChartPageIds($model->id, $model->layout_json);
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                     return $this->redirect(['index']);
@@ -892,6 +968,12 @@ class MasterPageController extends Controller
                 $this->applyPageCustomCodePost($model, $postData);
 
                 if ($model->save(false)) {
+                    $layoutJson = $model->layout_json;
+                    $this->processInlineChartConfigs($model->id, $layoutJson);
+                    if ($layoutJson !== $model->layout_json) {
+                        $model->layout_json = $layoutJson;
+                        $model->save(false);
+                    }
                     $this->updateOrphanChartPageIds($model->id, $model->layout_json);
                     Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
                     return $this->redirect(['index']);
@@ -935,6 +1017,12 @@ class MasterPageController extends Controller
             $this->applyPageCustomCodePost($model, $postData);
 
 if ($model->save(false)) {
+                    $layoutJson = $model->layout_json;
+                    $this->processInlineChartConfigs($model->id, $layoutJson);
+                    if ($layoutJson !== $model->layout_json) {
+                        $model->layout_json = $layoutJson;
+                        $model->save(false);
+                    }
                     $this->updateOrphanChartPageIds($model->id, $model->layout_json);
                     Yii::$app->session->setFlash('success', 'Halaman berhasil diperbarui!');
                     return $this->redirect(['index']);

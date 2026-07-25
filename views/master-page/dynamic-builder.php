@@ -8,6 +8,8 @@ use yii\helpers\Url;
  * @var array $forms
  * @var array $datatables
  * @var array $tables
+ * @var array $availableCharts
+ * @var array $permissionContext
  */
 
 $this->title = $model->isNewRecord ? 'Buat Halaman Baru' : 'Edit Halaman: ' . $model->title;
@@ -737,7 +739,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     </style>
 
     <!-- MODAL (professional template selector) -->
-    <div id="templateModal" class="template-modal-overlay open">
+    <div id="templateModal" class="template-modal-overlay <?= ($model->isNewRecord && empty($initialState)) ? 'open' : '' ?>"<?= ($model->isNewRecord && empty($initialState)) ? '' : ' style="display:none;"' ?>>
         <div class="template-modal">
             <div class="template-header">
                 <div class="template-header-left">
@@ -1891,6 +1893,32 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         color: #ffffff;
     }
 
+    .save-dialog-error {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 14px;
+        margin-bottom: 16px;
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 8px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: #991b1b;
+    }
+
+    .save-dialog-error-icon {
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        margin-top: 1px;
+    }
+
+    .save-dialog-btn.primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
     .save-dialog-btn.primary:hover {
         background: #1d4ed8;
         border-color: #1d4ed8;
@@ -2784,6 +2812,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
     window.chartCreateUrl = '<?= Url::to(['/master-chart/create']) ?>';
     window.chartQuickCreateUrl = '<?= Url::to(['/master-chart/quick-create']) ?>';
     window.dynamicFormPreviewEndpoint = <?= json_encode(Url::to(['master-page/form-preview'])) ?>;
+    window.dynamicSaveUrl = <?= json_encode(Url::to(['master-page/dynamic-save'])) ?>;
     window.dynamicFormPreviewCache = {};
     window.dynamicFormPreviewPending = {};
     window.workspacePages = [];
@@ -6795,7 +6824,6 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             fullPageSourceDerivedFromBuilder = false;
         } else {
             fullPageSource = await generateFullSourceFromLayoutState(newState, getDefaultFullPageSource());
-            fullPageSourceDerivedFromBuilder = true;
         }
 
         closeTemplatePreview();
@@ -6820,11 +6848,9 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         const isNewRecord = <?= json_encode($model->isNewRecord) ?>;
 
         // For existing pages (update mode), always show builder with saved state
-        // For new pages, show template selector first
-        if (isNewRecord && !hasExisting) {
-            window.requestAnimationFrame(() => renderTemplates());
-        } else if (!isNewRecord) {
-            // Update mode: remove template modal if present, show builder
+        // For new pages, show template selector first unless there's existing state (validation retry)
+        if (!isNewRecord || hasExisting) {
+            // Update mode OR new page with content (after validation error)
             const modal = document.getElementById('templateModal');
             if (modal) modal.remove();
             const builder = document.getElementById('builderInterface');
@@ -6833,14 +6859,13 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 fullPageSource = await generateFullSourceFromLayoutState(window.pageState, getDefaultFullPageSource());
             }
             // Render builder with saved state from PHP
-            console.log('UPDATE MODE - pageState blocks:', window.pageState ? window.pageState.length : 0);
             renderBuilder(window.pageState);
             // Select first block if any exist (component mode only)
             if (activeCodeScope !== 'page' && window.pageState && window.pageState.length > 0) {
                 selectBlock(window.pageState[0].id);
             }
         } else {
-            // New record with no existing data - show template selector
+            // New page with no content - show template selector
             window.requestAnimationFrame(() => renderTemplates());
         }
 
@@ -7006,7 +7031,6 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
   </section>
 
   <script>
-    console.log('full page source mode');
   <\/script>
 </body>
 </html>`;
@@ -7587,12 +7611,16 @@ ${html || ''}
             <h3 class="save-dialog-title">Simpan Halaman</h3>
         </div>
         <div class="save-dialog-body">
+            <div id="saveDialogError" class="save-dialog-error" style="display:none;">
+                <svg class="save-dialog-error-icon" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-8-5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5A.75.75 0 0 1 10 5Zm0 10a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>
+                <span id="saveDialogErrorText"></span>
+            </div>
             <label class="save-dialog-label" for="saveTitleInput">Judul Halaman</label>
             <input id="saveTitleInput" class="save-dialog-input" type="text" maxlength="255" autocomplete="off" />
         </div>
         <div class="save-dialog-actions">
             <button type="button" class="save-dialog-btn" onclick="closeSaveDialog()">Batal</button>
-            <button type="button" class="save-dialog-btn primary" onclick="submitSavePage()">Simpan</button>
+            <button type="button" class="save-dialog-btn primary" id="saveDialogSubmitBtn" onclick="submitSavePage()">Simpan</button>
         </div>
     </div>
 </div>
@@ -7714,30 +7742,20 @@ ${html || ''}
 <script>
     // Save Page
     const defaultPageTitle = <?= json_encode((string) ($model->title ?? '')) ?>;
-    
-    // Check for saveError flag in URL to reopen dialog if there was an error
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('saveError') === '1') {
-        // Remove the param so it doesn't persist
-        window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-        // Open save dialog after a short delay to ensure page is fully loaded
-        setTimeout(function() {
-            openSaveDialog(true); // true = restore from sessionStorage
-        }, 100);
-    }
 
-    function openSaveDialog(restoreFromStorage = false) {
+    function openSaveDialog() {
         const overlay = document.getElementById('saveDialogOverlay');
         const input = document.getElementById('saveTitleInput');
-        if (!overlay || !input) return;
-
-        // Try to restore from sessionStorage if this is a retry after error
-        if (restoreFromStorage) {
-            const savedTitle = sessionStorage.getItem('pageBuilderPendingTitle');
-            input.value = savedTitle || defaultPageTitle || '';
-        } else {
-            input.value = defaultPageTitle || '';
+        if (!overlay || !input) {
+            return;
         }
+
+        const submitBtn = document.getElementById('saveDialogSubmitBtn');
+        if (submitBtn) submitBtn.disabled = false;
+
+        input.value = defaultPageTitle || '';
+        
+        hideSaveDialogError();
         
         overlay.classList.add('open');
         setTimeout(() => {
@@ -7746,12 +7764,28 @@ ${html || ''}
         }, 20);
     }
 
+    function showSaveDialogError(message) {
+        const errorEl = document.getElementById('saveDialogError');
+        const errorText = document.getElementById('saveDialogErrorText');
+        if (errorEl && errorText) {
+            errorText.textContent = message;
+            errorEl.style.display = 'flex';
+        }
+    }
+
+    function hideSaveDialogError() {
+        const errorEl = document.getElementById('saveDialogError');
+        if (errorEl) {
+            errorEl.style.display = 'none';
+        }
+    }
+
     function closeSaveDialog() {
         const overlay = document.getElementById('saveDialogOverlay');
-        const input = document.getElementById('saveTitleInput');
+        const submitBtn = document.getElementById('saveDialogSubmitBtn');
+        if (submitBtn) submitBtn.disabled = false;
         if (overlay) overlay.classList.remove('open');
-        // Clear stored title on close
-        sessionStorage.removeItem('pageBuilderPendingTitle');
+        hideSaveDialogError();
     }
 
     function handleSaveDialogOverlay(event) {
@@ -7774,41 +7808,20 @@ ${html || ''}
     }
 
     function submitSavePage() {
-        // Skip URL validation - proceed directly to save
-        doSubmitSavePage();
-    }
-    
-    function doSubmitSavePage() {
+        const submitBtn = document.getElementById('saveDialogSubmitBtn');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) submitBtn.disabled = true;
+
         const input = document.getElementById('saveTitleInput');
         const title = (input?.value || '').trim();
         if (!title) {
             if (input) input.focus();
+            if (submitBtn) submitBtn.disabled = false;
             return;
         }
-        
-        // Save title to sessionStorage so we can restore if there's an error
-        sessionStorage.setItem('pageBuilderPendingTitle', title);
 
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '<?= $model->isNewRecord ? Url::to(['dynamic-create']) : Url::to(['dynamic-update', 'id' => $model->id]) ?>';
+        hideSaveDialogError();
 
-        const csrf = document.querySelector('meta[name="csrf-token"]');
-        if (csrf) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = '_csrf-frontend';
-            input.value = csrf.getAttribute('content');
-            form.appendChild(input);
-        }
-
-        const titleInput = document.createElement('input');
-        titleInput.type = 'hidden';
-        titleInput.name = 'MasterPage[title]';
-        titleInput.value = title;
-        form.appendChild(titleInput);
-
-        // Strip _chartPreview before saving (temporary builder state only)
         var saveState = window.pageState.map(function(block) {
             if (block.props && block.props._chartPreview) {
                 var clean = Object.assign({}, block);
@@ -7818,64 +7831,45 @@ ${html || ''}
             }
             return block;
         });
-        const contentInput = document.createElement('input');
-        contentInput.type = 'hidden';
-        contentInput.name = 'MasterPage[layout_json]';
-        contentInput.value = JSON.stringify(saveState);
-        form.appendChild(contentInput);
 
-        const pageTypeInput = document.createElement('input');
-        pageTypeInput.type = 'hidden';
-        pageTypeInput.name = 'MasterPage[page_type]';
-        pageTypeInput.value = activeCodeScope === 'page' ? PAGE_TYPE_CUSTOM_CODE : PAGE_TYPE_BUILDER;
-        form.appendChild(pageTypeInput);
+        var formData = new URLSearchParams();
+        formData.set('title', title);
+        formData.set('layout_json', JSON.stringify(saveState));
+        formData.set('page_type', activeCodeScope === 'page' ? PAGE_TYPE_CUSTOM_CODE : PAGE_TYPE_BUILDER);
+        formData.set('use_page_custom_code', activeCodeScope === 'page' ? '1' : '0');
+        formData.set('custom_html', activeCodeScope === 'page' ? (fullPageSource || '').trim() : '');
 
-        const useCustomInput = document.createElement('input');
-        useCustomInput.type = 'hidden';
-        useCustomInput.name = 'MasterPage[use_page_custom_code]';
-        useCustomInput.value = activeCodeScope === 'page' ? '1' : '0';
-        form.appendChild(useCustomInput);
+        var pageId = <?= json_encode($model->id ?? null) ?>;
+        if (pageId) {
+            formData.set('page_id', pageId);
+        }
 
-        const customHtmlInput = document.createElement('textarea');
-        customHtmlInput.name = 'MasterPage[custom_html]';
-        customHtmlInput.style.display = 'none';
-        customHtmlInput.value = activeCodeScope === 'page' ? (fullPageSource || '').trim() : '';
-        form.appendChild(customHtmlInput);
+        var csrf = document.querySelector('meta[name="csrf-token"]');
+        if (csrf) {
+            formData.set('_csrf-frontend', csrf.getAttribute('content'));
+        }
 
-        const pageCustomHtmlInput = document.createElement('textarea');
-        pageCustomHtmlInput.name = 'MasterPage[page_custom_html]';
-        pageCustomHtmlInput.style.display = 'none';
-        pageCustomHtmlInput.value = customHtmlInput.value;
-        form.appendChild(pageCustomHtmlInput);
-
-        const customCssInput = document.createElement('input');
-        customCssInput.type = 'hidden';
-        customCssInput.name = 'MasterPage[custom_css]';
-        customCssInput.value = '';
-        form.appendChild(customCssInput);
-
-        const pageCustomCssInput = document.createElement('input');
-        pageCustomCssInput.type = 'hidden';
-        pageCustomCssInput.name = 'MasterPage[page_custom_css]';
-        pageCustomCssInput.value = '';
-        form.appendChild(pageCustomCssInput);
-
-        const customJsInput = document.createElement('input');
-        customJsInput.type = 'hidden';
-        customJsInput.name = 'MasterPage[custom_js]';
-        customJsInput.value = '';
-        form.appendChild(customJsInput);
-
-        const pageCustomJsInput = document.createElement('input');
-        pageCustomJsInput.type = 'hidden';
-        pageCustomJsInput.name = 'MasterPage[page_custom_js]';
-        pageCustomJsInput.value = '';
-        form.appendChild(pageCustomJsInput);
-
-        // Don't close dialog - let form submission handle it
-        // If there's an error, the dialog will stay open
-        document.body.appendChild(form);
-        form.submit();
+        fetch(window.dynamicSaveUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: formData.toString()
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+            if (result.success) {
+                window.location.href = '<?= Url::to(['index']) ?>';
+            } else {
+                showSaveDialogError(result.error || 'Terjadi kesalahan saat menyimpan.');
+                if (submitBtn) submitBtn.disabled = false;
+            }
+        })
+        .catch(function() {
+            showSaveDialogError('Gagal terhubung ke server. Silakan coba lagi.');
+            if (submitBtn) submitBtn.disabled = false;
+        });
     }
 
     function savePage() {

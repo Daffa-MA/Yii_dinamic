@@ -36,7 +36,7 @@ class MasterPageController extends Controller
     public function beforeAction($action)
     {
         // Disable CSRF for specific actions
-        if (in_array($action->id, ['preview-layout', 'dynamic-create', 'dynamic-update', 'ajax-save'])) {
+        if (in_array($action->id, ['preview-layout', 'dynamic-create', 'dynamic-update', 'ajax-save', 'dynamic-save'])) {
             $this->enableCsrfValidation = false;
         }
 
@@ -56,7 +56,7 @@ class MasterPageController extends Controller
         $dbContext = new ActiveDatabaseContext();
         $result = $dbContext->resolveAndApply();
 
-        if (in_array($action->id, ['dynamic-create', 'dynamic-update', 'view-dynamic', 'ajax-save'], true)) {
+        if (in_array($action->id, ['dynamic-create', 'dynamic-update', 'view-dynamic', 'ajax-save', 'dynamic-save'], true)) {
             $this->ensureMasterPageAdvancedColumnsExist();
         }
 
@@ -205,6 +205,36 @@ class MasterPageController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Check if a page name already exists (for duplicate validation)
+     */
+    private function checkDuplicatePageName(string $name, $excludeId = null): bool
+    {
+        $query = MasterPage::find()
+            ->where(['name' => $name]);
+        
+        if ($excludeId !== null) {
+            $query->andWhere(['!=', 'id', (int)$excludeId]);
+        }
+        
+        return $query->exists();
+    }
+
+    /**
+     * Check if a slug already exists (for duplicate validation before save)
+     */
+    private function checkDuplicateSlug(string $slug, $excludeId = null): bool
+    {
+        $query = MasterPage::find()
+            ->where(['slug' => $slug]);
+        
+        if ($excludeId !== null) {
+            $query->andWhere(['!=', 'id', (int)$excludeId]);
+        }
+        
+        return $query->exists();
     }
 
     /**
@@ -912,76 +942,11 @@ class MasterPageController extends Controller
     }
 
     /**
-     * Dynamic Page Builder - Create
+     * Dynamic Page Builder - Create (GET only, no POST)
      */
     public function actionDynamicCreate()
     {
         $model = new MasterPage();
-
-        if (Yii::$app->request->isPost) {
-            $postData = Yii::$app->request->post();
-
-            // Load data using Yii's model loading mechanism
-            if ($model->load($postData)) {
-                // title is mapped to name via __set in model
-                if (empty($model->name)) {
-                    $model->name = 'Untitled Page';
-                }
-                $model->slug = $this->generateSlug($model->name);
-                $model->layout = 'dynamic';
-                $model->is_active = 1;
-
-                // Ensure layout_json is saved properly
-                if (isset($postData['MasterPage']['layout_json'])) {
-                    $model->layout_json = $postData['MasterPage']['layout_json'];
-                }
-
-                $this->applyPageCustomCodePost($model, $postData);
-
-                if ($model->save(false)) {
-                    $layoutJson = $model->layout_json;
-                    $this->processInlineChartConfigs($model->id, $layoutJson);
-                    if ($layoutJson !== $model->layout_json) {
-                        $model->layout_json = $layoutJson;
-                        $model->save(false);
-                    }
-                    $this->updateOrphanChartPageIds($model->id, $model->layout_json);
-                    Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
-                    return $this->redirect(['index']);
-                } else {
-                    Yii::$app->session->setFlash('error', 'Gagal membuat halaman. Errors: ' . json_encode($model->getErrors()));
-                }
-            } else {
-                // Fallback: manual assignment if load fails
-                $title = $postData['MasterPage']['title'] ?? 'Untitled Page';
-                $model->name = $title;
-                $model->slug = $this->generateSlug($title);
-                $model->layout = 'dynamic';
-                $model->is_active = 1;
-
-                if (isset($postData['MasterPage']['layout_json'])) {
-                    $model->layout_json = $postData['MasterPage']['layout_json'];
-                } else {
-                    $model->layout_json = '[]';
-                }
-
-                $this->applyPageCustomCodePost($model, $postData);
-
-                if ($model->save(false)) {
-                    $layoutJson = $model->layout_json;
-                    $this->processInlineChartConfigs($model->id, $layoutJson);
-                    if ($layoutJson !== $model->layout_json) {
-                        $model->layout_json = $layoutJson;
-                        $model->save(false);
-                    }
-                    $this->updateOrphanChartPageIds($model->id, $model->layout_json);
-                    Yii::$app->session->setFlash('success', 'Halaman berhasil dibuat!');
-                    return $this->redirect(['index']);
-                } else {
-                    Yii::$app->session->setFlash('error', 'Gagal membuat halaman. Errors: ' . json_encode($model->getErrors()));
-                }
-            }
-        }
 
         return $this->render('dynamic-builder', [
             'model' => $model,
@@ -995,43 +960,11 @@ class MasterPageController extends Controller
     }
 
     /**
-     * Dynamic Page Builder - Update
+     * Dynamic Page Builder - Update (GET only, no POST)
      */
     public function actionDynamicUpdate($id)
     {
         $model = $this->findModel($id);
-
-        if (Yii::$app->request->isPost) {
-            $postData = Yii::$app->request->post();
-
-            // Handle title -> name mapping
-            if (isset($postData['MasterPage']['title'])) {
-                $model->name = $postData['MasterPage']['title'];
-            }
-
-            // Handle layout_json
-            if (isset($postData['MasterPage']['layout_json'])) {
-                $model->layout_json = $postData['MasterPage']['layout_json'];
-            }
-
-            $this->applyPageCustomCodePost($model, $postData);
-
-if ($model->save(false)) {
-                    $layoutJson = $model->layout_json;
-                    $this->processInlineChartConfigs($model->id, $layoutJson);
-                    if ($layoutJson !== $model->layout_json) {
-                        $model->layout_json = $layoutJson;
-                        $model->save(false);
-                    }
-                    $this->updateOrphanChartPageIds($model->id, $model->layout_json);
-                    Yii::$app->session->setFlash('success', 'Halaman berhasil diperbarui!');
-                    return $this->redirect(['index']);
-                } else {
-                    Yii::$app->session->setFlash('error', 'Gagal memperbarui halaman. Errors: ' . json_encode($model->getErrors()));
-                    // Redirect with error flag to reopen save dialog
-                    return $this->redirect(['dynamic-update', 'id' => $id, 'saveError' => 1]);
-                }
-        }
 
         return $this->render('dynamic-builder', [
             'model' => $model,
@@ -1042,6 +975,98 @@ if ($model->save(false)) {
             'availableCharts' => $this->findAvailableCharts(),
             'permissionContext' => $this->buildBuilderPermissionContext($model),
         ]);
+    }
+
+    /**
+     * AJAX Save for Dynamic Builder — validates duplicate, saves, returns JSON
+     * Does NOT reload page on error; returns error message in JSON response.
+     */
+    public function actionDynamicSave()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $pageId = Yii::$app->request->post('page_id');
+        $title = trim(Yii::$app->request->post('title', ''));
+        $layoutJson = Yii::$app->request->post('layout_json', '[]');
+        $pageType = Yii::$app->request->post('page_type', 'builder');
+        $useCustomCode = Yii::$app->request->post('use_page_custom_code', 0);
+        $customHtml = Yii::$app->request->post('custom_html', '');
+
+        if (empty($title)) {
+            return ['success' => false, 'error' => 'Judul halaman tidak boleh kosong.'];
+        }
+
+        if ($pageId) {
+            $page = MasterPage::findOne($pageId);
+            if (!$page) {
+                return ['success' => false, 'error' => 'Halaman tidak ditemukan.'];
+            }
+        } else {
+            $page = new MasterPage();
+            $page->is_active = 1;
+            $page->layout = 'dynamic';
+        }
+
+        // Validate duplicate name
+        if ($this->checkDuplicatePageName($title, $pageId)) {
+            return [
+                'success' => false,
+                'error' => 'Nama page yang Anda masukkan sudah digunakan oleh halaman lain. Silakan gunakan nama page yang berbeda.',
+            ];
+        }
+
+        $page->name = $title;
+
+        if ($pageId) {
+            // Keep existing slug for updates unless title changed significantly
+        } else {
+            $slug = $this->generateSlug($title);
+            $counter = 0;
+            $baseSlug = $slug;
+            while (MasterPage::find()->where(['slug' => $slug])->exists()) {
+                $counter++;
+                $slug = $baseSlug . '-' . $counter;
+            }
+            $page->slug = $slug;
+        }
+
+        // Validate duplicate slug
+        if ($this->checkDuplicateSlug($page->slug, $pageId)) {
+            return [
+                'success' => false,
+                'error' => 'Nama page tersebut menghasilkan slug yang sudah digunakan oleh halaman lain. Silakan gunakan nama page yang berbeda.',
+            ];
+        }
+
+        $page->layout_json = $layoutJson;
+
+        $useCustomCode = (int)$useCustomCode === 1;
+        $page->use_page_custom_code = $useCustomCode ? 1 : 0;
+        $page->page_type = $useCustomCode ? MasterPage::PAGE_TYPE_CUSTOM_CODE : MasterPage::PAGE_TYPE_BUILDER;
+        $page->page_custom_html = $useCustomCode ? $customHtml : '';
+        $page->page_custom_css = '';
+        $page->page_custom_js = '';
+        $page->custom_html = $page->page_custom_html;
+        $page->custom_css = '';
+        $page->custom_js = '';
+
+        if (!$page->save(false)) {
+            return ['success' => false, 'error' => 'Gagal menyimpan halaman: ' . json_encode($page->getErrors())];
+        }
+
+        $savedLayout = $page->layout_json;
+        $this->processInlineChartConfigs($page->id, $savedLayout);
+        if ($savedLayout !== $page->layout_json) {
+            $page->layout_json = $savedLayout;
+            $page->save(false);
+        }
+        $this->updateOrphanChartPageIds($page->id, $page->layout_json);
+
+        return [
+            'success' => true,
+            'page_id' => (int)$page->id,
+            'message' => $pageId ? 'Halaman berhasil diperbarui!' : 'Halaman berhasil dibuat!',
+        ];
     }
 
     /**

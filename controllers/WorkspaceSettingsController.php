@@ -24,6 +24,8 @@ class WorkspaceSettingsController extends Controller
                     'save' => ['POST'],
                     'upload-logo' => ['POST'],
                     'remove-logo' => ['POST'],
+                    'upload-favicon' => ['POST'],
+                    'remove-favicon' => ['POST'],
                 ],
             ],
         ];
@@ -616,6 +618,76 @@ class WorkspaceSettingsController extends Controller
         }
         
         return ['success' => false, 'message' => 'No logo to remove'];
+    }
+    
+    public function actionUploadFavicon()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $model = $this->loadSettings();
+        
+        $uploadedFile = UploadedFile::getInstanceByName('workspace_favicon_image');
+        
+        if (!$uploadedFile) {
+            return ['success' => false, 'message' => 'No file uploaded'];
+        }
+        
+        $allowedExtensions = ['ico', 'png', 'jpg', 'jpeg', 'svg', 'webp'];
+        $extension = strtolower($uploadedFile->getExtension());
+        
+        if (!in_array($extension, $allowedExtensions)) {
+            return ['success' => false, 'message' => 'Invalid file type. Allowed: ICO, PNG, JPG, JPEG, SVG, WEBP'];
+        }
+        
+        $maxSize = 2 * 1024 * 1024;
+        if ($uploadedFile->size > $maxSize) {
+            return ['success' => false, 'message' => 'File too large. Maximum size: 2MB'];
+        }
+        
+        $storage = new WorkspaceMediaStorage();
+        $relativeDir = $this->workspaceMediaRelativeDir('workspace-favicon');
+        $uploadResult = $storage->storeUploadedFile($uploadedFile, 'favicon', $relativeDir);
+        if (!$uploadResult['success']) {
+            return $uploadResult;
+        }
+
+        $oldFavicon = $model->workspace_favicon;
+        if ($oldFavicon) {
+            $this->deleteWorkspaceMediaFile($oldFavicon);
+        }
+
+        $model->workspace_favicon = (string)($uploadResult['relative_path'] ?? '');
+        if (!$model->save()) {
+            $storage->delete((string)($uploadResult['relative_path'] ?? ''));
+            return ['success' => false, 'message' => 'Favicon tersimpan di disk, tetapi gagal disimpan ke database.'];
+        }
+
+        return [
+            'success' => true,
+            'message' => 'Favicon uploaded successfully',
+            'faviconUrl' => $model->getFaviconAsset()['url'],
+            'faviconFile' => (string)($uploadResult['relative_path'] ?? ''),
+        ];
+    }
+    
+    public function actionRemoveFavicon()
+    {
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+        
+        $model = $this->loadSettings();
+        
+        if ($model->workspace_favicon) {
+            $this->deleteWorkspaceMediaFile((string)$model->workspace_favicon);
+            
+            $model->workspace_favicon = null;
+            if (!$model->save()) {
+                return ['success' => false, 'message' => 'Gagal menyimpan perubahan favicon ke database'];
+            }
+            
+            return ['success' => true, 'message' => 'Favicon removed successfully'];
+        }
+        
+        return ['success' => false, 'message' => 'No favicon to remove'];
     }
     
     private function loadSettings()

@@ -37,8 +37,9 @@ class WorkspaceSettings extends \yii\base\Model
     public $login_card_color = 'rgba(255, 255, 255, 0.96)';
     public $login_text_color = '#0f172a';
     public $login_accent_color = '#4f46e5';
-    public $login_border_radius = 28;
+public $login_border_radius = 28;
     public $login_theme = 'dark';
+    public $workspace_favicon = null;
 
     public $sidebar_bg_start = '#07111f';
     public $sidebar_bg_end = '#111827';
@@ -94,6 +95,7 @@ class WorkspaceSettings extends \yii\base\Model
                 'login_accent_color' => '#4f46e5',
                 'login_border_radius' => 28,
                 'login_theme' => 'dark',
+                'workspace_favicon' => null,
                 'sidebar_bg_start' => '#f8fafc',
                 'sidebar_bg_end' => '#f1f5f9',
                 'sidebar_border_color' => 'rgba(148, 163, 184, 0.16)',
@@ -137,6 +139,7 @@ class WorkspaceSettings extends \yii\base\Model
             [['login_background_image'], 'string', 'max' => 500],
             [['login_background_upload'], 'file', 'skipOnEmpty' => true, 'extensions' => ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm', 'ogg'], 'checkExtensionByMimeType' => false, 'maxSize' => 20 * 1024 * 1024],
             [['login_card_color'], 'string', 'max' => 100],
+            [['workspace_favicon'], 'string', 'max' => 500],
         ];
     }
 
@@ -160,6 +163,7 @@ class WorkspaceSettings extends \yii\base\Model
             'login_accent_color' => 'Login Accent Color',
             'login_border_radius' => 'Login Border Radius',
             'login_theme' => 'Login Theme',
+            'workspace_favicon' => 'Browser Icon (Favicon)',
 
             'sidebar_bg_start' => 'Sidebar Background Start',
             'sidebar_bg_end' => 'Sidebar Background End',
@@ -227,10 +231,11 @@ class WorkspaceSettings extends \yii\base\Model
 
     private function syncWorkspaceMediaFiles(): void
     {
-        $storage = new WorkspaceMediaStorage();
+$storage = new WorkspaceMediaStorage();
         foreach ([
             $this->workspace_logo_image,
             $this->login_background_image,
+            $this->workspace_favicon,
         ] as $value) {
             $value = trim((string)$value);
             if ($value === '' || preg_match('#^https?://#i', $value)) {
@@ -471,7 +476,7 @@ class WorkspaceSettings extends \yii\base\Model
         ];
     }
 
-    public function getWorkspaceLogoAsset(): array
+public function getWorkspaceLogoAsset(): array
     {
         $value = trim((string)($this->workspace_logo_image ?? ''));
         if ($value === '') {
@@ -479,6 +484,20 @@ class WorkspaceSettings extends \yii\base\Model
                 'url' => '',
                 'is_remote' => false,
             ];
+        }
+
+        $isRemote = (bool)preg_match('#^https?://#i', $value);
+        return [
+            'url' => $isRemote ? $value : $this->buildWorkspaceMediaUrl($value),
+            'is_remote' => $isRemote,
+        ];
+    }
+
+    public function getFaviconAsset(): array
+    {
+        $value = trim((string)($this->workspace_favicon ?? ''));
+        if ($value === '') {
+            return ['url' => ''];
         }
 
         $isRemote = (bool)preg_match('#^https?://#i', $value);
@@ -624,6 +643,7 @@ class WorkspaceSettings extends \yii\base\Model
             'login_accent_color' => $this->login_accent_color,
             'login_border_radius' => $this->login_border_radius,
             'login_theme' => $this->login_theme,
+            'workspace_favicon' => $this->workspace_favicon,
 
             'sidebar_bg_start' => $this->sidebar_bg_start,
             'sidebar_bg_end' => $this->sidebar_bg_end,
@@ -708,8 +728,9 @@ class WorkspaceSettings extends \yii\base\Model
             'login_card_color' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(255, 255, 255, 0.96)'),
             'login_text_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#0f172a'),
             'login_accent_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
-            'login_border_radius' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(28),
+'login_border_radius' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(28),
             'login_theme' => $connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('dark'),
+            'workspace_favicon' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
             'sidebar_bg_start' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#07111f'),
             'sidebar_bg_end' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#111827'),
             'sidebar_border_color' => $connection->schema->createColumnSchemaBuilder('string', 100)->defaultValue('rgba(148, 163, 184, 0.16)'),
@@ -761,7 +782,8 @@ class WorkspaceSettings extends \yii\base\Model
             'login_text_color' => self::getDefaults()['login_text_color'],
             'login_accent_color' => self::getDefaults()['login_accent_color'],
             'login_border_radius' => self::getDefaults()['login_border_radius'],
-            'login_theme' => self::getDefaults()['login_theme'],
+'login_theme' => self::getDefaults()['login_theme'],
+            'workspace_favicon' => self::getDefaults()['workspace_favicon'],
             'sidebar_bg_start' => self::getDefaults()['sidebar_bg_start'],
             'sidebar_bg_end' => self::getDefaults()['sidebar_bg_end'],
             'sidebar_border_color' => self::getDefaults()['sidebar_border_color'],
@@ -809,7 +831,8 @@ class WorkspaceSettings extends \yii\base\Model
             'login_text_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#0f172a'),
             'login_accent_color' => $connection->schema->createColumnSchemaBuilder('string', 50)->defaultValue('#4f46e5'),
             'login_border_radius' => $connection->schema->createColumnSchemaBuilder('integer')->defaultValue(28),
-            'login_theme' => $connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('dark'),
+'login_theme' => $connection->schema->createColumnSchemaBuilder('string', 20)->defaultValue('dark'),
+            'workspace_favicon' => $connection->schema->createColumnSchemaBuilder('string', 500)->defaultValue(null),
         ];
 
         foreach ($columns as $columnName => $columnDefinition) {

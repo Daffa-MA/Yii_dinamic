@@ -7,18 +7,27 @@ use app\assets\AppAsset;
 use app\components\CommanderAuthContext;
 use app\components\DomainContext;
 use app\widgets\Alert;
+use app\models\WorkspaceSettings;
 use yii\bootstrap5\Breadcrumbs;
 use yii\bootstrap5\Html;
 use yii\helpers\Url;
 
 AppAsset::register($this);
 
+$workspaceSettings = new WorkspaceSettings();
+$workspaceSettings->loadFromDatabase();
+$faviconAsset = $workspaceSettings->getFaviconAsset();
+$faviconUrl = (string)($faviconAsset['url'] ?? '');
+if ($faviconUrl === '') {
+    $faviconUrl = Yii::getAlias('@web/favicon.ico');
+}
+
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['charset' => Yii::$app->charset], 'charset');
 $this->registerMetaTag(['name' => 'viewport', 'content' => 'width=device-width, initial-scale=1, shrink-to-fit=no']);
 $this->registerMetaTag(['name' => 'description', 'content' => $this->params['meta_description'] ?? '']);
 $this->registerMetaTag(['name' => 'keywords', 'content' => $this->params['meta_keywords'] ?? '']);
-$this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => Yii::getAlias('@web/favicon.ico')]);
+$this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => $faviconUrl]);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => \yii\web\View::POS_HEAD]);
 
 $isGuest = Yii::$app->user->isGuest;

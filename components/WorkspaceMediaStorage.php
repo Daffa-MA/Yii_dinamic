@@ -59,7 +59,7 @@ class WorkspaceMediaStorage
 
     public function ensurePersistentDirectories(): void
     {
-        foreach (['project-assets', 'workspace-logo', 'login-background'] as $directory) {
+        foreach (['project-assets', 'workspace-logo', 'login-background', 'workspace-favicon'] as $directory) {
             $this->ensureDirectory($this->storageBasePath() . DIRECTORY_SEPARATOR . $directory);
         }
     }
@@ -146,6 +146,8 @@ class WorkspaceMediaStorage
             return ['success' => false, 'message' => 'Gagal menyimpan file ke storage.'];
         }
 
+        $this->compressImage($storagePath, $extension);
+
         if ($publicPath !== $storagePath) {
             @copy($storagePath, $publicPath);
         }
@@ -173,6 +175,48 @@ class WorkspaceMediaStorage
         $version = is_file($file) ? (string)filemtime($file) : date('YmdHis');
 
         return $url . (strpos($url, '?') !== false ? '&' : '?') . 'v=' . rawurlencode($version);
+    }
+
+    private function compressImage(string $filePath, string $extension): void
+    {
+        if (!is_file($filePath)) {
+            return;
+        }
+
+        $gdSupported = extension_loaded('gd');
+        if (!$gdSupported) {
+            return;
+        }
+
+        $image = null;
+        $quality = 80;
+
+        if (in_array($extension, ['jpg', 'jpeg'], true)) {
+            $image = @imagecreatefromjpeg($filePath);
+            if ($image !== false) {
+                @imagejpeg($image, $filePath, $quality);
+            }
+        } elseif ($extension === 'png') {
+            $image = @imagecreatefrompng($filePath);
+            if ($image !== false) {
+                imagealphablending($image, false);
+                imagesavealpha($image, true);
+                @imagepng($image, $filePath, 6);
+            }
+        } elseif ($extension === 'webp') {
+            if (function_exists('imagecreatefromwebp')) {
+                $image = @imagecreatefromwebp($filePath);
+                if ($image !== false) {
+                    imagealphablending($image, false);
+                    imagesavealpha($image, true);
+                    @imagewebp($image, $filePath, $quality);
+                }
+            }
+        }
+
+        if ($image !== false) {
+            @imagedestroy($image);
+        }
     }
 
     private function syncPublicMirror(string $relativePath): void

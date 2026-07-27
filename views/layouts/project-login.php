@@ -3,7 +3,17 @@
 /** @var yii\web\View $this */
 /** @var string $content */
 
+use app\models\WorkspaceSettings;
 use yii\helpers\Html;
+
+$wsSettings = new WorkspaceSettings();
+$wsSettings->loadFromDatabase();
+$faviconAsset = $wsSettings->getFaviconAsset();
+$faviconUrl = (string)($faviconAsset['url'] ?? '');
+if ($faviconUrl === '') {
+    $faviconUrl = \yii\helpers\Url::to('/favicon.ico');
+}
+$this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => $faviconUrl]);
 
 $this->registerCsrfMetaTags();
 $this->registerMetaTag(['charset' => Yii::$app->charset], 'charset');

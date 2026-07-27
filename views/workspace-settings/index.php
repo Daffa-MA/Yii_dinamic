@@ -12,6 +12,8 @@ $loginBackgroundAsset = $model->getLoginBackgroundAsset();
 $workspaceLogoAsset = $model->getWorkspaceLogoAsset();
 $workspaceLogoUrl = (string)($workspaceLogoAsset['url'] ?? '');
 $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
+$faviconAsset = $model->getFaviconAsset();
+$faviconUrl = (string)($faviconAsset['url'] ?? '');
 ?>
 
 <style>
@@ -434,14 +436,14 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
         gap: 10px;
     }
     
-    .ws-color-picker input[type="color"] {
+.ws-color-picker input[type="color"] {
         width: 46px;
         height: 46px;
+        padding: 3px;
         border: 1px solid #dde5ee;
-        border-radius: 12px;
-        padding: 4px;
+        border-radius: 10px;
         cursor: pointer;
-        background: white;
+        background: none;
         flex-shrink: 0;
     }
     
@@ -925,9 +927,143 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
         box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
     }
 
-    @media (max-width: 860px) {
+@media (max-width: 860px) {
         .ws-media-picker {
             grid-template-columns: 1fr;
+        }
+    }
+
+    .ws-favicon-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+    }
+
+    .ws-favicon-preview-box {
+        width: 96px;
+        height: 96px;
+        border-radius: 18px;
+        border: 1.5px solid #dde5ee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #f8fafc;
+        position: relative;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+    }
+
+    .ws-favicon-preview-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        padding: 12px;
+    }
+
+    .ws-favicon-preview-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        color: #94a3b8;
+    }
+
+    .ws-favicon-preview-placeholder .material-symbols-outlined {
+        font-size: 36px;
+    }
+
+    .ws-favicon-preview-placeholder span:last-child {
+        font-size: 11px;
+        font-weight: 600;
+        color: #94a3b8;
+    }
+
+    .ws-favicon-remove-btn {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        border: 1.5px solid #e2e8f0;
+        background: white;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+        transition: all 0.15s ease;
+        padding: 0;
+    }
+
+    .ws-favicon-remove-btn:hover {
+        background: #fee2e2;
+        border-color: #fca5a5;
+        color: #dc2626;
+    }
+
+    .ws-favicon-remove-btn .material-symbols-outlined {
+        font-size: 14px;
+    }
+
+    .ws-favicon-upload-area {
+        flex: 1;
+        border: 1.5px dashed #d8e1ea;
+        border-radius: 16px;
+        padding: 24px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        background: #f8fafc;
+    }
+
+    .ws-favicon-upload-area:hover {
+        border-color: #94a3b8;
+        background: rgba(248, 250, 252, 0.9);
+    }
+
+    .ws-favicon-upload-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .ws-favicon-upload-content .material-symbols-outlined {
+        font-size: 36px;
+        color: #94a3b8;
+    }
+
+    .ws-favicon-upload-content p {
+        font-size: 14px;
+        font-weight: 600;
+        color: #475569;
+        margin: 0;
+    }
+
+    .ws-favicon-upload-content span:last-child {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+
+    .ws-favicon-help {
+        font-size: 13px;
+        color: #94a3b8;
+        margin: 12px 0 0;
+        line-height: 1.5;
+    }
+
+    @media (max-width: 600px) {
+        .ws-favicon-wrapper {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        .ws-favicon-preview-box {
+            width: 80px;
+            height: 80px;
+            align-self: center;
         }
     }
 </style>
@@ -962,9 +1098,8 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
                         <span>Kembali ke Project List</span>
                     </a>
                 <?php endif; ?>
-            </div>
-        </div>
-        
+</div>
+
         <?php $form = ActiveForm::begin(['id' => 'workspace-settings-form', 'action' => ['save'], 'options' => ['enctype' => 'multipart/form-data']]); ?>
         
         <div class="ws-layout">
@@ -1267,37 +1402,50 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
 
                         <div class="ws-divider"></div>
 
+                        <div class="ws-section-title">Colors</div>
                         <div class="ws-form-row ws-form-row-2">
                             <div class="ws-form-group">
                                 <label for="workspacesettings-login_button_color">Button Color</label>
-                                <input type="text" id="workspacesettings-login_button_color" class="ws-form-control" 
-                                       name="WorkspaceSettings[login_button_color]" 
-                                       value="<?= Html::encode($model->login_button_color) ?>" 
-                                       placeholder="#2563eb">
+                                <div class="ws-color-picker">
+                                    <input type="color" name="WorkspaceSettings[login_button_color]" value="<?= Html::encode($model->login_button_color) ?>">
+                                    <input type="text" id="workspacesettings-login_button_color" class="ws-form-control color-text"
+                                           name="WorkspaceSettings[login_button_color]"
+                                           value="<?= Html::encode($model->login_button_color) ?>"
+                                           placeholder="#2563eb">
+                                </div>
                             </div>
                             <div class="ws-form-group">
                                 <label for="workspacesettings-login_accent_color">Accent Color</label>
-                                <input type="text" id="workspacesettings-login_accent_color" class="ws-form-control" 
-                                       name="WorkspaceSettings[login_accent_color]" 
-                                       value="<?= Html::encode($model->login_accent_color) ?>" 
-                                       placeholder="#4f46e5">
+                                <div class="ws-color-picker">
+                                    <input type="color" name="WorkspaceSettings[login_accent_color]" value="<?= Html::encode($model->login_accent_color) ?>">
+                                    <input type="text" id="workspacesettings-login_accent_color" class="ws-form-control color-text"
+                                           name="WorkspaceSettings[login_accent_color]"
+                                           value="<?= Html::encode($model->login_accent_color) ?>"
+                                           placeholder="#4f46e5">
+                                </div>
                             </div>
                         </div>
 
                         <div class="ws-form-row ws-form-row-2">
                             <div class="ws-form-group">
                                 <label for="workspacesettings-login_card_color">Card Color</label>
-                                <input type="text" id="workspacesettings-login_card_color" class="ws-form-control" 
-                                       name="WorkspaceSettings[login_card_color]" 
-                                       value="<?= Html::encode($model->login_card_color) ?>" 
-                                       placeholder="rgba(255,255,255,0.96)">
+                                <div class="ws-color-picker">
+                                    <input type="color" name="WorkspaceSettings[login_card_color]" value="<?= Html::encode($model->login_card_color) ?>">
+                                    <input type="text" id="workspacesettings-login_card_color" class="ws-form-control color-text"
+                                           name="WorkspaceSettings[login_card_color]"
+                                           value="<?= Html::encode($model->login_card_color) ?>"
+                                           placeholder="rgba(255,255,255,0.96)">
+                                </div>
                             </div>
                             <div class="ws-form-group">
                                 <label for="workspacesettings-login_text_color">Text Color</label>
-                                <input type="text" id="workspacesettings-login_text_color" class="ws-form-control" 
-                                       name="WorkspaceSettings[login_text_color]" 
-                                       value="<?= Html::encode($model->login_text_color) ?>" 
-                                       placeholder="#0f172a">
+                                <div class="ws-color-picker">
+                                    <input type="color" name="WorkspaceSettings[login_text_color]" value="<?= Html::encode($model->login_text_color) ?>">
+                                    <input type="text" id="workspacesettings-login_text_color" class="ws-form-control color-text"
+                                           name="WorkspaceSettings[login_text_color]"
+                                           value="<?= Html::encode($model->login_text_color) ?>"
+                                           placeholder="#0f172a">
+                                </div>
                             </div>
                         </div>
 
@@ -1317,8 +1465,37 @@ $loginBackgroundUrl = (string)($loginBackgroundAsset['url'] ?? '');
                                 </select>
                             </div>
                         </div>
+
+                        <div class="ws-divider"></div>
+
+                        <div class="ws-section-title">Browser Icon (Favicon)</div>
+                        <div class="ws-favicon-wrapper">
+                            <div class="ws-favicon-preview-box" id="favicon-preview-box">
+                                <?php if ($faviconUrl): ?>
+                                    <img src="<?= Html::encode($faviconUrl) ?>" alt="Favicon">
+                                    <button type="button" class="ws-favicon-remove-btn" id="favicon-remove-btn">
+                                        <span class="material-symbols-outlined">close</span>
+                                    </button>
+                                <?php else: ?>
+                                    <div class="ws-favicon-preview-placeholder">
+                                        <span class="material-symbols-outlined">image</span>
+                                        <span>Favicon</span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="ws-favicon-upload-area" id="favicon-upload-area">
+                                <div class="ws-favicon-upload-content" id="favicon-upload-content">
+                                    <span class="material-symbols-outlined">cloud_upload</span>
+                                    <p>Upload favicon</p>
+                                    <span>ICO, PNG, JPG, SVG, WEBP (max 2MB)</span>
+                                </div>
+                                <input type="file" id="favicon-image-input" accept=".ico,.png,.jpg,.jpeg,.svg,.webp" style="display:none">
+                            </div>
+                            <input type="hidden" id="workspace-favicon-input" name="WorkspaceSettings[workspace_favicon]" value="<?= Html::encode($model->workspace_favicon) ?>">
+                        </div>
+                        <p class="ws-favicon-help">Favicon akan muncul di tab browser. Gunakan gambar persegi dengan ukuran minimal 32x32 pixel untuk hasil terbaik.</p>
                     </div>
-                    
+
                     <div class="ws-card" id="section-sidebar">
                         <div class="ws-card-header">
                             <div class="ws-card-icon">
@@ -2223,6 +2400,123 @@ document.addEventListener('DOMContentLoaded', function() {
                 val = Math.max(40, Math.min(300, val));
                 heightHiddenInput.value = val;
             }
+        });
+    }
+
+    // Favicon upload
+    const faviconUploadArea = document.getElementById('favicon-upload-area');
+    const faviconInput = document.getElementById('favicon-image-input');
+    const faviconHiddenInput = document.getElementById('workspace-favicon-input');
+    const faviconPreviewBox = document.getElementById('favicon-preview-box');
+    const faviconRemoveBtn = document.getElementById('favicon-remove-btn');
+
+    function renderFaviconPreview(src) {
+        if (!faviconPreviewBox) return;
+        if (src) {
+            faviconPreviewBox.innerHTML = '<img src="' + src + '" alt="Favicon">' +
+                '<button type="button" class="ws-favicon-remove-btn" id="favicon-remove-btn">' +
+                '<span class="material-symbols-outlined">close</span></button>';
+            document.getElementById('favicon-remove-btn').addEventListener('click', handleFaviconRemove);
+        } else {
+            faviconPreviewBox.innerHTML = '<div class="ws-favicon-preview-placeholder">' +
+                '<span class="material-symbols-outlined">image</span>' +
+                '<span>Favicon</span></div>';
+        }
+    }
+
+    function handleFaviconRemove(e) {
+        e.stopPropagation();
+        if (!confirm('Hapus favicon?')) return;
+
+        fetch('<?= \yii\helpers\Url::to(['workspace-settings/remove-favicon']) ?>', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data.success) {
+                faviconHiddenInput.value = '';
+                renderFaviconPreview('');
+            } else {
+                alert(data.message || 'Gagal menghapus favicon');
+            }
+        })
+        .catch(function(error) {
+            alert('Gagal menghapus favicon: ' + error.message);
+        });
+    }
+
+    if (faviconRemoveBtn) {
+        faviconRemoveBtn.addEventListener('click', handleFaviconRemove);
+    }
+
+    if (faviconUploadArea && faviconInput) {
+        faviconUploadArea.addEventListener('click', function() {
+            faviconInput.click();
+        });
+
+        faviconUploadArea.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#4f46e5';
+            this.style.background = 'rgba(79, 70, 229, 0.06)';
+        });
+
+        faviconUploadArea.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#d8e1ea';
+            this.style.background = '#f8fafc';
+        });
+
+        faviconUploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.style.borderColor = '#d8e1ea';
+            this.style.background = '#f8fafc';
+            if (e.dataTransfer.files.length > 0) {
+                handleFaviconUpload(e.dataTransfer.files[0]);
+            }
+        });
+
+        faviconInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                handleFaviconUpload(this.files[0]);
+            }
+        });
+    }
+
+    function handleFaviconUpload(file) {
+        var allowedExt = /\.(ico|png|jpg|jpeg|svg|webp)$/i;
+        if (!file.name.match(allowedExt)) {
+            alert('Format file tidak didukung. Gunakan ICO, PNG, JPG, SVG, atau WEBP.');
+            return;
+        }
+        if (file.size > 2 * 1024 * 1024) {
+            alert('File terlalu besar. Maksimal 2MB.');
+            return;
+        }
+
+        var formData = new FormData();
+        formData.append('workspace_favicon_image', file);
+
+        fetch('<?= \yii\helpers\Url::to(['workspace-settings/upload-favicon']) ?>', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+            },
+            body: formData
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (data.success) {
+                faviconHiddenInput.value = data.faviconFile;
+                renderFaviconPreview(data.faviconUrl);
+            } else {
+                alert(data.message || 'Gagal mengunggah favicon');
+            }
+        })
+        .catch(function(error) {
+            alert('Upload gagal: ' + error.message);
         });
     }
 });

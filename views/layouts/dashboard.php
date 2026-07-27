@@ -51,6 +51,13 @@ if (!in_array($currentRouteForTheme, $themeExclusions, true)) {
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap', ['position' => View::POS_HEAD]);
 $this->registerCssFile('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap', ['position' => View::POS_HEAD]);
 
+$faviconAsset = $workspaceSettings->getFaviconAsset();
+$faviconUrl = (string)($faviconAsset['url'] ?? '');
+if ($faviconUrl === '') {
+    $faviconUrl = Yii::getAlias('@web/favicon.ico');
+}
+$this->registerLinkTag(['rel' => 'icon', 'type' => 'image/x-icon', 'href' => $faviconUrl]);
+
 $currentRoute = Yii::$app->controller->route;
 $currentPath = trim((string) Yii::$app->request->pathInfo, '/');
 $rolePageHero = new \app\components\RolePageHero();

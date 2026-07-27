@@ -3615,6 +3615,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 return;
             }
             if (block.props && block.props.chartId) {
+                var chartExists = (window.availableCharts || []).some(function(c) { return String(c.id) === String(block.props.chartId); });
+                if (!chartExists) {
+                    removeBlockFromState(blockId);
+                    return;
+                }
                 deleteChartFromDb(block.props.chartId, blockId);
                 return;
             }
@@ -3644,6 +3649,8 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.success) {
+                removeBlockFromState(blockId);
+            } else if (res.message && res.message.indexOf('tidak ditemukan') !== -1) {
                 removeBlockFromState(blockId);
             } else {
                 alert('Gagal: ' + (res.message || 'Terjadi kesalahan'));
@@ -3716,6 +3723,15 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         .then(function(r) { return r.json(); })
         .then(function(res) {
             if (res.success) {
+                if (window.availableCharts) {
+                    window.availableCharts = window.availableCharts.filter(function(c) { return String(c.id) !== String(chartId); });
+                }
+                if (String(window.pageState.find(function(b) { return b.id === blockId; })?.props?.chartId || '') === String(chartId)) {
+                    updateProp(blockId, 'chartId', '');
+                }
+                renderProperties(blockId);
+                renderBuilder(window.pageState);
+            } else if (res.message && res.message.indexOf('tidak ditemukan') !== -1) {
                 if (window.availableCharts) {
                     window.availableCharts = window.availableCharts.filter(function(c) { return String(c.id) !== String(chartId); });
                 }

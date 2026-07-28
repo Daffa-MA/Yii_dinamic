@@ -2968,8 +2968,97 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 handle: '.block-action-btn.move',
                 ghostClass: 'sortable-ghost',
                 onEnd: function(evt) {
-                    const item = window.pageState.splice(evt.oldIndex, 1)[0];
-                    window.pageState.splice(evt.newIndex, 0, item);
+                    if (!evt || !evt.item) return;
+                    const movedId = evt.item.dataset.id;
+                    if (!movedId) {
+                        // Dragged element is a .card-grid-row wrapper (no data-id).
+                        // Extract card IDs from the wrapper and reorder state accordingly.
+                        const cardEls = evt.item.querySelectorAll('.builder-block');
+                        const firstCardId = cardEls[0]?.dataset.id;
+                        if (!firstCardId) {
+                            renderBuilder(window.pageState);
+                            return;
+                        }
+                        const rowSize = cardEls.length;
+                        const firstIdx = window.pageState.findIndex(function(b) { return b.id === firstCardId; });
+                        if (firstIdx === -1) {
+                            renderBuilder(window.pageState);
+                            return;
+                        }
+                        const group = window.pageState.splice(firstIdx, rowSize);
+
+                        var newStateIdx = window.pageState.length;
+                        var domPos = 0;
+                        for (var si = 0; si < window.pageState.length; si++) {
+                            var blk = window.pageState[si];
+                            var cardCols = (blk.type === 'card') ? parseInt(blk.props?.columns || '1', 10) : 1;
+                            if (blk.type === 'card' && cardCols > 1) {
+                                var groupEnd = si;
+                                while (groupEnd < window.pageState.length &&
+                                    window.pageState[groupEnd].type === 'card' &&
+                                    parseInt(window.pageState[groupEnd].props?.columns || '1', 10) === cardCols) {
+                                    groupEnd++;
+                                }
+                                if (domPos === evt.newIndex) {
+                                    newStateIdx = si;
+                                    break;
+                                }
+                                domPos++;
+                                si = groupEnd - 1;
+                            } else {
+                                if (domPos === evt.newIndex) {
+                                    newStateIdx = si;
+                                    break;
+                                }
+                                domPos++;
+                            }
+                        }
+
+                        for (var ci = 0; ci < group.length; ci++) {
+                            window.pageState.splice(newStateIdx + ci, 0, group[ci]);
+                        }
+                        fullPageSourceDerivedFromBuilder = true;
+                        renderBuilder(window.pageState);
+                        return;
+                    }
+                    const oldStateIdx = window.pageState.findIndex(function(b) { return b.id === movedId; });
+                    if (oldStateIdx === -1) {
+                        renderBuilder(window.pageState);
+                        return;
+                    }
+                    const item = window.pageState.splice(oldStateIdx, 1)[0];
+
+                    // Map DOM position to state array position accounting for card grouping.
+                    // In the DOM, consecutive cards with columns>1 are wrapped in a single
+                    // .card-grid-row, so multiple state items collapse to one DOM child.
+                    var newStateIdx = window.pageState.length;
+                    var domPos = 0;
+                    for (var si = 0; si < window.pageState.length; si++) {
+                        var blk = window.pageState[si];
+                        var cardCols = (blk.type === 'card') ? parseInt(blk.props?.columns || '1', 10) : 1;
+                        if (blk.type === 'card' && cardCols > 1) {
+                            var groupEnd = si;
+                            while (groupEnd < window.pageState.length &&
+                                window.pageState[groupEnd].type === 'card' &&
+                                parseInt(window.pageState[groupEnd].props?.columns || '1', 10) === cardCols) {
+                                groupEnd++;
+                            }
+                            if (domPos === evt.newIndex) {
+                                newStateIdx = si;
+                                break;
+                            }
+                            domPos++;
+                            si = groupEnd - 1;
+                        } else {
+                            if (domPos === evt.newIndex) {
+                                newStateIdx = si;
+                                break;
+                            }
+                            domPos++;
+                        }
+                    }
+
+                    window.pageState.splice(newStateIdx, 0, item);
                     fullPageSourceDerivedFromBuilder = true;
                     renderBuilder(window.pageState);
                 }
@@ -3555,7 +3644,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 </html>`;
     }
 
-    function addBlock(type) {
+    function addBlock(type, insertIndex) {
         if (isAddingBlock) return;
         isAddingBlock = true;
 
@@ -3563,6 +3652,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             var numCards = type === 'card-row-2' ? 2 : 3;
             var defaultCard = COMPONENT_DEFAULTS['card'] || {};
             var lastId = null;
+            var idx = (insertIndex !== undefined && insertIndex !== null) ? insertIndex : window.pageState.length;
             for (var ci = 0; ci < numCards; ci++) {
                 var cardBlock = {
                     id: generateId(),
@@ -3571,7 +3661,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 };
                 cardBlock.props.columns = String(numCards);
                 cardBlock.props.title = 'Card ' + (ci + 1);
-                window.pageState.push(cardBlock);
+                window.pageState.splice(idx + ci, 0, cardBlock);
                 lastId = cardBlock.id;
             }
             fullPageSourceDerivedFromBuilder = true;
@@ -3588,7 +3678,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
             props: JSON.parse(JSON.stringify(COMPONENT_DEFAULTS[type] || {}))
         };
 
-        window.pageState.push(newBlock);
+        if (insertIndex !== undefined && insertIndex !== null) {
+            window.pageState.splice(insertIndex, 0, newBlock);
+        } else {
+            window.pageState.push(newBlock);
+        }
         fullPageSourceDerivedFromBuilder = true;
         selectedBlockId = newBlock.id;
         renderBuilder(window.pageState);
@@ -4675,6 +4769,7 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
 
         block.props = block.props || {};
         block.props[key] = value;
+        fullPageSourceDerivedFromBuilder = true;
         renderBuilder(window.pageState);
         renderProperties(blockId);
     }
@@ -6907,7 +7002,42 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 if (activeCodeScope === 'page') return;
                 e.preventDefault();
                 const type = e.dataTransfer.getData('type');
-                if (type) addBlock(type);
+                if (!type) return;
+
+                // Determine insertion index based on mouse Y position
+                var insertIdx = window.pageState.length;
+                var children = canvas.children;
+                for (var ci = 0; ci < children.length; ci++) {
+                    var child = children[ci];
+                    var rect = child.getBoundingClientRect();
+                    var midY = rect.top + rect.height / 2;
+                    if (e.clientY < midY) {
+                        // Map this DOM child index to state index
+                        var domPos = 0;
+                        var statePos = 0;
+                        for (var si = 0; si < window.pageState.length && domPos < ci; si++) {
+                            var blk = window.pageState[si];
+                            var cardCol = (blk.type === 'card') ? parseInt(blk.props?.columns || '1', 10) : 1;
+                            if (blk.type === 'card' && cardCol > 1) {
+                                var ge = si;
+                                while (ge < window.pageState.length &&
+                                    window.pageState[ge].type === 'card' &&
+                                    parseInt(window.pageState[ge].props?.columns || '1', 10) === cardCol) {
+                                    ge++;
+                                }
+                                domPos++;
+                                si = ge - 1;
+                            } else {
+                                domPos++;
+                            }
+                            statePos = si + 1;
+                        }
+                        insertIdx = statePos;
+                        break;
+                    }
+                }
+                addBlock(type, insertIdx);
+                canvas.style.borderColor = 'transparent';
             });
         }
 

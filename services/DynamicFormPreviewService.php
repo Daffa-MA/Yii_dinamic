@@ -121,6 +121,9 @@ class DynamicFormPreviewService
                 'project_id' => $projectId !== null ? (string)$projectId : '',
                 'workspace_role' => $interactive ? $this->getWorkspaceRole() : '',
             ]);
+            $customHtml = FormRenderService::injectCameraHandler($customHtml, $fields);
+            $customHtml = FormRenderService::injectGpsCameraHandler($customHtml, $fields);
+            $customHtml = FormRenderService::injectInteractivePickerRuntime($customHtml, $fields, (int)$form->id);
             FormFlowDebugLogger::logRender([
                 'host' => \Yii::$app->request->hostInfo,
                 'project_id' => $projectId,

@@ -18,7 +18,100 @@ class FormRenderService
     private static array $dynamicChoiceOptionsCache = [];
     private static bool $gpsCameraScriptInjected = false;
 
-    private static function injectGpsCameraHandler(string $html, array $fields): string
+    public static function injectCameraHandler(string $html, array $fields): string
+    {
+        $hasCamera = false;
+        foreach ($fields as $field) {
+            if (self::isCameraField($field)) {
+                $hasCamera = true;
+                break;
+            }
+        }
+        if (!$hasCamera) {
+            return $html;
+        }
+        if (stripos($html, 'window.__cameraComponentBinder') !== false) {
+            return $html;
+        }
+        $handler = <<<'JS'
+<script>
+(function(){
+if(window.__cameraComponentBinder)return;
+window.__cameraComponentBinder=true;
+function setPayload(wrapper,payload){
+var input=wrapper.querySelector("[data-camera-payload]");
+if(input){input.value=JSON.stringify(payload||{});}
+var status=wrapper.querySelector(".camera-status");
+if(status){
+var text=[];
+if(payload.photo_name)text.push(payload.photo_name);
+status.textContent=text.join(" | ")||"Foto akan disiapkan otomatis.";
+}
+}
+var activeStream=null;
+function stopStream(){
+if(activeStream){try{activeStream.getTracks().forEach(function(t){try{t.stop();}catch(e){}});}catch(e){}activeStream=null;}
+}
+function startCamera(wrapper){
+if(activeStream){return;}
+if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+var s=wrapper.querySelector(".camera-status");if(s)s.textContent="Kamera tidak didukung browser ini";return;
+}
+navigator.mediaDevices.getUserMedia({video:{facingMode:"environment",width:{ideal:1280},height:{ideal:720}},audio:false}).then(function(s){
+activeStream=s;
+var vp=wrapper.querySelector(".camera-viewport");if(vp)vp.remove();
+var viewport=document.createElement("div");viewport.className="camera-viewport";viewport.style.cssText="position:relative;border-radius:12px;overflow:hidden;background:#000;margin-top:10px;";
+var video=document.createElement("video");video.className="camera-video";video.autoplay=true;video.playsinline=true;video.muted=true;video.style.cssText="width:100%;max-height:320px;object-fit:cover;display:block;";video.srcObject=s;video.play();
+var capBtn=document.createElement("button");capBtn.className="camera-cap-btn";capBtn.textContent="Ambil";capBtn.style.cssText="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);padding:12px 28px;border:3px solid #fff;border-radius:50px;background:rgba(79,70,229,0.9);color:#fff;font-weight:700;font-size:15px;cursor:pointer;";
+var closeBtn=document.createElement("button");closeBtn.className="camera-close-vp";closeBtn.textContent="\u2715 Tutup";closeBtn.style.cssText="position:absolute;top:10px;right:10px;padding:6px 12px;border:none;border-radius:8px;background:rgba(0,0,0,0.6);color:#fff;font-weight:700;cursor:pointer;font-size:13px;";
+viewport.appendChild(video);viewport.appendChild(capBtn);viewport.appendChild(closeBtn);wrapper.appendChild(viewport);
+var box=wrapper.querySelector(".camera-box");if(box)box.style.display="none";
+var st=wrapper.querySelector(".camera-status");if(st)st.textContent="Arahkan kamera ke objek";
+capBtn.addEventListener("click",function(){
+var canvas=document.createElement("canvas");canvas.width=video.videoWidth||1280;canvas.height=video.videoHeight||720;
+var ctx=canvas.getContext("2d");ctx.drawImage(video,0,0,canvas.width,canvas.height);
+var dataUrl=canvas.toDataURL("image/jpeg",0.85);var base64=dataUrl.split(",")[1];var size=Math.round(base64.length*0.75);
+setPayload(wrapper,{photo_data:dataUrl,photo_name:"camera_"+Date.now()+".jpg",photo_mime:"image/jpeg",photo_size:size});
+var pi=wrapper.querySelector(".camera-preview");if(pi){pi.src=dataUrl;pi.hidden=false;}
+stopStream();viewport.remove();if(box)box.style.display="";
+if(st)st.textContent="Foto siap ("+(size>1024?(size/1024).toFixed(1)+" KB":size+" B")+")";
+});
+closeBtn.addEventListener("click",function(){
+stopStream();viewport.remove();if(box)box.style.display="";
+var st2=wrapper.querySelector(".camera-status");if(st2&&!wrapper.querySelector(".camera-preview[src]"))st2.textContent="Belum ada foto";
+});
+}).catch(function(err){
+var st2=wrapper.querySelector(".camera-status");if(st2)st2.textContent="Gagal akses kamera: "+err.message;
+});
+}
+function gw(el){return el?el.closest("[data-camera-component]"):null;}
+function setPreviewHtml(wrapper,src){
+var pi=wrapper.querySelector(".camera-preview");if(!pi)return;
+if(src){pi.src=src;pi.hidden=false;}else{pi.removeAttribute("src");pi.hidden=true;}
+}
+document.addEventListener("click",function(e){
+var trigger=e.target.closest(".camera-trigger");
+if(trigger){var w=gw(trigger);if(w)startCamera(w);return;}
+var cb=e.target.closest(".camera-clear");
+if(cb){
+var w=gw(cb);if(w){
+stopStream();var vp=w.querySelector(".camera-viewport");if(vp)vp.remove();
+var box=w.querySelector(".camera-box");if(box)box.style.display="";
+setPayload(w,{});setPreviewHtml(w,"");
+var st=w.querySelector(".camera-status");if(st)st.textContent="Belum ada foto";
+}
+}
+});
+})();
+</script>
+JS;
+        if (stripos($html, '</body>') !== false) {
+            return (string)preg_replace('~</body>~i', $handler . "\n</body>", $html, 1);
+        }
+        return $html . $handler;
+    }
+
+    public static function injectGpsCameraHandler(string $html, array $fields): string
     {
         $hasGpsCamera = false;
         foreach ($fields as $field) {
@@ -357,7 +450,7 @@ JS;
         return $html;
     }
 
-    private static function injectInteractivePickerRuntime(string $html, array $fields, int $formId): string
+    public static function injectInteractivePickerRuntime(string $html, array $fields, int $formId): string
     {
         if ($formId <= 0) {
             return $html;
@@ -571,6 +664,7 @@ JS;
         if ($customJs !== '') {
             $html .= '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>';
         }
+        $html = self::injectCameraHandler($html, $fields);
         $html = self::injectGpsCameraHandler($html, $fields);
         $html = self::injectInteractivePickerRuntime($html, $fields, $formId);
         if ($formId > 0) {

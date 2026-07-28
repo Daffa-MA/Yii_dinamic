@@ -1581,7 +1581,6 @@
             field = normalizeFieldState(field);
 
             const componentType = String(field.type || field.field_type || '').toLowerCase();
-            console.log('[RENDER] Preview for type:', componentType, 'customHtml:', !!field.customHtml, 'customCss:', !!field.customCss, 'customJs:', !!field.customJs, 'baseTemplate:', !!getFieldBaseCode(componentType, 'js', field));
 
             // Check for custom code
             if (field.customHtml || field.customCss || field.customJs) {
@@ -1589,8 +1588,28 @@
                 const jsCode = field.customJs || getFieldBaseCode(componentType, 'js', field) || '';
                 const srcDoc = '<!DOCTYPE html><html><head><style>' + (field.customCss || '') + '</style></head><body>' + (field.customHtml || '') + '<script>' + jsCode + '<\/script></body></html>';
                 return `<div class="field-preview" style="padding:0;background:transparent;border:none;">` +
-                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>` +
+                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts allow-forms"></iframe>` +
                     `</div>`;
+            }
+
+            // Static preview for camera & gps_camera (no iframe to avoid event interference)
+            if (componentType === 'camera') {
+                return '<div class="field-preview" style="display:flex;flex-direction:column;gap:10px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                    '<button type="button" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;">📷 Ambil Foto</button>' +
+                    '<span style="font-size:12px;color:#64748b;">Akses kamera langsung</span>' +
+                    '</div>' +
+                    '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;">📷 Capture langsung dari kamera (tanpa galeri)</div>' +
+                    '</div>';
+            }
+            if (componentType === 'gps_camera') {
+                return '<div class="field-preview" style="display:flex;flex-direction:column;gap:10px;">' +
+                    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                    '<button type="button" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;">Ambil Foto</button>' +
+                    '<span style="font-size:12px;color:#64748b;">' + escapeHtml(field.target_table_name || field.target_column_name || 'GPS Camera') + '</span>' +
+                    '</div>' +
+                    '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;">📷 Capture + GPS langsung dari kamera dan lokasi</div>' +
+                    '</div>';
             }
 
             // Use interactive iframe for field types with base JS template
@@ -1601,7 +1620,7 @@
                 const baseCss = getFieldBaseCode(componentType, 'css', field);
                 const srcDoc = '<!DOCTYPE html><html><head><style>' + (baseCss || '') + '</style></head><body>' + (baseHtml || '') + '<script>' + baseTemplate + '<\/script></body></html>';
                 return `<div class="field-preview" style="padding:0;background:transparent;border:none;">` +
-                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>` +
+                    `<iframe id="${id}" srcdoc="${srcDoc.replace(/"/g, '&quot;')}" style="width:100%;min-height:80px;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;" sandbox="allow-scripts allow-forms"></iframe>` +
                     `</div>`;
             }
             const type = componentType === 'checkboxes' ?
@@ -1689,26 +1708,6 @@
                     '<input type="checkbox" class="form-check-input" ' + boolAttr('checked', checked) + boolAttr('disabled', true) + '>' +
                     '<span>' + escapeHtml(field.label || field.labelText || 'Aktif / Nonaktif') + '</span>' +
                     '</label></div>';
-            }
-
-            if (type === 'camera') {
-                return '<div class="field-preview" style="display:flex;flex-direction:column;gap:10px;">' +
-                    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-                    '<button type="button" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;">📷 Ambil Foto</button>' +
-                    '<span style="font-size:12px;color:#64748b;">Akses kamera langsung</span>' +
-                    '</div>' +
-                    '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;">📷 Capture langsung dari kamera (tanpa galeri)</div>' +
-                    '</div>';
-            }
-
-            if (type === 'gps_camera') {
-                return '<div class="field-preview" style="display:flex;flex-direction:column;gap:10px;">' +
-                    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
-                    '<button type="button" style="display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:none;border-radius:10px;background:#4f46e5;color:#fff;font-weight:700;">Ambil Foto</button>' +
-                    '<span style="font-size:12px;color:#64748b;">' + escapeHtml(field.target_table_name || field.target_column_name || 'GPS Camera') + '</span>' +
-                    '</div>' +
-                    '<div style="padding:12px;border:1px dashed #cbd5e1;border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;">Foto + metadata lokasi dan waktu</div>' +
-                    '</div>';
             }
 
             if (type === 'file') {

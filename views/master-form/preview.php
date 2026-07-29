@@ -82,6 +82,9 @@ $customCss = trim((string)($renderPayload['customCss'] ?? ''));
 $customJs = trim((string)($renderPayload['customJs'] ?? ''));
 $shouldRenderCustom = $hasCustomCode;
 
+$this->title = 'Preview: ' . $formName;
+$this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HEAD]);
+
 if ($hasCustomCode) {
     echo $formRenderService->renderCustomCodeOnly($renderPayload);
     return;
@@ -93,8 +96,6 @@ if ($model->table_id) {
     $tableName = $dbTable ? $dbTable->name : null;
 }
 
-$this->title = 'Preview: ' . $formName;
-$this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HEAD]);
 ?>
 
 <style>
@@ -607,7 +608,7 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                     }
                     ?>
                     
-                    <div class="preview-field">
+<div class="preview-field" data-field-container="<?= Html::encode($name) ?>">
                         <?php if ($fieldCustomHtml !== '' || $fieldCustomCss !== '' || $fieldCustomJs !== ''): ?>
                             <?php
                             $srcDoc = '<!DOCTYPE html><html><head><style>' . $fieldCustomCss . '</style></head><body>' . $fieldCustomHtml . '<script>' . $fieldCustomJs . '<\/script></body></html>';
@@ -736,7 +737,19 @@ $this->registerJsFile('/js/dynamic-form-runtime.js', ['position' => View::POS_HE
                         
                         <?php elseif ($type === 'date' || $type === 'time' || $type === 'datetime' || $type === 'datetime-local'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
-                            <?= Html::input($type === 'datetime' ? 'datetime-local' : $type, $name, $defaultValue, ['class' => 'preview-input', 'required' => $required]) ?>
+                            <?php
+                            $dateInputAttrs = ['class' => 'preview-input', 'required' => $required];
+                            if (!empty($field['min_date'])) $dateInputAttrs['min'] = $field['min_date'];
+                            if (!empty($field['max_date'])) $dateInputAttrs['max'] = $field['max_date'];
+                            if (!empty($field['disable_past_dates'])) $dateInputAttrs['data-disable-past-dates'] = '1';
+                            if (!empty($field['disable_future_dates'])) $dateInputAttrs['data-disable-future-dates'] = '1';
+                            if (!empty($field['auto_fill_today'])) $dateInputAttrs['data-auto-fill-today'] = '1';
+                            if (!empty($field['date_readonly'])) {
+                                $dateInputAttrs['readonly'] = true;
+                                $dateInputAttrs['data-date-readonly'] = '1';
+                            }
+                            ?>
+                            <?= Html::input($type === 'datetime' ? 'datetime-local' : $type, $name, $defaultValue, $dateInputAttrs) ?>
                         
                         <?php elseif ($isCamera): ?>
                             <?= FormRenderService::renderCameraField($field, true, false) ?>

@@ -661,6 +661,15 @@ JS;
 
         $html .= $customHtml;
 
+        if (!empty($fields) && $formId > 0) {
+            $schemaData = \yii\helpers\Json::encode([
+                'fields' => $fields,
+                'form_id' => $formId,
+                'title' => $renderPayload['title'] ?? '',
+            ]);
+            $html .= '<script>window.__dynamicFormSchema = ' . $schemaData . ';</script>';
+        }
+
         if ($customJs !== '') {
             $html .= '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>';
         }
@@ -981,6 +990,23 @@ JS;
         $field['resolved_label'] = $label;
         $field['label'] = $label;
         $field['field_label'] = $label;
+
+        // 1.3 Conditional Logic Properties
+        $field['show_if'] = isset($field['show_if']) && is_array($field['show_if']) ? self::normalizeConditions($field['show_if']) : [];
+        $field['required_if'] = isset($field['required_if']) && is_array($field['required_if']) ? self::normalizeConditions($field['required_if']) : [];
+        $field['disabled_if'] = isset($field['disabled_if']) && is_array($field['disabled_if']) ? self::normalizeConditions($field['disabled_if']) : [];
+        $field['readonly_if'] = isset($field['readonly_if']) && is_array($field['readonly_if']) ? self::normalizeConditions($field['readonly_if']) : [];
+        $field['clear_if'] = isset($field['clear_if']) && is_array($field['clear_if']) ? self::normalizeConditions($field['clear_if']) : [];
+        $field['condition_logic'] = (string)($field['condition_logic'] ?? 'AND');
+        $field['condition_groups'] = isset($field['condition_groups']) && is_array($field['condition_groups']) ? $field['condition_groups'] : [];
+
+        // Date Dynamic Properties
+        $field['auto_fill_today'] = !empty($field['auto_fill_today']);
+        $field['date_readonly'] = !empty($field['date_readonly']);
+        $field['min_date'] = (string)($field['min_date'] ?? '');
+        $field['max_date'] = (string)($field['max_date'] ?? '');
+        $field['disable_past_dates'] = !empty($field['disable_past_dates']);
+        $field['disable_future_dates'] = !empty($field['disable_future_dates']);
 
         if (self::isRelationField($field)) {
             $field['is_foreign_key'] = true;
@@ -3089,6 +3115,31 @@ HTML;
         }
 
         return [];
+    }
+
+    /**
+     * Normalize conditional logic conditions array.
+     * Ensures each condition has field_name, operator, and value keys.
+     *
+     * @param array $conditions
+     * @return array
+     */
+    private static function normalizeConditions(array $conditions): array
+    {
+        $normalized = [];
+        foreach ($conditions as $cond) {
+            if (!is_array($cond)) {
+                continue;
+            }
+            $normalized[] = [
+                'field_name' => (string)($cond['field_name'] ?? $cond['field'] ?? $cond['field_id'] ?? ''),
+                'field' => (string)($cond['field'] ?? $cond['field_name'] ?? $cond['field_id'] ?? ''),
+                'operator' => (string)($cond['operator'] ?? $cond['op'] ?? '=='),
+                'op' => (string)($cond['op'] ?? $cond['operator'] ?? '=='),
+                'value' => $cond['value'] ?? '',
+            ];
+        }
+        return $normalized;
     }
 }
 

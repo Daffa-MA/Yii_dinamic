@@ -87,7 +87,16 @@ class DynamicFormPreviewService
         $instanceId = 'dynamic-form-' . (int)$form->id . '-' . ($pageId > 0 ? $pageId : 'preview') . '-' . $componentId;
 
         $titleHtml = $showTitle ? '<div style="font-weight:700;font-size:16px;color:#0f172a;margin-bottom:12px;">' . Html::encode((string)$form->form_name) . '</div>' : '';
-        $formOpen = $interactive ? '<form method="post" enctype="multipart/form-data" id="' . Html::encode($instanceId) . '" class="dynamic-embedded-form" data-dynamic-form-instance="' . Html::encode($instanceId) . '" data-form-id="' . (int)$form->id . '" action="/master-form/submit?id=' . (int)$form->id . '">' .
+        $formSchemaAttr = '';
+        if ($interactive && !empty($fields)) {
+            $formSchemaData = [
+                'fields' => $fields,
+                'form_id' => (int)$form->id,
+                'title' => (string)$form->form_name,
+            ];
+            $formSchemaAttr = ' data-form-schema="' . Html::encode(json_encode($formSchemaData)) . '"';
+        }
+        $formOpen = $interactive ? '<form method="post" enctype="multipart/form-data" id="' . Html::encode($instanceId) . '" class="dynamic-embedded-form" data-dynamic-form-instance="' . Html::encode($instanceId) . '" data-form-id="' . (int)$form->id . '" action="/master-form/submit?id=' . (int)$form->id . '"' . $formSchemaAttr . '>' .
             '<input type="hidden" name="' . Html::encode(\Yii::$app->request->csrfParam) . '" value="' . Html::encode(\Yii::$app->request->getCsrfToken()) . '">' : '';
         $formClose = $interactive ? '</form>' : '';
         $embeddedFlag = '';
@@ -112,6 +121,10 @@ class DynamicFormPreviewService
         }
 
         if ($hasOverride) {
+            $schemaScript = '';
+            if (!empty($fields)) {
+                $schemaScript = '<script>window.__dynamicFormSchema = ' . json_encode(['fields' => $fields, 'form_id' => (int)$form->id, 'title' => (string)$form->form_name]) . ';</script>';
+            }
             $scriptHtml = $customJs !== '' ? '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>' : '';
             $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, (int)$form->id, [
                 '_embedded' => $interactive ? '1' : '',
@@ -142,6 +155,7 @@ class DynamicFormPreviewService
                 . $titleHtml
                 . ($customCss !== '' ? '<style>' . $customCss . '</style>' : '')
                 . $customHtml
+                . $schemaScript
                 . $scriptHtml
                 . '</div>';
         }
@@ -164,7 +178,7 @@ class DynamicFormPreviewService
                 continue;
             }
             if ($type === 'textarea') {
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><textarea ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;min-height:70px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></textarea></div>';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><textarea ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;min-height:70px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></textarea></div>';
                 continue;
             }
             if ($type === 'select' || $type === 'dropdown') {
@@ -191,7 +205,7 @@ class DynamicFormPreviewService
                     $optionHtml .= '<option value="' . Html::encode($value) . '"' . ($defaultValue === $value ? ' selected' : '') . '>' . Html::encode($labelOption) . '</option>';
                 }
                 if ($isFk && $pickerMode !== 'dropdown' && $interactive) {
-                    $fieldHtml .= '<div style="margin-bottom:10px;">'
+                    $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;">'
                         . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label>'
                         . '<div class="relation-picker-wrapper" data-form-id="' . (int)$form->id . '" data-field-name="' . $name . '" data-picker-mode="' . Html::encode($pickerMode) . '">'
                         . '<div class="relation-picker-input-group relation-picker-row" style="display:flex;align-items:stretch;gap:8px;width:100%;">'
@@ -205,7 +219,7 @@ class DynamicFormPreviewService
                         . '</div>';
                     continue;
                 }
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
                 continue;
             }
             if ($type === 'checkboxes') {
@@ -225,7 +239,7 @@ class DynamicFormPreviewService
                         . Html::encode($optionLabel)
                         . '</label>';
                 }
-                $fieldHtml .= '<div style="margin-bottom:10px;">'
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;">'
                     . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;">' . $label . $required . '</label>'
                     . ($items !== '' ? $items : '<div style="font-size:12px;color:#94a3b8;">Tidak ada opsi.</div>')
                     . '</div>';
@@ -248,7 +262,7 @@ class DynamicFormPreviewService
                         . Html::encode($optionLabel)
                         . '</label>';
                 }
-                $fieldHtml .= '<div style="margin-bottom:10px;">'
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;">'
                     . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;">' . $label . $required . '</label>'
                     . ($items !== '' ? $items : '<div style="font-size:12px;color:#94a3b8;">Tidak ada opsi.</div>')
                     . '</div>';
@@ -256,7 +270,7 @@ class DynamicFormPreviewService
             }
             if ($type === 'boolean') {
                 $checked = !empty($field['default_value']) && ((string)$field['default_value'] === '1' || strtolower((string)$field['default_value']) === 'true');
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;" class="form-check form-switch">'
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;" class="form-check form-switch">'
                     . ($interactive ? '<input type="hidden" name="' . $name . '" value="0">' : '')
                     . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" ' . ($checked ? 'checked' : '') . ' style="margin-right:8px;" class="form-check-input">'
                     . '<span>' . $label . $required . '</span>'
@@ -278,7 +292,7 @@ class DynamicFormPreviewService
                         . '<span>' . Html::encode((string)($option['label'] ?? $value)) . '</span>'
                         . '</label>';
                 }
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">'
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">'
                     . $label . $required
                     . '</label><div style="padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">'
                     . ($optionHtml !== '' ? $optionHtml : '<div style="font-size:12px;color:#64748b;">Tidak ada opsi.</div>')
@@ -286,7 +300,7 @@ class DynamicFormPreviewService
                 continue;
             }
             if ($type === 'checkbox') {
-                $fieldHtml .= '<div style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
                 continue;
             }
             if (FormRenderService::isCameraField($field)) {
@@ -298,7 +312,12 @@ class DynamicFormPreviewService
                 continue;
             }
             $inputType = in_array($type, ['email', 'number', 'password', 'tel', 'url', 'date', 'time', 'datetime-local', 'file'], true) ? $type : 'text';
-            $fieldHtml .= '<div style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="' . $inputType . '" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></div>';
+            $dateAttrs = '';
+            if (in_array($type, ['date', 'time', 'datetime-local'], true)) {
+                if (!empty($field['min_date'])) $dateAttrs .= ' min="' . Html::encode($field['min_date']) . '"';
+                if (!empty($field['max_date'])) $dateAttrs .= ' max="' . Html::encode($field['max_date']) . '"';
+            }
+            $fieldHtml .= '<div style="margin-bottom:10px;" data-field-container="' . $name . '"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="' . $inputType . '" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"' . $dateAttrs . '></div>';
         }
 
         $submitHtml = '<div style="margin-top:6px;"><button type="' . ($interactive ? 'submit' : 'button') . '" ' . ($interactive ? '' : 'disabled') . ' style="padding:9px 14px;background:#0f172a;color:#fff;border:none;border-radius:8px;opacity:.85;">Submit</button></div>';

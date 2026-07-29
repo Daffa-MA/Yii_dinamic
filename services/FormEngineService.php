@@ -356,6 +356,14 @@ class FormEngineService
         $resolvedField['condition_logic'] = (string)($fieldData['condition_logic'] ?? 'AND');
         $resolvedField['condition_groups'] = is_array($fieldData['condition_groups'] ?? null) ? $fieldData['condition_groups'] : [];
 
+        // 1.4 Date Dynamic Properties
+        $resolvedField['auto_fill_today'] = !empty($fieldData['auto_fill_today']);
+        $resolvedField['date_readonly'] = !empty($fieldData['date_readonly']);
+        $resolvedField['min_date'] = (string)($fieldData['min_date'] ?? '');
+        $resolvedField['max_date'] = (string)($fieldData['max_date'] ?? '');
+        $resolvedField['disable_past_dates'] = !empty($fieldData['disable_past_dates']);
+        $resolvedField['disable_future_dates'] = !empty($fieldData['disable_future_dates']);
+
         $resolvedField['source_column_name'] = $sourceColumn !== null ? (string)$sourceColumn->name : (string)($fieldData['source_column_name'] ?? '');
         $resolvedField['source_column_label'] = $sourceColumn !== null ? (string)($sourceColumn->label ?? $sourceColumn->name) : (string)($fieldData['source_column_label'] ?? '');
         $resolvedField['source_column_type'] = $sourceColumn !== null ? (string)($sourceColumn->type ?? '') : (string)($fieldData['source_column_type'] ?? '');

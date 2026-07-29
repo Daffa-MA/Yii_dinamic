@@ -769,6 +769,15 @@
             field.condition_logic = field.condition_logic || 'AND';
             field.condition_groups = Array.isArray(field.condition_groups) ? field.condition_groups : [];
 
+            // 1.4 Date Dynamic Properties Defaults
+            field.auto_fill_today = field.auto_fill_today !== undefined ? !!field.auto_fill_today : false;
+            field.date_readonly = field.date_readonly !== undefined ? !!field.date_readonly : false;
+            field.min_date = field.min_date || '';
+            field.max_date = field.max_date || '';
+            field.date_format = field.date_format || '';
+            field.disable_past_dates = field.disable_past_dates !== undefined ? !!field.disable_past_dates : false;
+            field.disable_future_dates = field.disable_future_dates !== undefined ? !!field.disable_future_dates : false;
+
             const columnType = normalizeColumnType(
                 field.source_column_db_type ||
                 field.source_column_column_type ||
@@ -1974,6 +1983,18 @@
                 html += '</div>';
             }
 
+            if (['date', 'time', 'datetime'].includes(type)) {
+                html += '<div class="prop-section"><div class="prop-section-title">Date/Time Settings</div>';
+                html += '<div class="prop-group"><label class="prop-label"><input type="checkbox" ' + (field.auto_fill_today ? 'checked' : '') + ' onchange="updateFieldProp(\'auto_fill_today\', this.checked)"> Auto-fill Today/Now</label></div>';
+                html += '<div class="prop-group"><label class="prop-label"><input type="checkbox" ' + (field.date_readonly ? 'checked' : '') + ' onchange="updateFieldProp(\'date_readonly\', this.checked)"> Readonly (Display Only)</label></div>';
+                html += '<div class="prop-group"><label class="prop-label">Date Format</label><input type="text" class="prop-input" placeholder="YYYY-MM-DD" value="' + escapeAttr(field.date_format || '') + '" onchange="updateFieldProp(\'date_format\', this.value)"></div>';
+                html += '<div class="prop-group"><label class="prop-label">Min Date</label><input type="' + type + '" class="prop-input" value="' + escapeAttr(field.min_date || '') + '" onchange="updateFieldProp(\'min_date\', this.value)"></div>';
+                html += '<div class="prop-group"><label class="prop-label">Max Date</label><input type="' + type + '" class="prop-input" value="' + escapeAttr(field.max_date || '') + '" onchange="updateFieldProp(\'max_date\', this.value)"></div>';
+                html += '<div class="prop-group"><label class="prop-label"><input type="checkbox" ' + (field.disable_past_dates ? 'checked' : '') + ' onchange="updateFieldProp(\'disable_past_dates\', this.checked)"> Disable Past Dates</label></div>';
+                html += '<div class="prop-group"><label class="prop-label"><input type="checkbox" ' + (field.disable_future_dates ? 'checked' : '') + ' onchange="updateFieldProp(\'disable_future_dates\', this.checked)"> Disable Future Dates</label></div>';
+                html += '</div>';
+            }
+
             return html;
         }
 
@@ -1993,14 +2014,309 @@
         }
 
         function renderConditionalProps(field) {
-            let html = '<div class="prop-section"><div class="prop-section-title">Conditional Logic</div>';
-            html += '<div class="prop-group"><label class="prop-label">Show If (JSON)</label>';
-            html += '<textarea class="prop-input" style="height:60px;font-family:monospace;font-size:11px;" onchange="updateFieldProp(\'show_if\', safeJsonParse(this.value, []))">' + escapeHtml(JSON.stringify(field.show_if || [])) + '</textarea></div>';
-            html += '<div class="prop-group"><label class="prop-label">Required If (JSON)</label>';
-            html += '<textarea class="prop-input" style="height:60px;font-family:monospace;font-size:11px;" onchange="updateFieldProp(\'required_if\', safeJsonParse(this.value, []))">' + escapeHtml(JSON.stringify(field.required_if || [])) + '</textarea></div>';
+            var actionOrder = ['show_if', 'required_if', 'disabled_if', 'readonly_if'];
+            var actionLabels = {
+                show_if: 'Tampilkan field ini',
+                required_if: 'Wajibkan field ini',
+                disabled_if: 'Nonaktifkan field ini',
+                readonly_if: 'Baca-saja field ini'
+            };
+            var actionLabelsShort = {
+                show_if: 'Tampilkan',
+                required_if: 'Wajibkan',
+                disabled_if: 'Nonaktifkan',
+                readonly_if: 'Baca-saja'
+            };
+            var rules = [];
+            actionOrder.forEach(function(key) {
+                var conds = field[key] || [];
+                if (!Array.isArray(conds)) conds = [];
+                conds.forEach(function(cond, ci) {
+                    rules.push({ actionKey: key, condition: cond, ci: ci });
+                });
+            });
+
+            var html = '<div class="prop-section"><div class="prop-section-title">Aturan Bersyarat</div>';
+            html += '<div style="font-size:11px;color:#475569;margin:8px 20px;padding:8px 10px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;line-height:1.5;">Buat aturan <b>Jika&ndash;Maka</b> untuk mengontrol field ini berdasarkan field lain.</div>';
+
+            // Step builder mode
+            if (window._buildingRule && window._buildingRule.active) {
+                html += renderRuleBuilder(field);
+            } else {
+                // Existing rules
+                if (rules.length > 0) {
+                    html += '<div style="margin:0 20px 8px;">';
+                    rules.forEach(function(rule, ri) {
+                        html += renderExistingRule(field, rule, ri, actionLabelsShort);
+                    });
+                    html += '<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8fafc;border:1px solid #e2e8f0;border-top:none;border-radius:0 0 8px 8px;font-size:11px;color:#475569;">';
+                    html += '<span>Logika:</span>';
+                    html += '<select onchange="setConditionLogic(this.value)" style="font-size:11px;padding:2px 6px;border:1px solid #cbd5e1;border-radius:4px;background:#fff;">';
+                    html += '<option value="AND"' + (field.condition_logic !== 'OR' ? ' selected' : '') + '>Semua harus dipenuhi (AND)</option>';
+                    html += '<option value="OR"' + (field.condition_logic === 'OR' ? ' selected' : '') + '>Salah satu cukup (OR)</option>';
+                    html += '</select>';
+                    html += '</div>';
+                    html += '</div>';
+                } else {
+                    html += '<div style="text-align:center;padding:16px;color:#94a3b8;font-size:11px;background:#f8fafc;border-radius:8px;border:1px dashed #e2e8f0;margin:0 20px 8px;">Belum ada aturan.</div>';
+                }
+                html += '<div style="padding:0 20px 12px;"><button type="button" class="prop-option-add" onclick="startAddRule()" style="font-size:11px;">+ Tambah Aturan</button></div>';
+            }
+
             html += '</div>';
             return html;
         }
+
+        function renderExistingRule(field, rule, ri, labels) {
+            var cond = rule.condition;
+            var key = rule.actionKey;
+            var ci = rule.ci;
+            var allFields = formFields || [];
+            var ops = { '==': '=', '!=': '≠', '>': '>', '<': '<', '>=': '≥', '<=': '≤', 'contains': 'berisi', '!contains': 'tidak berisi', 'empty': 'kosong', '!empty': 'terisi' };
+            var selField = '';
+            allFields.forEach(function(f, fi) {
+                if (fi === selectedIndex) return;
+                if (cond.field === f.field_id || cond.field === f.name) {
+                    selField = (f.label || f.name);
+                }
+            });
+            if (!selField) selField = '(field)';
+            var opText = ops[cond.op] || cond.op || '=';
+            var valText = '';
+            if (cond.op && cond.op !== 'empty' && cond.op !== '!empty') {
+                valText = ' <strong>' + escapeHtml(String(cond.value || '')) + '</strong>';
+            }
+
+            var cardHtml = '<div class="cond-rule-card">';
+            cardHtml += '<div class="cond-rule-header">';
+            cardHtml += '<span class="cond-summary">Jika <strong>' + escapeHtml(selField) + '</strong> <strong>' + opText + '</strong>' + valText + ' &rarr; ' + (labels[key] || key) + '</span>';
+            cardHtml += '<button type="button" class="cond-remove-btn" onclick="removeCondition(\'' + key + '\',' + ci + ')" title="Hapus">✕</button>';
+            cardHtml += '</div></div>';
+            return cardHtml;
+        }
+
+        function renderRuleBuilder(field) {
+            var br = window._buildingRule;
+            var allFields = formFields || [];
+            var actionKeys = ['show_if', 'required_if', 'disabled_if', 'readonly_if'];
+            var actionLabels = {
+                show_if: 'Tampilkan field ini',
+                required_if: 'Wajibkan field ini',
+                disabled_if: 'Nonaktifkan field ini',
+                readonly_if: 'Baca-saja field ini'
+            };
+            var ops = [
+                { v: '==', l: 'sama dengan (=)' },
+                { v: '!=', l: 'tidak sama dengan (≠)' },
+                { v: '>', l: 'lebih besar dari (>)' },
+                { v: '<', l: 'lebih kecil dari (<)' },
+                { v: '>=', l: 'lebih besar atau sama (≥)' },
+                { v: '<=', l: 'lebih kecil atau sama (≤)' },
+                { v: 'contains', l: 'mengandung' },
+                { v: '!contains', l: 'tidak mengandung' },
+                { v: 'empty', l: 'kosong' },
+                { v: '!empty', l: 'terisi' }
+            ];
+
+            var html = '<div style="padding:8px 20px 4px;">';
+            html += '<div style="font-size:11px;font-weight:700;color:#6366f1;margin-bottom:8px;">Aturan Baru</div>';
+
+            // Step 1: Trigger Field
+            html += '<div class="cond-builder-step">';
+            html += '<div class="cond-step-label">Langkah 1: Pilih Field Pemicu</div>';
+            html += '<div class="cond-step-body">';
+            html += '<span class="cond-keyword">Jika</span> ';
+            html += '<select class="cond-builder-select" onchange="setStepField(this.value)">';
+            html += '<option value="">-- Pilih field --</option>';
+            allFields.forEach(function(f, fi) {
+                if (fi === selectedIndex) return;
+                var s = (br.field === f.field_id || br.field === f.name) ? 'selected' : '';
+                html += '<option value="' + (f.name || f.field_name || f.field_key) + '" ' + s + '>' + (f.label || f.name) + '</option>';
+            });
+            html += '</select>';
+            html += '</div></div>';
+
+            if (br.field) {
+                // Step 2: Operator
+                var selFieldLabel = '';
+                allFields.forEach(function(f, fi) {
+                    if (fi === selectedIndex) return;
+                    if (br.field === f.field_id || br.field === f.name) {
+                        selFieldLabel = (f.label || f.name);
+                    }
+                });
+                html += '<div class="cond-builder-step cond-step-active">';
+                html += '<div class="cond-step-label">Langkah 2: Pilih Kondisi</div>';
+                html += '<div class="cond-step-body">';
+                html += '<span class="cond-keyword">' + escapeHtml(selFieldLabel) + '</span> ';
+                html += '<select class="cond-builder-select" onchange="setStepOp(this.value)">';
+                html += '<option value="">-- Pilih kondisi --</option>';
+                ops.forEach(function(op) {
+                    var s = br.op === op.v ? 'selected' : '';
+                    html += '<option value="' + op.v + '" ' + s + '>' + op.l + '</option>';
+                });
+                html += '</select>';
+                html += '</div></div>';
+
+                // Step 3: Value (if needed)
+                if (br.op && br.op !== 'empty' && br.op !== '!empty') {
+                    html += '<div class="cond-builder-step cond-step-active">';
+                    html += '<div class="cond-step-label">Langkah 3: Masukkan Nilai</div>';
+                    html += '<div class="cond-step-body">';
+                    html += '<span class="cond-keyword">' + escapeHtml(selFieldLabel) + '</span> ';
+                    html += '<span class="cond-keyword-op">' + (br.op || '=') + '</span> ';
+                    html += '<input type="text" class="cond-builder-input" placeholder="Nilai" value="' + escapeAttr(br.value || '') + '" onchange="setStepVal(this.value)">';
+                    html += '</div></div>';
+                } else if (br.op) {
+                    // empty/!empty - auto-set value and show step 3 as completed
+                    html += '<div class="cond-builder-step cond-step-done">';
+                    html += '<div class="cond-step-label">Langkah 3: Nilai</div>';
+                    html += '<div class="cond-step-body" style="color:#64748b;font-size:11px;">' + (br.op === 'empty' ? 'Field kosong' : 'Field terisi') + '</div>';
+                    html += '</div>';
+                }
+
+                // Step 4: Action (if operator is set)
+                if (br.op) {
+                    html += '<div class="cond-builder-step cond-step-active">';
+                    html += '<div class="cond-step-label">Langkah 4: Pilih Aksi</div>';
+                    html += '<div class="cond-step-body">';
+                    html += '<span class="cond-keyword">Maka</span> ';
+                    html += '<select class="cond-builder-select" onchange="setStepAction(this.value)">';
+                    html += '<option value="">-- Pilih aksi --</option>';
+                    actionKeys.forEach(function(ak) {
+                        var s = br.action === ak ? 'selected' : '';
+                        html += '<option value="' + ak + '" ' + s + '>' + actionLabels[ak] + '</option>';
+                    });
+                    html += '</select>';
+                    html += '</div></div>';
+                }
+
+                // Step 5: AND/OR Logic
+                if (br.action) {
+                    html += '<div class="cond-builder-step cond-step-active" style="margin-top:2px;">';
+                    html += '<div class="cond-step-label">Logika Aturan</div>';
+                    html += '<div class="cond-step-body">';
+                    html += '<span class="cond-keyword">Terapkan jika</span> ';
+                    html += '<select class="cond-builder-select" onchange="setConditionLogic(this.value)">';
+                    html += '<option value="AND"' + (field.condition_logic !== 'OR' ? ' selected' : '') + '>Semua kondisi terpenuhi (AND)</option>';
+                    html += '<option value="OR"' + (field.condition_logic === 'OR' ? ' selected' : '') + '>Salah satu kondisi terpenuhi (OR)</option>';
+                    html += '</select>';
+                    html += '</div></div>';
+                }
+
+                // Step 6: Save (if action is set)
+                if (br.action) {
+                    html += '<div style="display:flex;gap:8px;margin-top:10px;">';
+                    html += '<button type="button" class="cond-save-btn" onclick="saveRule()">Simpan Aturan</button>';
+                    html += '<button type="button" class="cond-cancel-btn" onclick="cancelRule()">Batal</button>';
+                    html += '</div>';
+                }
+            }
+
+            if (!br.field || (br.field && !br.op) || (br.op && !br.action)) {
+                html += '<div style="margin-top:8px;"><button type="button" class="cond-cancel-btn" onclick="cancelRule()">Batal</button></div>';
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // Step builder state helpers
+        function getSelectedField() {
+            return (selectedIndex !== null && formFields && formFields[selectedIndex]) ? formFields[selectedIndex] : null;
+        }
+        window._buildingRule = { active: false, field: '', op: '==', value: '', action: '' };
+        window.startAddRule = function() {
+            window._buildingRule = { active: true, field: '', op: '==', value: '', action: '' };
+            var field = getSelectedField();
+            if (field) throttledRenderPropsPanel(field);
+        };
+        window.setStepField = function(val) {
+            window._buildingRule.field = val;
+            window._buildingRule.op = '';
+            window._buildingRule.value = '';
+            window._buildingRule.action = '';
+            var field = getSelectedField();
+            if (field) throttledRenderPropsPanel(field);
+        };
+        window.setStepOp = function(val) {
+            window._buildingRule.op = val;
+            window._buildingRule.value = '';
+            window._buildingRule.action = '';
+            var field = getSelectedField();
+            if (field) throttledRenderPropsPanel(field);
+        };
+        window.setStepVal = function(val) {
+            window._buildingRule.value = val;
+            var field = getSelectedField();
+            if (field) throttledRenderPropsPanel(field);
+        };
+        window.setStepAction = function(val) {
+            window._buildingRule.action = val;
+            var field = getSelectedField();
+            if (field) throttledRenderPropsPanel(field);
+        };
+        window.setConditionLogic = function(val) {
+            var field = getSelectedField();
+            if (field) {
+                field.condition_logic = val;
+                throttledRenderPropsPanel(field);
+                updateData();
+            }
+        };
+        window.saveRule = function() {
+            var br = window._buildingRule;
+            var field = getSelectedField();
+            if (!field || !br.action || !br.field) {
+                window._buildingRule = { active: false, field: '', op: '==', value: '', action: '' };
+                if (field) throttledRenderPropsPanel(field);
+                return;
+            }
+            if (!Array.isArray(field[br.action])) field[br.action] = [];
+            field[br.action].push({ field: br.field, op: br.op || '==', value: br.op === 'empty' || br.op === '!empty' ? '' : (br.value || '') });
+            window._buildingRule = { active: false, field: '', op: '==', value: '', action: '' };
+            throttledRenderPropsPanel(field);
+            updateData();
+        };
+        window.cancelRule = function() {
+            window._buildingRule = { active: false, field: '', op: '==', value: '', action: '' };
+            var field = getSelectedField();
+            if (field) throttledRenderPropsPanel(field);
+        };
+
+        window.updateConditionAction = function(oldKey, ci, newKey) {
+            var field = getSelectedField();
+            if (!field) return;
+            if (oldKey === newKey) return;
+            if (!Array.isArray(field[oldKey]) || !field[oldKey][ci]) return;
+            var cond = field[oldKey].splice(ci, 1)[0];
+            if (!Array.isArray(field[newKey])) field[newKey] = [];
+            field[newKey].push(cond);
+            throttledRenderPropsPanel(field);
+        };
+        window.removeCondition = function(key, ci) {
+            var field = getSelectedField();
+            if (!field || !Array.isArray(field[key])) return;
+            field[key].splice(ci, 1);
+            throttledRenderPropsPanel(field);
+        };
+        window.updateConditionField = function(key, ci, val) {
+            var field = getSelectedField();
+            if (!field || !Array.isArray(field[key]) || !field[key][ci]) return;
+            field[key][ci].field = val;
+        };
+        window.updateConditionOp = function(key, ci, val) {
+            var field = getSelectedField();
+            if (!field || !Array.isArray(field[key]) || !field[key][ci]) return;
+            field[key][ci].op = val;
+            if (val === 'empty' || val === '!empty') { field[key][ci].value = ''; }
+            throttledRenderPropsPanel(field);
+        };
+        window.updateConditionVal = function(key, ci, val) {
+            var field = getSelectedField();
+            if (!field || !Array.isArray(field[key]) || !field[key][ci]) return;
+            field[key][ci].value = val;
+        };
 
         function safeJsonParse(str, fallback) {
             try {
@@ -2103,6 +2419,9 @@
                 }
                 html += '</div>';
             }
+
+            html += renderValidationProps(field);
+            html += renderConditionalProps(field);
 
             panel.innerHTML = html;
         }
@@ -2724,6 +3043,12 @@
             };
 
             var template = baseCodeTemplates[fieldType] || baseCodeTemplates.text;
+            if (template === baseCodeTemplates.text && ['dropdown', 'select'].indexOf(fieldType) >= 0) {
+                template = baseCodeTemplates.select;
+            }
+            if (template === baseCodeTemplates.text && ['date', 'datetime', 'datetime-local', 'time'].indexOf(fieldType) >= 0) {
+                template = baseCodeTemplates.date;
+            }
             var code = template[lang] || '';
 
             if (replaceField) {
@@ -3010,83 +3335,70 @@
         function generatePageSource() {
             const lines = [];
             lines.push('<!-- Generated Form Layout -->');
+            lines.push('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">');
+            lines.push('<style>');
+            lines.push('*, *::before, *::after { box-sizing: border-box; }');
+            lines.push('.form-card { width: 100%; max-width: 560px; margin: 0 auto; background: #fff; border-radius: 24px; box-shadow: 0 20px 60px rgba(15,23,42,0.08), 0 8px 24px rgba(15,23,42,0.06); overflow: hidden; font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif; }');
+            lines.push('.form-header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 32px 36px 28px; }');
+            lines.push('.form-header h1 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.3px; margin: 0 0 4px; }');
+            lines.push('.form-header p { font-size: 13px; color: #94a3b8; margin: 0; }');
+            lines.push('.form-body { padding: 28px 36px 32px; }');
+            lines.push('.form-group { margin-bottom: 20px; }');
+            lines.push('.form-group:last-of-type { margin-bottom: 0; }');
+            lines.push('.field-label { display: block; font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 6px; letter-spacing: 0.2px; }');
+            lines.push('.field-input, .field-select, .field-textarea { width: 100%; padding: 12px 14px; font-size: 14px; font-family: "Inter", sans-serif; color: #1e293b; background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 12px; outline: none; transition: all 0.2s ease; }');
+            lines.push('.field-input:focus, .field-select:focus, .field-textarea:focus { border-color: #6366f1; background: #fff; box-shadow: 0 0 0 4px rgba(99,102,241,0.1); }');
+            lines.push('.field-select { appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2394a3b8\' stroke-width=\'2.5\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpath d=\'M6 9l6 6 6-6\'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; cursor: pointer; }');
+            lines.push('.field-textarea { resize: vertical; min-height: 90px; }');
+            lines.push('.field-input:hover, .field-select:hover, .field-textarea:hover { border-color: #cbd5e1; background: #f1f5f9; }');
+            lines.push('.field-divider { height: 1px; background: linear-gradient(to right, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent); margin: 24px 0; }');
+            lines.push('.btn-submit { width: 100%; padding: 14px 24px; font-family: "Inter", sans-serif; font-size: 15px; font-weight: 600; color: #fff; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border: none; border-radius: 14px; cursor: pointer; transition: all 0.25s ease; letter-spacing: 0.2px; }');
+            lines.push('.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(99,102,241,0.3); }');
+            lines.push('@media (max-width: 480px) { .form-header { padding: 24px 20px 20px; } .form-body { padding: 20px 20px 24px; } }');
+            lines.push('</style>');
             lines.push('<form class="auto-generated-form" method="POST">');
-            lines.push('  <div class="form-container" style="max-width: 600px; margin: 0 auto;">');
+            lines.push('<div class="form-card">');
+            lines.push('  <div class="form-header">');
+            lines.push('    <h1>Form Input</h1>');
+            lines.push('    <p>Lengkapi data berikut dengan benar</p>');
+            lines.push('  </div>');
+            lines.push('  <div class="form-body">');
 
             formFields.forEach((field, index) => {
                 if (field.excluded) return;
-                lines.push('');
-                lines.push('    <!-- Field ' + (index + 1) + ': ' + field.label + ' -->');
+                lines.push('    <div class="form-group">');
 
                 if (field.customHtml && !(isRelationSelectField(field) && looksLikeDummySelectCode(field.customHtml))) {
-                    lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(field.customHtml, field, index), field, index).split('\n').join('\n    '));
+                    var markup = normalizeGeneratedFieldMarkup(applyFieldTokensToCode(field.customHtml, field, index), field, index);
+                    markup.split('\n').forEach(function(ml) { lines.push('      ' + ml); });
                 } else {
-                    // Use base template
-                    const baseCode = getFieldBaseCode(field.type, 'html', field);
-                    lines.push('    ' + normalizeGeneratedFieldMarkup(applyFieldTokensToCode(baseCode, field, index), field, index).split('\n').join('\n    '));
+                    var baseCode = getFieldBaseCode(field.type, 'html', field);
+                    var markup = normalizeGeneratedFieldMarkup(applyFieldTokensToCode(baseCode, field, index), field, index);
+                    markup.split('\n').forEach(function(ml) { lines.push('      ' + ml); });
                 }
+
+                lines.push('    </div>');
             });
 
-            lines.push('');
-            lines.push('    <!-- Submit Button -->');
-            lines.push('    <div style="margin-top: 24px;">');
-            lines.push('      <button type="submit" class="btn-submit" style="width: 100%; padding: 12px 16px; background: #6366f1; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">');
-            lines.push('        Submit');
-            lines.push('      </button>');
-            lines.push('    </div>');
+            lines.push('    <div class="field-divider"></div>');
+            lines.push('    <button type="submit" class="btn-submit">Simpan Data</button>');
             lines.push('  </div>');
+            lines.push('</div>');
             lines.push('</form>');
-            lines.push('');
-            lines.push('<!-- Embedded Styles -->');
-            lines.push('<style>');
-            lines.push('.form-container { padding: 24px; background: #ffffff; border-radius: 12px; }');
 
-            // Collect all custom CSS
-            formFields.forEach((field, index) => {
-                if (field.customCss) {
-                    lines.push('');
-                    lines.push('/* Field ' + (index + 1) + ' */');
-                    lines.push(field.customCss);
-                } else {
-                    const baseCode = getFieldBaseCode(field.type, 'css');
-                    if (baseCode) {
-                        lines.push('');
-                        lines.push('/* Field ' + (index + 1) + ' Default Styles */');
-                        lines.push(baseCode);
-                    }
-                }
-            });
-
-            lines.push('</style>');
-
-            // Collect all JS (custom + base template)
             const jsEntries = [];
             formFields.forEach((field, index) => {
                 const fieldJs = field.customJs || getFieldBaseCode(field.type, 'js');
                 if (fieldJs) {
-                    jsEntries.push({
-                        index: index,
-                        label: field.label || ('Field ' + (index + 1)),
-                        code: fieldJs
-                    });
+                    jsEntries.push({ index: index, label: field.label || ('Field ' + (index + 1)), code: fieldJs });
                 }
             });
             if (jsEntries.length > 0) {
-                lines.push('');
-                lines.push('<!-- Embedded Scripts -->');
                 lines.push('<script>');
-                lines.push('console.log("[GENSRC] Page source script block running, entries: ' + jsEntries.length + '");window.parent.console.log("[GENSRC] Page source script block running (parent), entries: ' + jsEntries.length + '");');
                 jsEntries.forEach(function(entry) {
-                    lines.push('');
                     lines.push('// Field ' + (entry.index + 1) + ' - ' + entry.label);
                     lines.push(entry.code);
                 });
-                lines.push('</script>');
-            } else {
-                lines.push('');
-                lines.push('<!-- No JS entries -->');
-                lines.push('<script>');
-                lines.push('console.log("[GENSRC] No JS entries found");window.parent.console.log("[GENSRC] No JS entries found (parent)");');
                 lines.push('</script>');
             }
 

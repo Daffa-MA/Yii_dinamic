@@ -745,10 +745,12 @@
     DynamicFormLogicEngine.prototype.handleSubmit = function(e) {
         // 5.1 Pre-Submit Pipeline
         
-        // Step 1: Evaluate Active Fields
-        var activeFields = this.fields.filter(f => {
+        // Step 1: Evaluate active fields
+        var self = this;
+        var activeFields = this.fields.filter(function(f) {
             const name = f.field_name || f.name || f.field_key;
-            const container = this.form.querySelector('[name="' + cssEscape(name) + '"]')?.closest('.preview-field, .field-wrapper');
+            if (!name) return true;
+            const container = self.findFieldContainer(name);
             return !container || container.style.display !== 'none';
         });
 
@@ -771,12 +773,22 @@
     DynamicFormLogicEngine.prototype.validate = function(fields) {
         var errors = [];
         var formData = this.getFormData();
+        var self = this;
         
-        fields.forEach(field => {
+        fields.forEach(function(field) {
             const name = field.field_name || field.name || field.field_key;
+            if (!name) return;
             const val = formData[name];
+
+            var isRequired = !!field.is_required;
+            var reqConditions = field.required_if;
+            if (reqConditions && reqConditions.length > 0) {
+                if (self.checkConditions(reqConditions, field.condition_logic || 'AND', formData)) {
+                    isRequired = true;
+                }
+            }
             
-            if (field.is_required && (!val || val === '')) {
+            if (isRequired && (!val || val === '')) {
                 errors.push({ field: name, message: field.label + ' wajib diisi.' });
             }
             
@@ -851,54 +863,332 @@
     DynamicFormLogicEngine.prototype.evaluate = function() {
         var formData = this.getFormData();
         var self = this;
-        
-        this.fields.forEach(field => {
-            const name = field.field_name || field.name || field.field_key;
-            const container = this.form.querySelector('.preview-field, .field-wrapper, [data-field-container="' + cssEscape(name) + '"]') 
-                              || this.form.querySelector('[name="' + cssEscape(name) + '"]')?.closest('.preview-field, .field-wrapper');
-            
-            if (field.input_type === 'hidden') {
-                this.handleHiddenField(field);
+
+        this.fields.forEach(function(field) {
+            var name = field.field_name || field.name || field.field_key;
+            if (!name) return;
+
+            // Find container: try multiple selectors for different rendering modes
+            var container = self.findFieldContainer(name);
+
+            if (field.inputType === 'hidden' || field.input_type === 'hidden') {
+                self.handleHiddenField(field);
                 return;
             }
 
             if (!container) return;
 
-            // show_if
-            const visible = field.show_if && field.show_if.length > 0 ? this.checkConditions(field.show_if, field.condition_logic, formData) : true;
-            container.style.display = visible ? '' : 'none';
+            // Evaluate show_if
+            var showConditions = field.show_if;
+            var showResult = true;
+            if (showConditions && showConditions.length > 0) {
+                showResult = self.checkConditions(showConditions, field.condition_logic || 'AND', formData);
+            }
+            var wasHidden = container.style.display === 'none';
+            container.style.display = showResult ? '' : 'none';
 
-            // required_if
-            const required = field.is_required || (field.required_if && field.required_if.length > 0 ? this.checkConditions(field.required_if, field.condition_logic, formData) : false);
-            const input = container.querySelector('input, select, textarea');
-            if (input) {
-                input.required = required;
-                const label = container.querySelector('.preview-label, label');
-                if (label) label.classList.toggle('required', required);
+            // Clear value when hidden (clear_if behavior)
+            if (!showResult && !wasHidden) {
+                if (field.clear_if && field.clear_if.length > 0) {
+                    var shouldClear = self.checkConditions(field.clear_if, field.condition_logic || 'AND', formData);
+                    if (shouldClear) {
+                        self.clearFieldValue(container, name);
+                    }
+                }
             }
 
-            // disabled_if
-            const disabled = field.is_disabled || (field.disabled_if && field.disabled_if.length > 0 ? this.checkConditions(field.disabled_if, field.condition_logic, formData) : false);
-            if (input) input.disabled = disabled;
+            // Find input elements within container
+            var inputs = container.querySelectorAll('input, select, textarea');
+
+            // Evaluate required_if
+            var isRequired = !!field.is_required;
+            var reqConditions = field.required_if;
+            if (reqConditions && reqConditions.length > 0) {
+                if (self.checkConditions(reqConditions, field.condition_logic || 'AND', formData)) {
+                    isRequired = true;
+                }
+            }
+            inputs.forEach(function(input) {
+                if (input.type !== 'hidden') {
+                    input.required = isRequired && showResult;
+                }
+            });
+            var label = container.querySelector('.preview-label, label, .field-label');
+            if (label) {
+                if (isRequired && showResult) {
+                    label.classList.add('required');
+                } else {
+                    label.classList.remove('required');
+                }
+            }
+
+            // Evaluate disabled_if
+            var isDisabled = !!field.is_disabled;
+            var disConditions = field.disabled_if;
+            if (disConditions && disConditions.length > 0) {
+                if (self.checkConditions(disConditions, field.condition_logic || 'AND', formData)) {
+                    isDisabled = true;
+                }
+            }
+            inputs.forEach(function(input) {
+                if (input.type !== 'hidden') {
+                    input.disabled = isDisabled || !showResult;
+                }
+            });
+
+            // Evaluate readonly_if
+            var isReadonly = !!field.date_readonly;
+            var roConditions = field.readonly_if;
+            if (roConditions && roConditions.length > 0) {
+                if (self.checkConditions(roConditions, field.condition_logic || 'AND', formData)) {
+                    isReadonly = true;
+                }
+            }
+            inputs.forEach(function(input) {
+                if (showResult && isReadonly && input.type !== 'hidden') {
+                    if (input.tagName === 'SELECT') {
+                        input.disabled = true;
+                    } else {
+                        input.readOnly = true;
+                    }
+                    input.setAttribute('aria-readonly', 'true');
+                } else if (input.type !== 'hidden') {
+                    if (input.tagName === 'SELECT') {
+                        input.disabled = isDisabled || !showResult;
+                    } else {
+                        input.readOnly = false;
+                    }
+                    input.removeAttribute('aria-readonly');
+                }
+            });
+
+            // Handle dynamic date fields
+            if (field.auto_fill_today && showResult) {
+                self.handleDynamicDate(field, container);
+            }
+            self.applyDateConstraints(field, container);
+            if (field.date_readonly && showResult) {
+                inputs.forEach(function(input) {
+                    if (input.type === 'date' || input.type === 'time' || input.type === 'datetime-local') {
+                        input.readOnly = true;
+                        input.setAttribute('aria-readonly', 'true');
+                    }
+                });
+            }
         });
     };
 
-    DynamicFormLogicEngine.prototype.handleHiddenField = function(field) {
-        const name = field.field_name || field.name || field.field_key;
-        const input = this.form.querySelector('input[type="hidden"][name="' + cssEscape(name) + '"]');
-        if (!input) return;
+    DynamicFormLogicEngine.prototype.findFieldContainer = function(name) {
+        if (!name || !this.form) return null;
+        // Try multiple container patterns
+        var selectors = [
+            '[data-field-container="' + cssEscape(name) + '"]',
+            '.preview-field:has([name="' + cssEscape(name) + '"])',
+            '.field-wrapper:has([name="' + cssEscape(name) + '"])',
+            '[data-camera-component]:has([name="' + cssEscape(name) + '"])',
+            '[data-gps-camera-component]:has([name="' + cssEscape(name) + '"])',
+            '.gps-camera-field:has([name="' + cssEscape(name) + '"])',
+            '.camera-field:has([name="' + cssEscape(name) + '"])'
+        ];
+        for (var i = 0; i < selectors.length; i++) {
+            try {
+                var el = this.form.querySelector(selectors[i]);
+                if (el) return el;
+            } catch(e) {}
+        }
 
-        switch (field.value_source) {
-            case 'timestamp':
-                if (!input.value) input.value = new Date().toISOString();
-                break;
-            case 'uuid':
-                if (!input.value) input.value = crypto.randomUUID();
-                break;
-            case 'session':
-                if (field.session_key) input.value = localStorage.getItem(field.session_key) || sessionStorage.getItem(field.session_key) || input.value;
-                break;
-            // ... context and computed logic can be added here
+        // Fallback: find any container with this field name
+        var input = this.form.querySelector('[name="' + cssEscape(name) + '"]');
+        if (input) {
+            var container = input.closest('.preview-field, .field-wrapper, .gps-camera-field, .camera-field, [data-camera-component], [data-gps-camera-component]');
+            if (container) return container;
+            // Create wrapper if none exists
+            var wrapper = document.createElement('div');
+            wrapper.style.display = '';
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+            return wrapper;
+        }
+        return null;
+    };
+
+    DynamicFormLogicEngine.prototype.clearFieldValue = function(container, name) {
+        if (!container) return;
+        var inputs = container.querySelectorAll('[name="' + cssEscape(name) + '"], [name="' + cssEscape(name) + '[]"]');
+        inputs.forEach(function(input) {
+            var tag = input.tagName.toLowerCase();
+            var type = (input.type || '').toLowerCase();
+            if (tag === 'input' && (type === 'text' || type === 'number' || type === 'email' || type === 'tel' || type === 'url' || type === 'date' || type === 'time' || type === 'datetime-local')) {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (tag === 'textarea') {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (tag === 'select') {
+                input.selectedIndex = 0;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (type === 'checkbox' || type === 'radio') {
+                input.checked = false;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } else if (type === 'hidden') {
+                input.value = '';
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        // Clear camera/GPS payload
+        var cameraInput = container.querySelector('[data-camera-payload], [data-gps-camera-payload]');
+        if (cameraInput) {
+            cameraInput.value = '{}';
+            cameraInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        var previewImg = container.querySelector('[data-camera-preview], [data-gps-camera-preview]');
+        if (previewImg) {
+            previewImg.src = '';
+            previewImg.style.display = 'none';
+        }
+        var previewWrap = container.querySelector('[data-camera-preview-wrap], [data-gps-camera-preview-wrap]');
+        if (previewWrap) previewWrap.style.display = 'none';
+
+        var statusEl = container.querySelector('[data-camera-status], [data-gps-camera-status]');
+        if (statusEl) statusEl.textContent = 'Belum ada foto';
+    };
+
+    DynamicFormLogicEngine.prototype.handleDynamicDate = function(field, container) {
+        var name = field.field_name || field.name || field.field_key;
+        if (!name || !container) return;
+        // Only set if empty
+        var input = container.querySelector('[name="' + cssEscape(name) + '"]');
+        if (!input) return;
+        if (input.value) return;
+
+        var now = new Date();
+        var value = '';
+        var inputType = field.inputType || '';
+        if (inputType === 'date' || input.type === 'date') {
+            value = now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0');
+        } else if (inputType === 'time' || input.type === 'time') {
+            value = String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0');
+        } else if (inputType === 'datetime' || input.type === 'datetime-local') {
+            value = now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0') + 'T' +
+                String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0');
+        }
+        if (value) {
+            input.value = value;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    };
+
+    DynamicFormLogicEngine.prototype.applyDateConstraints = function(field, container) {
+        var name = field.field_name || field.name || field.field_key;
+        if (!name || !container) return;
+        var input = container.querySelector('[name="' + cssEscape(name) + '"]');
+        if (!input || (input.type !== 'date' && input.type !== 'time' && input.type !== 'datetime-local')) return;
+
+        var now = new Date();
+        var todayStr = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0');
+
+        if (field.min_date) {
+            input.setAttribute('min', field.min_date);
+        }
+        if (field.max_date) {
+            input.setAttribute('max', field.max_date);
+        }
+        if (field.disable_past_dates) {
+            input.setAttribute('min', todayStr);
+        }
+        if (field.disable_future_dates) {
+            input.setAttribute('max', todayStr);
+        }
+    };
+
+    DynamicFormLogicEngine.prototype.checkConditions = function(conditions, logic, formData) {
+        if (!conditions || !conditions.length) return true;
+        
+        var results = conditions.map(cond => {
+            const field = this.fieldMap[cond.field_id] || this.fieldMap[cond.field_name] || this.fieldMap[cond.field];
+            if (!field) return true;
+            
+            const name = field.field_name || field.name || field.field_key;
+            const val = formData[name];
+            return this.compare(val, cond.operator || cond.op || '==', cond.value);
+        });
+
+        if (logic === 'OR') {
+            return results.some(r => r);
+        }
+        return results.every(r => r);
+    };
+
+    DynamicFormLogicEngine.prototype.compare = function(val, op, target) {
+        // Normalize values
+        var normalizedVal = (val === null || val === undefined) ? '' : String(val);
+        var normalizedTarget = (target === null || target === undefined) ? '' : String(target);
+
+        switch (op) {
+            case '==':
+            case '===':
+                return normalizedVal === normalizedTarget;
+            case '!=':
+            case '!==':
+                return normalizedVal !== normalizedTarget;
+            case '>':
+                var numVal = parseFloat(normalizedVal);
+                var numTarget = parseFloat(normalizedTarget);
+                if (!isNaN(numVal) && !isNaN(numTarget)) return numVal > numTarget;
+                return normalizedVal > normalizedTarget;
+            case '>=':
+                var numVal2 = parseFloat(normalizedVal);
+                var numTarget2 = parseFloat(normalizedTarget);
+                if (!isNaN(numVal2) && !isNaN(numTarget2)) return numVal2 >= numTarget2;
+                return normalizedVal >= normalizedTarget;
+            case '<':
+                var numVal3 = parseFloat(normalizedVal);
+                var numTarget3 = parseFloat(normalizedTarget);
+                if (!isNaN(numVal3) && !isNaN(numTarget3)) return numVal3 < numTarget3;
+                return normalizedVal < normalizedTarget;
+            case '<=':
+                var numVal4 = parseFloat(normalizedVal);
+                var numTarget4 = parseFloat(normalizedTarget);
+                if (!isNaN(numVal4) && !isNaN(numTarget4)) return numVal4 <= numTarget4;
+                return normalizedVal <= normalizedTarget;
+            case 'contains':
+                return normalizedVal.indexOf(normalizedTarget) !== -1;
+            case 'notContains':
+                return normalizedVal.indexOf(normalizedTarget) === -1;
+            case 'in':
+                if (typeof target === 'string') {
+                    return target.split(',').map(function(s) { return s.trim(); }).indexOf(normalizedVal) !== -1;
+                }
+                if (Array.isArray(target)) {
+                    return target.indexOf(normalizedVal) !== -1;
+                }
+                return false;
+            case 'notIn':
+                if (typeof target === 'string') {
+                    return target.split(',').map(function(s) { return s.trim(); }).indexOf(normalizedVal) === -1;
+                }
+                if (Array.isArray(target)) {
+                    return target.indexOf(normalizedVal) === -1;
+                }
+                return true;
+            case 'empty':
+                return !val || val === '' || val === null || val === undefined;
+            case 'notEmpty':
+                return !!val && val !== '' && val !== null && val !== undefined;
+            default:
+                return normalizedVal === normalizedTarget;
         }
     };
 

@@ -113,7 +113,7 @@ class WidgetRegistry extends Component
                 ],
                 'datasource' => [
                     'label' => 'Data Source',
-                    'fields' => ['datasource', 'tableId', 'tableName', 'aggregate', 'column', 'filterJson', 'outputFormat']
+                    'fields' => ['datasource', 'tableId', 'tableName', 'aggregate', 'column', 'filterJson', 'customSql', 'outputFormat']
                 ],
                 'number' => [
                     'label' => 'Number Format',

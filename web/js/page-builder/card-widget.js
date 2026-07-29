@@ -238,6 +238,9 @@ class CardWidget {
                     block.props._previewValue = result.data.formatted || result.data.value;
                     this.triggerRender(blockId);
                 }
+                if (typeof renderBuilder === 'function') {
+                    renderBuilder(window.pageState || []);
+                }
             }
         } catch (e) {
         }
@@ -1680,7 +1683,7 @@ class CardPropertiesEngine {
             </div>
             <div class="prop-group" id="card-customsql-group-${blockId}" ${props.datasource === 'database' && props.aggregate === 'CUSTOM' ? '' : 'style="display:none;"'}>
                 <label class="prop-label">Custom SQL Expression</label>
-                <textarea class="prop-input prop-textarea" rows="3" placeholder="COUNT(CASE WHEN status = 'hadir' THEN 1 END)" oninput="CardPropertiesEngine.setProp('${blockId}', 'customSql', this.value)">${this.esc(props.customSql || '')}</textarea>
+                <textarea class="prop-input prop-textarea" rows="3" placeholder="COUNT(CASE WHEN status = 'hadir' THEN 1 END)" oninput="CardPropertiesEngine.update('${blockId}', 'customSql', this.value)">${this.esc(props.customSql || '')}</textarea>
                 <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
                     <button type="button" class="prop-btn prop-btn-primary" onclick="CardPropertiesEngine.refreshPreview('${blockId}')" style="padding:6px 16px;font-size:13px;font-weight:600;border:none;border-radius:8px;background:#6366f1;color:#fff;cursor:pointer;">Apply</button>
                     <small style="color:#64748b;font-size:11px;line-height:1.4;">Gunakan ekspresi SQL valid, misal: <code>COUNT(CASE WHEN status = 'hadir' THEN 1 END)</code></small>

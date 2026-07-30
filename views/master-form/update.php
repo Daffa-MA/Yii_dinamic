@@ -487,13 +487,6 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
         margin-top: 8px;
         font-size: 11px;
         color: #94a3b8;
-        padding-left: 2px;
-    }
-
-    .field-name {
-        margin-top: 8px;
-        font-size: 11px;
-        color: #94a3b8;
     }
 
     .block-type-badge {
@@ -507,27 +500,6 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
         font-weight: 700;
         border-radius: 6px;
         text-transform: uppercase;
-    }
-
-    .field-drag-handle {
-        cursor: grab;
-        color: #cbd5e1;
-        padding: 6px;
-        border-radius: 6px;
-        transition: all 0.15s;
-        flex-shrink: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .field-drag-handle:hover {
-        color: #6366f1;
-        background: #eef2ff;
-    }
-
-    .field-drag-handle:active {
-        cursor: grabbing;
     }
 
     .sortable-ghost {

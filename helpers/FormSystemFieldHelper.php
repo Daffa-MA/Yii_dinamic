@@ -61,6 +61,9 @@ class FormSystemFieldHelper
         if ($componentType === 'gps_camera') {
             return 'gps_camera';
         }
+        if ($componentType === 'file_upload') {
+            return 'file';
+        }
         $explicitComponentType = strtolower(trim((string)($field['component_type'] ?? $field['componentType'] ?? '')));
         if ($explicitComponentType === 'camera') {
             return 'camera';

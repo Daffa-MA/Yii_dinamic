@@ -1,4 +1,4 @@
-    // ===== DEBOUNCE HELPER (BUG 1 FIX) =====
+﻿    // ===== DEBOUNCE HELPER (BUG 1 FIX) =====
     // Fungsi debounce untuk mencegah infinite loop / re-render berlebihan
     function debounce(fn, delay) {
         let timer = null;
@@ -555,7 +555,7 @@
                     const referencedTableId = findDropdownTableIdByName(tableName);
                     return referencedTableId ? ensureDropdownSourceColumnsLoaded(referencedTableId) : Promise.resolve([]);
                 });
-            return Promise.all(promises);
+            return Promise.allSettled(promises);
         }
 
         function buildAutoRelationPickerFkDisplayColumns(field, displayColumns) {
@@ -1377,7 +1377,7 @@
                     tableIds.push(String(field.target_table_id));
                 }
 
-                return Promise.all(tableIds.map(function(tableId) {
+                return Promise.allSettled(tableIds.map(function(tableId) {
                     return ensureDropdownSourceColumnsLoaded(tableId);
                 }));
             }).then(function() {
@@ -1387,10 +1387,7 @@
                 field.__gps_camera_metadata_loaded = true;
                 field.__gps_camera_metadata_loading = null;
                 if (selectedIndex !== null && formFields[selectedIndex] === field) {
-                    // PERBAIKAN BUG 1: Guard agar async GPS metadata tidak memicu render loop
-                    if (_renderPropsPanelGuard) {
-                        return;
-                    }
+                    if (_renderPropsPanelGuard) return;
                     _renderPropsPanelGuard = true;
                     throttledRenderPropsPanel(formFields[selectedIndex]);
                     _renderPropsPanelGuard = false;
@@ -1761,49 +1758,59 @@
         }
 
         // Select Field
+        let _selectFieldGeneration = 0;
         window.selectField = function(index) {
             if (index === null || index === undefined) return;
+            const gen = ++_selectFieldGeneration;
             selectedIndex = index;
             
-            // Ensure properties panel is visible and on design tab
             const designTabBtn = document.querySelector('.prop-tab-btn[data-tab="design"]');
             if (designTabBtn && !designTabBtn.classList.contains('active')) {
                 designTabBtn.click();
             }
 
-            // PERBAIKAN BUG 1: Debounce render canvas agar tidak freeze saat klik cepat
             scheduleRenderFields();
             
             const field = formFields[index];
-            if (field) {
-                // PERBAIKAN: Deteksi FK secara dinamis saat field diklik
-                const tableId = getCurrentBuilderTableId();
-                if (tableId && field.name) {
-                    fetch('/tables/get-column-metadata?table_id=' + tableId + '&column_name=' + encodeURIComponent(field.name), {
-                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success && data.is_foreign_key) {
-                            field.is_foreign_key = true;
-                            field.fk_referenced_table = data.referenced_table;
-                            field.fk_referenced_column = data.referenced_column;
-                            field.target_columns = data.target_columns;
-                            if (!field.fk_display_column && Array.isArray(data.target_columns)) {
-                                var autoDisplay = data.target_columns.find(function(c) {
-                                    var name = (typeof c === 'object' ? c.name : c) || '';
-                                    return ['nama', 'name', 'title', 'label'].includes(name.toLowerCase());
-                                });
-                                field.fk_display_column = autoDisplay ? (typeof autoDisplay === 'object' ? autoDisplay.name : autoDisplay) : data.referenced_column;
-                            }
-                            syncRelationConfig(field);
+            if (!field) return;
+
+            const fieldAtSelection = function() {
+                return selectedIndex !== null && _selectFieldGeneration === gen && formFields[selectedIndex] === field;
+            };
+
+            const tableId = getCurrentBuilderTableId();
+            if (tableId && field.name) {
+                fetch('/tables/get-column-metadata?table_id=' + tableId + '&column_name=' + encodeURIComponent(field.name), {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (!fieldAtSelection()) return;
+                    if (data.success && data.is_foreign_key) {
+                        field.is_foreign_key = true;
+                        field.fk_referenced_table = data.referenced_table;
+                        field.fk_referenced_column = data.referenced_column;
+                        field.target_columns = data.target_columns;
+                        if (!field.fk_display_column && Array.isArray(data.target_columns)) {
+                            var autoDisplay = data.target_columns.find(function(c) {
+                                var name = (typeof c === 'object' ? c.name : c) || '';
+                                return ['nama', 'name', 'title', 'label'].includes(name.toLowerCase());
+                            });
+                            field.fk_display_column = autoDisplay ? (typeof autoDisplay === 'object' ? autoDisplay.name : autoDisplay) : data.referenced_column;
                         }
+                        syncRelationConfig(field);
+                    }
+                    if (fieldAtSelection()) {
                         throttledRenderPropsPanel(field);
-                    })
-                    .catch(() => throttledRenderPropsPanel(field));
-                } else {
-                    throttledRenderPropsPanel(field);
-                }
+                    }
+                })
+                .catch(() => {
+                    if (fieldAtSelection()) {
+                        throttledRenderPropsPanel(field);
+                    }
+                });
+            } else {
+                throttledRenderPropsPanel(field);
             }
         };
 
@@ -2076,8 +2083,9 @@
             var selField = '';
             allFields.forEach(function(f, fi) {
                 if (fi === selectedIndex) return;
-                if (cond.field === f.field_id || cond.field === f.name) {
-                    selField = (f.label || f.name);
+                var fieldMatchKey = f.name || f.field_name || f.field_key || f.id || ('field_' + fi);
+                if (cond.field === f.field_id || cond.field === f.name || cond.field === fieldMatchKey) {
+                    selField = (f.label || f.name || ('Field ' + (fi + 1)));
                 }
             });
             if (!selField) selField = '(field)';
@@ -2130,8 +2138,9 @@
             html += '<option value="">-- Pilih field --</option>';
             allFields.forEach(function(f, fi) {
                 if (fi === selectedIndex) return;
-                var s = (br.field === f.field_id || br.field === f.name) ? 'selected' : '';
-                html += '<option value="' + (f.name || f.field_name || f.field_key) + '" ' + s + '>' + (f.label || f.name) + '</option>';
+                var fieldMatchKey = f.name || f.field_name || f.field_key || f.id || ('field_' + fi);
+                var s = (br.field === f.field_id || br.field === f.name || br.field === fieldMatchKey) ? 'selected' : '';
+                html += '<option value="' + escapeAttr(fieldMatchKey) + '" ' + s + '>' + escapeHtml(f.label || f.name || ('Field ' + (fi + 1))) + '</option>';
             });
             html += '</select>';
             html += '</div></div>';
@@ -2326,8 +2335,9 @@
             }
         }
 
+        let _renderPropsGeneration = 0;
+
         function renderPropsPanel(field) {
-            // ===== BUG 1 FIX: Guard untuk mencegah infinite loop =====
             if (_renderPropsPanelGuard) return;
 
             field = normalizeFieldState(field);
@@ -2339,26 +2349,29 @@
                 return;
             }
 
-            // Trigger background loading of columns if needed
+            const currentGen = ++_renderPropsGeneration;
+            const currentIdx = selectedIndex;
+
+            const tryReRender = function() {
+                if (_renderPropsGeneration !== currentGen) return;
+                if (selectedIndex !== currentIdx || selectedIndex === null || formFields[selectedIndex] !== field) return;
+                throttledRenderPropsPanel(field);
+            };
+
             const builderTableId = getCurrentBuilderTableId();
-            if (builderTableId) {
+            if (builderTableId && !dropdownSourceColumnsCache['GPS_LOADED_' + builderTableId]) {
                 ensureDropdownSourceColumnsLoaded(builderTableId).then(() => {
-                    // Check if still same field selected
-                    if (selectedIndex !== null && formFields[selectedIndex] === field && !dropdownSourceColumnsCache['GPS_LOADED_' + builderTableId]) {
-                        dropdownSourceColumnsCache['GPS_LOADED_' + builderTableId] = true;
-                        throttledRenderPropsPanel(field);
-                    }
+                    dropdownSourceColumnsCache['GPS_LOADED_' + builderTableId] = true;
+                    tryReRender();
                 });
             }
 
             const refTable = field.fk_referenced_table || field.source_table_name || '';
             const refTableId = findTableIdByName(refTable);
-            if (refTableId) {
+            if (refTableId && !dropdownSourceColumnsCache['REF_LOADED_' + refTableId]) {
                 ensureDropdownSourceColumnsLoaded(refTableId).then(() => {
-                    if (selectedIndex !== null && formFields[selectedIndex] === field && !dropdownSourceColumnsCache['REF_LOADED_' + refTableId]) {
-                        dropdownSourceColumnsCache['REF_LOADED_' + refTableId] = true;
-                        throttledRenderPropsPanel(field);
-                    }
+                    dropdownSourceColumnsCache['REF_LOADED_' + refTableId] = true;
+                    tryReRender();
                 });
             }
 
@@ -2426,24 +2439,22 @@
             panel.innerHTML = html;
         }
 
-        // Update Field Property
-        const debouncedUpdateFieldProp = debounce(function(propName, value) {
+        // Update Field Property - single source of truth pattern
+        const debouncedRenderAfterPropChange = debounce(function() {
             if (selectedIndex === null || !formFields[selectedIndex]) return;
-            formFields[selectedIndex][propName] = value;
+            if (_renderPropsPanelGuard) return;
+            _renderPropsPanelGuard = true;
             normalizeFieldState(formFields[selectedIndex]);
             renderFieldsImmediate();
-            throttledRenderPropsPanel(formFields[selectedIndex]);
-            updateData();
-        }, 100);
+            renderPropsPanel(formFields[selectedIndex]);
+            _renderPropsPanelGuard = false;
+        }, 80);
 
         window.updateFieldProp = function(propName, value) {
-            // Langsung update value, baru debounce render
             if (selectedIndex === null || !formFields[selectedIndex]) return;
             formFields[selectedIndex][propName] = value;
-            updateData(); // Langsung update data agar tidak hilang
-            
-            // Debounce render UI
-            debouncedUpdateFieldProp(propName, value);
+            updateData();
+            debouncedRenderAfterPropChange();
         };
 
         window.setForeignKeyColumn = function(kind, value) {
@@ -3025,6 +3036,51 @@
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                     js: ''
                 },
+                time: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="time" name="{name}" class="field-input" />\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
+                    js: ''
+                },
+                datetime: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="datetime-local" name="{name}" class="field-input" />\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
+                    js: ''
+                },
+                tel: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="tel" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
+                    js: ''
+                },
+                url: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="url" name="{name}" class="field-input" placeholder="{placeholder}" />\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
+                    js: ''
+                },
+                radio: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div>{options}</div>\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-radio-item {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 8px;\n  font-size: 14px;\n}',
+                    js: ''
+                },
+                checkboxes: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div>{options}</div>\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-checkbox-item {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  margin-bottom: 8px;\n  font-size: 14px;\n}',
+                    js: ''
+                },
+                toggle: {
+                    html: '<div class="field-wrapper">\n  <label class="field-checkbox">\n    <input type="hidden" name="{name}" value="0" />\n    <input type="checkbox" name="{name}" value="1" class="field-toggle" />\n    <span>{label}</span>\n  </label>\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-checkbox {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  cursor: pointer;\n}\n.field-checkbox input.field-toggle {\n  width: 18px;\n  height: 18px;\n}',
+                    js: ''
+                },
+                hidden: {
+                    html: '<input type="hidden" name="{name}" value="{placeholder}" />',
+                    css: '',
+                    js: ''
+                },
+                file_upload: {
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div class="file-upload">\n    <input type="file" name="{name}" class="field-input" />\n    <span class="file-hint">Klik atau drag file ke sini</span>\n  </div>\n</div>',
+                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.file-upload {\n  border: 2px dashed #e2e8f0;\n  border-radius: 8px;\n  padding: 24px;\n  text-align: center;\n}\n.file-hint {\n  display: block;\n  color: #94a3b8;\n  font-size: 13px;\n  margin-top: 8px;\n}',
+                    js: ''
+                },
                 camera: {
                     html: '<div class="field-wrapper camera-field" data-camera-component="1">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" value="" data-camera-payload />\n  <input type="file" name="__camera_file_{name}" accept="image/*" capture="environment" class="camera-file" hidden />\n  <div class="camera-box">\n    <button type="button" class="camera-trigger" id="camera-trigger-{name}">Ambil Foto</button>\n    <button type="button" class="camera-clear" id="camera-clear-{name}">Reset</button>\n    <span class="camera-status">Foto akan disiapkan otomatis.</span>\n  </div>\n  <img class="camera-preview" alt="Preview foto" hidden />\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.camera-box {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 10px;\n  align-items: center;\n  padding: 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 12px;\n  background: #f8fafc;\n}\n.camera-trigger,\n.camera-clear {\n  padding: 10px 14px;\n  border-radius: 10px;\n  border: 1px solid #cbd5e1;\n  background: #fff;\n  font-weight: 700;\n}\n.camera-trigger {\n  background: #4f46e5;\n  border-color: #4f46e5;\n  color: #fff;\n}\n.camera-preview {\n  display: block;\n  max-width: 100%;\n  margin-top: 10px;\n  border-radius: 12px;\n}\n.camera-status {\n  font-size: 12px;\n  color: #64748b;\n}',
@@ -3034,20 +3090,24 @@
                     html: '<div class="field-wrapper gps-camera-field" data-gps-camera-component="1">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" value="" data-gps-camera-payload />\n  <input type="file" name="__gps_camera_file_{name}" accept="image/*" capture="environment" class="gps-camera-file" hidden />\n  <div class="gps-camera-box">\n    <button type="button" class="gps-camera-trigger">Ambil Foto</button>\n    <button type="button" class="gps-camera-clear">Reset</button>\n    <span class="gps-camera-status">Foto dan GPS akan disiapkan otomatis.</span>\n  </div>\n  <img class="gps-camera-preview" alt="Preview foto" hidden />\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.gps-camera-box {\n  display: flex;\n  flex-wrap: wrap;\n  gap: 10px;\n  align-items: center;\n  padding: 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 12px;\n  background: #f8fafc;\n}\n.gps-camera-trigger,\n.gps-camera-clear {\n  padding: 10px 14px;\n  border-radius: 10px;\n  border: 1px solid #cbd5e1;\n  background: #fff;\n  font-weight: 700;\n}\n.gps-camera-trigger {\n  background: #4f46e5;\n  border-color: #4f46e5;\n  color: #fff;\n}\n.gps-camera-preview {\n  display: block;\n  max-width: 100%;\n  margin-top: 10px;\n  border-radius: 12px;\n}\n.gps-camera-status {\n  font-size: 12px;\n  color: #64748b;\n}',
                     js: '(function(){try{console.log("[GPS] Template executing");window.parent.console.log("[GPS] Template executing (parent)");}catch(e){}if(window.__gpsCameraComponentBinder)return;window.__gpsCameraComponentBinder=true;function setPayload(wrapper,payload){var input=wrapper.querySelector("[data-gps-camera-payload]");if(input){input.value=JSON.stringify(payload||{});}var status=wrapper.querySelector(".gps-camera-status");if(status){var text=[];if(payload.photo_name)text.push(payload.photo_name);if(payload.latitude||payload.longitude)text.push((payload.latitude||"-") + ", " + (payload.longitude||"-"));status.textContent=text.join(" | ")||"Foto dan GPS akan disiapkan otomatis.";}}function setPreview(wrapper,src){var preview=wrapper.querySelector(".gps-camera-preview");if(!preview)return;if(src){preview.src=src;preview.hidden=false;}else{preview.removeAttribute("src");preview.hidden=true;}}function fileToDataUrl(file){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result||""));};reader.onerror=function(){reject(reader.error||new Error("read_error"));};reader.readAsDataURL(file);});}function captureGps(){if(!navigator.geolocation){return Promise.resolve({});}return new Promise(function(resolve){navigator.geolocation.getCurrentPosition(function(position){resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,gps_accuracy:position.coords.accuracy});},function(){resolve({});},{enableHighAccuracy:true,maximumAge:0,timeout:10000});});}async function handleFile(wrapper,file){if(!file){setPayload(wrapper,{});setPreview(wrapper,"");return;}var imageSrc="";try{imageSrc=await fileToDataUrl(file);}catch(e){}var gps=await captureGps();var payload={photo_name:file.name||"",photo_mime:file.type||"",photo_size:file.size||0,photo_data:imageSrc,latitude:gps.latitude||"",longitude:gps.longitude||"",gps_accuracy:gps.gps_accuracy||"",captured_date:"",captured_time:"",captured_at_server:""};setPayload(wrapper,payload);if(imageSrc){setPreview(wrapper,imageSrc);}}function gw(el){return el?el.closest("[data-gps-camera-component]"):null;}document.addEventListener("click",function(e){var trigger=e.target.closest(".gps-camera-trigger");if(trigger){try{console.log("[GPS] Trigger clicked");window.parent.console.log("[GPS] Trigger clicked (parent)");}catch(e){}var w=gw(trigger);if(w){var fi=w.querySelector(".gps-camera-file");if(fi)fi.click();}return;}var cb=e.target.closest(".gps-camera-clear");if(cb){try{console.log("[GPS] Clear clicked");}catch(e){}var w=gw(cb);if(w){var fi=w.querySelector(".gps-camera-file");if(fi)fi.value="";setPayload(w,{});setPreview(w,"");}}});document.addEventListener("change",function(e){var fi=e.target.closest(".gps-camera-file");if(fi){var w=gw(fi);if(w){handleFile(w,fi.files?fi.files[0]:null);}}});})();'
-                },
-                file: {
-                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <div class="file-upload">\n    <input type="file" name="{name}" class="field-input" />\n    <span class="file-hint">Klik atau drag file ke sini</span>\n  </div>\n</div>',
-                    css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.file-upload {\n  border: 2px dashed #e2e8f0;\n  border-radius: 8px;\n  padding: 24px;\n  text-align: center;\n}\n.file-hint {\n  display: block;\n  color: #94a3b8;\n  font-size: 13px;\n  margin-top: 8px;\n}',
-                    js: ''
                 }
             };
 
             var template = baseCodeTemplates[fieldType] || baseCodeTemplates.text;
-            if (template === baseCodeTemplates.text && ['dropdown', 'select'].indexOf(fieldType) >= 0) {
+            if (template === baseCodeTemplates.text && (fieldType === 'dropdown' || fieldType === 'select')) {
                 template = baseCodeTemplates.select;
             }
-            if (template === baseCodeTemplates.text && ['date', 'datetime', 'datetime-local', 'time'].indexOf(fieldType) >= 0) {
-                template = baseCodeTemplates.date;
+            if (template === baseCodeTemplates.text && (fieldType === 'phone')) {
+                template = baseCodeTemplates.tel;
+            }
+            if (template === baseCodeTemplates.text && (fieldType === 'bool' || fieldType === 'boolean')) {
+                template = baseCodeTemplates.toggle;
+            }
+            if (template === baseCodeTemplates.text && fieldType === 'file') {
+                template = baseCodeTemplates.file_upload;
+            }
+            if (template === baseCodeTemplates.text && (fieldType === 'datetime-local')) {
+                template = baseCodeTemplates.datetime;
             }
             var code = template[lang] || '';
 
@@ -3220,9 +3280,38 @@
                 .replace(/\{name\}/g, field.name || getFieldTokenName(field, index))
                 .replace(/\{type\}/g, field.type || 'text');
             if (String(code || '').indexOf('{options}') !== -1) {
-                resolved = resolved.replace(/\{options\}/g, buildSelectOptionsMarkup(field));
+                var ft = String(field.type || '').toLowerCase();
+                if (ft === 'radio') {
+                    resolved = resolved.replace(/\{options\}/g, buildRadioOptionsMarkup(field));
+                } else if (ft === 'checkboxes') {
+                    resolved = resolved.replace(/\{options\}/g, buildCheckboxOptionsMarkup(field));
+                } else {
+                    resolved = resolved.replace(/\{options\}/g, buildSelectOptionsMarkup(field));
+                }
             }
             return resolved;
+        }
+
+        function buildRadioOptionsMarkup(field) {
+            const options = getFieldConfiguredOptions(field);
+            if (!options.length) return '';
+            return options.map(function(opt) {
+                var val = escapeAttr(opt.value ?? '');
+                var lbl = escapeHtml(opt.label ?? opt.value ?? '');
+                if (!val) return '';
+                return '<label class="field-radio-item"><input type="radio" name="' + escapeAttr(field.name || '') + '" value="' + val + '" /> <span>' + lbl + '</span></label>';
+            }).join('\n');
+        }
+
+        function buildCheckboxOptionsMarkup(field) {
+            const options = getFieldConfiguredOptions(field);
+            if (!options.length) return '';
+            return options.map(function(opt) {
+                var val = escapeAttr(opt.value ?? '');
+                var lbl = escapeHtml(opt.label ?? opt.value ?? '');
+                if (!val) return '';
+                return '<label class="field-checkbox-item"><input type="checkbox" name="' + escapeAttr(field.name || '') + '[]" value="' + val + '" /> <span>' + lbl + '</span></label>';
+            }).join('\n');
         }
 
         function normalizeGeneratedFieldMarkup(markup, field, index) {
@@ -3574,13 +3663,49 @@
         }
 
         // Update Data
+        var _FIELD_DEFAULTS = {
+            field_id: '', is_required: false, is_visible: true, is_disabled: false,
+            placeholder: '', default_value: '', helper_text: '', error_text: '',
+            column_width: 12, column_offset: 0, section_id: '', css_class: '',
+            style_override: {}, tooltip: '', icon_prefix: '', icon_suffix: '', tab_index: 0,
+            validation_rules: [], validate_on: 'change', custom_validator: '',
+            remote_validate_url: '', remote_validate_debounce_ms: 500, validate_on_mount: false,
+            show_if: [], required_if: [], disabled_if: [], readonly_if: [], clear_if: [],
+            condition_logic: 'AND', condition_groups: [],
+            auto_fill_today: false, date_readonly: false, min_date: '', max_date: '',
+            date_format: '', disable_past_dates: false, disable_future_dates: false,
+            dropdown_source: 'static_options', options: [], option_preset: ''
+        };
+
+        function cleanFieldState(field) {
+            var cleaned = {};
+            for (var key in field) {
+                if (!field.hasOwnProperty(key)) continue;
+                if (key === 'type' || key === 'inputType' || key === 'name' || key === 'label' || key === 'id') {
+                    cleaned[key] = field[key];
+                    continue;
+                }
+                if (key in _FIELD_DEFAULTS) {
+                    var val = field[key];
+                    var def = _FIELD_DEFAULTS[key];
+                    if (typeof def === 'object' && def !== null) {
+                        if (Array.isArray(def) && Array.isArray(val) && val.length === 0) continue;
+                        if (typeof def === 'object' && !Array.isArray(def) && typeof val === 'object' && val !== null && Object.keys(val).length === 0) continue;
+                    }
+                    if (val === def) continue;
+                }
+                cleaned[key] = field[key];
+            }
+            return cleaned;
+        }
+
         function updateData() {
             const removedSystemFields = removeSystemFieldsFromState();
             const input = document.getElementById('form-data-input');
             if (input) {
                 formFields = formFields.map(normalizeFieldState);
                 input.value = JSON.stringify({
-                    fields: formFields
+                    fields: formFields.map(cleanFieldState)
                 });
             }
             if (removedSystemFields) {
@@ -3691,7 +3816,8 @@
                     document.getElementById('table-id-input').value = String(currentTableId);
                     ensureDropdownSourceColumnsLoaded(currentTableId);
                 }
-            });
+            })
+            .catch(function() {});
 
         // Generate fields from table
         document.getElementById('generate-from-table').addEventListener('click', function() {
@@ -3848,7 +3974,7 @@
                             }
                         });
 
-                        Promise.all(fkPromises).then(() => {
+                        Promise.allSettled(fkPromises).then(() => {
                             renderFields();
                             updateData();
                         });

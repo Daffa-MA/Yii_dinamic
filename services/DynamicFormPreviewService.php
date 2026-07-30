@@ -311,13 +311,40 @@ class DynamicFormPreviewService
                 $fieldHtml .= FormRenderService::renderGpsCameraField($field, $interactive);
                 continue;
             }
+            $isFileUpload = in_array($type, ['file', 'file_upload'], true);
+            if ($isFileUpload) {
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="file" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></div>';
+                continue;
+            }
             $inputType = in_array($type, ['email', 'number', 'password', 'tel', 'url', 'date', 'time', 'datetime-local', 'file'], true) ? $type : 'text';
             $dateAttrs = '';
             if (in_array($type, ['date', 'time', 'datetime-local'], true)) {
                 if (!empty($field['min_date'])) $dateAttrs .= ' min="' . Html::encode($field['min_date']) . '"';
                 if (!empty($field['max_date'])) $dateAttrs .= ' max="' . Html::encode($field['max_date']) . '"';
+                if (!empty($field['disable_past_dates'])) $dateAttrs .= ' data-disable-past-dates="1"';
+                if (!empty($field['disable_future_dates'])) $dateAttrs .= ' data-disable-future-dates="1"';
+                if (!empty($field['auto_fill_today'])) {
+                    $dateAttrs .= ' data-auto-fill-today="1"';
+                    $defaultValueFromField = (string)($field['default_value'] ?? '');
+                    if ($defaultValueFromField === '') {
+                        $now = new \DateTime('now', new \DateTimeZone('Asia/Jakarta'));
+                        if ($type === 'date') {
+                            $defaultValueFromField = $now->format('Y-m-d');
+                        } elseif ($type === 'time') {
+                            $defaultValueFromField = $now->format('H:i');
+                        } elseif ($type === 'datetime' || $type === 'datetime-local') {
+                            $defaultValueFromField = $now->format('Y-m-d\TH:i');
+                        }
+                    }
+                    $field['default_value'] = $defaultValueFromField;
+                }
+                if (!empty($field['date_readonly'])) {
+                    $dateAttrs .= ' readonly data-date-readonly="1"';
+                }
             }
-            $fieldHtml .= '<div style="margin-bottom:10px;" data-field-container="' . $name . '"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="' . $inputType . '" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"' . $dateAttrs . '></div>';
+            $defaultValue = Html::encode((string)($field['default_value'] ?? ''));
+            $requiredAttr = !empty($field['required']) ? ' required' : '';
+            $fieldHtml .= '<div style="margin-bottom:10px;" data-field-container="' . $name . '"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="' . $inputType . '" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="' . $defaultValue . '" placeholder="' . $placeholder . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"' . $dateAttrs . $requiredAttr . '></div>';
         }
 
         $submitHtml = '<div style="margin-top:6px;"><button type="' . ($interactive ? 'submit' : 'button') . '" ' . ($interactive ? '' : 'disabled') . ' style="padding:9px 14px;background:#0f172a;color:#fff;border:none;border-radius:8px;opacity:.85;">Submit</button></div>';

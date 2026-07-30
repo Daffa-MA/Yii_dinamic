@@ -743,7 +743,19 @@ if ($model->table_id) {
                             if (!empty($field['max_date'])) $dateInputAttrs['max'] = $field['max_date'];
                             if (!empty($field['disable_past_dates'])) $dateInputAttrs['data-disable-past-dates'] = '1';
                             if (!empty($field['disable_future_dates'])) $dateInputAttrs['data-disable-future-dates'] = '1';
-                            if (!empty($field['auto_fill_today'])) $dateInputAttrs['data-auto-fill-today'] = '1';
+                            if (!empty($field['auto_fill_today'])) {
+                                $dateInputAttrs['data-auto-fill-today'] = '1';
+                                if ($defaultValue === '' || $defaultValue === null) {
+                                    $now = new DateTime('now', new \DateTimeZone('Asia/Jakarta'));
+                                    if ($type === 'date') {
+                                        $defaultValue = $now->format('Y-m-d');
+                                    } elseif ($type === 'time') {
+                                        $defaultValue = $now->format('H:i');
+                                    } elseif ($type === 'datetime' || $type === 'datetime-local') {
+                                        $defaultValue = $now->format('Y-m-d\TH:i');
+                                    }
+                                }
+                            }
                             if (!empty($field['date_readonly'])) {
                                 $dateInputAttrs['readonly'] = true;
                                 $dateInputAttrs['data-date-readonly'] = '1';
@@ -757,7 +769,7 @@ if ($model->table_id) {
                         <?php elseif ($isGpsCamera): ?>
                             <?= FormRenderService::renderGpsCameraField($field, true, false) ?>
                         
-                        <?php elseif ($type === 'file'): ?>
+                        <?php elseif ($type === 'file' || $type === 'file_upload'): ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <?= Html::fileInput($name, null, ['class' => 'preview-input', 'required' => $required]) ?>
                         

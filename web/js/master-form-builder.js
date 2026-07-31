@@ -3032,17 +3032,17 @@
                     js: ''
                 },
                 date: {
-                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="date" name="{name}" class="field-input" />\n</div>',
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="date" name="{name}" class="field-input"{dateAttrs} />\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                     js: ''
                 },
                 time: {
-                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="time" name="{name}" class="field-input" />\n</div>',
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="time" name="{name}" class="field-input"{dateAttrs} />\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                     js: ''
                 },
                 datetime: {
-                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="datetime-local" name="{name}" class="field-input" />\n</div>',
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="datetime-local" name="{name}" class="field-input"{dateAttrs} />\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-input {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n}',
                     js: ''
                 },
@@ -3117,6 +3117,20 @@
                 code = code.replace(/{placeholder}/g, replaceField.placeholder || '');
                 code = code.replace(/{name}/g, replaceField.name || getFieldTokenName(replaceField, replaceIndex));
                 code = code.replace(/{type}/g, replaceField.type || 'text');
+            }
+
+            // PERBAIKAN BUG 2: Sertakan atribut date (auto-fill/readonly/min/max/disable) ke
+            // kode yang di-generate untuk Page Source, sehingga runtime /page/view/ memakai
+            // perilaku yang sama seperti preview (/master-form/preview).
+            if (lang === 'html' && replaceField && (fieldType === 'date' || fieldType === 'time' || fieldType === 'datetime' || fieldType === 'datetime-local')) {
+                var dateAttrs = '';
+                if (replaceField.min_date) dateAttrs += ' min="' + String(replaceField.min_date).replace(/"/g, '&quot;') + '"';
+                if (replaceField.max_date) dateAttrs += ' max="' + String(replaceField.max_date).replace(/"/g, '&quot;') + '"';
+                if (replaceField.disable_past_dates) dateAttrs += ' data-disable-past-dates="1"';
+                if (replaceField.disable_future_dates) dateAttrs += ' data-disable-future-dates="1"';
+                if (replaceField.auto_fill_today) dateAttrs += ' data-auto-fill-today="1"';
+                if (replaceField.date_readonly) dateAttrs += ' readonly data-date-readonly="1"';
+                code = code.replace(/{dateAttrs}/g, dateAttrs);
             }
 
             return code;
@@ -3223,7 +3237,13 @@
             const htmlInput = document.getElementById('custom-html-input');
             const cssInput = document.getElementById('custom-css-input');
             const jsInput = document.getElementById('custom-js-input');
-            const useCustom = activeCodeScope === 'page' && (fullFormCustomHtml || '').trim() !== '';
+            // PERBAIKAN BUG 1: Hanya tulis ke hidden inputs ketika user sedang mengedit Page Source.
+            // Jika scope masih 'component' (belum menyentuh tab Page Source), jangan menimpa
+            // custom code yang sudah tersimpan dengan nilai kosong.
+            if (activeCodeScope !== 'page') {
+                return;
+            }
+            const useCustom = (fullFormCustomHtml || '').trim() !== '';
             if (useInput) useInput.value = useCustom ? '1' : '0';
             if (htmlInput) htmlInput.value = useCustom ? fullFormCustomHtml : '';
             if (cssInput) cssInput.value = useCustom ? fullFormCustomCss : '';
@@ -4064,9 +4084,33 @@
             return systemFields.includes(normalizedName);
         }
 
+        // ===== PERBAIKAN BUG 1 (custom code hilang saat edit) =====
+        // Hidrasi nilai custom code yang tersimpan (dari update.php) ke state builder.
+        // Tanpa ini, fullFormCustomHtml/Css/Js selalu kosong saat load dan
+        // updateCustomCodeInputs() akan menimpa custom code yang tersimpan dengan string kosong.
+        function hydrateStoredCustomCode() {
+            try {
+                var useInput = document.getElementById('use-custom-code-input');
+                var htmlInput = document.getElementById('custom-html-input');
+                var cssInput = document.getElementById('custom-css-input');
+                var jsInput = document.getElementById('custom-js-input');
+                var storedUseCustomCode = useInput && useInput.value === '1';
+                var storedHtml = htmlInput ? htmlInput.value : '';
+                if (storedUseCustomCode && storedHtml.trim() !== '') {
+                    fullFormCustomHtml = storedHtml;
+                    fullFormCustomCss = cssInput ? cssInput.value : '';
+                    fullFormCustomJs = jsInput ? jsInput.value : '';
+                    activeCodeScope = 'page';
+                }
+            } catch (e) {
+                console.error('BUG 1 FIX: Gagal hydrate custom code tersimpan:', e);
+            }
+        }
+
         // PERBAIKAN BUG 2: Inisialisasi builder SETELAH semua helper & fieldIcons siap
         function initializeBuilderFromStoredData() {
             loadExistingFormData();
+            hydrateStoredCustomCode();
             renderFieldsImmediate();
             if (formFields.length > 0) {
                 selectedIndex = 0;

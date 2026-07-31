@@ -1,0 +1,46 @@
+# --- Version control ---
+.git/
+.gitattributes
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Dependencies (rebuilt inside Docker) ---
+vendor/
+node_modules/
+
+# --- Yii2 generated / writable folders ---
+runtime/*
+!runtime/.gitignore
+web/assets/*
+web/uploads/*
+storage/uploads/*
+
+# --- Deployment config (handled by Coolify/Traefik) ---
+docker-compose.yml
+deploy/
+
+# --- Editor / AI agent tooling ---
+.vscode/
+.idea/
+.agents/
+.codex/
+.kilocode/
+.kombai/
+.qodo/
+.qwen/
+
+# --- Docs, tests & vagrant ---
+docs/
+tests/
+vagrant/
+*.md
+
+# --- OS / misc dev files ---
+.DS_Store
+Thumbs.db
+*.log
+setup.bat
+image.png

@@ -1381,7 +1381,7 @@ $this->registerCssFile('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.
     </div>
 </div>
 
-<script src="/js/master-form-builder.js"></script>
+<script src="/js/master-form-builder.js?v=<?= filemtime(Yii::getAlias('@webroot') . '/js/master-form-builder.js') ?>"></script>
 
 <?php if (!empty($formNameErrors)): ?>
     <script>

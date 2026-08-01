@@ -125,6 +125,38 @@ class DynamicFormPreviewService
             if (!empty($fields)) {
                 $schemaScript = '<script>window.__dynamicFormSchema = ' . json_encode(['fields' => $fields, 'form_id' => (int)$form->id, 'title' => (string)$form->form_name]) . ';</script>';
             }
+            // PERBAIKAN BUG 2 (runtime): Isi otomatis tanggal/waktu + readonly/min/max di mode
+            // custom code page source. Preview memakai render server-side (nilai terisi dari
+            // Asia/Jakarta), sedangkan override mengembalikan custom HTML tersimpan dengan input
+            // kosong. Script ini menjamin perilaku runtime sama seperti preview, tanpa bergantung
+            // pada engine binding (schema global/container :has()) yang rapuh di iframe sandbox.
+            $dateRuntimeFields = [];
+            foreach ($fields as $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+                $inputType = (string)($field['inputType'] ?? $field['type'] ?? $field['field_type'] ?? '');
+                if (!in_array($inputType, ['date', 'time', 'datetime', 'datetime-local'], true)) {
+                    continue;
+                }
+                $fieldName = (string)($field['field_name'] ?? $field['name'] ?? $field['field_key'] ?? $field['resolved_name'] ?? '');
+                if ($fieldName === '') {
+                    continue;
+                }
+                $dateRuntimeFields[] = [
+                    'name' => $fieldName,
+                    'auto_fill_today' => !empty($field['auto_fill_today']),
+                    'date_readonly' => !empty($field['date_readonly']),
+                    'min_date' => (string)($field['min_date'] ?? ''),
+                    'max_date' => (string)($field['max_date'] ?? ''),
+                    'disable_past_dates' => !empty($field['disable_past_dates']),
+                    'disable_future_dates' => !empty($field['disable_future_dates']),
+                ];
+            }
+            $dateRuntimeScript = '';
+            if (!empty($dateRuntimeFields)) {
+                $dateRuntimeScript = '<script>(function(){var fields=' . json_encode($dateRuntimeFields) . ';function apply(){var now=new Date(Date.now()+7*3600*1000);var y=now.getUTCFullYear();var mo=String(now.getUTCMonth()+1).padStart(2,"0");var d=String(now.getUTCDate()).padStart(2,"0");var h=String(now.getUTCHours()).padStart(2,"0");var mi=String(now.getUTCMinutes()).padStart(2,"0");var today=y+"-"+mo+"-"+d;for(var i=0;i<fields.length;i++){var f=fields[i];var els=document.getElementsByName(f.name);for(var j=0;j<els.length;j++){var el=els[j];if(el.type!=="date"&&el.type!=="time"&&el.type!=="datetime-local")continue;if(f.auto_fill_today&&!el.value){if(el.type==="date")el.value=today;else if(el.type==="time")el.value=h+":"+mi;else el.value=today+"T"+h+":"+mi;}if(f.min_date)el.setAttribute("min",f.min_date);if(f.max_date)el.setAttribute("max",f.max_date);if(f.disable_past_dates)el.setAttribute("min",today);if(f.disable_future_dates)el.setAttribute("max",today);if(f.date_readonly){el.readOnly=true;el.setAttribute("data-date-readonly","1");}}}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",apply);}else{apply();}})();</script>';
+            }
             $scriptHtml = $customJs !== '' ? '<script>(function(){try{' . $customJs . '}catch(e){console.error(e);}})();</script>' : '';
             $customHtml = FormRenderService::prepareCustomFormSubmission($customHtml, (int)$form->id, [
                 '_embedded' => $interactive ? '1' : '',
@@ -156,6 +188,7 @@ class DynamicFormPreviewService
                 . ($customCss !== '' ? '<style>' . $customCss . '</style>' : '')
                 . $customHtml
                 . $schemaScript
+                . $dateRuntimeScript
                 . $scriptHtml
                 . '</div>';
         }

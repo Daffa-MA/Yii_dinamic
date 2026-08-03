@@ -325,7 +325,7 @@ class WorkspaceSettingsController extends Controller
         $pages = $pageSchema !== null ? $pageQuery->orderBy($pageOrder)->all($db) : [];
 
         return [
-            'menu' => array_values(array_map(function (array $menu): array {
+            'menu' => $this->uniqueAccessCatalogEntries(array_values(array_map(function (array $menu): array {
                 $name = trim((string)($menu['name'] ?? ''));
                 $menuKey = $this->normalizeAccessKey((string)($menu['menu_key'] ?? ($name !== '' ? $name : ($menu['route'] ?? 'menu'))));
                 return [
@@ -334,8 +334,8 @@ class WorkspaceSettingsController extends Controller
                     'label' => $name !== '' ? $name : ucfirst(str_replace('-', ' ', $menuKey)),
                     'description' => 'Menu aplikasi yang tampil di sidebar.',
                 ];
-            }, $menus)),
-            'page' => array_values(array_map(function (array $page): array {
+            }, $menus))),
+            'page' => $this->uniqueAccessCatalogEntries(array_values(array_map(function (array $page): array {
                 $label = trim((string)($page['name'] ?? $page['title'] ?? ''));
                 $pageKey = $this->normalizeAccessKey((string)($page['slug'] ?? ($label !== '' ? $label : ($page['id'] ?? 'page'))));
                 return [
@@ -344,7 +344,7 @@ class WorkspaceSettingsController extends Controller
                     'label' => $label !== '' ? $label : ucfirst(str_replace('-', ' ', $pageKey)),
                     'description' => 'Halaman yang boleh dibuka oleh role ini.',
                 ];
-            }, $pages)),
+            }, $pages))),
             'system_builder' => [
                 [
                     'type' => 'system_builder',
@@ -484,26 +484,75 @@ class WorkspaceSettingsController extends Controller
         $postedAccess = (array)Yii::$app->request->post('access', []);
         $now = date('Y-m-d H:i:s');
 
-        $db->createCommand()->delete('role_access', ['role' => $role])->execute();
+        $transaction = $db->beginTransaction();
+        try {
+            $db->createCommand()->delete('role_access', ['role' => $role])->execute();
 
-        foreach ($catalog as $type => $items) {
-            foreach ($items as $item) {
-                $key = strtolower(trim((string)($item['key'] ?? '')));
-                if ($key === '') {
-                    continue;
+            $seen = [];
+            foreach ($catalog as $type => $items) {
+                foreach ($items as $item) {
+                    $key = strtolower(trim((string)($item['key'] ?? '')));
+                    if ($key === '') {
+                        continue;
+                    }
+
+                    $comboKey = $type . "\x00" . $key;
+                    if (isset($seen[$comboKey])) {
+                        continue;
+                    }
+                    $seen[$comboKey] = true;
+
+                    $canAccess = !empty($postedAccess[$type][$key]);
+                    $db->createCommand()->insert('role_access', [
+                        'role' => $role,
+                        'access_type' => $type,
+                        'access_key' => $key,
+                        'can_access' => $canAccess ? 1 : 0,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ])->execute();
                 }
-
-                $canAccess = !empty($postedAccess[$type][$key]);
-                $db->createCommand()->insert('role_access', [
-                    'role' => $role,
-                    'access_type' => $type,
-                    'access_key' => $key,
-                    'can_access' => $canAccess ? 1 : 0,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ])->execute();
             }
+
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            $transaction->rollBack();
+            throw $e;
         }
+    }
+
+    /**
+     * Deduplicate catalog entries by their normalized access key so the same
+     * (access_type, access_key) combination is never emitted twice. Source rows
+     * (master_menu, master_page) may normalize to the same key; the first
+     * occurrence wins to preserve ordering.
+     *
+     * @param array<int, array<string, mixed>> $entries
+     * @return array<int, array<string, mixed>>
+     */
+    private function uniqueAccessCatalogEntries(array $entries): array
+    {
+        $seen = [];
+        $unique = [];
+        foreach ($entries as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            $key = strtolower(trim((string)($entry['key'] ?? '')));
+            if ($key === '') {
+                continue;
+            }
+
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            $unique[] = $entry;
+        }
+
+        return $unique;
     }
 
     private function buildAccessPreview(array $catalog): array

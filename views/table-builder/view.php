@@ -839,7 +839,7 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
                     <tbody id="sheet-body">
                         <?php if (!empty($sheetRows)): ?>
                             <?php foreach ($sheetRows as $rowIndex => $sheetRow): ?>
-                                        <tr class="sheet-row" data-row-index="<?= (int)$rowIndex ?>" data-row-state="clean" data-row-key="<?= Html::encode(json_encode($sheetRow['key'])) ?>" data-row-values="<?= Html::encode(json_encode($sheetRow['values'])) ?>">
+                                        <tr class="sheet-row" data-row-index="<?= (int)$rowIndex ?>" data-row-state="saved" data-row-key="<?= Html::encode(json_encode($sheetRow['key'])) ?>" data-row-values="<?= Html::encode(json_encode($sheetRow['values'])) ?>">
                                     <td>
                                         <input type="checkbox" class="sheet-checkbox sheet-row-check">
                                     </td>
@@ -859,7 +859,7 @@ $formColumnsMeta = array_values(array_filter(array_map(static function ($col) {
                                             ]) ?>
                                         </td>
                                     <?php endforeach; ?>
-                                    <td class="sheet-state" data-row-status>Belum tersimpan</td>
+                                    <td class="sheet-state saved" data-row-status>Tersimpan</td>
                                     <td>
                                         <button type="button" class="sheet-btn primary sheet-save-row-btn" data-save-row-btn>Simpan</button>
                                     </td>

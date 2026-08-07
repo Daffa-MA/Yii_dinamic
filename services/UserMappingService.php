@@ -93,9 +93,15 @@ class UserMappingService
 
     /**
      * Read the mapping stored directly on a `users` row. Single indexed PK
-     * lookup - O(1), no joins, no scanning.
+     * lookup - O(1), no joins, no scanning. The account `role` rides along on
+     * the same row read so Current Identity resolution never costs an extra
+     * query.
      *
-     * @return array{identity_table: string, identity_record_id: string}|null
+     * @return array{
+     *   identity_table: string,
+     *   identity_record_id: string,
+     *   role: string,
+     * }|null
      */
     public function getMapping(?int $projectId, int $userId): ?array
     {
@@ -106,7 +112,7 @@ class UserMappingService
         $this->ensureDatabaseContext();
 
         $row = (new Query())
-            ->select(['identity_table', 'identity_record_id'])
+            ->select(['identity_table', 'identity_record_id', 'role'])
             ->from(self::USERS_TABLE)
             ->where(['id' => $userId])
             ->one(Yii::$app->db);
@@ -124,6 +130,7 @@ class UserMappingService
         return [
             'identity_table' => $identityTable,
             'identity_record_id' => $identityRecordId,
+            'role' => strtolower(trim((string)($row['role'] ?? ''))),
         ];
     }
 
@@ -140,6 +147,7 @@ class UserMappingService
      *   record: array<string, mixed>,
      *   table_name: string,
      *   identity_record_id: string,
+     *   role: string,
      *   user_id: int,
      * }|null
      */
@@ -215,6 +223,7 @@ class UserMappingService
             'record' => $record,
             'table_name' => $mapping['identity_table'],
             'identity_record_id' => $mapping['identity_record_id'],
+            'role' => (string)($mapping['role'] ?? ''),
             'user_id' => $userId,
         ];
     }

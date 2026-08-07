@@ -99,7 +99,7 @@ class RelationMapper
             ->all($db);
     }
 
-    private function resolveDisplayColumn(string $tableName, string $referencedColumn): ?string
+    public function resolveDisplayColumn(string $tableName, string $referencedColumn): ?string
     {
         $db = $this->getDb();
         $schema = $db->schema->getTableSchema($tableName, true);

@@ -1055,6 +1055,62 @@ $faviconUrl = (string)($faviconAsset['url'] ?? '');
         line-height: 1.5;
     }
 
+    .ws-media-help code,
+    .ws-favicon-help code {
+        background: rgba(79, 70, 229, 0.08);
+        padding: 1px 5px;
+        border-radius: 5px;
+        font-size: 12px;
+        color: #4338ca;
+    }
+
+    /* Identity status panel */
+    .ws-identity-status {
+        margin: 18px 0 4px;
+        padding: 16px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 1px solid #eef2f7;
+    }
+
+    .ws-identity-status-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #64748b;
+        margin-bottom: 10px;
+    }
+
+    .ws-identity-status-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 8px 0;
+        border-bottom: 1px dashed #e2e8f0;
+    }
+    .ws-identity-status-row:last-child { border-bottom: none; }
+
+    .ws-identity-status-icon {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+    .ws-identity-status-icon.ok { background: #d1fae5; color: #047857; }
+    .ws-identity-status-icon.warn { background: #fed7aa; color: #c2410c; }
+    .ws-identity-status-icon.bad { background: #fecaca; color: #b91c1c; }
+    .ws-identity-status-icon.muted { background: #e2e8f0; color: #64748b; }
+
+    .ws-identity-status-body { flex: 1; }
+    .ws-identity-status-label { font-size: 13px; font-weight: 600; color: #0f172a; }
+    .ws-identity-status-note { font-size: 12.5px; color: #64748b; margin-top: 2px; line-height: 1.45; }
+
     @media (max-width: 600px) {
         .ws-favicon-wrapper {
             flex-direction: column;
@@ -1149,6 +1205,10 @@ $faviconUrl = (string)($faviconAsset['url'] ?? '');
                         <button type="button" class="ws-nav-item" data-section="login">
                             <span class="material-symbols-outlined">lock</span>
                             Login
+                        </button>
+                        <button type="button" class="ws-nav-item" data-section="authentication">
+                            <span class="material-symbols-outlined">shield_person</span>
+                            Authentication
                         </button>
                         <button type="button" class="ws-nav-item" data-section="sidebar">
                             <span class="material-symbols-outlined">view_sidebar</span>
@@ -1494,6 +1554,118 @@ $faviconUrl = (string)($faviconAsset['url'] ?? '');
                             <input type="hidden" id="workspace-favicon-input" name="WorkspaceSettings[workspace_favicon]" value="<?= Html::encode($model->workspace_favicon) ?>">
                         </div>
                         <p class="ws-favicon-help">Favicon akan muncul di tab browser. Gunakan gambar persegi dengan ukuran minimal 32x32 pixel untuk hasil terbaik.</p>
+                    </div>
+
+                    <div class="ws-card" id="section-authentication">
+                        <?php
+                        $authRt = is_array($authRuntime ?? null) ? $authRuntime : [];
+                        $authRtStatus = (string)($authRt['status'] ?? 'unknown');
+                        $authRtReason = (string)($authRt['reason'] ?? '');
+                        $authUserActive = ($authUser ?? null) !== null;
+
+                        function auth_status_icon(string $state): string
+                        {
+                            return in_array($state, ['ok', 'warn', 'bad', 'muted'], true) ? $state : 'muted';
+                        }
+                        function auth_friendly_reason(string $status, string $reason): string
+                        {
+                            switch ($status) {
+                                case 'not_mapped':
+                                    return 'Akun yang sedang login belum dihubungkan dengan data domainnya (User Mapping belum diatur di halaman Users).';
+                                case 'schema_missing':
+                                    return 'Tabel/kolom data yang dihubungkan tidak tersedia pada database aplikasi. Periksa User Mapping.';
+                                case 'record_not_found':
+                                    return 'Record data yang dihubungkan tidak ditemukan pada database. Periksa User Mapping.';
+                                case 'not_authenticated':
+                                    return 'Belum ada sesi login pengguna untuk diuji.';
+                                case 'no_project':
+                                    return 'Tidak ada workspace aktif.';
+                                case 'error':
+                                    return $reason !== '' ? $reason : 'Terjadi kesalahan saat pemeriksaan.';
+                                default:
+                                    return $reason !== '' ? $reason : 'Status tidak diketahui.';
+                            }
+                        }
+
+                        $authStatusRows = [];
+                        $authStatusRows[] = [
+                            'icon' => $authUserActive ? 'ok' : 'warn',
+                            'title' => 'Authentication',
+                            'value' => $authUserActive ? 'Aktif' : 'Belum ada sesi login',
+                            'note' => $authUserActive ? 'Sesi login pengguna aktif dan terdeteksi.' : 'Masuk sebagai pengguna workspace untuk melihat status.',
+                        ];
+
+                        if ($authRtStatus === 'resolved') {
+                            $authStatusRows[] = ['icon' => 'ok', 'title' => 'User Mapping', 'value' => 'Terhubung', 'note' => 'Akun login sudah dihubungkan dengan data domainnya.'];
+                            $authStatusRows[] = ['icon' => 'ok', 'title' => 'Current Identity', 'value' => 'Siap digunakan', 'note' => 'Data aktif di-resolve O(1) dari mapping akun.'];
+                        } else {
+                            $authStatusRows[] = [
+                                'icon' => in_array($authRtStatus, ['not_mapped', 'schema_missing', 'record_not_found'], true) ? 'warn' : 'muted',
+                                'title' => 'User Mapping',
+                                'value' => in_array($authRtStatus, ['not_mapped', 'schema_missing', 'record_not_found'], true) ? 'Belum terhubung' : 'Menunggu konfigurasi',
+                                'note' => in_array($authRtStatus, ['not_mapped', 'schema_missing', 'record_not_found'], true) ? auth_friendly_reason($authRtStatus, $authRtReason) : '',
+                            ];
+                            $authStatusRows[] = [
+                                'icon' => $authRtStatus === 'resolved' ? 'ok' : 'muted',
+                                'title' => 'Current Identity',
+                                'value' => $authRtStatus === 'resolved' ? 'Siap digunakan' : 'Menunggu mapping',
+                                'note' => '',
+                            ];
+                        }
+                        ?>
+                        <div class="ws-card-header">
+                            <div class="ws-card-icon ws-card-icon-login">
+                                <span class="material-symbols-outlined">shield_person</span>
+                            </div>
+                            <div class="ws-card-title-group">
+                                <h3 class="ws-card-title">Authentication</h3>
+                                <p class="ws-card-subtitle">Status login dan hubungan akun dengan data domain</p>
+                            </div>
+                        </div>
+
+                        <div class="ws-section-title">Status</div>
+                        <div class="ws-identity-status">
+                            <div class="ws-identity-status-title">Status Autentikasi &amp; Mapping</div>
+                            <?php foreach ($authStatusRows as $authStatusRow): ?>
+                                <div class="ws-identity-status-row">
+                                    <span class="ws-identity-status-icon <?= Html::encode(auth_status_icon($authStatusRow['icon'])) ?>">
+                                        <?= $authStatusRow['icon'] === 'ok' ? '&#10003;' : ($authStatusRow['icon'] === 'bad' ? '&#10005;' : '&#8226;') ?>
+                                    </span>
+                                    <div class="ws-identity-status-body">
+                                        <div class="ws-identity-status-label"><?= Html::encode($authStatusRow['title']) ?> &mdash; <?= Html::encode($authStatusRow['value']) ?></div>
+                                        <?php if (!empty($authStatusRow['note'])): ?>
+                                            <div class="ws-identity-status-note"><?= Html::encode($authStatusRow['note']) ?></div>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <div class="ws-divider"></div>
+
+                        <div class="ws-section-title">Cara Kerja</div>
+                        <p class="ws-favicon-help">
+                            Autentikasi (login, sesi, password, role) selalu memakai tabel <code>users</code> dan tidak berubah.
+                            Setiap akun login dapat dihubungkan dengan <strong>satu data domain</strong> (misal Siswa, Guru, Industri) melalui
+                            halaman <strong>Users</strong>. Hubungan disimpan langsung pada baris akun, sehingga data aktif dibaca tanpa pencarian.
+                        </p>
+
+                        <div class="ws-form-group">
+                            <a href="<?= Html::encode(\yii\helpers\Url::to(['users'])) ?>" class="ws-btn ws-btn-primary" style="display: inline-flex; align-items: center; gap: 6px;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">manage_accounts</span>
+                                <span>Kelola User Mapping</span>
+                            </a>
+                        </div>
+
+                        <div class="ws-divider"></div>
+
+                        <div>
+                            <a href="<?= Html::encode(\yii\helpers\Url::to(['identity-debug'])) ?>" class="btn btn-outline-secondary btn-sm" style="border-radius: 12px; display: inline-flex; align-items: center; gap: 6px;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">bug_report</span>
+                                <span>Detail Teknis (Developer)</span>
+                            </a>
+                            <p class="ws-media-help" style="margin-top: 8px;">Panel detail read-only untuk developer — menampilkan hasil resolusi Current Identity secara lengkap.</p>
+                        </div>
                     </div>
 
                     <div class="ws-card" id="section-sidebar">

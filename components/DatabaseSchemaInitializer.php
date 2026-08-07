@@ -76,6 +76,83 @@ class DatabaseSchemaInitializer
         return $initializer->schemaChanged;
     }
 
+    /**
+     * Ensure the project `users` table carries every column the User Mapping
+     * feature depends on (identity_table, identity_record_id, ...). Idempotent:
+     * it only alters the table when a column/index is actually missing.
+     */
+    public static function ensureProjectAuthColumns(Connection $connection): void
+    {
+        $initializer = new self($connection);
+        $initializer->ensureProjectAuthColumnsExist();
+    }
+
+/**
+     * Ensure a domain table carries a nullable `user_id` column (an integer FK
+     * pointing to `users.id`) plus its index. This is the "ensure-columns"
+     * migration pattern used by the Generate Accounts workflow: idempotent, it
+     * only alters the table when the column is actually missing.
+     *
+     * @param Connection $connection Active project database connection.
+     * @param string $tableName Physical domain table name.
+     * @return bool True if the schema was changed (column/index added).
+     */
+    public static function ensureDomainUserIdColumn(Connection $connection, string $tableName): bool
+    {
+        $tableName = strtolower(trim($tableName));
+        if ($tableName === '' || $connection->getTableSchema($tableName, true) === null) {
+            return false;
+        }
+
+        $initializer = new self($connection);
+        $initializer->createDomainUserIdColumn($tableName);
+        return $initializer->schemaChanged;
+    }
+
+    private function createDomainUserIdColumn(string $tableName): void
+    {
+        // Generic integer FK column (driver-agnostic). The exact storage type is
+        // resolved by the schema driver; MySQL maps it to int(11), SQLite accepts it.
+        $columnSchema = $this->connection->schema->createColumnSchemaBuilder('integer')->null();
+
+        $schema = $this->connection->getTableSchema($tableName, true);
+        if ($schema === null) {
+            return;
+        }
+
+        if (!isset($schema->columns['user_id'])) {
+            $this->connection->createCommand()->addColumn($tableName, 'user_id', $columnSchema)->execute();
+            $this->markSchemaChanged();
+            $schema = $this->connection->getTableSchema($tableName, true);
+        }
+
+        $hasIndex = false;
+        try {
+            $indexRows = $this->connection->createCommand('SHOW INDEX FROM `' . str_replace('`', '``', $tableName) . '`')->queryAll();
+            foreach ($indexRows as $indexRow) {
+                if (strtolower(trim((string)($indexRow['Column_name'] ?? ''))) === 'user_id') {
+                    $hasIndex = true;
+                    break;
+                }
+            }
+        } catch (\Throwable $e) {
+            $hasIndex = false;
+        }
+
+        if (!$hasIndex) {
+            try {
+                $this->connection->createCommand()->createIndex(
+                    'idx-' . $tableName . '-user_id',
+                    $tableName,
+                    'user_id'
+                )->execute();
+                $this->markSchemaChanged();
+            } catch (\Throwable $e) {
+                Yii::warning('Could not create user_id index on ' . $tableName . ': ' . $e->getMessage(), 'schema-initializer');
+            }
+        }
+    }
+
     private function markSchemaChanged(): void
     {
         $this->schemaChanged = true;
@@ -126,6 +203,8 @@ class DatabaseSchemaInitializer
             'role' => $this->connection->schema->createColumnSchemaBuilder('string', 50)->notNull()->defaultValue('visitor'),
             'status' => $this->connection->schema->createColumnSchemaBuilder('integer')->notNull()->defaultValue(1),
             'must_change_password' => $this->connection->schema->createColumnSchemaBuilder('tinyint', 1)->notNull()->defaultValue(0),
+            'identity_table' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->null(),
+            'identity_record_id' => $this->connection->schema->createColumnSchemaBuilder('string', 100)->null(),
             'created_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP'),
             'updated_at' => $this->connection->schema->createColumnSchemaBuilder('timestamp')->defaultExpression('CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP'),
         ])->execute();
@@ -134,6 +213,9 @@ class DatabaseSchemaInitializer
         $this->connection->createCommand()->createIndex('idx-users-email', 'users', 'email', true)->execute();
         $this->connection->createCommand()->createIndex('idx-users-role', 'users', 'role')->execute();
         $this->connection->createCommand()->createIndex('idx-users-status', 'users', 'status')->execute();
+        $this->connection->createCommand()->createIndex('idx-users-identity_table', 'users', 'identity_table')->execute();
+
+        $this->ensureUserListIndexes();
     }
 
     private function createRolesTable(): void
@@ -239,6 +321,8 @@ class DatabaseSchemaInitializer
                 'role' => ['type' => 'string', 'length' => 50, 'default' => 'visitor'],
                 'status' => ['type' => 'integer', 'default' => 1],
                 'must_change_password' => ['type' => 'tinyint', 'length' => 1, 'default' => 0],
+                'identity_table' => ['type' => 'string', 'length' => 100],
+                'identity_record_id' => ['type' => 'string', 'length' => 100],
             ];
 
             foreach ($columnsToAdd as $column => $config) {
@@ -248,7 +332,63 @@ class DatabaseSchemaInitializer
                         $columnSchema->defaultValue($config['default']);
                     }
                     $this->connection->createCommand()->addColumn('users', $column, $columnSchema)->execute();
+                    $this->markSchemaChanged();
                 }
+            }
+
+            $this->ensureUserListIndexes();
+        }
+    }
+
+    /**
+     * Idempotently add the indexes the Users list and account search rely on.
+     * Everything here is additive; an index that already exists is skipped.
+     * Includes a FULLTEXT index (created with raw SQL, guarded for engines that
+     * do not support it) so the account search stays fast on huge tables.
+     */
+    private function ensureUserListIndexes(): void
+    {
+        $schema = $this->connection->getTableSchema('users', true);
+        if ($schema === null) {
+            return;
+        }
+
+        $existing = [];
+        try {
+            $indexRows = $this->connection->createCommand('SHOW INDEX FROM `users`')->queryAll();
+            foreach ($indexRows as $indexRow) {
+                $existing[(string)($indexRow['Key_name'] ?? '')] = true;
+            }
+        } catch (\Throwable $e) {
+            $existing = [];
+        }
+
+        $add = function (string $name, $columns, bool $unique = false) use (&$existing): void {
+            if (isset($existing[$name])) {
+                return;
+            }
+            try {
+                $this->connection->createCommand()->createIndex($name, 'users', $columns, $unique)->execute();
+                $this->markSchemaChanged();
+                $existing[$name] = true;
+            } catch (\Throwable $e) {
+                Yii::warning('Could not create index ' . $name . ' on users: ' . $e->getMessage(), 'schema-initializer');
+            }
+        };
+
+        $add('idx-users-identity_table', 'identity_table');
+        $add('idx-users-name', 'name');
+        $add('idx-users-created_at', 'created_at');
+        $add('idx-users-updated_at', 'updated_at');
+
+        if (!isset($existing['ft-users-search'])) {
+            try {
+                $this->connection->createCommand(
+                    'ALTER TABLE `users` ADD FULLTEXT INDEX `ft-users-search` (`name`, `username`, `email`)'
+                )->execute();
+                $this->markSchemaChanged();
+            } catch (\Throwable $e) {
+                Yii::warning('Could not create fulltext search index on users: ' . $e->getMessage(), 'schema-initializer');
             }
         }
     }

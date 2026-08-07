@@ -28,7 +28,7 @@ class ProjectUser extends ActiveRecord
             [['name', 'username', 'email', 'password_hash', 'role', 'status'], 'required'],
             [['must_change_password'], 'boolean'],
             [['status'], 'integer'],
-            [['name', 'username', 'email', 'role'], 'string', 'max' => 255],
+            [['name', 'username', 'email', 'role', 'identity_table', 'identity_record_id'], 'string', 'max' => 255],
             [['password_hash'], 'string', 'max' => 255],
             [['username', 'email'], 'unique'],
             [['email'], 'email'],
@@ -46,6 +46,8 @@ class ProjectUser extends ActiveRecord
             'role' => 'Role',
             'status' => 'Status',
             'must_change_password' => 'Must Change Password',
+            'identity_table' => 'Identity Table',
+            'identity_record_id' => 'Identity Record ID',
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];

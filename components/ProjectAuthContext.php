@@ -66,6 +66,25 @@ class ProjectAuthContext
             'must_change_password' => (bool)$user->must_change_password,
             'logged_in_at' => date('Y-m-d H:i:s'),
         ]);
+
+        $this->warmUpCurrentIdentity($projectId, (int)$user->id);
+    }
+
+    /**
+     * Best-effort Current Identity warm-up right after a successful login.
+     * Never throws and never alters the authentication result: if the Identity
+     * Source is not configured or the domain record cannot be resolved, the
+     * Current Identity stays null and login remains valid.
+     */
+    private function warmUpCurrentIdentity(int $projectId, int $userId): void
+    {
+        try {
+            if (Yii::$app->has('currentIdentity')) {
+                Yii::$app->currentIdentity->get($projectId, $userId);
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Current Identity warm-up failed after login: ' . $e->getMessage(), 'current-identity');
+        }
     }
 
     public function logout(?int $projectId = null): void
@@ -76,6 +95,14 @@ class ProjectAuthContext
         }
 
         Yii::$app->session->remove($this->getSessionKey($projectId));
+
+        try {
+            if (Yii::$app->has('currentIdentity')) {
+                Yii::$app->currentIdentity->reset();
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Current Identity cache reset failed on logout: ' . $e->getMessage(), 'current-identity');
+        }
     }
 
     public function requiresPasswordChange(?int $projectId = null): bool

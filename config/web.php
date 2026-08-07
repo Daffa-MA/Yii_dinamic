@@ -162,6 +162,12 @@ $config = [
             // Traefik/Coolify terminates TLS and forwards X-Forwarded-* headers.
             // Cloudflare must use SSL mode Full or Full strict, not Flexible.
             'trustedHosts' => appTrustedProxyCidrs(),
+            // JSON API endpoints (Generate Accounts wizard, etc.) send raw JSON
+            // bodies; without a parser Yii's request->post() stays empty.
+            'parsers' => [
+                'application/json' => 'yii\web\JsonParser',
+                'text/json' => 'yii\web\JsonParser',
+            ],
         ],
         'assetManager' => [
             'appendTimestamp' => true,
@@ -177,6 +183,9 @@ $config = [
             // superadmin from the Yii identity cookie after /site/logout.
             'enableAutoLogin' => false,
             'identityCookie' => array_merge(['name' => '_identity'], appSessionCookieParams()),
+        ],
+        'currentIdentity' => [
+            'class' => 'app\components\CurrentIdentityContext',
         ],
         'errorHandler' => [
             'errorAction' => 'site/error',

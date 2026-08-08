@@ -47,6 +47,7 @@ class CurrentIdentityContext
      *   user_id: int,
      *   identity_table: string,
      *   identity_record_id: string,
+     *   role: string,
      *   record: array<string, mixed>,
      * }|null
      */
@@ -98,6 +99,7 @@ class CurrentIdentityContext
             'user_id' => (int)$resolved['user_id'],
             'identity_table' => (string)$resolved['table_name'],
             'identity_record_id' => (string)$resolved['identity_record_id'],
+            'role' => (string)($resolved['role'] ?? ''),
             'record' => $resolved['record'] ?? [],
         ];
     }
@@ -184,6 +186,12 @@ class CurrentIdentityContext
     {
         $identity = $this->get($projectId);
         return $identity !== null ? (string)$identity['identity_table'] : null;
+    }
+
+    public function getRole(?int $projectId = null): ?string
+    {
+        $identity = $this->get($projectId);
+        return $identity !== null ? (string)($identity['role'] ?? '') : null;
     }
 
     /**

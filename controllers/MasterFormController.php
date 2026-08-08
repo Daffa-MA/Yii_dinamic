@@ -1607,6 +1607,14 @@ class MasterFormController extends Controller
             Yii::error('[DEBUG_VERIFY] actionSubmit BEFORE VALIDATION photo_path_in_insertData=' . (array_key_exists('photo_path', $insertData) ? 'YES value=' . json_encode($insertData['photo_path']) : 'NO'), 'app');
             Yii::error('[DEBUG_VERIFY] actionSubmit BEFORE VALIDATION raw_postData_photo_path=' . (array_key_exists('photo_path', $postData) ? 'YES value=' . $postData['photo_path'] : 'NO'), 'app');
 
+            // Auto Fill Runtime: fill declared empty fields from the runtime
+            // context (Current Identity, Current User, Current Date/Time) before
+            // validation. Runs only for fields without a submitted value; never
+            // overrides user input. No-op when the project has no identity.
+            if (Yii::$app->has('autoFill')) {
+                $insertData = Yii::$app->autoFill->apply($insertData, $fields, $this->getActiveProjectId());
+            }
+
             // BAGIAN 5.1 Step 2: Server-side Validation
             $schemaValidationErrors = $this->validateBySchema($insertData, $fields, $columns->columns, (int)$tableId);
             if (!empty($schemaValidationErrors)) {

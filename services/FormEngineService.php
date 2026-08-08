@@ -364,6 +364,9 @@ class FormEngineService
         $resolvedField['disable_past_dates'] = !empty($fieldData['disable_past_dates']);
         $resolvedField['disable_future_dates'] = !empty($fieldData['disable_future_dates']);
 
+        // 1.5 Auto Fill Runtime
+        $resolvedField['auto_fill'] = (string)($fieldData['auto_fill'] ?? $fieldData['auto_fill_source'] ?? 'none');
+
         $resolvedField['source_column_name'] = $sourceColumn !== null ? (string)$sourceColumn->name : (string)($fieldData['source_column_name'] ?? '');
         $resolvedField['source_column_label'] = $sourceColumn !== null ? (string)($sourceColumn->label ?? $sourceColumn->name) : (string)($fieldData['source_column_label'] ?? '');
         $resolvedField['source_column_type'] = $sourceColumn !== null ? (string)($sourceColumn->type ?? '') : (string)($fieldData['source_column_type'] ?? '');

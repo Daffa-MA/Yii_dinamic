@@ -2801,6 +2801,15 @@ class FormController extends Controller
             Yii::error('[DEBUG] DATA AFTER GPS UPLOADS: ' . json_encode($data), 'app');
             $data = $this->expandGpsCameraBindings($model, $schema, $data);
             Yii::error('[DEBUG] DATA AFTER BINDINGS: ' . json_encode($data), 'app');
+
+            // Auto Fill Runtime: fill declared empty fields from the runtime
+            // context (Current Identity, Current User, Current Date/Time) before
+            // validation. Runs only for fields without a submitted value; never
+            // overrides user input. No-op when the project has no identity.
+            if (Yii::$app->has('autoFill')) {
+                $data = Yii::$app->autoFill->apply($data, $schema, $this->getActiveProjectId());
+            }
+
             $normalizedPayloadDebug = [
                 'target_table' => ($targetTableForDebug = $this->findTargetTableForForm($model)) !== null ? (string)$targetTableForDebug->name : '',
                 'schema_columns' => array_map(static function ($field): string {

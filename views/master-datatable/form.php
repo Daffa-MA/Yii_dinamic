@@ -12,6 +12,7 @@ $actionsConfig = $model->getActionsConfigArray();
 $filtersConfig = $model->getFiltersConfigArray();
 $statsConfig = $model->getStatsConfigArray();
 $workflowConfig = $model->getWorkflowConfigArray();
+$ownershipConfig = $model->getOwnershipConfigArray();
 $selectedTableId = (int)$model->table_id;
 $forms = $forms ?? [];
 ?>
@@ -138,6 +139,8 @@ $forms = $forms ?? [];
         <div class="mb-6 grid gap-3 md:grid-cols-5">
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[search_enabled]" value="1" <?= $model->isNewRecord || $model->search_enabled ? 'checked' : '' ?>> Search</label>
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[pagination_enabled]" value="1" <?= $model->isNewRecord || $model->pagination_enabled ? 'checked' : '' ?>> Pagination</label>
+            <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[ownership][enabled]" value="1" <?= !empty($ownershipConfig['enabled']) ? 'checked' : '' ?>> Hanya milik user</label>
+            <p class="col-span-full text-xs font-normal text-slate-500">Saat diaktifkan, halaman hanya menampilkan data milik user yang sedang masuk. Penentuan "milik user" diterapkan secara otomatis menggunakan identitas pengguna aktif dan relasi tabel yang sudah terhubung di framework, jadi tidak perlu diatur manual.</p>
             <label class="rounded-xl border border-slate-200 p-3 text-sm font-semibold"><input type="checkbox" name="MasterDatatable[actions][view]" value="1" <?= !empty($actionsConfig['view']) ? 'checked' : '' ?>> View</label>
             <div class="rounded-xl border border-slate-200 p-3 text-sm font-semibold">
                 <label class="block"><input type="checkbox" name="MasterDatatable[actions][edit]" value="1" <?= !empty($actionsConfig['edit']) ? 'checked' : '' ?>> Edit</label>

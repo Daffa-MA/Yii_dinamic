@@ -187,6 +187,12 @@ $config = [
         'currentIdentity' => [
             'class' => 'app\components\CurrentIdentityContext',
         ],
+        'ownership' => [
+            'class' => 'app\components\OwnershipRuntime',
+        ],
+        'autoFill' => [
+            'class' => 'app\components\AutoFillRuntime',
+        ],
         'errorHandler' => [
             'errorAction' => 'site/error',
         ],

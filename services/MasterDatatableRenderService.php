@@ -141,6 +141,7 @@ class MasterDatatableRenderService
             'filters' => $config['filters'] ?? [],
             'stats' => $config['stats'] ?? [],
             'workflow' => $config['workflow'] ?? [],
+            'ownership' => $config['ownership'] ?? [],
             'editFormId' => $config['editFormId'] ?? $config['edit_form_id'] ?? null,
             'search' => $config['search'] ?? $config['search_enabled'] ?? true,
             'pagination' => $config['pagination'] ?? $config['pagination_enabled'] ?? true,
@@ -187,6 +188,7 @@ class MasterDatatableRenderService
         $workflow = $this->resolveWorkflowConfig($table, $config);
 
         $query = (new Query())->from($table->name);
+        $this->applyOwnershipToQuery($query, $table->name, $config);
         if ($searchEnabled && $search !== '') {
             $or = ['or'];
             foreach ($fields as $field) {
@@ -926,6 +928,29 @@ class MasterDatatableRenderService
 
         $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
         return $activeProjectId === null || !$table->hasAttribute('project_id') || (int)$table->project_id === (int)$activeProjectId;
+    }
+
+    /**
+     * Delegate ownership scoping to the framework Ownership Runtime. The runtime
+     * resolves the relationship to the Current Identity automatically (never
+     * here) and applies the constraint via andWhere(). When ownership is not
+     * enabled for this datatable, or the user has no identity to scope by, the
+     * query is left untouched.
+     */
+    private function applyOwnershipToQuery(Query $query, string $tableName, array $config): void
+    {
+        $ownership = $config['ownership'] ?? null;
+        if (!is_array($ownership) || empty($ownership['enabled'])) {
+            return;
+        }
+
+        if (!Yii::$app->has('ownership')) {
+            Yii::warning('Ownership diaktifkan pada datatable tetapi komponen ownership belum terdaftar.', 'ownership-runtime');
+            return;
+        }
+
+        $projectId = (new ActiveProjectContext())->getActiveProjectId();
+        Yii::$app->ownership->applyToQuery($query, $tableName, $projectId);
     }
 
     private function renderTable(string $uid, DbTable $table, array $columns, array $rows, array $actions, string $editMode, array $editForm, array $primaryKeys, array $state, int $presetId = 0, array $filters = [], array $stats = [], array $workflow = [], array $exports = [], array $displayLookup = [], array $displayValues = []): string

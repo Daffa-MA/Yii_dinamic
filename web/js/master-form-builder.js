@@ -1853,6 +1853,31 @@
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_required ? 'checked' : '') + ' onchange="updateFieldProp(\'is_required\', this.checked)">Wajib Diisi (Required)</label></div>';
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_visible ? 'checked' : '') + ' onchange="updateFieldProp(\'is_visible\', this.checked)">Tampilkan (Visible)</label></div>';
             html += '</div>';
+
+            html += renderAutoFillProps(field);
+            return html;
+        }
+
+        function renderAutoFillProps(field) {
+            var autoFillSources = [
+                ['none', 'Tidak digunakan'],
+                ['current_identity', 'Current Identity'],
+                ['current_user', 'Current User'],
+                ['current_date', 'Current Date'],
+                ['current_time', 'Current Time'],
+                ['current_timestamp', 'Current Timestamp']
+            ];
+            var current = field.auto_fill || 'none';
+            var html = '<div class="prop-section"><div class="prop-section-title">Auto Fill</div>';
+            html += '<div style="font-size:11px;color:#475569;margin:8px 20px;padding:8px 10px;background:#f0f9ff;border-radius:8px;border:1px solid #bae6fd;line-height:1.5;">Isi nilai field ini otomatis saat penyimpanan dari konteks yang berjalan.</div>';
+            html += '<div class="prop-group"><label class="prop-label">Sumber Nilai</label>';
+            html += '<select class="prop-select" onchange="updateFieldProp(\'auto_fill\', this.value)">';
+            autoFillSources.forEach(function(src) {
+                var sel = current === src[0] ? ' selected' : '';
+                html += '<option value="' + src[0] + '"' + sel + '>' + src[1] + '</option>';
+            });
+            html += '</select></div>';
+            html += '</div>';
             return html;
         }
 
@@ -3692,7 +3717,7 @@
             remote_validate_url: '', remote_validate_debounce_ms: 500, validate_on_mount: false,
             show_if: [], required_if: [], disabled_if: [], readonly_if: [], clear_if: [],
             condition_logic: 'AND', condition_groups: [],
-            auto_fill_today: false, date_readonly: false, min_date: '', max_date: '',
+            auto_fill_today: false, auto_fill: 'none', date_readonly: false, min_date: '', max_date: '',
             date_format: '', disable_past_dates: false, disable_future_dates: false,
             dropdown_source: 'static_options', options: [], option_preset: ''
         };

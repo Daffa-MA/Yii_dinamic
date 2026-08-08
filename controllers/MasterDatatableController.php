@@ -237,6 +237,10 @@ class MasterDatatableController extends Controller
             'print' => !empty($post['exports']['print']),
         ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
+        $model->ownership_config = json_encode([
+            'enabled' => !empty($post['ownership']['enabled']),
+        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
         return $model->save();
     }
 

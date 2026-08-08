@@ -58,6 +58,7 @@ class MasterDatatable extends ActiveRecord
             'stats_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
             'workflow_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
             'exports_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
+            'ownership_config' => $db->schema->createColumnSchemaBuilder('text')->null(),
         ];
 
         foreach ($columnsToAdd as $column => $definition) {
@@ -74,7 +75,7 @@ class MasterDatatable extends ActiveRecord
         return [
             [['user_id', 'name', 'table_id'], 'required'],
             [['user_id', 'project_id', 'table_id', 'search_enabled', 'pagination_enabled', 'is_active'], 'integer'],
-            [['columns_config', 'actions_config', 'filters_config', 'stats_config', 'workflow_config', 'exports_config'], 'string'],
+            [['columns_config', 'actions_config', 'filters_config', 'stats_config', 'workflow_config', 'exports_config', 'ownership_config'], 'string'],
             [['name'], 'string', 'max' => 160],
         ];
     }
@@ -160,6 +161,19 @@ class MasterDatatable extends ActiveRecord
         ], $decoded);
     }
 
+    /**
+     * Ownership config. `enabled` (default false) activates the framework
+     * Ownership Runtime: only rows that belong to the logged-in user's Current
+     * Identity are shown. Everything else (relationship, owner column, path) is
+     * resolved automatically by the framework - no manual configuration.
+     */
+    public function getOwnershipConfigArray(): array
+    {
+        $decoded = json_decode((string)$this->ownership_config, true);
+        $decoded = is_array($decoded) ? $decoded : [];
+        return array_merge(['enabled' => false], $decoded);
+    }
+
     public function toComponentConfig(): array
     {
         return [
@@ -171,6 +185,7 @@ class MasterDatatable extends ActiveRecord
             'stats' => $this->getStatsConfigArray(),
             'workflow' => $this->getWorkflowConfigArray(),
             'exports' => $this->getExportsConfigArray(),
+            'ownership' => $this->getOwnershipConfigArray(),
             'search' => (bool)$this->search_enabled,
             'pagination' => (bool)$this->pagination_enabled,
         ];

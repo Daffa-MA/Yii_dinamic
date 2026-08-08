@@ -2633,6 +2633,9 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 pdf: true,
                 print: true
             },
+            ownership: {
+                enabled: false
+            },
             search: true,
             pagination: true
         },
@@ -4260,6 +4263,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                     <input type="checkbox" class="prop-checkbox" ${normalizeDatatableActions(props.actions || {}).delete !== false ? 'checked' : ''} onchange="updateDatatableAction('${blockId}', 'delete', this.checked)">
                     <label style="margin: 0; cursor: pointer;">Delete action</label>
                 </div>
+                <div class="prop-checkbox-group">
+                    <input type="checkbox" class="prop-checkbox" ${!!(props.ownership && props.ownership.enabled) ? 'checked' : ''} onchange="updateProp('${blockId}', 'ownership', { enabled: this.checked })">
+                    <label style="margin: 0; cursor: pointer;">Hanya tampilkan data milik pengguna yang sedang login</label>
+                </div>
+                <div style="font-size:12px;color:#64748b;margin:8px 0 12px 36px;line-height:1.5;">Data akan difilter otomatis menggunakan Current Identity dan Ownership Runtime.</div>
                 <div style="border-top:1px solid #e5e7eb;margin:12px 0;padding-top:12px;">
                     <div style="font-weight:600;font-size:13px;margin-bottom:8px;">Export</div>
                     <div class="prop-checkbox-group">

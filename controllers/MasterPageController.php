@@ -754,7 +754,7 @@ class MasterPageController extends Controller
         try {
             MasterDatatable::ensureStructure();
             $rows = MasterDatatable::findScoped()
-                ->select(['id', 'name', 'table_id', 'columns_config', 'actions_config', 'search_enabled', 'pagination_enabled'])
+                ->select(['id', 'name', 'table_id', 'columns_config', 'actions_config', 'filters_config', 'stats_config', 'workflow_config', 'exports_config', 'ownership_config', 'search_enabled', 'pagination_enabled'])
                 ->andWhere(['is_active' => 1])
                 ->all();
 
@@ -770,6 +770,11 @@ class MasterPageController extends Controller
                         'editMode' => $actions['edit_mode'] ?? 'custom',
                         'editFormId' => $actions['edit_form_id'] ?? '',
                     ]),
+                    'filters' => $row->getFiltersConfigArray(),
+                    'stats' => $row->getStatsConfigArray(),
+                    'workflow' => $row->getWorkflowConfigArray(),
+                    'exports' => $row->getExportsConfigArray(),
+                    'ownership' => $row->getOwnershipConfigArray(),
                     'search' => (bool)$row->search_enabled,
                     'pagination' => (bool)$row->pagination_enabled,
                 ];

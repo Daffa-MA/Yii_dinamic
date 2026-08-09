@@ -743,6 +743,12 @@
     };
 
     DynamicFormLogicEngine.prototype.handleSubmit = function(e) {
+        if (e.submitter === undefined || e.submitter === null) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+        }
+
         // 5.1 Pre-Submit Pipeline
         
         // Step 1: Evaluate active fields
@@ -1210,7 +1216,7 @@
             if (schema) {
                 new DynamicFormLogicEngine(form, schema);
             }
-        } else if (window.__dynamicFormSchema) {
+        } else if (window.__dynamicFormSchema && (form.classList.contains('dynamic-embedded-form') || form.hasAttribute('data-dynamic-form-instance'))) {
             new DynamicFormLogicEngine(form, window.__dynamicFormSchema);
         }
 

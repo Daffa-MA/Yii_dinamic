@@ -5,6 +5,7 @@ namespace app\controllers;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
+use app\components\ProjectPermissionService;
 use app\components\ProjectSchema;
 use app\models\DbTable;
 use app\models\MasterForm;
@@ -102,6 +103,16 @@ class MasterDatatableController extends Controller
 
     public function actionDeleteRow($table_id)
     {
+        $activeProjectId = (new ActiveProjectContext())->getActiveProjectId();
+        if (!(new ProjectPermissionService())->canAccessRoute('table-builder/delete', $activeProjectId)) {
+            if (Yii::$app->request->isAjax) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+                return ['success' => false, 'message' => 'Anda tidak memiliki izin untuk menghapus data baris.'];
+            }
+            Yii::$app->session->setFlash('error', 'Anda tidak memiliki izin untuk menghapus data baris.');
+            return $this->redirect(Yii::$app->request->referrer ?: ['/dashboard']);
+        }
+
         $rowKey = json_decode((string)Yii::$app->request->post('row_key', '{}'), true);
         $rowKey = is_array($rowKey) ? $rowKey : [];
         $table = DbTable::find()->where(['id' => (int)$table_id])->one();

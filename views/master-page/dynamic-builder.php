@@ -4560,7 +4560,11 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
                 tableId: preset.tableId,
                 columns: JSON.parse(JSON.stringify(preset.columns || [])),
                 actions: normalizeDatatableActions(Object.assign({}, existingActions, preset.actions || {})),
+                filters: JSON.parse(JSON.stringify(preset.filters || [])),
+                stats: JSON.parse(JSON.stringify(preset.stats || [])),
+                workflow: JSON.parse(JSON.stringify(preset.workflow || [])),
                 exports: Object.assign({}, block.props.exports || {}, preset.exports || {}),
+                ownership: Object.assign({}, block.props.ownership || {}, preset.ownership || {}),
                 search: preset.search !== false,
                 pagination: preset.pagination !== false
             });
@@ -4578,6 +4582,9 @@ $canEditPage = (bool)($permissionContext['canEditPage'] ?? $canAccessActions);
         block.props.tableId = tableId;
         block.props.datatableId = '';
         block.props.filters = [];
+        block.props.stats = [];
+        block.props.workflow = [];
+        block.props.ownership = { enabled: false };
         block.props.columns = table ? (table.columns || []).filter(col => !col.primary).map(col => normalizeDatatableColumnConfig({
             field: col.field,
             label: col.label || col.field,

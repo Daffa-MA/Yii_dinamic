@@ -538,6 +538,23 @@ class MasterDatatableRenderService
             return false;
         }
 
+        // Ownership enforcement: apply the framework OwnershipRuntime constraint
+        // to this mutation ONLY when the preset's ownership config is enabled.
+        // When disabled (or no identity / no project) the runtime contributes
+        // nothing, so existing behavior is preserved exactly.
+        $ownershipConfig = $config['ownership'] ?? null;
+        if (is_array($ownershipConfig) && !empty($ownershipConfig['enabled']) && Yii::$app->has('ownership')) {
+            $ownership = Yii::$app->ownership->resolveConstraint(
+                (string)$table->name,
+                (new ActiveProjectContext())->getActiveProjectId()
+            );
+            if (!empty($ownership['condition'])) {
+                // Any transform row not owned by the Current Identity is excluded.
+                // A fail-closed deny resolves to ['1' => '0'] -> zero rows affected.
+                $where = ['and', $where, $ownership['condition']];
+            }
+        }
+
         return Yii::$app->db->createCommand()
             ->update((string)$table->name, [(string)$workflow['status_field'] => (string)$workflow['approved_value']], $where)
             ->execute() > 0;

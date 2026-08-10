@@ -142,7 +142,13 @@ class WorkspaceMediaStorage
         $this->ensureDirectory(dirname($storagePath));
         $this->ensureDirectory(dirname($publicPath));
 
-        if (!$uploadedFile->saveAs($storagePath)) {
+        try {
+            $saved = $uploadedFile->saveAs($storagePath);
+        } catch (\Throwable $e) {
+            Yii::error('WorkspaceMediaStorage::storeUploadedFile saveAs failed: ' . $e->getMessage() . ' target=' . $storagePath, 'submit_debug');
+            return ['success' => false, 'message' => 'Gagal menyimpan file ke storage: ' . $e->getMessage()];
+        }
+        if (!$saved) {
             return ['success' => false, 'message' => 'Gagal menyimpan file ke storage.'];
         }
 
@@ -303,8 +309,17 @@ class WorkspaceMediaStorage
 
     private function ensureDirectory(string $path): void
     {
-        if (!is_dir($path)) {
-            FileHelper::createDirectory($path, 0755, true);
+        try {
+            if (!is_dir($path)) {
+                FileHelper::createDirectory($path, 0755, true);
+            }
+            if (is_dir($path) && !is_writable($path)) {
+                if (@chmod($path, 0755) === false) {
+                    Yii::error('WorkspaceMediaStorage::ensureDirectory not writable: ' . $path, 'submit_debug');
+                }
+            }
+        } catch (\Throwable $e) {
+            Yii::error('WorkspaceMediaStorage::ensureDirectory failed: ' . $e->getMessage() . ' path=' . $path, 'submit_debug');
         }
     }
 }

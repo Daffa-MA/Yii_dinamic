@@ -1026,7 +1026,7 @@ function renderBlockSafe(block) {
                     iconEl.className = iconCssClass + ' card-icon-wrapper';
                     if (iconLib === 'material-symbols') {
                         iconEl.textContent = props.icon;
-                        iconEl.style.fontVariationSettings = "'FILL' " + (props.iconFill ? 1 : 0) + ", 'wght' " + (props.iconWeight || 400) + ", 'GRAD' 0";
+                        iconEl.style.fontVariationSettings = \"'FILL' \" + (props.iconFill ? 1 : 0) + \", 'wght' \" + (props.iconWeight || 400) + \", 'GRAD' 0\";
                     }
                     iconEl.style.cssText += ';font-size:' + iconSize + 'px;color:' + (props.iconColor || '#6366f1') + ';';
                 }
@@ -1250,7 +1250,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const cardEl = renderBlockSafe(window.dynamicPageState[k]);
                 cardEl.style.cssText = 'width:calc(' + (100 / cardColumns) + '% - ' + ((cardColumns - 1) * 16 / cardColumns) + 'px);flex:0 0 calc(' + (100 / cardColumns) + '% - ' + ((cardColumns - 1) * 16 / cardColumns) + 'px);max-width:calc(' + (100 / cardColumns) + '% - ' + ((cardColumns - 1) * 16 / cardColumns) + 'px);flex-grow:1;box-sizing:border-box;';
                 cardEl.style.textAlign = 'left';
-                const cardInner = cardEl.querySelector('.card-widget, [class*="card"]');
+                const cardInner = cardEl.querySelector('.card-widget, [class*=\"card\"]');
                 if (cardInner) {
                     cardInner.style.width = '100%';
                     cardInner.style.textAlign = 'left';
@@ -1306,7 +1306,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         showCardToast(result.data.error, 'error');
                     } else {
                         block.props.__liveValue = result.data.formatted || result.data.value;
-                        var valueEl = container.querySelector('[data-card-id="' + block.id + '"] .card-value');
+                        var valueEl = container.querySelector('[data-card-id=\"' + block.id + '\"] .card-value');
                         if (valueEl) {
                             valueEl.textContent = block.props.__liveValue;
                         }
@@ -1392,19 +1392,19 @@ function renderPageCharts() {
         if (!chartId || container._chartRendered) return;
         container._chartRendered = true;
         var chartHeight = container.getAttribute('data-chart-height') || '300';
-        container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#f8fafc;color:#94a3b8;font-size:13px;">Memuat chart...</div>';
+        container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#f8fafc;color:#94a3b8;font-size:13px;\">Memuat chart...</div>';
         var dataUrl = '/master-chart/data?id=' + encodeURIComponent(chartId);
         fetch(dataUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
         .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
         .then(function(data) {
             if (!data || !data.success || !data.config) {
-                container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal memuat chart</div>';
+                container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;\">Gagal memuat chart</div>';
                 return;
             }
             renderPageChart(container, chartId, data, chartHeight);
         })
         .catch(function() {
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal terhubung ke server</div>';
+            container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:' + chartHeight + 'px;background:#fef2f2;color:#991b1b;font-size:13px;\">Gagal terhubung ke server</div>';
         });
         });
     });
@@ -1444,7 +1444,7 @@ function renderPageChart(container, chartId, data, chartHeight) {
     chartEl.id = 'chart-' + (config.id || chartId);
     container.innerHTML = '';
     container.appendChild(chartEl);
-    try { var ch = new ApexCharts(chartEl, options); ch.render().catch(function(){}); } catch (e) { container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;">Gagal render chart: ' + e.message + '</div>'; }
+    try { var ch = new ApexCharts(chartEl, options); ch.render().catch(function(){}); } catch (e) { container.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:' + height + 'px;background:#fef2f2;color:#991b1b;font-size:13px;\">Gagal render chart: ' + e.message + '</div>'; }
 }
 
 function mapPageChartType(type) {
@@ -1517,16 +1517,34 @@ function bindEmbeddedFormSubmit(root) {
 
     form.addEventListener('submit', function(e) {
         e.preventDefault();
+        e.stopPropagation();
         const messageBox = form.querySelector('.dynamic-form-submit-message');
         const submitBtn = form.querySelector('button[type=\"submit\"]');
         if (submitBtn) submitBtn.disabled = true;
 
-        const formData = new FormData(form);
-        fetch(form.action, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-            body: formData
-        })
+        let requestPromise;
+        try {
+            requestPromise = fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form)
+            });
+        } catch (e) {
+            requestPromise = null;
+        }
+        if (!requestPromise || typeof requestPromise.then !== 'function') {
+            if (messageBox) {
+                messageBox.style.display = 'block';
+                messageBox.style.background = '#fef2f2';
+                messageBox.style.border = '1px solid #fecaca';
+                messageBox.style.color = '#991b1b';
+                messageBox.textContent = 'Tidak dapat mengirim formulir.';
+            }
+            if (submitBtn) submitBtn.disabled = false;
+            return;
+        }
+
+        requestPromise
         .then((res) => res.text())
         .then((raw) => {
             let data = null;

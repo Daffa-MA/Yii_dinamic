@@ -2803,15 +2803,29 @@ HTML;
         collectInto(form);
         setSubmitting(form, true);
 
-        fetch(form.action || window.location.href, {
-            method: (form.method || 'POST').toUpperCase(),
-            body: new FormData(form),
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin'
-        })
+        var requestPromise;
+        try {
+            requestPromise = fetch(form.action || window.location.href, {
+                method: (form.method || 'POST').toUpperCase(),
+                body: new FormData(form),
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            });
+        } catch (e) {
+            requestPromise = null;
+        }
+        if (!requestPromise || typeof requestPromise.then !== 'function') {
+            showCustomFormAlert('error', 'Tidak dapat mengirim formulir.');
+            form.__customSubmitting = false;
+            setSubmitting(form, false);
+            return;
+        }
+
+        requestPromise
             .then(function(response) {
+                if (!response) throw new Error('Tidak ada respons dari server.');
                 return response.text().then(function(text) {
                     var data = null;
                     try {

@@ -2665,13 +2665,17 @@ class MasterFormController extends Controller
                         $storagePath = $storage->storagePath($relativePath);
                         $publicPath = $storage->publicPath($relativePath);
 
-                        \yii\helpers\FileHelper::createDirectory(dirname($storagePath));
-                        \yii\helpers\FileHelper::createDirectory(dirname($publicPath));
-                        if (file_put_contents($storagePath, $binary) !== false) {
-                            if ($publicPath !== $storagePath) {
-                                @copy($storagePath, $publicPath);
+                        try {
+                            \yii\helpers\FileHelper::createDirectory(dirname($storagePath));
+                            \yii\helpers\FileHelper::createDirectory(dirname($publicPath));
+                            if (file_put_contents($storagePath, $binary) !== false) {
+                                if ($publicPath !== $storagePath) {
+                                    @copy($storagePath, $publicPath);
+                                }
+                                $data[$fieldName] = $relativePath;
                             }
-                            $data[$fieldName] = $relativePath;
+                        } catch (\Throwable $e) {
+                            Yii::error('applyCameraProcessing save failed: ' . $e->getMessage() . ' target=' . $storagePath, 'submit_debug');
                         }
                     }
                 }
@@ -2712,9 +2716,14 @@ class MasterFormController extends Controller
         $storagePath = $storage->storagePath($relativePath);
         $publicPath = $storage->publicPath($relativePath);
 
-        FileHelper::createDirectory(dirname($storagePath));
-        FileHelper::createDirectory(dirname($publicPath));
-        if (file_put_contents($storagePath, $binary) === false) {
+        try {
+            FileHelper::createDirectory(dirname($storagePath));
+            FileHelper::createDirectory(dirname($publicPath));
+            if (file_put_contents($storagePath, $binary) === false) {
+                return null;
+            }
+        } catch (\Throwable $e) {
+            Yii::error('storeGpsCameraBase64Image save failed: ' . $e->getMessage() . ' target=' . $storagePath, 'submit_debug');
             return null;
         }
         if ($publicPath !== $storagePath) {

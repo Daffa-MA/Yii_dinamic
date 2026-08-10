@@ -19,6 +19,7 @@ class ProjectPermissionService
     private static array $legacyPermissionCache = [];
     private static array $resolveRouteAccessCache = [];
     private static array $canAccessRouteViaMenuCache = [];
+    private static array $canUseRelationPickerCache = [];
 
     private function isCommanderSuperAdmin(): bool
     {
@@ -358,6 +359,161 @@ class ProjectPermissionService
         }
 
         return true;
+    }
+
+    /**
+     * Determine whether the current project user may use the Interactive Modal
+     * Search (relation picker) AJAX endpoints for a given form.
+     *
+     * These AJAX endpoints (master-form/relation-picker-data,
+     * master-form/relation-picker-search, master-form/resolve-autofill) are
+     * sub-resources of a rendered form. A role is allowed to call them when it
+     * can legitimately reach the target form through the existing metadata-driven
+     * permission model:
+     *
+     *   1. Direct form access (role_access form key / legacy form.view|submit).
+     *   2. An active menu item that points directly to the form and is visible to the role.
+     *   3. A page that renders the form and is accessible to the role.
+     *
+     * No hardcoded roles, forms, pages or menus — everything is resolved from the
+     * configured metadata (master_form / master_menu / master_page associations).
+     *
+     * @return bool
+     */
+    public function canUseRelationPickerOnForm(int $formId, ?int $projectId = null): bool
+    {
+        $cacheKey = $this->buildCacheKey('can_use_relation_picker', [
+            $formId,
+            $projectId,
+            Yii::$app->user->id,
+            Yii::$app->user->isGuest ? 1 : 0,
+            Yii::$app->request->pathInfo,
+            Yii::$app->request->get('form_id', Yii::$app->request->post('form_id', 0)),
+        ]);
+        if (array_key_exists($cacheKey, self::$canUseRelationPickerCache)) {
+            return self::$canUseRelationPickerCache[$cacheKey];
+        }
+
+        if ($this->isCommanderSuperAdmin()) {
+            return self::$canUseRelationPickerCache[$cacheKey] = true;
+        }
+
+        if ($formId <= 0) {
+            return self::$canUseRelationPickerCache[$cacheKey] = false;
+        }
+
+        $authContext = new ProjectAuthContext();
+        $user = $authContext->getAuthenticatedUser($projectId);
+        if ($user === null) {
+            return self::$canUseRelationPickerCache[$cacheKey] = false;
+        }
+
+        $role = strtolower(trim((string)$user->role));
+        if ($this->isAdminRole($role)) {
+            return self::$canUseRelationPickerCache[$cacheKey] = true;
+        }
+
+        $form = MasterForm::findByIdScoped($formId);
+        if (!$form instanceof MasterForm) {
+            return self::$canUseRelationPickerCache[$cacheKey] = false;
+        }
+
+        // 1) The role can access the target form directly.
+        if ($this->canAccessForm($form, $projectId)) {
+            return self::$canUseRelationPickerCache[$cacheKey] = true;
+        }
+
+        // 2) An active menu item points directly to this form and is visible to the role.
+        $schema = Yii::$app->db->schema;
+        if ($schema->getTableSchema('master_menu', true) !== null) {
+            $formMenus = (new Query())
+                ->from('master_menu')
+                ->where(['is_active' => 1, 'form_id' => (int)$formId])
+                ->all(Yii::$app->db);
+            foreach ($formMenus as $menu) {
+                if ($this->canAccessMenu($menu, $projectId)) {
+                    return self::$canUseRelationPickerCache[$cacheKey] = true;
+                }
+            }
+        }
+
+        // 3) The role can access a page that renders this form.
+        foreach ($this->findActivePagesContainingForm((int)$formId) as $page) {
+            if ($this->canAccessPage($page, $projectId)
+                || $this->canAccessMenuForPage((int)$page->id, $projectId)) {
+                return self::$canUseRelationPickerCache[$cacheKey] = true;
+            }
+        }
+
+        PermissionDebugLogger::log([
+            'scope' => 'relation_picker_access',
+            'user_id' => (int)$user->id,
+            'role' => $role,
+            'route' => 'master-form/relation-picker',
+            'menu_name' => '',
+            'menu_key' => '',
+            'visible_result' => false,
+            'access_result' => false,
+            'deny_reason' => 'form_or_page_not_accessible',
+        ]);
+
+        return self::$canUseRelationPickerCache[$cacheKey] = false;
+    }
+
+    /**
+     * Find active pages that render the given form.
+     *
+     * Primary source: form-page association tables (master_page_form / page_forms).
+     * Fallback: scan active pages whose layout_json embeds the form (legacy schema).
+     *
+     * @return MasterPage[]
+     */
+    private function findActivePagesContainingForm(int $formId): array
+    {
+        if ($formId <= 0) {
+            return [];
+        }
+
+        $db = Yii::$app->db;
+        $pageIds = [];
+        foreach (['master_page_form', 'page_forms'] as $tableName) {
+            if ($db->schema->getTableSchema($tableName, true) === null) {
+                continue;
+            }
+            $found = (new Query())
+                ->select('page_id')
+                ->distinct()
+                ->from($tableName)
+                ->where(['form_id' => $formId])
+                ->column($db);
+            foreach ($found as $pageId) {
+                $pageIds[(int)$pageId] = true;
+            }
+        }
+
+        if (!empty($pageIds)) {
+            $pages = array_values(array_filter(
+                MasterPage::find()->where(['id' => array_keys($pageIds)])->all(),
+                static function ($page): bool {
+                    return $page instanceof MasterPage && (int)$page->is_active === 1;
+                }
+            ));
+            if (!empty($pages)) {
+                return $pages;
+            }
+        }
+
+        $pages = [];
+        foreach (MasterPage::find()->where(['is_active' => 1])->all() as $page) {
+            if (!$page instanceof MasterPage) {
+                continue;
+            }
+            if ($this->pageContainsForm($page, $formId)) {
+                $pages[] = $page;
+            }
+        }
+
+        return $pages;
     }
 
     public function canAccessPermissionKeys(array $permissionKeys, ?int $projectId = null): bool

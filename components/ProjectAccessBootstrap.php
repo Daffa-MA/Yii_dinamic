@@ -133,6 +133,11 @@ class ProjectAccessBootstrap implements BootstrapInterface
                         return;
                     }
 
+                    if ($this->isAllowedRelationPickerRoute($route, $activeProjectId)) {
+                        AuthContextDebugLogger::log('workspace_relation_picker_allowed', $this->buildEmbeddedFormDebugContext($route, $activeProjectId, true, true, 'relation_picker_form_authorized'));
+                        return;
+                    }
+
                     if (!(new ProjectPermissionService())->canAccessRoute($route, $activeProjectId)) {
                         FormFlowDebugLogger::logAuth($this->buildFormAuthLogPayload(
                             $activeProjectId,
@@ -354,6 +359,42 @@ class ProjectAccessBootstrap implements BootstrapInterface
         }
 
         return (new ProjectPermissionService())->canAccessMenu($menu->toArray(), $activeProjectId);
+    }
+
+    /**
+     * Allow the Interactive Modal Search (relation picker) AJAX endpoints for a
+     * role when the target form is accessible to it through the existing
+     * metadata-driven permission model.
+     *
+     * The picker endpoints are protected `master-form` routes, so the generic
+     * route-permission check denies non-admin roles even when they legitimately
+     * reach the rendered form (menu access, page content, form menu). These
+     * AJAX sub-requests carry `form_id`, which lets us authorize them against
+     * the same form/page/menu permissions the role already holds — no role-name,
+     * form-id or menu-id hardcoding.
+     */
+    private function isAllowedRelationPickerRoute(string $route, int $activeProjectId): bool
+    {
+        if (!in_array($route, [
+            'master-form/relation-picker-data',
+            'master-form/relation-picker-search',
+            'master-form/resolve-autofill',
+        ], true)) {
+            return false;
+        }
+
+        // Only AJAX sub-requests of a rendered form use these endpoints; a
+        // direct (non-AJAX) hit must still go through normal route permission.
+        if (!Yii::$app->request->isAjax) {
+            return false;
+        }
+
+        $formId = (int)Yii::$app->request->get('form_id', Yii::$app->request->post('form_id', 0));
+        if ($formId <= 0) {
+            return false;
+        }
+
+        return (new ProjectPermissionService())->canUseRelationPickerOnForm($formId, $activeProjectId);
     }
 
     private function resolveEmbeddedPageId(): int

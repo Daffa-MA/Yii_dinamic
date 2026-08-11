@@ -2577,7 +2577,19 @@ class MasterFormController extends Controller
                     $value = '';
                     switch ($sourceKey) {
                         case 'photo_path':
-                            $value = $payload['photo_path'] ?? $payload['photo_name'] ?? '';
+                            $rawPhotoPath = $payload['photo_path'] ?? '';
+                            if ($rawPhotoPath !== '' && strpos($rawPhotoPath, '/') !== false) {
+                                $value = $rawPhotoPath;
+                            } else {
+                                // No real stored photo exists (upload failed / PATH_C).
+                                // Remove any bare client-side filename (photo_name) that may have
+                                // been posted into this column so we never persist an unservable
+                                // URL like /uploads/workspace/gps-camera-capture-*.jpg.
+                                $value = '';
+                                if (array_key_exists($targetColumn, $data)) {
+                                    unset($data[$targetColumn]);
+                                }
+                            }
                             break;
                         case 'latitude':
                             $value = $payload['latitude'] ?? '';

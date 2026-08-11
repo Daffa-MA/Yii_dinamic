@@ -6,6 +6,7 @@ use app\components\ActiveProjectContext;
 use app\components\ProjectPermissionService;
 use app\components\ProjectSchema;
 use app\components\SystemFieldService;
+use app\components\WorkspaceMediaStorage;
 use app\helpers\FormSystemFieldHelper;
 use app\models\DbTable;
 use app\models\DbTableColumn;
@@ -3062,7 +3063,7 @@ class MasterDatatableRenderService
         if (preg_match('#^(https?://|//|/)#i', $url)) {
             return $url;
         }
-        return self::ASSET_BASE_URL . ltrim($url);
+        return (new WorkspaceMediaStorage())->resolvePublicUrl($url);
     }
 
     private function pageUrl(string $pageParam, int $page): string

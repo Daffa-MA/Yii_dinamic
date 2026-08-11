@@ -2560,11 +2560,9 @@ class MasterFormController extends Controller
             Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing data[' . $fieldName . '] (JSON payload)=' . $data[$fieldName], 'app');
 
             // 4. Handle Configuration-Driven Bindings (Dynamic Mappings)
-            $mappings = $field['gps_camera_mappings'] ?? [];
-            if (is_string($mappings)) {
-                $mappings = json_decode($mappings, true) ?: [];
-            }
-            Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing raw_mappings=' . json_encode($field['gps_camera_mappings'] ?? 'NOT_SET'), 'app');
+            // The builder stores bindings as gps_camera_bindings / target_mappings (array)
+            // OR the legacy gps_camera_mappings object. Resolve all formats.
+            $mappings = $this->resolveGpsCameraBindings($field);
             Yii::error('[DEBUG_VERIFY] applyGpsCameraProcessing resolved_mappings=' . json_encode($mappings), 'app');
 
             if (is_array($mappings) && !empty($mappings)) {
@@ -2630,6 +2628,80 @@ class MasterFormController extends Controller
 
         Yii::error('[DEBUG_VERIFY] EXIT applyGpsCameraProcessing returning keys=' . json_encode(array_keys($data)), 'app');
         return $data;
+    }
+
+    /**
+     * Resolve the configured gps-camera bindings into a map of payload key => target column.
+     *
+     * Supports every format the builder has produced over time:
+     *  1. gps_camera_bindings / target_mappings  - array of {data_key, target_column_name, ...}
+     *  2. legacy gps_camera_mappings             - object {data_key: target_column}
+     *  3. top-level target_column_name (+ gps_camera_data_key) fallback
+     *
+     * @param array<string, mixed> $field
+     * @return array<string, string>
+     */
+    private function resolveGpsCameraBindings(array $field): array
+    {
+        $mapped = [];
+
+        $bindings = $field['gps_camera_bindings'] ?? $field['target_mappings'] ?? null;
+        if (is_string($bindings) && trim($bindings) !== '') {
+            $decoded = json_decode($bindings, true);
+            $bindings = is_array($decoded) ? $decoded : [];
+        }
+        if (!is_array($bindings)) {
+            $bindings = [];
+        }
+
+        foreach ($bindings as $binding) {
+            if (!is_array($binding)) {
+                continue;
+            }
+
+            $dataKey = trim((string)($binding['data_key'] ?? $binding['source_key'] ?? ''));
+            $targetColumn = trim((string)($binding['target_column_name'] ?? $binding['column_name'] ?? ''));
+            if ($targetColumn === '') {
+                $targetColumnId = (int)($binding['target_column_id'] ?? 0);
+                if ($targetColumnId > 0) {
+                    $column = DbTableColumn::findOne($targetColumnId);
+                    if ($column instanceof DbTableColumn) {
+                        $targetColumn = trim((string)$column->name);
+                    }
+                }
+            }
+
+            if ($dataKey === '' || $targetColumn === '') {
+                continue;
+            }
+
+            $mapped[$dataKey] = $targetColumn;
+        }
+
+        if (empty($mapped)) {
+            $legacyMappings = $field['gps_camera_mappings'] ?? [];
+            if (is_string($legacyMappings)) {
+                $legacyMappings = json_decode($legacyMappings, true) ?: [];
+            }
+            if (is_array($legacyMappings)) {
+                foreach ($legacyMappings as $dataKey => $targetColumn) {
+                    $targetColumn = trim((string)$targetColumn);
+                    if ($targetColumn !== '') {
+                        $mapped[(string)$dataKey] = $targetColumn;
+                    }
+                }
+            }
+        }
+
+        if (empty($mapped)) {
+            $fallbackColumn = trim((string)($field['target_column_name'] ?? $field['target_column'] ?? ''));
+            if ($fallbackColumn !== '') {
+                $fallbackKey = trim((string)($field['gps_camera_data_key'] ?? ''));
+                $mapped[$fallbackKey !== '' ? $fallbackKey : 'photo_path'] = $fallbackColumn;
+            }
+        }
+
+        return $mapped;
     }
 
     private function applyCameraProcessing(MasterForm $form, array $fields, array $postData, int $tableId): array

@@ -1400,9 +1400,44 @@ JS;
         $buttonStyle = ($readonly || !$interactive) ? 'opacity:.55;cursor:not-allowed;' : '';
         $previewStyle = $previewImage ? '' : 'display:none;';
 
-        $mappings = $field['gps_camera_mappings'] ?? [];
-        if (is_string($mappings)) {
-            $mappings = json_decode($mappings, true) ?: [];
+        $mappings = [];
+        $bindings = $field['gps_camera_bindings'] ?? $field['target_mappings'] ?? null;
+        if (is_string($bindings) && trim($bindings) !== '') {
+            $decoded = json_decode($bindings, true);
+            $bindings = is_array($decoded) ? $decoded : [];
+        }
+        if (is_array($bindings)) {
+            foreach ($bindings as $binding) {
+                if (!is_array($binding)) {
+                    continue;
+                }
+                $dataKey = trim((string)($binding['data_key'] ?? $binding['source_key'] ?? ''));
+                $targetColumn = trim((string)($binding['target_column_name'] ?? $binding['column_name'] ?? ''));
+                if ($targetColumn === '' && !empty($binding['target_column_id'])) {
+                    $column = DbTableColumn::findOne((int)$binding['target_column_id']);
+                    if ($column instanceof DbTableColumn) {
+                        $targetColumn = trim((string)$column->name);
+                    }
+                }
+                if ($dataKey === '' || $targetColumn === '') {
+                    continue;
+                }
+                $mappings[$dataKey] = $targetColumn;
+            }
+        }
+        if (empty($mappings)) {
+            $legacyMappings = $field['gps_camera_mappings'] ?? [];
+            if (is_string($legacyMappings)) {
+                $legacyMappings = json_decode($legacyMappings, true) ?: [];
+            }
+            if (is_array($legacyMappings)) {
+                foreach ($legacyMappings as $dataKey => $targetColumn) {
+                    $targetColumn = trim((string)$targetColumn);
+                    if ($targetColumn !== '') {
+                        $mappings[(string)$dataKey] = $targetColumn;
+                    }
+                }
+            }
         }
         $mappingsJson = json_encode($mappings);
 

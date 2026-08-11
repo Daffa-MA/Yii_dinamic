@@ -544,7 +544,8 @@ if ($model->table_id) {
                 ?>
                 <script>window.__dynamicFormSchema = <?= Json::encode($fullSchema) ?>;</script>
                 <?= Html::beginForm(['submit', 'id' => $model->id], 'POST', [
-                    'id' => 'preview-form', 
+                    'id' => 'preview-form',
+                    'enctype' => 'multipart/form-data',
                     'data-form-id' => (int)$model->id,
                     'data-form-schema' => Json::encode($fullSchema)
                 ]) ?>

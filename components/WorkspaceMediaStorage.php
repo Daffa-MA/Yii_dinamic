@@ -181,7 +181,22 @@ class WorkspaceMediaStorage
             $saved = $uploadedFile->saveAs($storagePath);
         } catch (\Throwable $e) {
             Yii::error('WorkspaceMediaStorage::storeUploadedFile saveAs failed: ' . $e->getMessage() . ' target=' . $storagePath, 'submit_debug');
-            return ['success' => false, 'message' => 'Gagal menyimpan file ke storage: ' . $e->getMessage()];
+            $saved = false;
+        }
+        if (!$saved) {
+            // Fallback: storage directory is not writable. Write directly to the
+            // web-root public mirror so the upload still survives. publicUrl() /
+            // resolvePublicUrl() self-heal the storage mirror from the public file.
+            $this->ensureDirectory(dirname($publicPath));
+            try {
+                $saved = $uploadedFile->saveAs($publicPath);
+            } catch (\Throwable $e) {
+                Yii::error('WorkspaceMediaStorage::storeUploadedFile public fallback saveAs failed: ' . $e->getMessage() . ' target=' . $publicPath, 'submit_debug');
+                $saved = false;
+            }
+            if ($saved) {
+                $storagePath = $publicPath;
+            }
         }
         if (!$saved) {
             return ['success' => false, 'message' => 'Gagal menyimpan file ke storage.'];
@@ -189,7 +204,7 @@ class WorkspaceMediaStorage
 
         $this->compressImage($storagePath, $extension);
 
-        if ($publicPath !== $storagePath) {
+        if ($publicPath !== $storagePath && is_file($storagePath)) {
             @copy($storagePath, $publicPath);
         }
 

@@ -323,7 +323,7 @@ JS;
             }
         })();
     }
-    function captureFromCamera(w) {
+    async function captureFromCamera(w) {
         var s = getState(w);
         var video = w.querySelector('[data-gps-camera-video]');
         var canvas = w.querySelector('[data-gps-camera-canvas]');
@@ -385,7 +385,7 @@ JS;
             setStatus(w, 'Foto, lokasi, dan waktu berhasil ditangkap.');
             setStatus(w, 'Foto siap disimpan dengan watermark.', true);
             resetCameraModal(w);
-        })();
+        })().catch(function(){ setStatus(w, 'Gagal memproses foto.'); setStatus(w, 'Gagal memproses foto.', true); });
     }
     function resetWrapper(w) {
         var s = getState(w); stopStream(s);

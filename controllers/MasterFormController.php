@@ -135,12 +135,14 @@ class MasterFormController extends Controller
     /**
      * @param array<string, mixed> $insertData
      * @param array<string, \yii\db\ColumnSchema> $schemaColumns
+     * @param string[] $gpsTargetColumns target columns bound to gps_camera fields
      */
-    private function validateRequiredInsertData(array $insertData, array $schemaColumns): ?string
+    private function validateRequiredInsertData(array $insertData, array $schemaColumns, array $gpsTargetColumns = []): ?string
     {
         Yii::error('[DEBUG_VERIFY] validateRequiredInsertData insertData_keys=' . json_encode(array_keys($insertData)), 'app');
         Yii::error('[DEBUG_VERIFY] validateRequiredInsertData has_photo_path=' . (array_key_exists('photo_path', $insertData) ? 'YES value=' . json_encode($insertData['photo_path']) : 'NO'), 'app');
-        $missingFields = [];
+        $missingColumns = [];
+        $missingLabels = [];
         foreach ($schemaColumns as $columnName => $column) {
             if ($this->isSubmitSystemColumn((string)$columnName, $column)) {
                 continue;
@@ -154,13 +156,21 @@ class MasterFormController extends Controller
                 continue;
             }
 
-            $missingFields[] = $this->formatColumnLabel((string)$columnName);
+            $missingColumns[] = (string)$columnName;
+            $missingLabels[] = $this->formatColumnLabel((string)$columnName);
             Yii::error('[DEBUG_VERIFY] validateRequiredInsertData MISSING column=' . $columnName . ' allowNull=' . json_encode($column->allowNull) . ' defaultValue=' . json_encode($column->defaultValue), 'app');
         }
 
-        if (!empty($missingFields)) {
-            Yii::error('[DEBUG_VERIFY] validateRequiredInsertData FAIL missing=' . json_encode($missingFields), 'app');
-            return 'Field berikut wajib diisi karena kolom target tidak mengizinkan nilai kosong: ' . implode(', ', $missingFields) . '.';
+        if (!empty($missingColumns)) {
+            Yii::error('[DEBUG_VERIFY] validateRequiredInsertData FAIL missing=' . json_encode($missingColumns), 'app');
+            if (!empty($gpsTargetColumns)) {
+                $lowerTargets = array_map('strtolower', $gpsTargetColumns);
+                $allMissingAreGps = count(array_diff(array_map('strtolower', $missingColumns), $lowerTargets)) === 0;
+                if ($allMissingAreGps) {
+                    return 'Ambil foto terlebih dahulu. Kolom target berikut wajib diisi: ' . implode(', ', $missingLabels) . '.';
+                }
+            }
+            return 'Field berikut wajib diisi karena kolom target tidak mengizinkan nilai kosong: ' . implode(', ', $missingLabels) . '.';
         }
 
         Yii::error('[DEBUG_VERIFY] validateRequiredInsertData PASS', 'app');
@@ -1748,7 +1758,7 @@ class MasterFormController extends Controller
                     return $this->redirect(['preview', 'id' => $id]);
                 }
 
-                $requiredError = $this->validateRequiredInsertData($rowPayload, $columns->columns);
+                $requiredError = $this->validateRequiredInsertData($rowPayload, $columns->columns, $this->collectGpsCameraTargetColumns($fields));
                 if ($requiredError !== null) {
                     if ($isAjax) {
                         return ['success' => false, 'message' => $requiredError];
@@ -2702,6 +2712,32 @@ class MasterFormController extends Controller
         }
 
         return $mapped;
+    }
+
+    /**
+     * Collect all target columns bound to gps_camera fields (photo_path, latitude, etc.)
+     * so required-column validation can produce a clear, user-friendly message.
+     *
+     * @param array<int, mixed> $fields
+     * @return string[]
+     */
+    private function collectGpsCameraTargetColumns(array $fields): array
+    {
+        $targets = [];
+        foreach ($fields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $type = strtolower(trim((string)($field['type'] ?? $field['field_type'] ?? $field['inputType'] ?? '')));
+            if ($type !== 'gps_camera') {
+                continue;
+            }
+            $mapped = $this->resolveGpsCameraBindings($field);
+            foreach ($mapped as $targetColumn) {
+                $targets[] = $targetColumn;
+            }
+        }
+        return $targets;
     }
 
     private function applyCameraProcessing(MasterForm $form, array $fields, array $postData, int $tableId): array

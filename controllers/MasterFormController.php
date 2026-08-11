@@ -2836,18 +2836,33 @@ class MasterFormController extends Controller
         $storagePath = $storage->storagePath($relativePath);
         $publicPath = $storage->publicPath($relativePath);
 
+        $writtenPath = '';
         try {
             FileHelper::createDirectory(dirname($storagePath));
             FileHelper::createDirectory(dirname($publicPath));
-            if (file_put_contents($storagePath, $binary) === false) {
-                return null;
+            if (file_put_contents($storagePath, $binary) !== false) {
+                $writtenPath = $storagePath;
             }
         } catch (\Throwable $e) {
             Yii::error('storeGpsCameraBase64Image save failed: ' . $e->getMessage() . ' target=' . $storagePath, 'submit_debug');
+        }
+        if ($writtenPath === '') {
+            // Fallback: storage directory is not writable. Write directly to the
+            // web-root public mirror so the photo still survives. publicUrl() /
+            // resolvePublicUrl() self-heal the storage mirror from the public file.
+            try {
+                if (file_put_contents($publicPath, $binary) !== false) {
+                    $writtenPath = $publicPath;
+                }
+            } catch (\Throwable $e) {
+                Yii::error('storeGpsCameraBase64Image public fallback failed: ' . $e->getMessage() . ' target=' . $publicPath, 'submit_debug');
+            }
+        }
+        if ($writtenPath === '') {
             return null;
         }
-        if ($publicPath !== $storagePath) {
-            @copy($storagePath, $publicPath);
+        if ($publicPath !== $writtenPath && is_file($writtenPath)) {
+            @copy($writtenPath, $publicPath);
         }
 
         return [

@@ -119,7 +119,12 @@ class AutoFillRuntime
         $context = $this->runtimeContext($projectId);
 
         foreach ($fields as $field) {
-            if (!is_array($field) || empty($field['auto_fill'])) {
+            if (!is_array($field)) {
+                continue;
+            }
+
+            $source = (string) ($field['auto_fill'] ?? '');
+            if ($source === '' || $source === self::SOURCE_NONE) {
                 continue;
             }
 
@@ -128,7 +133,7 @@ class AutoFillRuntime
                 continue;
             }
 
-            $value = $this->resolveValue((string) $field['auto_fill'], $context);
+            $value = $this->resolveValue($source, $context);
             if ($value === null) {
                 continue;
             }

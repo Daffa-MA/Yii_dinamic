@@ -47,6 +47,41 @@ class WorkspaceMediaStorage
         return Url::to('/' . self::PUBLIC_RELATIVE_DIR . $relativePath, true);
     }
 
+    /**
+     * Resolve any stored media value (relative path, absolute public URL, or external URL)
+     * into a stable web-accessible URL.
+     *
+     * Unlike {@see publicUrl()}, this returns a root-relative URL (e.g.
+     * `/uploads/workspace/...`) which is backward-compatible with how datatable
+     * renderers currently build asset URLs, and it ensures the public mirror is
+     * synced from storage before returning so the URL is actually servable.
+     *
+     * External URLs (http/https and protocol-relative) are returned unchanged.
+     *
+     * @param string $value DB-stored value: `forms/gps-camera/12/photo.jpg`,
+     *                      `/uploads/workspace/forms/...` or `https://...`.
+     * @return string Web URL or the original value when it cannot be normalized.
+     */
+    public function resolvePublicUrl(string $value): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+
+        if (preg_match('#^(https?://|//)#i', $value)) {
+            return $value;
+        }
+
+        $relativePath = $this->normalizeValueToRelativePath($value);
+        if ($relativePath === '') {
+            return $value;
+        }
+
+        $this->syncPublicMirror($relativePath);
+        return '/' . self::PUBLIC_RELATIVE_DIR . $relativePath;
+    }
+
     public function storagePath(string $relativePath): string
     {
         $relativePath = $this->normalizeRelativePath($relativePath);

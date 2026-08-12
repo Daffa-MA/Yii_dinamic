@@ -169,6 +169,7 @@ class DynamicFormPreviewService
             $customHtml = FormRenderService::injectCameraHandler($customHtml, $fields);
             $customHtml = FormRenderService::injectGpsCameraHandler($customHtml, $fields);
             $customHtml = FormRenderService::injectInteractivePickerRuntime($customHtml, $fields, (int)$form->id);
+            $customHtml = FormRenderService::injectAutoFillRuntime($customHtml, $fields, (int)$form->id);
             FormFlowDebugLogger::logRender([
                 'host' => \Yii::$app->request->hostInfo,
                 'project_id' => $projectId,
@@ -220,6 +221,20 @@ class DynamicFormPreviewService
                 if (!in_array($pickerMode, ['dropdown', 'autocomplete', 'modal_picker', 'autocomplete_with_modal'], true)) {
                     $pickerMode = 'dropdown';
                 }
+                $autoFillSource = (string)($field['auto_fill'] ?? '');
+                $autoFilled = $autoFillSource !== '' && $autoFillSource !== 'none';
+                $autoFillValue = '';
+                if ($autoFilled && $projectId !== null && \Yii::$app->has('currentIdentity')) {
+                    $resolvedIdentity = \Yii::$app->currentIdentity->get($projectId);
+                    if ($autoFillSource === 'current_identity' && is_array($resolvedIdentity)) {
+                        $autoFillValue = (string)($resolvedIdentity['identity_record_id'] ?? '');
+                    } elseif ($autoFillSource === 'current_user' && is_array($resolvedIdentity)) {
+                        $autoFillValue = (string)($resolvedIdentity['user_id'] ?? '');
+                    }
+                }
+                if ($autoFillValue !== '') {
+                    $field['default_value'] = $autoFillValue;
+                }
                 $optionHtml = '<option value="">Pilih...</option>';
                 $defaultValue = (string)($field['default_value'] ?? '');
                 $selectedLabel = '';
@@ -237,7 +252,7 @@ class DynamicFormPreviewService
                     }
                     $optionHtml .= '<option value="' . Html::encode($value) . '"' . ($defaultValue === $value ? ' selected' : '') . '>' . Html::encode($labelOption) . '</option>';
                 }
-                if ($isFk && $pickerMode !== 'dropdown' && $interactive) {
+                if ($isFk && $pickerMode !== 'dropdown' && $interactive && !$autoFilled) {
                     $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;">'
                         . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label>'
                         . '<div class="relation-picker-wrapper" data-form-id="' . (int)$form->id . '" data-field-name="' . $name . '" data-picker-mode="' . Html::encode($pickerMode) . '">'
@@ -252,7 +267,7 @@ class DynamicFormPreviewService
                         . '</div>';
                     continue;
                 }
-                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ($autoFilled ? ' disabled data-auto-fill-identity="1"' : '') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
                 continue;
             }
             if ($type === 'checkboxes') {
@@ -399,6 +414,7 @@ class DynamicFormPreviewService
         if ($interactive) {
             $html = FormRenderService::attachAjaxSubmitHandler($html);
         }
+        $html = FormRenderService::injectAutoFillRuntime($html, $fields, (int)$form->id);
 
         FormFlowDebugLogger::logRender([
             'host' => \Yii::$app->request->hostInfo,

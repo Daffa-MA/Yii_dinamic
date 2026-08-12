@@ -627,6 +627,49 @@ JS;
         return $html . $css . $script;
     }
 
+    /**
+     * Inject a runtime lock for fields that declare an auto-fill source
+     * (current_identity, current_user, ...). Any field whose `auto_fill` is not
+     * 'none' must not be editable on the rendered form: the FK select is
+     * disabled (native dropdown cannot open) and the interactive picker display
+     * + "Pilih" button are disabled/hidden (modal search cannot open). The real
+     * value is produced by AutoFillRuntime at submit time, so the field never
+     * shows a stale/editable value.
+     *
+     * Mirrors the existing date runtime lock (auto_fill_today/date_readonly) but
+     * is source-agnostic and applies to custom-code override output where the
+     * stored HTML is not regenerated.
+     */
+    public static function injectAutoFillRuntime(string $html, array $fields, ?int $formId = null): string
+    {
+        $locks = [];
+        foreach ($fields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $source = (string)($field['auto_fill'] ?? '');
+            if ($source === '' || $source === 'none') {
+                continue;
+            }
+            $name = (string)($field['field_name'] ?? $field['name'] ?? $field['field_key'] ?? $field['resolved_name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+            $locks[] = ['name' => $name, 'source' => $source];
+        }
+        if (empty($locks)) {
+            return $html;
+        }
+
+        $script = '<script>window.__autoFillRuntimeLock=true;(function(){var locks=' . \yii\helpers\Json::encode($locks) . ';function apply(){for(var i=0;i<locks.length;i++){var f=locks[i];var sels=document.querySelectorAll(\'select[name="\'+f.name+\'"]\');for(var j=0;j<sels.length;j++){sels[j].setAttribute("disabled","disabled");}var disps=document.querySelectorAll(\'.relation-picker-display[data-field-name="\'+f.name+\'"]\');for(var k=0;k<disps.length;k++){disps[k].setAttribute("disabled","disabled");disps[k].setAttribute("readonly","readonly");disps[k].setAttribute("data-auto-fill-locked","1");}var vals=document.querySelectorAll(\'[data-relation-picker-value="\'+f.name+\'"]\');for(var m=0;m<vals.length;m++){vals[m].setAttribute("data-auto-fill-locked","1");}var btns=document.querySelectorAll(\'[data-relation-picker-open="\'+f.name+\'"],[data-picker-field="\'+f.name+\'"]\');for(var b=0;b<btns.length;b++){btns[b].setAttribute("disabled","disabled");btns[b].style.display="none";}var status=document.querySelector(\'[data-relation-picker-status="\'+f.name+\'"]\');if(status){status.textContent="Diisi otomatis oleh sistem.";}}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",apply);}else{apply();}})();</script>';
+
+        if (stripos($html, '</body>') !== false) {
+            return (string)preg_replace('~</body>~i', $script . "\n</body>", $html, 1);
+        }
+
+        return $html . $script;
+    }
+
     public function hasCustomCodePayload(array $renderPayload, ?MasterForm $form = null): bool
     {
         $customHtml = trim((string)($renderPayload['customHtml'] ?? ''));
@@ -676,6 +719,7 @@ JS;
         $html = self::injectCameraHandler($html, $fields);
         $html = self::injectGpsCameraHandler($html, $fields);
         $html = self::injectInteractivePickerRuntime($html, $fields, $formId);
+        $html = self::injectAutoFillRuntime($html, $fields, $formId);
         if ($formId > 0) {
             $html = self::appendCustomFormSubmitCollectorScript($html);
         }

@@ -3008,10 +3008,12 @@
         // Base code templates per field type
         function getFieldBaseCode(fieldType, lang, fieldOverride) {
             var replaceField = fieldOverride || (formFields[selectedIndex] || null);
+            var autoFillLocked = !!(replaceField && replaceField.auto_fill && replaceField.auto_fill !== 'none');
+            var autoFillAttr = autoFillLocked ? ' disabled data-auto-fill-identity="1"' : '';
             if (replaceField && lang === 'html' && (replaceField.is_foreign_key || replaceField.fk_referenced_table) && replaceField.picker_mode && replaceField.picker_mode !== 'dropdown') {
                 var pickerMode = replaceField.picker_mode;
                 var isModal = pickerMode === 'modal_picker' || pickerMode === 'autocomplete_with_modal';
-                code = '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" class="relation-picker-value" data-relation-picker-value="{name}" />\n  <div class="relation-picker-row">\n    <input type="text" name="__fk_display_{name}" class="field-input relation-picker-display" data-field-name="{name}" data-picker-mode="' + pickerMode + '" placeholder="Cari {label}..." />\n' + (isModal ? '    <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="{name}" data-field-name="{name}" data-picker-field="{name}">Pilih</button>\n' : '') + '  </div>\n  <div class="relation-picker-status" data-relation-picker-status="{name}">Tekan Enter untuk mencari data.</div>\n  <div class="relation-picker-detail" data-relation-picker-detail="{name}" hidden></div>\n</div>';
+                code = '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <input type="hidden" name="{name}" class="relation-picker-value" data-relation-picker-value="{name}" />\n  <div class="relation-picker-row">\n    <input type="text" name="__fk_display_{name}" class="field-input relation-picker-display" data-field-name="{name}" data-picker-mode="' + pickerMode + '" placeholder="Cari {label}..."' + autoFillAttr + ' />\n' + (isModal ? (autoFillLocked ? '' : '    <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="{name}" data-field-name="{name}" data-picker-field="{name}">Pilih</button>\n') : '') + '  </div>\n  <div class="relation-picker-status" data-relation-picker-status="{name}">' + (autoFillLocked ? 'Diisi otomatis oleh sistem.' : 'Tekan Enter untuk mencari data.') + '</div>\n  <div class="relation-picker-detail" data-relation-picker-detail="{name}" hidden></div>\n</div>';
                 var replaceIndex = fieldOverride ? 0 : selectedIndex;
                 code = code.replace(/{label}/g, replaceField.label || 'Label');
                 code = code.replace(/{name}/g, replaceField.name || getFieldTokenName(replaceField, replaceIndex));
@@ -3047,7 +3049,7 @@
                     js: ''
                 },
                 select: {
-                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <select name="{name}" class="field-select">\n    <option value="">Pilih...</option>\n    {options}\n  </select>\n</div>',
+                    html: '<div class="field-wrapper">\n  <label class="field-label">{label}</label>\n  <select name="{name}" class="field-select"{autoFillAttr}>\n    <option value="">Pilih...</option>\n    {options}\n  </select>\n</div>',
                     css: '.field-wrapper {\n  margin-bottom: 16px;\n}\n.field-label {\n  display: block;\n  font-weight: 600;\n  margin-bottom: 6px;\n}\n.field-select {\n  width: 100%;\n  padding: 10px 12px;\n  border: 1px solid #e2e8f0;\n  border-radius: 8px;\n  background: white;\n}',
                     js: ''
                 },
@@ -3323,7 +3325,8 @@
                 .replace(/\{label\}/g, getFieldLabel(field, index))
                 .replace(/\{placeholder\}/g, getFieldPlaceholder(field, index))
                 .replace(/\{name\}/g, field.name || getFieldTokenName(field, index))
-                .replace(/\{type\}/g, field.type || 'text');
+                .replace(/\{type\}/g, field.type || 'text')
+                .replace(/\{autoFillAttr\}/g, (field.auto_fill && field.auto_fill !== 'none') ? ' disabled data-auto-fill-identity="1"' : '');
             if (String(code || '').indexOf('{options}') !== -1) {
                 var ft = String(field.type || '').toLowerCase();
                 if (ft === 'radio') {

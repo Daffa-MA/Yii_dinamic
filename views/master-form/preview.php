@@ -637,6 +637,10 @@ if ($model->table_id) {
                             ]) ?>
                         
                         <?php elseif ($type === 'select' || $type === 'dropdown'): ?>
+                            <?php
+                            $autoFillSource = (string)($field['auto_fill'] ?? '');
+                            $autoFilled = $autoFillSource !== '' && $autoFillSource !== 'none';
+                            ?>
                             <?= Html::label($label, $name, ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <?php
                             $optionsList = ['' => '-- Pilih --'];
@@ -657,7 +661,7 @@ if ($model->table_id) {
                             }
                             $selectedDisplay = $defaultValue !== '' && isset($optionsList[(string)$defaultValue]) ? $optionsList[(string)$defaultValue] : '';
                             ?>
-                            <?php if ($isFk && $pickerMode !== 'dropdown'): ?>
+                            <?php if ($isFk && $pickerMode !== 'dropdown' && !$autoFilled): ?>
                                 <?= Html::hiddenInput($name, $defaultValue, [
                                     'class' => 'relation-picker-value',
                                     'data-relation-picker-value' => $name,
@@ -682,11 +686,13 @@ if ($model->table_id) {
                                 </div>
                                 <div class="relation-picker-detail" data-relation-picker-detail="<?= Html::encode($name) ?>" hidden></div>
                             <?php else: ?>
-                                <?= Html::dropDownList($name, $defaultValue, $optionsList, [
+                                <?= Html::dropDownList($name, $defaultValue, $optionsList, array_filter([
                                     'class' => 'preview-input preview-select',
                                     'required' => $required,
+                                    'disabled' => $autoFilled,
+                                    'data-auto-fill-identity' => $autoFilled ? '1' : null,
                                     'data-fk-submit-name' => $isFk ? $name : null,
-                                ]) ?>
+                                ], function ($v) { return $v !== null; })) ?>
                             <?php endif; ?>
                             <?php if ($isFk): ?>
                                 <div class="preview-fk-badge">

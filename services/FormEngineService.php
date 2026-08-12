@@ -364,6 +364,9 @@ class FormEngineService
         $resolvedField['disable_past_dates'] = !empty($fieldData['disable_past_dates']);
         $resolvedField['disable_future_dates'] = !empty($fieldData['disable_future_dates']);
 
+        // 1.4a Generic Readonly flag (any field type)
+        $resolvedField['readonly'] = !empty($fieldData['readonly']) || !empty($fieldData['readOnly']);
+
         // 1.5 Auto Fill Runtime
         $resolvedField['auto_fill'] = (string)($fieldData['auto_fill'] ?? $fieldData['auto_fill_source'] ?? 'none');
 

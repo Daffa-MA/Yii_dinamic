@@ -629,39 +629,74 @@ JS;
 
     /**
      * Inject a runtime lock for fields that declare an auto-fill source
-     * (current_identity, current_user, ...). Any field whose `auto_fill` is not
-     * 'none' must not be editable on the rendered form: the FK select is
-     * disabled (native dropdown cannot open) and the interactive picker display
-     * + "Pilih" button are disabled/hidden (modal search cannot open). The real
-     * value is produced by AutoFillRuntime at submit time, so the field never
-     * shows a stale/editable value.
+     * (current_identity, current_user, ...) OR a generic readonly flag.
      *
-     * Mirrors the existing date runtime lock (auto_fill_today/date_readonly) but
-     * is source-agnostic and applies to custom-code override output where the
-     * stored HTML is not regenerated.
+     * - Auto-fill fields (`auto_fill` != 'none') must not be editable: the FK
+     *   select is disabled (native dropdown cannot open) and the interactive
+     *   picker display + "Pilih" button are disabled/hidden (modal search cannot
+     *   open). The real value is produced by AutoFillRuntime at submit time.
+     * - Readonly fields (`readonly`/`readOnly` true) are also locked: text-like
+     *   inputs and textareas get the native `readonly` attribute (value keeps
+     *   submitting), selects are disabled plus a hidden mirror carries the
+     *   current value, and pickers are locked the same way as auto-fill.
+     *
+     * Applies to custom-code override output (including full page-source HTML)
+     * where the stored markup is not regenerated, mirroring the existing date
+     * runtime lock (auto_fill_today/date_readonly).
      */
     public static function injectAutoFillRuntime(string $html, array $fields, ?int $formId = null): string
     {
         $locks = [];
+        $identity = [];
+        $projectId = null;
+        if (\Yii::$app->has('currentIdentity') && class_exists(\app\components\ActiveProjectContext::class)) {
+            $projectId = (new \app\components\ActiveProjectContext())->getActiveProjectId();
+            if ($projectId !== null && $projectId > 0) {
+                $resolvedIdentity = \Yii::$app->currentIdentity->get($projectId);
+                if (is_array($resolvedIdentity)) {
+                    $identity = $resolvedIdentity;
+                }
+            }
+        }
+
         foreach ($fields as $field) {
             if (!is_array($field)) {
                 continue;
             }
             $source = (string)($field['auto_fill'] ?? '');
-            if ($source === '' || $source === 'none') {
+            $readonly = !empty($field['readonly']) || !empty($field['readOnly']);
+            $isAutoFill = $source !== '' && $source !== 'none';
+            if (!$isAutoFill && !$readonly) {
                 continue;
             }
             $name = (string)($field['field_name'] ?? $field['name'] ?? $field['field_key'] ?? $field['resolved_name'] ?? '');
             if ($name === '') {
                 continue;
             }
-            $locks[] = ['name' => $name, 'source' => $source];
+            $value = '';
+            if ($source === 'current_identity') {
+                $value = (string)($identity['identity_record_id'] ?? '');
+            } elseif ($source === 'current_user') {
+                $value = (string)($identity['user_id'] ?? '');
+            } elseif ($source === 'current_date') {
+                $value = date('Y-m-d');
+            } elseif ($source === 'current_time') {
+                $value = date('H:i:s');
+            } elseif ($source === 'current_timestamp') {
+                $value = date('Y-m-d H:i:s');
+            }
+            $locks[] = [
+                'name' => $name,
+                'source' => $source,
+                'readonly' => $readonly,
+                'value' => $value,
+            ];
         }
         if (empty($locks)) {
             return $html;
         }
 
-        $script = '<script>window.__autoFillRuntimeLock=true;(function(){var locks=' . \yii\helpers\Json::encode($locks) . ';function apply(){for(var i=0;i<locks.length;i++){var f=locks[i];var sels=document.querySelectorAll(\'select[name="\'+f.name+\'"]\');for(var j=0;j<sels.length;j++){sels[j].setAttribute("disabled","disabled");}var disps=document.querySelectorAll(\'.relation-picker-display[data-field-name="\'+f.name+\'"]\');for(var k=0;k<disps.length;k++){disps[k].setAttribute("disabled","disabled");disps[k].setAttribute("readonly","readonly");disps[k].setAttribute("data-auto-fill-locked","1");}var vals=document.querySelectorAll(\'[data-relation-picker-value="\'+f.name+\'"]\');for(var m=0;m<vals.length;m++){vals[m].setAttribute("data-auto-fill-locked","1");}var btns=document.querySelectorAll(\'[data-relation-picker-open="\'+f.name+\'"],[data-picker-field="\'+f.name+\'"]\');for(var b=0;b<btns.length;b++){btns[b].setAttribute("disabled","disabled");btns[b].style.display="none";}var status=document.querySelector(\'[data-relation-picker-status="\'+f.name+\'"]\');if(status){status.textContent="Diisi otomatis oleh sistem.";}}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",apply);}else{apply();}})();</script>';
+        $script = '<script>window.__autoFillRuntimeLock=true;(function(){var locks=' . \yii\helpers\Json::encode($locks) . ';function esc(v){return String(v==null?"":v).replace(/"/g,"&quot;");}function lockField(f){var isAuto=f.source&&f.source!=="none";var sels=document.querySelectorAll(\'select[name="\'+esc(f.name)+\'"]\');for(var j=0;j<sels.length;j++){var sel=sels[j];var hadValue=sel.value||"";sel.setAttribute("disabled","disabled");if(f.value){try{sel.value=f.value;}catch(e){}}else if(f.readonly&&!isAuto&&hadValue){var mirror=sel.parentNode?sel.parentNode.querySelector(\'input[type="hidden"][name="\'+esc(f.name)+\'"][data-readonly-mirror="1"]\'):null;if(!mirror){mirror=document.createElement("input");mirror.type="hidden";mirror.name=f.name;mirror.setAttribute("data-readonly-mirror","1");sel.parentNode.appendChild(mirror);}if(mirror){mirror.value=hadValue;}}}var disps=document.querySelectorAll(\'.relation-picker-display[data-field-name="\'+esc(f.name)+\'"]\');for(var k=0;k<disps.length;k++){disps[k].setAttribute("disabled","disabled");disps[k].setAttribute("readonly","readonly");disps[k].setAttribute("data-auto-fill-locked","1");}var vals=document.querySelectorAll(\'[data-relation-picker-value="\'+esc(f.name)+\'"]\');for(var m=0;m<vals.length;m++){vals[m].setAttribute("data-auto-fill-locked","1");if(f.value){vals[m].value=f.value;}}var btns=document.querySelectorAll(\'[data-relation-picker-open="\'+esc(f.name)+\'"],[data-picker-field="\'+esc(f.name)+\'"]\');for(var b=0;b<btns.length;b++){btns[b].setAttribute("disabled","disabled");btns[b].style.display="none";}var status=document.querySelector(\'[data-relation-picker-status="\'+esc(f.name)+\'"]\');if(status){status.textContent=isAuto?"Diisi otomatis oleh sistem.":"Hanya baca (readonly)."}if(f.readonly&&!isAuto){var inputs=document.querySelectorAll(\'input[name="\'+esc(f.name)+\'"],textarea[name="\'+esc(f.name)+\'"]\');for(var n=0;n<inputs.length;n++){var inEl=inputs[n];if(inEl.type==="hidden"||inEl.type==="checkbox"||inEl.type==="radio"||inEl.type==="file")continue;inEl.setAttribute("readonly","readonly");inEl.setAttribute("data-readonly-locked","1");}}}function apply(){for(var i=0;i<locks.length;i++){lockField(locks[i]);}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",apply);}else{apply();}})();</script>';
 
         if (stripos($html, '</body>') !== false) {
             return (string)preg_replace('~</body>~i', $script . "\n</body>", $html, 1);
@@ -694,6 +729,17 @@ JS;
         }
 
         if ($customHtml !== '' && preg_match('/^\s*(<!doctype html|<html)\b/i', $customHtml) === 1) {
+            // Full page-source custom HTML (a complete document). Keep the page
+            // intact but still inject the runtime behaviours (auto-fill lock,
+            // readonly lock, camera, picker, submit collector) so custom-code
+            // page source mode behaves exactly like field-level custom code.
+            $customHtml = self::injectCameraHandler($customHtml, $fields);
+            $customHtml = self::injectGpsCameraHandler($customHtml, $fields);
+            $customHtml = self::injectInteractivePickerRuntime($customHtml, $fields, $formId);
+            $customHtml = self::injectAutoFillRuntime($customHtml, $fields, $formId);
+            if ($formId > 0) {
+                $customHtml = self::appendCustomFormSubmitCollectorScript($customHtml);
+            }
             return $customHtml;
         }
 
@@ -1051,6 +1097,9 @@ JS;
         $field['max_date'] = (string)($field['max_date'] ?? '');
         $field['disable_past_dates'] = !empty($field['disable_past_dates']);
         $field['disable_future_dates'] = !empty($field['disable_future_dates']);
+
+        // Generic Readonly flag (any field type)
+        $field['readonly'] = !empty($field['readonly']) || !empty($field['readOnly']);
 
         if (self::isRelationField($field)) {
             $field['is_foreign_key'] = true;

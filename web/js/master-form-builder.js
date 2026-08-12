@@ -1852,6 +1852,7 @@
 
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_required ? 'checked' : '') + ' onchange="updateFieldProp(\'is_required\', this.checked)">Wajib Diisi (Required)</label></div>';
             html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.is_visible ? 'checked' : '') + ' onchange="updateFieldProp(\'is_visible\', this.checked)">Tampilkan (Visible)</label></div>';
+            html += '<div class="prop-group"><label class="prop-checkbox"><input type="checkbox" ' + (field.readonly ? 'checked' : '') + ' onchange="updateFieldProp(\'readonly\', this.checked)">Hanya Baca (Readonly)</label></div>';
             html += '</div>';
 
             html += renderAutoFillProps(field);
@@ -3327,6 +3328,15 @@
                 .replace(/\{name\}/g, field.name || getFieldTokenName(field, index))
                 .replace(/\{type\}/g, field.type || 'text')
                 .replace(/\{autoFillAttr\}/g, (field.auto_fill && field.auto_fill !== 'none') ? ' disabled data-auto-fill-identity="1"' : '');
+            if (field.readonly) {
+                resolved = resolved
+                    .replace(/(<textarea\b)/g, '$1 readonly data-readonly-locked="1"')
+                    .replace(/(<input\b(?![^>]*type="hidden"))/g, '$1 readonly data-readonly-locked="1"')
+                    .replace(/(<select\b)/g, '$1 disabled data-readonly-locked="1"');
+                if (/<select\b/.test(resolved) && /<\/select>/.test(resolved)) {
+                    resolved = resolved.replace(/<\/select>/, '<input type="hidden" name="' + (field.name || '') + '" value="" data-readonly-mirror="1"></select>');
+                }
+            }
             if (String(code || '').indexOf('{options}') !== -1) {
                 var ft = String(field.type || '').toLowerCase();
                 if (ft === 'radio') {
@@ -3335,6 +3345,11 @@
                     resolved = resolved.replace(/\{options\}/g, buildCheckboxOptionsMarkup(field));
                 } else {
                     resolved = resolved.replace(/\{options\}/g, buildSelectOptionsMarkup(field));
+                }
+                if (field.readonly && (ft === 'radio' || ft === 'checkboxes')) {
+                    resolved = resolved
+                        .replace(/(<input type="radio"\b)/g, '$1 disabled data-readonly-locked="1"')
+                        .replace(/(<input type="checkbox"\b)/g, '$1 disabled data-readonly-locked="1"');
                 }
             }
             return resolved;
@@ -3712,7 +3727,7 @@
 
         // Update Data
         var _FIELD_DEFAULTS = {
-            field_id: '', is_required: false, is_visible: true, is_disabled: false,
+            field_id: '', is_required: false, is_visible: true, is_disabled: false, readonly: false,
             placeholder: '', default_value: '', helper_text: '', error_text: '',
             column_width: 12, column_offset: 0, section_id: '', css_class: '',
             style_override: {}, tooltip: '', icon_prefix: '', icon_suffix: '', tab_index: 0,

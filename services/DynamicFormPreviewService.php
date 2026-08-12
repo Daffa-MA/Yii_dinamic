@@ -212,7 +212,8 @@ class DynamicFormPreviewService
                 continue;
             }
             if ($type === 'textarea') {
-                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><textarea ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;min-height:70px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></textarea></div>';
+                $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' readonly data-readonly-locked="1"' : '';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><textarea ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '" placeholder="' . $placeholder . '" style="width:100%;min-height:70px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></textarea></div>';
                 continue;
             }
             if ($type === 'select' || $type === 'dropdown') {
@@ -267,7 +268,12 @@ class DynamicFormPreviewService
                         . '</div>';
                     continue;
                 }
-                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><select ' . ($interactive ? '' : 'disabled') . ($autoFilled ? ' disabled data-auto-fill-identity="1"' : '') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select></div>';
+                $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' disabled data-readonly-locked="1"' : '';
+                $selectHtml = '<select ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ($autoFilled ? ' disabled data-auto-fill-identity="1"' : '') . ($isFk ? ' data-dynamic-fk="1" data-fk-submit-name="' . $name . '"' : '') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;">' . $optionHtml . '</select>';
+                if (!empty($field['readonly']) || !empty($field['readOnly'])) {
+                    $selectHtml .= '<input type="hidden" name="' . $name . '" value="' . Html::encode($defaultValue) . '" data-readonly-mirror="1">';
+                }
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label>' . $selectHtml . '</div>';
                 continue;
             }
             if ($type === 'checkboxes') {
@@ -282,10 +288,11 @@ class DynamicFormPreviewService
                         continue;
                     }
                     $optionLabel = (string)($option['label'] ?? $value);
-                    $items .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin-bottom:8px;">'
-                        . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '[]" value="' . Html::encode($value) . '" style="width:16px;height:16px;">'
-                        . Html::encode($optionLabel)
-                        . '</label>';
+                    $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' disabled data-readonly-locked="1"' : '';
+                $items .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin-bottom:8px;">'
+                    . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '[]" value="' . Html::encode($value) . '" style="width:16px;height:16px;">'
+                    . Html::encode($optionLabel)
+                    . '</label>';
                 }
                 $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;">'
                     . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;">' . $label . $required . '</label>'
@@ -305,10 +312,11 @@ class DynamicFormPreviewService
                         continue;
                     }
                     $optionLabel = (string)($option['label'] ?? $value);
-                    $items .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin-bottom:8px;">'
-                        . '<input type="radio" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="' . Html::encode($value) . '" style="width:16px;height:16px;">'
-                        . Html::encode($optionLabel)
-                        . '</label>';
+                    $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' disabled data-readonly-locked="1"' : '';
+                $items .= '<label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;margin-bottom:8px;">'
+                    . '<input type="radio" ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '" value="' . Html::encode($value) . '" style="width:16px;height:16px;">'
+                    . Html::encode($optionLabel)
+                    . '</label>';
                 }
                 $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;">'
                     . '<label style="display:block;font-size:12px;color:#334155;margin-bottom:6px;">' . $label . $required . '</label>'
@@ -318,9 +326,10 @@ class DynamicFormPreviewService
             }
             if ($type === 'boolean') {
                 $checked = !empty($field['default_value']) && ((string)$field['default_value'] === '1' || strtolower((string)$field['default_value']) === 'true');
+                $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' disabled data-readonly-locked="1"' : '';
                 $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;" class="form-check form-switch">'
                     . ($interactive ? '<input type="hidden" name="' . $name . '" value="0">' : '')
-                    . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" ' . ($checked ? 'checked' : '') . ' style="margin-right:8px;" class="form-check-input">'
+                    . '<input type="checkbox" ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '" value="1" ' . ($checked ? 'checked' : '') . ' style="margin-right:8px;" class="form-check-input">'
                     . '<span>' . $label . $required . '</span>'
                     . '</label></div>';
                 continue;
@@ -348,7 +357,8 @@ class DynamicFormPreviewService
                 continue;
             }
             if ($type === 'checkbox') {
-                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
+                $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' disabled data-readonly-locked="1"' : '';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="font-size:12px;color:#334155;"><input type="checkbox" ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '" value="1" style="margin-right:8px;">' . $label . '</label></div>';
                 continue;
             }
             if (FormRenderService::isCameraField($field)) {
@@ -361,7 +371,8 @@ class DynamicFormPreviewService
             }
             $isFileUpload = in_array($type, ['file', 'file_upload'], true);
             if ($isFileUpload) {
-                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="file" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></div>';
+                $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' disabled data-readonly-locked="1"' : '';
+                $fieldHtml .= '<div data-field-container="' . $name . '" style="margin-bottom:10px;"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="file" ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"></div>';
                 continue;
             }
             $inputType = in_array($type, ['email', 'number', 'password', 'tel', 'url', 'date', 'time', 'datetime-local', 'file'], true) ? $type : 'text';
@@ -392,7 +403,8 @@ class DynamicFormPreviewService
             }
             $defaultValue = Html::encode((string)($field['default_value'] ?? ''));
             $requiredAttr = !empty($field['required']) ? ' required' : '';
-            $fieldHtml .= '<div style="margin-bottom:10px;" data-field-container="' . $name . '"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="' . $inputType . '" ' . ($interactive ? '' : 'disabled') . ' name="' . $name . '" value="' . $defaultValue . '" placeholder="' . $placeholder . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"' . $dateAttrs . $requiredAttr . '></div>';
+            $readonlyAttr = (!empty($field['readonly']) || !empty($field['readOnly'])) ? ' readonly data-readonly-locked="1"' : '';
+            $fieldHtml .= '<div style="margin-bottom:10px;" data-field-container="' . $name . '"><label style="display:block;font-size:12px;color:#334155;margin-bottom:4px;">' . $label . $required . '</label><input type="' . $inputType . '" ' . ($interactive ? '' : 'disabled') . $readonlyAttr . ' name="' . $name . '" value="' . $defaultValue . '" placeholder="' . $placeholder . '" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;"' . $dateAttrs . $requiredAttr . '></div>';
         }
 
         $submitHtml = '<div style="margin-top:6px;"><button type="' . ($interactive ? 'submit' : 'button') . '" ' . ($interactive ? '' : 'disabled') . ' style="padding:9px 14px;background:#0f172a;color:#fff;border:none;border-radius:8px;opacity:.85;">Submit</button></div>';

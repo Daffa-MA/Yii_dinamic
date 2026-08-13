@@ -411,6 +411,13 @@
                     ensureReadonlySelectMirror(control, fieldName, value);
                 }
             });
+
+            if (labelLookup[fieldName] && form.querySelector('[data-relation-picker-value="' + cssEscape(fieldName) + '"]')) {
+                var displayInput = getPickerDisplayInput(form, fieldName);
+                if (displayInput) {
+                    displayInput.value = String(labelLookup[fieldName]);
+                }
+            }
         });
 
         if (display) {

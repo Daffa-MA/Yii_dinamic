@@ -571,13 +571,13 @@ window.__interactivePickerRuntime = true;
             var fid=hidden.getAttribute('data-form-id')||form.getAttribute('data-form-id')||'';
             if(!fn||!fid)return;
             var display=form.querySelector('.relation-picker-display[data-field-name="'+cssEscape(fn)+'"]');
-            if(display&&display.value)return;
+            if(display&&display.value&&display.value!==value)return;
             fetch(pickerResolveUrl+'?'+new URLSearchParams({form_id:fid,field_name:fn,value:value}).toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}})
                 .then(function(r){return r.json();})
                 .then(function(data){
                     if(!data||!data.success||!data.label)return;
                     var inp=form.querySelector('.relation-picker-display[data-field-name="'+cssEscape(fn)+'"]');
-                    if(inp&&!inp.value)inp.value=data.label;
+                    if(inp)inp.value=data.label;
                     setPickerStatus(form,fn,data.label?'Dipilih: '+data.label:'');
                 })
                 .catch(function(){});
@@ -709,18 +709,30 @@ JS;
             } elseif ($source === 'current_timestamp') {
                 $value = date('Y-m-d H:i:s');
             }
+            $label = '';
+            if ($value !== '' && $formId !== null && $formId > 0 && self::isRelationField($field)) {
+                try {
+                    $resolved = (new RelationPickerService())->resolveLabel((int)$formId, $name, $value);
+                    if (!empty($resolved['label'])) {
+                        $label = (string)$resolved['label'];
+                    }
+                } catch (\Throwable $e) {
+                    $label = '';
+                }
+            }
             $locks[] = [
                 'name' => $name,
                 'source' => $source,
                 'readonly' => $readonly,
                 'value' => $value,
+                'label' => $label,
             ];
         }
         if (empty($locks)) {
             return $html;
         }
 
-        $script = '<script>window.__autoFillRuntimeLock=true;(function(){var locks=' . \yii\helpers\Json::encode($locks) . ';function esc(v){return String(v==null?"":v).replace(/"/g,"&quot;");}function lockField(f){var isAuto=f.source&&f.source!=="none";var name=f.name;var sels=document.querySelectorAll(\'select[name="\'+esc(name)+\'"]\');for(var j=0;j<sels.length;j++){var sel=sels[j];var hadValue=sel.value||"";if(f.value){try{sel.value=f.value;hadValue=sel.value;}catch(e){}}sel.setAttribute("disabled","disabled");sel.setAttribute("data-readonly-locked","1");if(hadValue){var mirror=sel.parentNode?sel.parentNode.querySelector(\'input[type="hidden"][name="\'+esc(name)+\'"][data-readonly-mirror="1"]\'):null;if(!mirror){mirror=document.createElement("input");mirror.type="hidden";mirror.name=name;mirror.setAttribute("data-readonly-mirror","1");sel.parentNode.appendChild(mirror);}if(mirror){mirror.value=hadValue;}}}var disps=document.querySelectorAll(\'.relation-picker-display[data-field-name="\'+esc(name)+\'"]\');for(var k=0;k<disps.length;k++){disps[k].setAttribute("disabled","disabled");disps[k].setAttribute("readonly","readonly");disps[k].setAttribute("data-auto-fill-locked","1");if(f.value&&!disps[k].value){disps[k].value=f.value;}}var vals=document.querySelectorAll(\'[data-relation-picker-value="\'+esc(name)+\'"]\');for(var m=0;m<vals.length;m++){vals[m].setAttribute("data-auto-fill-locked","1");vals[m].setAttribute("data-readonly-locked","1");if(f.value){vals[m].value=f.value;}}var btns=document.querySelectorAll(\'[data-relation-picker-open="\'+esc(name)+\'"],[data-picker-field="\'+esc(name)+\'"]\');for(var b=0;b<btns.length;b++){btns[b].setAttribute("disabled","disabled");btns[b].style.display="none";}var status=document.querySelector(\'[data-relation-picker-status="\'+esc(name)+\'"]\');if(status){status.textContent=isAuto?"Diisi otomatis oleh sistem.":"Hanya baca (readonly)."}var inputs=document.querySelectorAll(\'input[name="\'+esc(name)+\'"],textarea[name="\'+esc(name)+\'"]\');for(var n=0;n<inputs.length;n++){var inEl=inputs[n];var t=(inEl.type||"").toLowerCase();if(inEl.tagName==="INPUT"&&(t==="hidden"||t==="checkbox"||t==="radio"||t==="file"))continue;if(f.value&&isAuto&&inEl.value===""){inEl.value=f.value;}inEl.setAttribute("readonly","readonly");inEl.setAttribute("data-readonly-locked","1");inEl.setAttribute("data-auto-fill-locked","1");}if(f.readonly){var cbs=document.querySelectorAll(\'input[type="checkbox"][name="\'+esc(name)+\'"],input[type="radio"][name="\'+esc(name)+\'"],input[type="checkbox"][name="\'+esc(name)+\'[]"],input[type="radio"][name="\'+esc(name)+\'[]"]\');for(var c=0;c<cbs.length;c++){var cb=cbs[c];cb.setAttribute("disabled","disabled");cb.setAttribute("data-readonly-locked","1");if(cb.checked&&cb.parentNode){var cm=document.createElement("input");cm.type="hidden";cm.name=cb.name;cm.value=cb.value;cb.parentNode.appendChild(cm);}}var files=document.querySelectorAll(\'input[type="file"][name="\'+esc(name)+\'"]\');for(var x=0;x<files.length;x++){files[x].setAttribute("disabled","disabled");files[x].setAttribute("data-readonly-locked","1");}var gb=document.querySelectorAll(\'[data-gps-trigger][data-field-name="\'+esc(name)+\'"],[data-camera-trigger][data-field-name="\'+esc(name)+\'"]\');for(var g=0;g<gb.length;g++){gb[g].setAttribute("disabled","disabled");}}}function apply(){for(var i=0;i<locks.length;i++){lockField(locks[i]);}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",apply);}else{apply();}})();</script>';
+        $script = '<script>window.__autoFillRuntimeLock=true;(function(){var locks=' . \yii\helpers\Json::encode($locks) . ';function esc(v){return String(v==null?"":v).replace(/"/g,"&quot;");}function lockField(f){var isAuto=f.source&&f.source!=="none";var name=f.name;var sels=document.querySelectorAll(\'select[name="\'+esc(name)+\'"]\');for(var j=0;j<sels.length;j++){var sel=sels[j];var hadValue=sel.value||"";if(f.value){try{sel.value=f.value;hadValue=sel.value;}catch(e){}}sel.setAttribute("disabled","disabled");sel.setAttribute("data-readonly-locked","1");if(hadValue){var mirror=sel.parentNode?sel.parentNode.querySelector(\'input[type="hidden"][name="\'+esc(name)+\'"][data-readonly-mirror="1"]\'):null;if(!mirror){mirror=document.createElement("input");mirror.type="hidden";mirror.name=name;mirror.setAttribute("data-readonly-mirror","1");sel.parentNode.appendChild(mirror);}if(mirror){mirror.value=hadValue;}}}var disps=document.querySelectorAll(\'.relation-picker-display[data-field-name="\'+esc(name)+\'"]\');for(var k=0;k<disps.length;k++){disps[k].setAttribute("disabled","disabled");disps[k].setAttribute("readonly","readonly");disps[k].setAttribute("data-auto-fill-locked","1");if(f.value&&!disps[k].value){disps[k].value=f.label||f.value;}}var vals=document.querySelectorAll(\'[data-relation-picker-value="\'+esc(name)+\'"]\');for(var m=0;m<vals.length;m++){vals[m].setAttribute("data-auto-fill-locked","1");vals[m].setAttribute("data-readonly-locked","1");if(f.value){vals[m].value=f.value;}}var btns=document.querySelectorAll(\'[data-relation-picker-open="\'+esc(name)+\'"],[data-picker-field="\'+esc(name)+\'"]\');for(var b=0;b<btns.length;b++){btns[b].setAttribute("disabled","disabled");btns[b].style.display="none";}var status=document.querySelector(\'[data-relation-picker-status="\'+esc(name)+\'"]\');if(status){status.textContent=isAuto?"Diisi otomatis oleh sistem.":"Hanya baca (readonly)."}var inputs=document.querySelectorAll(\'input[name="\'+esc(name)+\'"],textarea[name="\'+esc(name)+\'"]\');for(var n=0;n<inputs.length;n++){var inEl=inputs[n];var t=(inEl.type||"").toLowerCase();if(inEl.tagName==="INPUT"&&(t==="hidden"||t==="checkbox"||t==="radio"||t==="file"))continue;if(f.value&&isAuto&&inEl.value===""){inEl.value=f.value;}inEl.setAttribute("readonly","readonly");inEl.setAttribute("data-readonly-locked","1");inEl.setAttribute("data-auto-fill-locked","1");}if(f.readonly){var cbs=document.querySelectorAll(\'input[type="checkbox"][name="\'+esc(name)+\'"],input[type="radio"][name="\'+esc(name)+\'"],input[type="checkbox"][name="\'+esc(name)+\'[]"],input[type="radio"][name="\'+esc(name)+\'[]"]\');for(var c=0;c<cbs.length;c++){var cb=cbs[c];cb.setAttribute("disabled","disabled");cb.setAttribute("data-readonly-locked","1");if(cb.checked&&cb.parentNode){var cm=document.createElement("input");cm.type="hidden";cm.name=cb.name;cm.value=cb.value;cb.parentNode.appendChild(cm);}}var files=document.querySelectorAll(\'input[type="file"][name="\'+esc(name)+\'"]\');for(var x=0;x<files.length;x++){files[x].setAttribute("disabled","disabled");files[x].setAttribute("data-readonly-locked","1");}var gb=document.querySelectorAll(\'[data-gps-trigger][data-field-name="\'+esc(name)+\'"],[data-camera-trigger][data-field-name="\'+esc(name)+\'"]\');for(var g=0;g<gb.length;g++){gb[g].setAttribute("disabled","disabled");}}}function apply(){for(var i=0;i<locks.length;i++){lockField(locks[i]);}}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",apply);}else{apply();}})();</script>';
 
         if (stripos($html, '</body>') !== false) {
             return (string)preg_replace('~</body>~i', $script . "\n</body>", $html, 1);

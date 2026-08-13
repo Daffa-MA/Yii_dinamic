@@ -664,6 +664,7 @@ if ($model->table_id) {
                             $selectedDisplay = $defaultValue !== '' && isset($optionsList[(string)$defaultValue]) ? $optionsList[(string)$defaultValue] : '';
                             ?>
                             <?php if ($isFk && $pickerMode !== 'dropdown' && !$autoFilled): ?>
+                                <?php $pickerReadonly = !empty($field['readonly']) || !empty($field['readOnly']); ?>
                                 <?= Html::hiddenInput($name, $defaultValue, [
                                     'class' => 'relation-picker-value',
                                     'data-relation-picker-value' => $name,
@@ -674,17 +675,19 @@ if ($model->table_id) {
                                         'class' => 'preview-input relation-picker-display',
                                         'placeholder' => $placeholder ?: 'Cari ' . $label . '...',
                                         'required' => $required,
-                                        'readonly' => !empty($field['readonly']) || !empty($field['readOnly']),
+                                        'disabled' => $pickerReadonly,
+                                        'readonly' => $pickerReadonly ? true : null,
+                                        'data-readonly-locked' => $pickerReadonly ? '1' : null,
                                         'data-form-id' => (int)$model->id,
                                         'data-field-name' => $name,
                                         'data-picker-mode' => $pickerMode,
-                                    ], function ($v) { return $v !== false; })) ?>
+                                    ], function ($v) { return $v !== false && $v !== null; })) ?>
                                     <?php if ($pickerMode === 'modal_picker' || $pickerMode === 'autocomplete_with_modal'): ?>
-                                        <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="<?= Html::encode($name) ?>" data-field-name="<?= Html::encode($name) ?>" data-picker-field="<?= Html::encode($name) ?>">Pilih</button>
+                                        <button type="button" class="relation-picker-btn relation-picker-button" data-relation-picker-open="<?= Html::encode($name) ?>" data-field-name="<?= Html::encode($name) ?>" data-picker-field="<?= Html::encode($name) ?>"<?= $pickerReadonly ? ' disabled data-readonly-locked="1"' : '' ?>>Pilih</button>
                                     <?php endif; ?>
                                 </div>
                                 <div class="relation-picker-status" data-relation-picker-status="<?= Html::encode($name) ?>">
-                                    Tekan Enter untuk mencari data.
+                                    <?= $pickerReadonly ? 'Hanya baca (readonly).' : 'Tekan Enter untuk mencari data.' ?>
                                 </div>
                                 <div class="relation-picker-detail" data-relation-picker-detail="<?= Html::encode($name) ?>" hidden></div>
                             <?php else: ?>
@@ -714,34 +717,57 @@ if ($model->table_id) {
                             <?php $booleanChecked = (string)$defaultValue === '1' || strtolower((string)$defaultValue) === 'true'; ?>
                             <?php $booleanReadonly = !empty($field['readonly']) || !empty($field['readOnly']); ?>
                             <div class="preview-checkbox-item form-check form-switch">
-                                <?= Html::checkbox($name, $booleanChecked, [
+                                <?= Html::checkbox($name, $booleanChecked, array_filter([
                                     'class' => 'preview-input form-check-input',
-                                    'uncheck' => '0',
+                                    'uncheck' => $booleanReadonly ? null : '0',
                                     'value' => '1',
                                     'disabled' => $booleanReadonly,
-                                ]) ?>
+                                    'data-readonly-locked' => $booleanReadonly ? '1' : null,
+                                ], function ($v) { return $v !== null; })) ?>
+                                <?php if ($booleanReadonly): ?>
+                                    <?= Html::hiddenInput($name, $booleanChecked ? '1' : '0', ['data-readonly-mirror' => '1']) ?>
+                                <?php endif; ?>
                                 <span class="preview-label" style="margin-bottom:0;"><?= Html::encode($label) ?></span>
                             </div>
                         
                         <?php elseif ($type === 'checkbox'): ?>
+                            <?php $checkboxReadonly = !empty($field['readonly']) || !empty($field['readOnly']); ?>
                             <label class="preview-checkbox-item">
-                                <?= Html::checkbox($name, $defaultValue, [
+                                <?= Html::checkbox($name, (bool)$defaultValue, array_filter([
                                     'class' => 'preview-input',
-                                    'disabled' => !empty($field['readonly']) || !empty($field['readOnly']),
-                                ]) ?>
+                                    'uncheck' => $checkboxReadonly ? null : '0',
+                                    'disabled' => $checkboxReadonly,
+                                    'data-readonly-locked' => $checkboxReadonly ? '1' : null,
+                                ], function ($v) { return $v !== null; })) ?>
+                                <?php if ($checkboxReadonly): ?>
+                                    <?= Html::hiddenInput($name, !empty($defaultValue) ? '1' : '0', ['data-readonly-mirror' => '1']) ?>
+                                <?php endif; ?>
                                 <span class="preview-label" style="margin-bottom:0;"><?= Html::encode($label) ?></span>
                             </label>
                         
                         <?php elseif ($type === 'checkboxes'): ?>
+                            <?php
+                            $checkboxesReadonly = !empty($field['readonly']) || !empty($field['readOnly']);
+                            $checkboxSelected = [];
+                            if ($checkboxesReadonly) {
+                                $checkboxDefault = is_array($defaultValue) ? $defaultValue : (json_decode((string)$defaultValue, true) ?: []);
+                                if (!is_array($checkboxDefault)) {
+                                    $checkboxDefault = $defaultValue !== '' ? array_filter(explode(',', (string)$defaultValue)) : [];
+                                }
+                                $checkboxSelected = array_map('strval', $checkboxDefault);
+                            }
+                            ?>
                             <?= Html::label($label, '', ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <div class="preview-checkbox-group">
                                 <?php foreach ($options as $opt): ?>
                                     <?php if (!is_array($opt) || trim((string)($opt['value'] ?? '')) === '') continue; ?>
+                                    <?php $checkboxChecked = $checkboxesReadonly && in_array((string)$opt['value'], $checkboxSelected, true); ?>
                                     <label class="preview-checkbox-item">
-                                        <?= Html::checkbox($name . '[]', false, [
+                                        <?= Html::checkbox($name . '[]', $checkboxChecked, [
                                             'class' => 'preview-input',
                                             'value' => $opt['value'] ?? '',
-                                            'disabled' => !empty($field['readonly']) || !empty($field['readOnly']),
+                                            'disabled' => $checkboxesReadonly,
+                                            'data-readonly-locked' => $checkboxesReadonly ? '1' : null,
                                         ]) ?>
                                         <span><?= Html::encode($opt['label'] ?? '') ?></span>
                                     </label>
@@ -749,15 +775,20 @@ if ($model->table_id) {
                             </div>
                         
                         <?php elseif ($type === 'radio'): ?>
+                            <?php
+                            $radioReadonly = !empty($field['readonly']) || !empty($field['readOnly']);
+                            $radioSelectedValue = (string)$defaultValue;
+                            ?>
                             <?= Html::label($label, '', ['class' => 'preview-label' . ($required ? ' required' : '')]) ?>
                             <div class="preview-radio-group">
                                 <?php foreach ($options as $opt): ?>
                                     <?php if (!is_array($opt) || trim((string)($opt['value'] ?? '')) === '') continue; ?>
                                     <label class="preview-radio-item">
-                                        <?= Html::radio($name, false, [
+                                        <?= Html::radio($name, $radioReadonly && (string)$opt['value'] === $radioSelectedValue, [
                                             'class' => 'preview-input',
                                             'value' => $opt['value'] ?? '',
-                                            'disabled' => !empty($field['readonly']) || !empty($field['readOnly']),
+                                            'disabled' => $radioReadonly,
+                                            'data-readonly-locked' => $radioReadonly ? '1' : null,
                                         ]) ?>
                                         <span><?= Html::encode($opt['label'] ?? '') ?></span>
                                     </label>
@@ -784,6 +815,9 @@ if ($model->table_id) {
                                         $defaultValue = $now->format('Y-m-d\TH:i');
                                     }
                                 }
+                            }
+                            if (!empty($field['readonly']) || !empty($field['readOnly'])) {
+                                $dateInputAttrs['readonly'] = true;
                             }
                             if (!empty($field['date_readonly'])) {
                                 $dateInputAttrs['readonly'] = true;
@@ -1029,6 +1063,38 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     previewForm.addEventListener('submit', function() {
+        previewForm.querySelectorAll('[data-readonly-locked]').forEach(function(control) {
+            if (!control.disabled || !control.name) {
+                return;
+            }
+            var controlType = (control.type || '').toLowerCase();
+            if (controlType !== 'checkbox' && controlType !== 'radio') {
+                return;
+            }
+            if (!control.checked) {
+                return;
+            }
+            var container = control.closest('[data-field-container]') || control.parentNode;
+            if (!container) {
+                return;
+            }
+            var hasMirror = false;
+            container.querySelectorAll('input[type="hidden"][data-readonly-mirror="1"][name="' + CSS.escape(control.name) + '"]').forEach(function(mirror) {
+                if (mirror.value === control.value) {
+                    hasMirror = true;
+                }
+            });
+            if (hasMirror) {
+                return;
+            }
+            var mirror = document.createElement('input');
+            mirror.type = 'hidden';
+            mirror.name = control.name;
+            mirror.value = control.value;
+            mirror.setAttribute('data-readonly-mirror', '1');
+            container.appendChild(mirror);
+        });
+
         previewForm.querySelectorAll('select[data-fk-submit-name]').forEach(function(select) {
             var submitName = select.getAttribute('data-fk-submit-name');
             if (!submitName) {

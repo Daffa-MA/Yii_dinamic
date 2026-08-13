@@ -928,6 +928,12 @@
                 }
             }
 
+            // Controls locked as readonly (server-rendered or auto-filled) must
+            // never be re-enabled by the logic engine.
+            function isLockedControl(input) {
+                return input.hasAttribute('data-readonly-locked') || input.hasAttribute('data-auto-fill-locked') || input.hasAttribute('data-auto-fill-identity');
+            }
+
             // Evaluate disabled_if
             var isDisabled = !!field.is_disabled;
             var disConditions = field.disabled_if;
@@ -937,13 +943,14 @@
                 }
             }
             inputs.forEach(function(input) {
-                if (input.type !== 'hidden') {
-                    input.disabled = isDisabled || !showResult;
+                if (input.type === 'hidden' || isLockedControl(input)) {
+                    return;
                 }
+                input.disabled = isDisabled || !showResult;
             });
 
-            // Evaluate readonly_if
-            var isReadonly = !!field.date_readonly;
+            // Evaluate readonly_if + inherent readonly/readOnly flag
+            var isReadonly = !!field.readonly || !!field.readOnly || !!field.date_readonly;
             var roConditions = field.readonly_if;
             if (roConditions && roConditions.length > 0) {
                 if (self.checkConditions(roConditions, field.condition_logic || 'AND', formData)) {
@@ -951,18 +958,26 @@
                 }
             }
             inputs.forEach(function(input) {
-                if (showResult && isReadonly && input.type !== 'hidden') {
-                    if (input.tagName === 'SELECT') {
+                var inputType = (input.type || '').toLowerCase();
+                if (input.type === 'hidden') {
+                    return;
+                }
+                var isLocked = isLockedControl(input);
+                if (showResult && (isReadonly || isLocked)) {
+                    if (input.tagName === 'SELECT' || inputType === 'checkbox' || inputType === 'radio' || inputType === 'file') {
                         input.disabled = true;
                     } else {
                         input.readOnly = true;
                     }
                     input.setAttribute('aria-readonly', 'true');
                 } else if (input.type !== 'hidden') {
-                    if (input.tagName === 'SELECT') {
-                        input.disabled = isDisabled || !showResult;
+                    if (input.tagName === 'SELECT' || inputType === 'checkbox' || inputType === 'radio' || inputType === 'file') {
+                        if (!isLocked) {
+                            input.disabled = isDisabled || !showResult;
+                        }
                     } else {
                         input.readOnly = false;
+                        input.disabled = isDisabled || !showResult;
                     }
                     input.removeAttribute('aria-readonly');
                 }

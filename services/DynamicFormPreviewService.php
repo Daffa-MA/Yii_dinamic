@@ -419,14 +419,14 @@ class DynamicFormPreviewService
             . $formClose
             . '</div>';
 
-        if (!$interactive) {
-            self::$renderCache[$cacheKey] = $html;
-        }
-
         if ($interactive) {
             $html = FormRenderService::attachAjaxSubmitHandler($html);
         }
         $html = FormRenderService::injectAutoFillRuntime($html, $fields, (int)$form->id);
+
+        if (!$interactive) {
+            self::$renderCache[$cacheKey] = $html;
+        }
 
         FormFlowDebugLogger::logRender([
             'host' => \Yii::$app->request->hostInfo,

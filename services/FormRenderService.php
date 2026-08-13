@@ -484,6 +484,7 @@ window.__interactivePickerRuntime = true;
 (function(){
     var pickerDataUrl = '/master-form/relation-picker-data';
     var pickerSearchUrl = '/master-form/relation-picker-search';
+    var pickerResolveUrl = '/master-form/relation-picker-resolve';
     var pickerState = { fieldName: '', formId: '', page: 1, hasNext: false, form: null };
 
     function cssEscape(v) { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v).replace(/"/g,'\\"'); }
@@ -561,6 +562,28 @@ window.__interactivePickerRuntime = true;
             .catch(function(err){content.innerHTML='<div style="padding:14px;border:1px solid #fecaca;background:#fff1f2;color:#9f1239;border-radius:12px;">'+esc(err.message||'Gagal memuat data.')+'</div>';});
     }
 
+    function hydratePickers(form){
+        if(!form)return;
+        form.querySelectorAll('[data-relation-picker-value]').forEach(function(hidden){
+            var value=hidden.value||'';
+            if(!value)return;
+            var fn=hidden.getAttribute('data-relation-picker-value')||hidden.name||'';
+            var fid=hidden.getAttribute('data-form-id')||form.getAttribute('data-form-id')||'';
+            if(!fn||!fid)return;
+            var display=form.querySelector('.relation-picker-display[data-field-name="'+cssEscape(fn)+'"]');
+            if(display&&display.value)return;
+            fetch(pickerResolveUrl+'?'+new URLSearchParams({form_id:fid,field_name:fn,value:value}).toString(),{headers:{'X-Requested-With':'XMLHttpRequest'}})
+                .then(function(r){return r.json();})
+                .then(function(data){
+                    if(!data||!data.success||!data.label)return;
+                    var inp=form.querySelector('.relation-picker-display[data-field-name="'+cssEscape(fn)+'"]');
+                    if(inp&&!inp.value)inp.value=data.label;
+                    setPickerStatus(form,fn,data.label?'Dipilih: '+data.label:'');
+                })
+                .catch(function(){});
+        });
+    }
+
     function bindForm(form){
         if(!form||form.dataset.dynamicRuntimeBound==='1')return;
         form.dataset.dynamicRuntimeBound='1';
@@ -603,6 +626,7 @@ window.__interactivePickerRuntime = true;
                 hi.value=sel.value||'';
             });
         });
+        hydratePickers(form);
     }
 
     function init(scope){

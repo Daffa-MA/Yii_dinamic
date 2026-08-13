@@ -1102,6 +1102,30 @@ class MasterFormController extends Controller
         }
     }
 
+    public function actionRelationPickerResolve($form_id = null, $field_name = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $formId = (int)$form_id;
+            $fieldName = (string)$field_name;
+            $value = trim((string)Yii::$app->request->get('value', ''));
+            if ($formId <= 0 || $fieldName === '') {
+                return ['success' => false, 'message' => 'Parameter form_id dan field_name wajib diisi.'];
+            }
+
+            return $this->relationPickerService->resolveLabel($formId, $fieldName, $value);
+        } catch (\Throwable $e) {
+            Yii::error([
+                'relation_picker_resolve_error' => true,
+                'form_id' => $form_id,
+                'field_name' => $field_name,
+                'error' => $e->getMessage(),
+            ], 'relation-picker');
+            return ['success' => false, 'message' => 'Gagal memuat label relasi.'];
+        }
+    }
+
     
 
     public function actionResolveAutofill($form_id = null, $trigger_field = null, $trigger_value = null)

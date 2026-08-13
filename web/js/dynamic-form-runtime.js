@@ -457,6 +457,14 @@
                     data.readonly_fields || [],
                     data.labels || data.display_labels || {}
                 );
+
+                if (data.trigger_label) {
+                    var triggerDisplay = getPickerDisplayInput(form, triggerField);
+                    if (triggerDisplay && !triggerDisplay.value) {
+                        triggerDisplay.value = String(data.trigger_label);
+                    }
+                    setPickerStatus(form, triggerField, 'Dipilih: ' + data.trigger_label);
+                }
             })
             .catch(function(error) {
                 var message = error && error.message ? error.message : 'Data relasi tidak ditemukan.';

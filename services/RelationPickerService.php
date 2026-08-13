@@ -116,6 +116,51 @@ class RelationPickerService
     }
 
     /**
+     * Resolve the display label for a single relation value (used to hydrate
+     * the picker display for an already-selected value in custom-code /
+     * page-source mode, where the stored markup is not regenerated).
+     *
+     * @return array{success: bool, value?: string, label?: string, message?: string}
+     */
+    public function resolveLabel(int $formId, string $fieldName, string $value): array
+    {
+        $model = $this->loadForm($formId);
+        if ($model === null) {
+            return ['success' => false, 'message' => 'Form tidak ditemukan.'];
+        }
+
+        $field = $this->resolveField($model, $fieldName);
+        if ($field === null) {
+            return ['success' => false, 'message' => 'Field relasi tidak ditemukan.'];
+        }
+
+        $config = $this->resolveConfig($field);
+        if ($config === null) {
+            return ['success' => false, 'message' => 'Konfigurasi picker relasi belum valid.'];
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return ['success' => true, 'value' => '', 'label' => ''];
+        }
+
+        $row = $this->loadSourceRow($config, $value);
+        if ($row === null) {
+            return ['success' => true, 'value' => $value, 'label' => ''];
+        }
+
+        $valueColumn = (string)($config['value_column'] ?? 'id');
+        $displayColumn = (string)($config['display_column'] ?? $valueColumn);
+        $label = (string)($row[$displayColumn] ?? $row[$valueColumn] ?? $value);
+
+        return [
+            'success' => true,
+            'value' => $value,
+            'label' => $label !== '' ? $label : $value,
+        ];
+    }
+
+    /**
      * Resolve autofill data when a relation picker value is selected.
      *
      * @return array{success: bool, values?: \stdClass, display?: array, readonly_fields?: array, labels?: array, message?: string}
@@ -165,7 +210,20 @@ class RelationPickerService
             'readonly_fields' => $resolution['readonly_fields'],
             'labels' => $resolution['labels'],
             'display' => $display,
+            'trigger_label' => $this->buildTriggerLabel($config, $sourceRow),
         ];
+    }
+
+    /**
+     * Build the display label for the trigger (the row currently selected in the
+     * picker), so the picker display input can be hydrated at load time.
+     */
+    private function buildTriggerLabel(array $config, array $sourceRow): string
+    {
+        $valueColumn = (string)($config['value_column'] ?? 'id');
+        $displayColumn = (string)($config['display_column'] ?? $valueColumn);
+        $label = (string)($sourceRow[$displayColumn] ?? $sourceRow[$valueColumn] ?? '');
+        return $label;
     }
 
     // =========================================================================
@@ -1101,6 +1159,7 @@ class RelationPickerService
             'display' => ['enabled' => false, 'items' => []],
             'readonly_fields' => [],
             'labels' => [],
+            'trigger_label' => '',
         ];
     }
 

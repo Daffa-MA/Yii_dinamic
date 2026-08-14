@@ -7,6 +7,7 @@ use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\ForbiddenHttpException;
 use yii\web\Response;
+use yii\web\UploadedFile;
 use yii\db\Connection;
 use yii\helpers\Url;
 use app\models\DbTable;
@@ -35,6 +36,7 @@ class TableBuilderController extends Controller
     
     private const IDENTIFIER_PATTERN = '/^[a-z][a-z0-9_]*$/';
     private const DB_TABLE_COLUMNS_TABLE = 'db_table_columns';
+    private const IMPORT_CORRUPT_FILE_MESSAGE = 'File Excel tidak dapat dibuka.' . "\n" . 'File ini rusak atau formatnya tidak sesuai. Coba simpan ulang file Anda sebagai .xlsx lalu unggah kembali.';
     private ?DatabaseSchemaSyncService $databaseSchemaSyncService = null;
 
     /**
@@ -1499,6 +1501,13 @@ class TableBuilderController extends Controller
                     ],
                 ],
             ],
+            'verbs' => [
+                'class' => \yii\filters\VerbFilter::class,
+                'actions' => [
+                    'import-preview' => ['POST'],
+                    'import-execute' => ['POST'],
+                ],
+            ],
         ];
     }
 
@@ -1794,6 +1803,8 @@ class TableBuilderController extends Controller
         // Fetch actual data from the database table if created.
         // Do not assume an "id" column exists; many custom tables use a different primary key.
         $tableData = [];
+        $liveTableTotal = 0;
+        $liveTablePageSize = 10;
         if ($isCreated) {
             try {
                 $tableSchema = $db->schema->getTableSchema($model->name, true);
@@ -1817,6 +1828,7 @@ class TableBuilderController extends Controller
                     $sql .= ' LIMIT 100';
 
                     $tableData = $db->createCommand($sql)->queryAll();
+                    $liveTableTotal = (int)$db->createCommand("SELECT COUNT(*) FROM `{$escapedTableName}`")->queryScalar();
                 }
             } catch (\Throwable $e) {
                 Yii::warning('Failed loading live table data: ' . $e->getMessage(), __METHOD__);
@@ -1824,13 +1836,15 @@ class TableBuilderController extends Controller
             }
         }
         $spreadsheetContext = $this->buildSpreadsheetContext($model, $columns, $tableSchema, $tableData);
-        $liveTableRows = $this->buildLiveTableRows($model, $columns, $tableSchema, $tableData);
+        $liveTableRows = $this->buildLiveTableRows($model, $columns, $tableSchema, array_slice($tableData, 0, $liveTablePageSize));
 
         return $this->render('view', [
             'model' => $model,
             'columns' => $columns,
             'tableData' => $tableData,
             'liveTableRows' => $liveTableRows,
+            'liveTableTotal' => $liveTableTotal,
+            'liveTablePageSize' => $liveTablePageSize,
             'databaseInfo' => $this->getDatabaseInfo(),
             'spreadsheetContext' => $spreadsheetContext,
         ]);
@@ -1873,6 +1887,89 @@ class TableBuilderController extends Controller
             'mimeType' => 'text/csv; charset=UTF-8',
             'inline' => false,
         ]);
+    }
+
+    public function actionLiveTableData($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findModel((int)$id);
+            if (!$this->syncTableCreationState($model, false)) {
+                return ['success' => false, 'message' => 'Table ini belum dibuat di database.'];
+            }
+
+            $db = $this->getPhysicalDb();
+            $tableSchema = $db->schema->getTableSchema($model->name, true);
+            if ($tableSchema === null) {
+                return ['success' => false, 'message' => 'Schema tabel fisik tidak ditemukan.'];
+            }
+
+            $request = Yii::$app->request;
+            $pageSize = max(1, min(100, (int)$request->get('page_size', 10)));
+            $query = trim((string)$request->get('q', ''));
+
+            $tableName = (string)$model->name;
+            $escapedTableName = str_replace('`', '``', $tableName);
+
+            $whereSql = '';
+            $whereParams = [];
+            if ($query !== '') {
+                $searchableColumns = [];
+                foreach ($tableSchema->columns as $schemaColumn) {
+                    $lowerType = strtolower((string)($schemaColumn->type ?? ''));
+                    if (in_array($lowerType, ['string', 'text'], true)) {
+                        $searchableColumns[] = $schemaColumn->name;
+                    }
+                }
+                if (!empty($searchableColumns)) {
+                    $like = '%' . $query . '%';
+                    $parts = [];
+                    foreach ($searchableColumns as $index => $searchableColumn) {
+                        $escapedColumn = str_replace('`', '``', $searchableColumn);
+                        $paramName = ':q' . $index;
+                        $parts[] = "`{$escapedColumn}` LIKE {$paramName}";
+                        $whereParams[$paramName] = $like;
+                    }
+                    $whereSql = ' WHERE (' . implode(' OR ', $parts) . ')';
+                }
+            }
+
+            $total = (int)$db->createCommand("SELECT COUNT(*) FROM `{$escapedTableName}`" . $whereSql, $whereParams)->queryScalar();
+            $pages = $pageSize > 0 ? (int)ceil($total / $pageSize) : 0;
+            $page = max(1, min($pages > 0 ? $pages : 1, (int)$request->get('page', 1)));
+            $offset = ($page - 1) * $pageSize;
+
+            $orderColumn = null;
+            if (isset($tableSchema->columns['id'])) {
+                $orderColumn = 'id';
+            } elseif (!empty($tableSchema->primaryKey)) {
+                $orderColumn = (string)$tableSchema->primaryKey[0];
+            }
+
+            $sql = "SELECT * FROM `{$escapedTableName}`" . $whereSql;
+            if ($orderColumn !== null) {
+                $escapedOrderColumn = str_replace('`', '``', $orderColumn);
+                $sql .= " ORDER BY `{$escapedOrderColumn}` DESC";
+            }
+            $sql .= " LIMIT {$pageSize} OFFSET {$offset}";
+
+            $tableData = $db->createCommand($sql, $whereParams)->queryAll();
+            $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            $rows = $this->buildLiveTableRows($model, $columns, $tableSchema, $tableData);
+
+            return [
+                'success' => true,
+                'total' => $total,
+                'page' => $page,
+                'page_size' => $pageSize,
+                'pages' => $pages,
+                'rows' => $rows,
+            ];
+        } catch (\Throwable $e) {
+            Yii::error('Live table data failed: ' . $e->getMessage(), 'table-live-data');
+            return ['success' => false, 'message' => $this->buildFriendlyTableBuilderErrorMessage($e)];
+        }
     }
 
     private function loadExportRows(string $tableName, array $primaryKeys): array
@@ -2019,6 +2116,1528 @@ class TableBuilderController extends Controller
             Yii::error('Spreadsheet action failed: ' . $e->getMessage(), 'table-spreadsheet');
             return ['success' => false, 'message' => $this->buildFriendlyTableBuilderErrorMessage($e)];
         }
+    }
+
+    public function actionImportMeta($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findModel((int)$id);
+            if (!$this->syncTableCreationState($model, false)) {
+                return ['success' => false, 'message' => 'Table ini belum dibuat di database.'];
+            }
+
+            $db = $this->getPhysicalDb();
+            $tableSchema = $db->schema->getTableSchema($model->name, true);
+            if ($tableSchema === null) {
+                return ['success' => false, 'message' => 'Schema tabel fisik tidak ditemukan.'];
+            }
+
+            $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            $importableColumns = $this->buildImportableColumnList($model, $tableSchema, $columns);
+            $descriptors = [];
+            foreach ($importableColumns as $column) {
+                $descriptors[] = $this->buildImportableColumnDescriptor($column, $tableSchema, $model);
+            }
+
+            return [
+                'success' => true,
+                'table' => [
+                    'id' => (int)$model->id,
+                    'name' => (string)$model->name,
+                    'label' => (string)$model->label,
+                ],
+                'max_file_size' => $this->importMaxFileSize(),
+                'max_file_size_display' => $this->formatImportBytes($this->importMaxFileSize()),
+                'columns' => $descriptors,
+            ];
+        } catch (\Throwable $e) {
+            Yii::error('Import meta failed: ' . $e->getMessage(), 'table-import');
+            return ['success' => false, 'message' => $this->buildFriendlyTableBuilderErrorMessage($e)];
+        }
+    }
+
+    public function actionImportExample($id)
+    {
+        try {
+            $model = $this->findModel((int)$id);
+            if (!$this->syncTableCreationState($model, false)) {
+                throw new \yii\web\NotFoundHttpException('Table ini belum dibuat di database.');
+            }
+
+            $db = $this->getPhysicalDb();
+            $tableSchema = $db->schema->getTableSchema($model->name, true);
+            if ($tableSchema === null) {
+                throw new \yii\web\NotFoundHttpException('Schema tabel fisik tidak ditemukan.');
+            }
+
+            $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+            $importableColumns = $this->buildImportableColumnList($model, $tableSchema, $columns);
+            $fkMaps = $this->buildImportForeignKeyMaps($importableColumns, $db);
+
+            $headers = [];
+            $sampleRow = [];
+            foreach ($importableColumns as $column) {
+                $columnName = (string)$column->name;
+                $headers[] = $columnName;
+                $sampleRow[] = $this->buildImportSampleValue($column, $tableSchema, $fkMaps[$columnName] ?? null);
+            }
+
+            $handle = fopen('php://temp', 'r+');
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, $headers);
+            fputcsv($handle, $sampleRow);
+            rewind($handle);
+            $content = stream_get_contents($handle);
+            fclose($handle);
+
+            $safeName = trim(preg_replace('/[^A-Za-z0-9_\-]+/', '_', (string)$model->name), '_');
+            if ($safeName === '') {
+                $safeName = 'tabel';
+            }
+            $filename = $safeName . '_contoh_import.csv';
+
+            Yii::$app->response->format = Response::FORMAT_RAW;
+            Yii::$app->response->headers->set('Content-Type', 'text/csv; charset=UTF-8');
+            Yii::$app->response->headers->set('Content-Disposition', 'attachment; filename="' . $filename . '"');
+            Yii::$app->response->headers->set('Content-Transfer-Encoding', 'binary');
+            Yii::$app->response->headers->set('Pragma', 'public');
+            Yii::$app->response->headers->set('Expires', '0');
+            Yii::$app->response->headers->set('Cache-Control', 'must-revalidate, post-check=0, pre-check=0');
+            Yii::$app->response->content = $content;
+
+            return Yii::$app->response;
+        } catch (\Throwable $e) {
+            Yii::error('Import example failed: ' . $e->getMessage(), 'table-import');
+            if ($e instanceof \yii\web\HttpException) {
+                throw $e;
+            }
+            throw new \yii\web\NotFoundHttpException('Contoh file tidak dapat dibuat: ' . $this->buildFriendlyTableBuilderErrorMessage($e));
+        }
+    }
+
+    /**
+     * @param array<string, mixed>|null $fkMap
+     * @return string
+     */
+    private function buildImportSampleValue(DbTableColumn $column, \yii\db\TableSchema $tableSchema, ?array $fkMap)
+    {
+        $columnName = (string)$column->name;
+        $type = strtoupper((string)$column->type);
+        $schemaColumn = $tableSchema->columns[$columnName] ?? null;
+
+        if (SystemFieldService::isForeignKey($column) && $fkMap !== null) {
+            if (!empty($fkMap['by_label'])) {
+                $labelKeys = array_keys($fkMap['by_label']);
+                $labelKey = (string)reset($labelKeys);
+                if ($labelKey !== '') {
+                    return $labelKey;
+                }
+            }
+            foreach (['by_value'] as $bucket) {
+                if (!empty($fkMap[$bucket])) {
+                    $sample = reset($fkMap[$bucket]);
+                    if ($sample !== null && $sample !== '') {
+                        return (string)$sample;
+                    }
+                }
+            }
+            return '';
+        }
+
+        $enumValues = $column->hasAttribute('enum_values') ? (string)$column->getAttribute('enum_values') : '';
+        if ($type === 'ENUM' || trim($enumValues) !== '') {
+            $options = $this->parseEnumOptions($enumValues);
+            if (!empty($options)) {
+                return (string)$options[0]['value'];
+            }
+        }
+
+        $lowerName = strtolower($columnName);
+        if (in_array($type, ['BOOLEAN', 'TINYINT'], true) && ((int)$column->length <= 1 || $type === 'BOOLEAN')) {
+            return '1';
+        }
+        if (in_array($type, ['INT', 'BIGINT', 'SMALLINT', 'MEDIUMINT', 'SERIAL'], true)) {
+            return '100';
+        }
+        if (in_array($type, ['DECIMAL', 'FLOAT', 'DOUBLE', 'REAL'], true)) {
+            return '100.5';
+        }
+        if ($type === 'DATE') {
+            return '2024-01-15';
+        }
+        if (in_array($type, ['DATETIME', 'TIMESTAMP'], true)) {
+            return '2024-01-15 10:30:00';
+        }
+        if ($type === 'TIME') {
+            return '10:30:00';
+        }
+        if ($type === 'YEAR') {
+            return '2024';
+        }
+        if ($type === 'JSON') {
+            return '{"contoh":"nilai"}';
+        }
+        if (strpos($lowerName, 'email') !== false) {
+            return 'contoh@email.com';
+        }
+        if (in_array($lowerName, ['username', 'nip', 'nik', 'kode', 'code', 'slug'], true)) {
+            return 'contoh_' . $columnName;
+        }
+        if (in_array($lowerName, ['password', 'password_hash', 'pass'], true)) {
+            return 'secret123';
+        }
+        if (in_array($lowerName, ['url', 'link', 'website', 'path', 'file', 'foto', 'gambar', 'image'], true)) {
+            return 'https://contoh.dev/' . $columnName;
+        }
+
+        $label = trim((string)$column->label);
+        $humanized = ucwords(str_replace(['_', '-'], ' ', $columnName));
+        $textSample = $label !== '' ? $label : $humanized;
+
+        return 'Contoh ' . $textSample;
+    }
+
+    public function actionImportPreview($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findModel((int)$id);
+            if (!$this->syncTableCreationState($model, false)) {
+                return ['success' => false, 'message' => 'Table ini belum dibuat di database.'];
+            }
+
+            $upload = $this->parseImportUpload((int)$id);
+            $parseResult = $this->parseImportFile($upload['path'], $upload['type']);
+            if (empty($parseResult['headers'])) {
+                return ['success' => false, 'message' => 'File tidak memiliki baris header yang valid.'];
+            }
+
+            $context = $this->buildImportContext($model, $parseResult, []);
+            $autoMapping = $this->buildImportHeaderMapping($context['headers'], $context['importableColumns']);
+            $context['mapping'] = $autoMapping;
+
+            $mappedColumns = [];
+            foreach ($autoMapping as $columnName) {
+                if ($columnName !== '') {
+                    $mappedColumns[] = $columnName;
+                }
+            }
+            $missing = $this->missingRequiredImportColumns($context['importableColumns'], $mappedColumns, $context['tableSchema'], $context['model']);
+
+            $previewRows = [];
+            foreach (array_slice($context['rows'], 0, 8, true) as $rowIndex => $rowCells) {
+                $values = [];
+                $resolved = [];
+                $rowErrors = [];
+                foreach ($context['headers'] as $headerIndex => $header) {
+                    $values[$headerIndex] = $rowCells[$headerIndex] ?? '';
+                    $columnName = $autoMapping[$headerIndex] ?? '';
+                    if ($columnName === '' || !isset($context['columnMap'][$columnName])) {
+                        continue;
+                    }
+                    $column = $context['columnMap'][$columnName];
+                    $rawValue = $rowCells[$headerIndex] ?? '';
+                    if (trim((string)$rawValue) === '') {
+                        $resolved[$columnName] = null;
+                        continue;
+                    }
+                    if (SystemFieldService::isForeignKey($column) && isset($context['fkMaps'][$columnName])) {
+                        $fkResult = $this->resolveImportForeignKeyValue($context['fkMaps'][$columnName], $rawValue);
+                        if (!$fkResult['valid']) {
+                            $resolved[$columnName] = (string)$rawValue;
+                            $rowErrors[] = $fkResult['message'];
+                        } else {
+                            $resolved[$columnName] = $fkResult['value'];
+                        }
+                        continue;
+                    }
+                    $resolved[$columnName] = $this->normalizeImportCellValue($column, $rawValue);
+                }
+                $previewRows[] = [
+                    'index' => (int)$rowIndex,
+                    'values' => $values,
+                    'resolved' => $resolved,
+                    'errors' => $rowErrors,
+                ];
+            }
+
+            $descriptors = [];
+            foreach ($context['importableColumns'] as $column) {
+                $descriptors[] = $this->buildImportableColumnDescriptor($column, $context['tableSchema'], $context['model']);
+            }
+
+            return [
+                'success' => true,
+                'table' => [
+                    'id' => (int)$model->id,
+                    'name' => (string)$model->name,
+                    'label' => (string)$model->label,
+                ],
+                'file' => [
+                    'name' => (string)$upload['file']->name,
+                    'size' => (int)$upload['size'],
+                    'size_display' => $this->formatImportBytes((int)$upload['size']),
+                    'type' => $upload['type'],
+                    'sheet' => $parseResult['sheet'] ?? null,
+                    'encoding' => $parseResult['encoding'] ?? null,
+                    'delimiter' => $parseResult['delimiter'] ?? null,
+                    'total_rows' => (int)($parseResult['total_rows'] ?? 0),
+                ],
+                'headers' => $context['headers'],
+                'mapping' => $autoMapping,
+                'columns' => $descriptors,
+                'missing_required' => $missing,
+                'preview_rows' => $previewRows,
+            ];
+        } catch (\Throwable $e) {
+            Yii::error('Import preview failed: ' . $e->getMessage(), 'table-import');
+            return ['success' => false, 'message' => $this->buildFriendlyTableBuilderErrorMessage($e)];
+        }
+    }
+
+    public function actionImportExecute($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        try {
+            $model = $this->findModel((int)$id);
+            if (!$this->syncTableCreationState($model, false)) {
+                return ['success' => false, 'message' => 'Table ini belum dibuat di database.'];
+            }
+
+            $upload = $this->parseImportUpload((int)$id);
+            $parseResult = $this->parseImportFile($upload['path'], $upload['type']);
+            if (empty($parseResult['headers'])) {
+                return ['success' => false, 'message' => 'File tidak memiliki baris header yang valid.'];
+            }
+
+            $context = $this->buildImportContext($model, $parseResult, Yii::$app->request->post('mapping', []));
+            foreach ($context['mapping'] as $index => $columnName) {
+                if ($columnName !== '' && !in_array($columnName, $context['importableNames'], true)) {
+                    $context['mapping'][$index] = '';
+                }
+            }
+
+            $mappedColumns = array_values(array_filter($context['mapping'], static function ($columnName) {
+                return trim((string)$columnName) !== '';
+            }));
+            $missing = $this->missingRequiredImportColumns($context['importableColumns'], $mappedColumns, $context['tableSchema'], $context['model']);
+            if (!empty($missing)) {
+                return ['success' => false, 'message' => 'Kolom wajib belum dipetakan: ' . implode(', ', $missing) . '.', 'missing_required' => $missing];
+            }
+
+            $unmappedHeaders = [];
+            foreach ($context['headers'] as $index => $header) {
+                if (empty($context['mapping'][$index] ?? '')) {
+                    $unmappedHeaders[] = trim((string)$header);
+                }
+            }
+
+            $result = $this->executeImportRows($context);
+            $truncated = count($result['errors']) > 200;
+            $result['errors'] = array_slice($result['errors'], 0, 200);
+
+            return array_merge([
+                'success' => true,
+                'table' => [
+                    'id' => (int)$model->id,
+                    'name' => (string)$model->name,
+                    'label' => (string)$model->label,
+                ],
+                'file' => [
+                    'name' => (string)$upload['file']->name,
+                    'size' => (int)$upload['size'],
+                    'size_display' => $this->formatImportBytes((int)$upload['size']),
+                    'type' => $upload['type'],
+                    'sheet' => $parseResult['sheet'] ?? null,
+                    'total_rows' => (int)($parseResult['total_rows'] ?? 0),
+                ],
+                'mapping' => $context['mapping'],
+                'missing_required' => $missing,
+                'unmapped_headers' => $unmappedHeaders,
+                'truncated_errors' => $truncated,
+            ], $result);
+        } catch (\Throwable $e) {
+            Yii::error('Import execute failed: ' . $e->getMessage(), 'table-import');
+            return ['success' => false, 'message' => $this->buildFriendlyTableBuilderErrorMessage($e)];
+        }
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $columns
+     * @return array<int, DbTableColumn>
+     */
+    private function buildImportableColumnList(DbTable $model, \yii\db\TableSchema $tableSchema, array $columns): array
+    {
+        $importable = [];
+        foreach ($columns as $column) {
+            $columnName = (string)$column->name;
+            if ($columnName === '') {
+                continue;
+            }
+            $schemaColumn = $tableSchema->columns[$columnName] ?? null;
+            if (SystemFieldService::isAuditField($columnName)) {
+                continue;
+            }
+            if (SystemFieldService::isAutoIncrement($column, $schemaColumn)) {
+                continue;
+            }
+            $importable[] = $column;
+        }
+
+        return $importable;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildImportableColumnDescriptor(DbTableColumn $column, \yii\db\TableSchema $tableSchema, ?DbTable $model = null): array
+    {
+        $columnName = (string)$column->name;
+        $schemaColumn = $tableSchema->columns[$columnName] ?? null;
+        $type = strtoupper((string)$column->type);
+        $isForeignKey = SystemFieldService::isForeignKey($column);
+        $options = [];
+        $enumValues = $column->hasAttribute('enum_values') ? (string)$column->getAttribute('enum_values') : '';
+        if ($type === 'ENUM' || trim($enumValues) !== '') {
+            $options = $this->parseEnumOptions($enumValues);
+        }
+
+        return [
+            'name' => $columnName,
+            'label' => (string)$column->label,
+            'type' => (string)$column->type,
+            'length' => $column->length,
+            'required' => $this->isImportColumnRequired($column, $tableSchema, $model),
+            'is_primary' => SystemFieldService::isPrimaryKey($column, $schemaColumn),
+            'is_foreign_key' => $isForeignKey,
+            'referenced_table_name' => $isForeignKey && $column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : null,
+            'referenced_column_name' => $isForeignKey && $column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : null,
+            'is_nullable' => $schemaColumn !== null ? (bool)$schemaColumn->allowNull : (bool)$column->is_nullable,
+            'has_default' => $schemaColumn !== null && $schemaColumn->defaultValue !== null && $schemaColumn->defaultValue !== '',
+            'options' => $options,
+        ];
+    }
+
+    private function isImportColumnRequired(DbTableColumn $column, \yii\db\TableSchema $tableSchema, ?DbTable $model = null): bool
+    {
+        $columnName = (string)$column->name;
+        if ($model !== null && strtolower((string)$model->name) === 'users') {
+            return in_array($columnName, ['username', 'role'], true);
+        }
+
+        $schemaColumn = $tableSchema->columns[$columnName] ?? null;
+        if ($schemaColumn === null) {
+            return false;
+        }
+        if (!empty($schemaColumn->autoIncrement)) {
+            return false;
+        }
+        if (SystemFieldService::isAuditField($columnName)) {
+            return false;
+        }
+        if (in_array($columnName, (array)$tableSchema->primaryKey, true)) {
+            return true;
+        }
+        if ($schemaColumn->allowNull) {
+            return false;
+        }
+        $defaultValue = $schemaColumn->defaultValue ?? null;
+
+        return $defaultValue === null || $defaultValue === '';
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function importableColumnAliases(DbTableColumn $column): array
+    {
+        $aliases = [];
+        foreach ([
+            $column->name,
+            $column->label,
+            ucwords(str_replace('_', ' ', (string)$column->name)),
+            $column->hasAttribute('comment') ? $column->getAttribute('comment') : null,
+        ] as $candidate) {
+            $normalized = $this->normalizeSpreadsheetColumnKey((string)$candidate);
+            if ($normalized !== '' && !in_array($normalized, $aliases, true)) {
+                $aliases[] = $normalized;
+            }
+        }
+
+        return $aliases;
+    }
+
+    private function headerMatchScore(string $normalizedHeader, DbTableColumn $column): int
+    {
+        $name = $this->normalizeSpreadsheetColumnKey((string)$column->name);
+        if ($normalizedHeader === $name) {
+            return 100;
+        }
+        $label = $this->normalizeSpreadsheetColumnKey((string)$column->label);
+        if ($normalizedHeader === $label) {
+            return 90;
+        }
+        $humanized = $this->normalizeSpreadsheetColumnKey(ucwords(str_replace('_', ' ', (string)$column->name)));
+        if ($normalizedHeader === $humanized) {
+            return 85;
+        }
+        $comment = $this->normalizeSpreadsheetColumnKey($column->hasAttribute('comment') ? (string)$column->getAttribute('comment') : '');
+        if ($comment !== '' && $normalizedHeader === $comment) {
+            return 80;
+        }
+        similar_text($normalizedHeader, $name, $percent);
+
+        return $percent >= 70 ? (int)$percent : 0;
+    }
+
+    private function matchImportHeader(string $header, array $importableColumns, array $used): ?DbTableColumn
+    {
+        $normalizedHeader = $this->normalizeSpreadsheetColumnKey($header);
+        if ($normalizedHeader === '') {
+            return null;
+        }
+
+        $best = null;
+        $bestScore = 0;
+        foreach ($importableColumns as $column) {
+            $columnName = (string)$column->name;
+            if (in_array($columnName, $used, true)) {
+                continue;
+            }
+            $score = $this->headerMatchScore($normalizedHeader, $column);
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $best = $column;
+            }
+        }
+
+        return $bestScore >= 1 ? $best : null;
+    }
+
+    /**
+     * @param array<int, string> $headers
+     * @param array<int, DbTableColumn> $importableColumns
+     * @return array<int, string>
+     */
+    private function buildImportHeaderMapping(array $headers, array $importableColumns): array
+    {
+        $mapping = [];
+        $used = [];
+        foreach ($headers as $index => $header) {
+            $column = $this->matchImportHeader((string)$header, $importableColumns, $used);
+            if ($column === null) {
+                $mapping[$index] = '';
+                continue;
+            }
+            $columnName = (string)$column->name;
+            $mapping[$index] = $columnName;
+            $used[] = $columnName;
+        }
+
+        return $mapping;
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $importableColumns
+     * @param array<int, string> $mappedColumns
+     * @return array<int, string>
+     */
+    private function missingRequiredImportColumns(array $importableColumns, array $mappedColumns, \yii\db\TableSchema $tableSchema, ?DbTable $model = null): array
+    {
+        $mapped = array_flip($mappedColumns);
+        $missing = [];
+        foreach ($importableColumns as $column) {
+            $columnName = (string)$column->name;
+            if (!isset($mapped[$columnName]) && $this->isImportColumnRequired($column, $tableSchema, $model)) {
+                $missing[] = $columnName;
+            }
+        }
+
+        return $missing;
+    }
+
+    private function importMaxFileSize(): int
+    {
+        $raw = getenv('YII_IMPORT_MAX_FILE_SIZE') ?: getenv('APP_IMPORT_MAX_FILE_SIZE');
+        if ($raw !== false && $raw !== '') {
+            $bytes = $this->sizeToBytes((string)$raw);
+            if ($bytes > 0) {
+                return $bytes;
+            }
+        }
+
+        return 20 * 1024 * 1024;
+    }
+
+    private function formatImportBytes(int $bytes): string
+    {
+        if ($bytes >= 1024 * 1024 * 1024) {
+            return round($bytes / (1024 * 1024 * 1024), 1) . ' GB';
+        }
+        if ($bytes >= 1024 * 1024) {
+            return round($bytes / (1024 * 1024), 1) . ' MB';
+        }
+        if ($bytes >= 1024) {
+            return round($bytes / 1024, 1) . ' KB';
+        }
+
+        return $bytes . ' bytes';
+    }
+
+    private function sizeToBytes(string $size): int
+    {
+        $size = trim($size);
+        if ($size === '') {
+            return 0;
+        }
+        if (preg_match('/^(\d+)\s*([kKmMgG]?)[bB]?$/', $size, $matches) === 1) {
+            $value = (int)$matches[1];
+            $unit = strtolower($matches[2] ?? '');
+            if ($unit === 'k') {
+                return $value * 1024;
+            }
+            if ($unit === 'm') {
+                return $value * 1024 * 1024;
+            }
+            if ($unit === 'g') {
+                return $value * 1024 * 1024 * 1024;
+            }
+
+            return $value;
+        }
+
+        return (int)$size;
+    }
+
+    private function readFileHead(string $path, int $length): string
+    {
+        $head = '';
+        $handle = @fopen($path, 'rb');
+        if ($handle !== false) {
+            $head = (string)fread($handle, $length);
+            fclose($handle);
+        }
+
+        return $head;
+    }
+
+    private function detectImportFileType(UploadedFile $file, string $path): string
+    {
+        $extension = strtolower((string)pathinfo((string)$file->name, PATHINFO_EXTENSION));
+        if (!in_array($extension, ['csv', 'xlsx', 'xls'], true)) {
+            throw new \RuntimeException('Ekstensi file tidak didukung. Gunakan .csv, .xlsx, atau .xls.');
+        }
+
+        $head = $this->readFileHead($path, 8);
+        if ($extension === 'csv') {
+            if ($head !== '' && strpos($head, "\x00") !== false) {
+                throw new \RuntimeException('File CSV mengandung byte biner. Gunakan file teks CSV, atau konversi dari XLSX/XLS.');
+            }
+
+            return 'csv';
+        }
+
+        if ($extension === 'xlsx') {
+            if (substr($head, 0, 2) !== 'PK') {
+                throw new \RuntimeException(self::IMPORT_CORRUPT_FILE_MESSAGE);
+            }
+            if (!$this->isOfficeOpenXmlArchive($path)) {
+                throw new \RuntimeException(self::IMPORT_CORRUPT_FILE_MESSAGE);
+            }
+
+            return 'xlsx';
+        }
+
+        if (substr($head, 0, 8) !== "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1") {
+            throw new \RuntimeException(self::IMPORT_CORRUPT_FILE_MESSAGE);
+        }
+
+        return 'xls';
+    }
+
+    private function isOfficeOpenXmlArchive(string $path): bool
+    {
+        if (!class_exists('\ZipArchive')) {
+            return true;
+        }
+
+        try {
+            $zip = new \ZipArchive();
+            if ($zip->open($path) !== true) {
+                return false;
+            }
+            $hasContentTypes = $zip->locateName('[Content_Types].xml') !== false;
+            $hasWorkbook = $zip->locateName('xl/workbook.xml') !== false;
+            $zip->close();
+
+            return $hasContentTypes && $hasWorkbook;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function parseImportUpload(int $tableId): array
+    {
+        $file = UploadedFile::getInstanceByName('file');
+        if ($file === null) {
+            throw new \RuntimeException('Tidak ada file yang diunggah.');
+        }
+        if ($file->hasError) {
+            throw new \RuntimeException('Gagal mengunggah file: ' . $file->error);
+        }
+
+        $maxSize = $this->importMaxFileSize();
+        if ((int)$file->size > $maxSize) {
+            throw new \RuntimeException('Ukuran file melebihi batas maksimal ' . $this->formatImportBytes($maxSize) . '.');
+        }
+
+        $path = $file->tempName;
+        if (!is_string($path) || !is_file($path) || !is_readable($path)) {
+            throw new \RuntimeException('File sementara tidak dapat dibaca.');
+        }
+
+        $type = $this->detectImportFileType($file, $path);
+
+        return [
+            'file' => $file,
+            'path' => $path,
+            'type' => $type,
+            'size' => (int)$file->size,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function parseImportFile(string $path, string $type): array
+    {
+        if ($type === 'csv') {
+            return $this->parseCsvImportFile($path);
+        }
+        if ($type === 'xlsx' || $type === 'xls') {
+            return $this->parseExcelImportFile($path);
+        }
+
+        throw new \RuntimeException('Tipe file tidak didukung.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function parseCsvImportFile(string $path): array
+    {
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            throw new \RuntimeException('File CSV tidak dapat dibuka.');
+        }
+
+        $firstLine = '';
+        while (($char = fgetc($handle)) !== false) {
+            if ($char === "\n" || $char === "\r") {
+                break;
+            }
+            $firstLine .= $char;
+            if (strlen($firstLine) > 8192) {
+                break;
+            }
+        }
+        rewind($handle);
+
+        $bom = fread($handle, 3);
+        if ($bom === "\xEF\xBB\xBF") {
+            $firstLine = ltrim($firstLine, "\xEF\xBB\xBF");
+        } else {
+            rewind($handle);
+        }
+
+        $delimiter = $this->detectCsvDelimiter($firstLine);
+        $encoding = $this->detectImportTextEncoding($firstLine);
+
+        $headers = [];
+        $rows = [];
+        while (($fields = fgetcsv($handle, 0, $delimiter, '"', '"')) !== false) {
+            if ($fields === [null]) {
+                continue;
+            }
+            $fields = array_map(static function ($field) use ($encoding) {
+                if (!is_string($field)) {
+                    return $field;
+                }
+                $field = strtoupper($encoding) === 'UTF-8' ? $field : mb_convert_encoding($field, 'UTF-8', $encoding);
+
+                return trim($field);
+            }, $fields);
+            if (empty(array_filter($fields, static function ($field) {
+                return trim((string)$field) !== '';
+            }))) {
+                continue;
+            }
+            if (empty($headers)) {
+                $headers = $fields;
+                continue;
+            }
+            $rows[] = $fields;
+        }
+        fclose($handle);
+
+        return [
+            'headers' => $headers,
+            'rows' => $rows,
+            'delimiter' => $delimiter,
+            'encoding' => $encoding,
+            'total_rows' => count($rows),
+        ];
+    }
+
+    private function detectCsvDelimiter(string $line): string
+    {
+        $best = ',';
+        $bestCount = -1;
+        foreach ([',', ';', "\t", '|'] as $delimiter) {
+            $count = $this->countDelimiterOutsideQuotes($line, $delimiter);
+            if ($count > $bestCount) {
+                $bestCount = $count;
+                $best = $delimiter;
+            }
+        }
+
+        return $best;
+    }
+
+    private function countDelimiterOutsideQuotes(string $line, string $delimiter): int
+    {
+        $count = 0;
+        $inQuotes = false;
+        $length = strlen($line);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $line[$i];
+            if ($char === '"') {
+                if ($inQuotes && $i + 1 < $length && $line[$i + 1] === '"') {
+                    $i++;
+                    continue;
+                }
+                $inQuotes = !$inQuotes;
+                continue;
+            }
+            if (!$inQuotes && $char === $delimiter) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private function detectImportTextEncoding(string $content): string
+    {
+        $sample = substr($content, 0, 4096);
+        if (preg_match('//u', $sample) === 1) {
+            return 'UTF-8';
+        }
+
+        return 'Windows-1252';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function parseExcelImportFile(string $path): array
+    {
+        if (!class_exists('\PhpOffice\PhpSpreadsheet\Spreadsheet')) {
+            throw new \RuntimeException('Library PhpSpreadsheet tidak tersedia. Jalankan composer install terlebih dahulu.');
+        }
+
+        $type = $this->readFileHead($path, 8);
+        $isOle = substr($type, 0, 8) === "\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1";
+
+try {
+            $result = $this->withSuppressedPhpErrors(function () use ($path, $isOle) {
+                $reader = $isOle
+                    ? new \PhpOffice\PhpSpreadsheet\Reader\Xls()
+                    : new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+                $reader->setReadDataOnly(true);
+
+                $sheetName = '';
+                if ($isOle) {
+                    foreach ($reader->listWorksheetInfo($path) as $info) {
+                        if ((int)($info['totalRows'] ?? 0) > 0) {
+                            $sheetName = (string)($info['worksheetName'] ?? '');
+                            break;
+                        }
+                    }
+                } else {
+                    $sheetName = (string)$this->detectExcelDataSheetName($path);
+                }
+
+                $spreadsheet = null;
+                if ($sheetName !== '') {
+                    $reader->setLoadSheetsOnly([$sheetName]);
+                    $spreadsheet = $reader->load($path);
+                    $worksheet = $spreadsheet->getSheetByName($sheetName);
+                    if ($worksheet === null) {
+                        throw new \RuntimeException('Sheet yang berisi data tidak ditemukan pada file Excel.');
+                    }
+                    $data = $worksheet->toArray(null, false, true, false);
+                    $spreadsheet->disconnectWorksheets();
+
+                    return ['sheet' => $sheetName, 'data' => $data];
+                }
+
+                $spreadsheet = $reader->load($path);
+                $sheetName = '';
+                $data = [];
+                foreach ($spreadsheet->getAllSheets() as $worksheet) {
+                    $cells = $worksheet->toArray(null, false, true, false);
+                    foreach ($cells as $rowCells) {
+                        $rowCells = array_values((array)$rowCells);
+                        if (!empty(array_filter($rowCells, static function ($cell) {
+                            return trim((string)$cell) !== '';
+                        }))) {
+                            $sheetName = $worksheet->getTitle();
+                            $data = $cells;
+                            break 2;
+                        }
+                    }
+                }
+                $spreadsheet->disconnectWorksheets();
+
+                if ($sheetName === '') {
+                    $diag = $isOle ? '' : $this->inspectXlsxStructure($path);
+                    Yii::warning('Excel import: no sheet with data found for ' . basename($path) . ($diag !== '' ? ' | ' . $diag : ''), 'table-import');
+                    throw new \RuntimeException('File Excel tidak berisi sheet dengan data.' . ($diag !== '' ? ' Detail: ' . $diag : ''));
+                }
+
+                return ['sheet' => $sheetName, 'data' => $data];
+            });
+        } catch (\PhpOffice\PhpSpreadsheet\Reader\Exception $e) {
+            Yii::warning('Excel import parse failed (reader): ' . $e->getMessage(), 'table-import');
+            if ($isOle) {
+                throw new \RuntimeException('File Excel tidak dapat dibuka.' . "\n" . 'File ini rusak atau formatnya tidak sesuai. Coba simpan ulang file Anda sebagai .xlsx lalu unggah kembali.');
+            }
+
+            throw new \RuntimeException(self::IMPORT_CORRUPT_FILE_MESSAGE);
+        } catch (\Throwable $e) {
+            Yii::warning('Excel import parse failed: ' . get_class($e) . ': ' . $e->getMessage() . "\n" . $e->getTraceAsString(), 'table-import');
+            if ($isOle) {
+                throw new \RuntimeException('File Excel tidak dapat dibuka.' . "\n" . 'File ini rusak atau formatnya tidak sesuai. Coba simpan ulang file Anda sebagai .xlsx lalu unggah kembali.');
+            }
+
+            throw new \RuntimeException(self::IMPORT_CORRUPT_FILE_MESSAGE);
+        }
+
+        $headers = [];
+        $rows = [];
+        foreach ($result['data'] as $rowCells) {
+            $rowCells = array_values((array)$rowCells);
+            if (empty(array_filter($rowCells, static function ($cell) {
+                return trim((string)$cell) !== '';
+            }))) {
+                continue;
+            }
+            $normalizedCells = array_map(static function ($cell) {
+                if ($cell instanceof \DateTimeInterface) {
+                    return $cell->format('Y-m-d H:i:s');
+                }
+                if (is_bool($cell)) {
+                    return $cell ? '1' : '0';
+                }
+                if (is_scalar($cell)) {
+                    return (string)$cell;
+                }
+
+                return '';
+            }, $rowCells);
+            if (empty($headers)) {
+                $headers = $normalizedCells;
+                continue;
+            }
+            $rows[] = $normalizedCells;
+        }
+
+        return [
+            'headers' => $headers,
+            'rows' => $rows,
+            'sheet' => $result['sheet'],
+            'total_rows' => count($rows),
+        ];
+    }
+
+    private function detectExcelDataSheetName(string $path): ?string
+    {
+        if (!class_exists('\ZipArchive')) {
+            return null;
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) {
+            return null;
+        }
+
+        try {
+            $rels = @simplexml_load_string((string)$zip->getFromName('_rels/.rels'));
+            if ($rels === false) {
+                return null;
+            }
+
+            $officeDoc = '';
+            foreach ($rels->Relationship as $rel) {
+                if ((string)$rel['Type'] === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument') {
+                    $officeDoc = (string)$rel['Target'];
+                    break;
+                }
+            }
+            if ($officeDoc === '') {
+                return null;
+            }
+            $officeDoc = ltrim($officeDoc, '/');
+
+            $dir = dirname($officeDoc);
+            $relsFile = ($dir === '.' ? '' : $dir . '/') . '_rels/' . basename($officeDoc) . '.rels';
+            $sheetTargets = [];
+            $relsWb = @simplexml_load_string((string)$zip->getFromName($relsFile));
+            if ($relsWb !== false) {
+                foreach ($relsWb->Relationship as $rel) {
+                    if ((string)$rel['Type'] === 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet') {
+                        $sheetTargets[(string)$rel['Id']] = (string)$rel['Target'];
+                    }
+                }
+            }
+
+            $workbookXml = @simplexml_load_string((string)$zip->getFromName($officeDoc));
+            if ($workbookXml === false || !isset($workbookXml->sheets)) {
+                return null;
+            }
+
+            foreach ($workbookXml->sheets->sheet as $eleSheet) {
+                $attrs = $eleSheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+                $rId = isset($attrs['id']) ? (string)$attrs['id'] : '';
+                if ($rId === '' || !isset($sheetTargets[$rId])) {
+                    continue;
+                }
+
+                $member = ($dir === '.' ? '' : $dir . '/') . ltrim($sheetTargets[$rId], '/');
+                $content = $zip->getFromName($member);
+                if (is_string($content) && $content !== '' && preg_match('/<row\b/i', $content) === 1) {
+                    return (string)$eleSheet['name'];
+                }
+            }
+
+            return null;
+        } finally {
+            $zip->close();
+        }
+    }
+
+    private function inspectXlsxStructure(string $path): string
+    {
+        if (!class_exists('\ZipArchive')) {
+            return '';
+        }
+
+        $zip = new \ZipArchive();
+        if ($zip->open($path) !== true) {
+            return 'zip-open-gagal';
+        }
+
+        try {
+            $parts = [];
+            $hasWorkbook = false;
+            $worksheetMembers = [];
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $name = $zip->getNameIndex($i);
+                if ($name === 'xl/workbook.xml') {
+                    $hasWorkbook = true;
+                }
+                if (preg_match('#^(xl/)?worksheets/.*\.xml$#i', $name) === 1) {
+                    $worksheetMembers[] = $name;
+                }
+            }
+            if (!$hasWorkbook) {
+                $parts[] = 'tidak-ada-xl/workbook.xml';
+            }
+            if ($worksheetMembers === []) {
+                $parts[] = 'tidak-ada-member-worksheet';
+            } else {
+                $counts = [];
+                foreach ($worksheetMembers as $member) {
+                    $content = $zip->getFromName($member);
+                    $counts[] = $member . '=' . (is_string($content) ? strlen($content) : 'gagal-baca') . 'B';
+                }
+                $parts[] = 'worksheet: ' . implode(',', $counts);
+            }
+            $workbookXml = $zip->getFromName('xl/workbook.xml');
+            if (is_string($workbookXml)) {
+                $parts[] = 'workbook.xml=' . strlen($workbookXml) . 'B, row-marker=' . (preg_match('/<row\b/i', $workbookXml) === 1 ? 'ada' : 'tidak-ada');
+            }
+
+            return implode(' | ', $parts);
+        } finally {
+            $zip->close();
+        }
+    }
+
+    private function withSuppressedPhpErrors(callable $callback)
+    {
+        $previous = set_error_handler(static function ($severity, $message, $file, $line) {
+            if (($severity & (E_DEPRECATED | E_USER_DEPRECATED | E_NOTICE | E_USER_NOTICE | E_WARNING | E_USER_WARNING)) !== 0) {
+                Yii::warning(sprintf('Excel import suppressed [%d]: %s @ %s:%d', $severity, $message, $file, $line), 'table-import');
+
+                return true;
+            }
+
+            return false;
+        });
+        try {
+            return $callback();
+        } finally {
+            if ($previous !== null) {
+                set_error_handler($previous);
+            } else {
+                restore_error_handler();
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $parseResult
+     * @param mixed $rawMapping
+     * @return array<string, mixed>
+     */
+    private function buildImportContext(DbTable $model, array $parseResult, $rawMapping): array
+    {
+        $db = $this->getPhysicalDb();
+        $tableSchema = $db->schema->getTableSchema($model->name, true);
+        if ($tableSchema === null) {
+            throw new \RuntimeException('Schema tabel fisik tidak ditemukan.');
+        }
+
+        $columns = $model->getColumns()->orderBy(['sort_order' => SORT_ASC])->all();
+        $columnMap = [];
+        foreach ($columns as $column) {
+            $columnMap[(string)$column->name] = $column;
+        }
+
+        $importableColumns = $this->buildImportableColumnList($model, $tableSchema, $columns);
+        $importableNames = [];
+        foreach ($importableColumns as $column) {
+            $importableNames[] = (string)$column->name;
+        }
+
+        return [
+            'db' => $db,
+            'model' => $model,
+            'tableSchema' => $tableSchema,
+            'columns' => $columns,
+            'columnMap' => $columnMap,
+            'importableColumns' => $importableColumns,
+            'importableNames' => $importableNames,
+            'headers' => $parseResult['headers'],
+            'rows' => $parseResult['rows'],
+            'mapping' => $this->resolveExecuteMapping($rawMapping, count($parseResult['headers'])),
+            'fkMaps' => $this->buildImportForeignKeyMaps($importableColumns, $db),
+            'uniqueColumns' => $this->buildImportUniqueColumns($db, (string)$model->name),
+        ];
+    }
+
+    /**
+     * @param mixed $rawMapping
+     * @return array<int, string>
+     */
+    private function resolveExecuteMapping($rawMapping, int $headerCount): array
+    {
+        $mapping = [];
+        if (is_string($rawMapping)) {
+            $decoded = json_decode($rawMapping, true);
+            if (is_array($decoded)) {
+                $rawMapping = $decoded;
+            } else {
+                return $mapping;
+            }
+        }
+        if (!is_array($rawMapping)) {
+            return $mapping;
+        }
+
+        foreach ($rawMapping as $index => $columnName) {
+            $index = (int)$index;
+            if ($index < 0 || $index >= $headerCount) {
+                continue;
+            }
+            $mapping[$index] = trim((string)$columnName);
+        }
+
+        return $mapping;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function buildImportUniqueColumns(\yii\db\Connection $db, string $tableName): array
+    {
+        $unique = [];
+        try {
+            $tableSchema = $db->schema->getTableSchema($tableName, true);
+            $primaryKey = $tableSchema !== null ? (array)$tableSchema->primaryKey : [];
+            foreach ($db->schema->getTableUniques($tableName) as $constraint) {
+                $columns = $constraint->columnNames ?? [];
+                if (count($columns) !== 1) {
+                    continue;
+                }
+                $column = (string)$columns[0];
+                if (in_array($column, $primaryKey, true)) {
+                    continue;
+                }
+                $unique[] = $column;
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Failed to load unique constraints for import: ' . $e->getMessage(), 'table-import');
+        }
+
+        return array_values(array_unique($unique));
+    }
+
+    /**
+     * @param array<int, DbTableColumn> $importableColumns
+     * @return array<string, array<string, mixed>>
+     */
+    private function buildImportForeignKeyMaps(array $importableColumns, \yii\db\Connection $db): array
+    {
+        $maps = [];
+        foreach ($importableColumns as $column) {
+            if (!SystemFieldService::isForeignKey($column)) {
+                continue;
+            }
+            $columnName = (string)$column->name;
+            $referencedTable = strtolower(trim((string)($column->hasAttribute('referenced_table_name') ? $column->getAttribute('referenced_table_name') : '')));
+            $referencedColumn = strtolower(trim((string)($column->hasAttribute('referenced_column_name') ? $column->getAttribute('referenced_column_name') : '')));
+            if ($referencedTable === '') {
+                continue;
+            }
+
+            $schema = $db->schema->getTableSchema($referencedTable, true);
+            if ($schema === null) {
+                continue;
+            }
+
+            $valueColumn = $referencedColumn !== '' && isset($schema->columns[$referencedColumn])
+                ? $referencedColumn
+                : ($schema->primaryKey[0] ?? array_key_first($schema->columns));
+            if ($valueColumn === null || $valueColumn === '') {
+                continue;
+            }
+
+            $labelColumn = $this->guessLabelColumn($schema, (string)$valueColumn);
+            if ($column->hasAttribute('related_display_column')) {
+                $configuredLabel = strtolower(trim((string)$column->getAttribute('related_display_column')));
+                if ($configuredLabel !== '' && isset($schema->columns[$configuredLabel])) {
+                    $labelColumn = $configuredLabel;
+                }
+            }
+            $rows = (new \yii\db\Query())
+                ->from($referencedTable)
+                ->select(array_values(array_unique(array_filter([$valueColumn, $labelColumn]))))
+                ->limit(10000)
+                ->all($db);
+
+            $byValue = [];
+            $byLabel = [];
+            foreach ($rows as $row) {
+                $value = $row[$valueColumn] ?? null;
+                $label = $labelColumn !== '' && $labelColumn !== $valueColumn ? ($row[$labelColumn] ?? $value) : $value;
+                $valueKey = (string)$value;
+                $labelKey = trim((string)$label);
+                if ($valueKey !== '') {
+                    $byValue[$valueKey] = $value;
+                }
+                if ($labelKey !== '' && $labelKey !== $valueKey) {
+                    $byLabel[$labelKey] = $value;
+                }
+            }
+
+            $maps[$columnName] = [
+                'value_column' => (string)$valueColumn,
+                'label_column' => (string)$labelColumn,
+                'referenced_table' => $referencedTable,
+                'by_value' => $byValue,
+                'by_label' => $byLabel,
+            ];
+        }
+
+        return $maps;
+    }
+
+    /**
+     * @param array<string, mixed> $fkMap
+     * @param mixed $rawValue
+     * @return array<string, mixed>
+     */
+    private function resolveImportForeignKeyValue(array $fkMap, $rawValue): array
+    {
+        if ($rawValue === null || $rawValue === '') {
+            return ['valid' => true, 'value' => null, 'message' => ''];
+        }
+
+        $rawKey = trim((string)$rawValue);
+        if (isset($fkMap['by_value'][$rawKey])) {
+            return ['valid' => true, 'value' => $fkMap['by_value'][$rawKey], 'message' => ''];
+        }
+        if (isset($fkMap['by_label'][$rawKey])) {
+            return ['valid' => true, 'value' => $fkMap['by_label'][$rawKey], 'message' => ''];
+        }
+
+        return ['valid' => false, 'value' => null, 'message' => "Nilai relasi \"{$rawValue}\" tidak ditemukan di tabel {$fkMap['referenced_table']}."];
+    }
+
+    /**
+     * @param mixed $value
+     * @return mixed
+     */
+    private function normalizeImportCellValue(DbTableColumn $column, $value)
+    {
+        $normalized = $this->normalizeSpreadsheetCellValue($column, $value);
+        if (is_string($normalized) && strtoupper((string)$column->type) === 'DATE' && preg_match('/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}$/', $normalized) === 1) {
+            $normalized = substr($normalized, 0, 10);
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildImportRowError(int $rowNumber, string $message): array
+    {
+        return ['row' => $rowNumber, 'message' => $message];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildImportDbError(\yii\db\Exception $e, int $rowNumber): array
+    {
+        $details = $this->extractDbErrorDetails($e);
+        $sqlError = (string)($details['sql_error'] ?? '');
+        $message = 'Terjadi kesalahan saat menyimpan baris ini.';
+        if (stripos($sqlError, 'Duplicate entry') !== false) {
+            $message = 'Nilai sudah dipakai pada baris lain di tabel (nilai unik duplikat).';
+        } elseif (stripos($sqlError, 'foreign key constraint fails') !== false) {
+            $message = 'Nilai relasi tidak ditemukan pada tabel terkait.';
+        } elseif (stripos($sqlError, 'Data too long') !== false) {
+            $message = 'Ada nilai yang terlalu panjang untuk kolomnya.';
+        } elseif (stripos($sqlError, 'cannot be null') !== false || stripos($sqlError, 'doesn\'t have a default value') !== false) {
+            $message = 'Ada kolom wajib yang kosong pada baris ini.';
+        } elseif ($sqlError !== '') {
+            $message = $sqlError;
+        }
+
+        return $this->buildImportRowError($rowNumber, $message);
+    }
+
+    /**
+     * @param array<string, mixed> $rowData
+     * @param array<string, bool> $seen
+     */
+    private function detectImportDuplicate(\yii\db\Connection $db, string $tableName, array $uniqueColumns, array $rowData, array &$seen): ?string
+    {
+        foreach ($uniqueColumns as $uniqueColumn) {
+            if (!array_key_exists($uniqueColumn, $rowData)) {
+                continue;
+            }
+            $value = $rowData[$uniqueColumn];
+            if ($value === null || $value === '') {
+                continue;
+            }
+            $signature = $uniqueColumn . '=' . (string)$value;
+            if (isset($seen[$signature])) {
+                return "Nilai duplikat pada kolom {$uniqueColumn} dalam file yang sama.";
+            }
+            $exists = (new \yii\db\Query())->from($tableName)->where([$uniqueColumn => $value])->exists($db);
+            if ($exists) {
+                return "Nilai {$uniqueColumn} \"{$value}\" sudah digunakan pada baris lain di tabel.";
+            }
+            $seen[$signature] = true;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    private function executeImportRows(array $context): array
+    {
+        $db = $context['db'];
+        $model = $context['model'];
+        $tableSchema = $context['tableSchema'];
+        $columns = $context['columns'];
+        $importableNames = $context['importableNames'];
+        $headers = $context['headers'];
+        $mapping = $context['mapping'];
+        $rows = $context['rows'];
+        $fkMaps = $context['fkMaps'];
+        $uniqueColumns = $context['uniqueColumns'];
+        $tableName = (string)$model->name;
+        $isUsersTable = strtolower($tableName) === 'users';
+
+        $columnLabels = [];
+        foreach ($columns as $column) {
+            $label = trim((string)($column->label ?? ''));
+            $columnLabels[(string)$column->name] = $label !== '' ? $label : (string)$column->name;
+        }
+        $formatMissing = static function (array $names) use ($columnLabels): string {
+            return implode(', ', array_map(static function ($name) use ($columnLabels) {
+                return $columnLabels[$name] ?? $name;
+            }, $names));
+        };
+
+        $mappedColumns = [];
+        foreach ($mapping as $index => $columnName) {
+            if ($columnName !== '' && in_array($columnName, $importableNames, true)) {
+                $mappedColumns[$index] = $columnName;
+            }
+        }
+
+        $inserted = 0;
+        $failed = 0;
+        $errors = [];
+        $seen = [];
+        $transaction = $db->beginTransaction();
+        try {
+            foreach ($rows as $rowIndex => $rowCells) {
+                $rowNumber = (int)$rowIndex + 2;
+                $rowCells = array_values((array)$rowCells);
+                $payload = [];
+                foreach ($mappedColumns as $index => $columnName) {
+                    $rawValue = $rowCells[$index] ?? null;
+                    if (trim((string)$rawValue) === '') {
+                        continue;
+                    }
+                    $column = $context['columnMap'][$columnName] ?? null;
+                    if ($column === null) {
+                        continue;
+                    }
+                    if (SystemFieldService::isForeignKey($column) && isset($fkMaps[$columnName])) {
+                        $fkResult = $this->resolveImportForeignKeyValue($fkMaps[$columnName], $rawValue);
+                        if (!$fkResult['valid']) {
+                            $errors[] = $this->buildImportRowError($rowNumber, $fkResult['message']);
+                            $failed++;
+                            continue 2;
+                        }
+                        $payload[$columnName] = $fkResult['value'];
+                        continue;
+                    }
+                    $normalizedValue = $this->normalizeImportCellValue($column, $rawValue);
+                    if ($normalizedValue === null) {
+                        $numericType = in_array(strtoupper((string)$column->type), ['INT', 'BIGINT', 'SMALLINT', 'MEDIUMINT', 'DECIMAL', 'FLOAT', 'DOUBLE', 'REAL', 'SERIAL'], true);
+                        if ($numericType) {
+                            $errors[] = $this->buildImportRowError($rowNumber, 'Nilai "' . trim((string)$rawValue) . '" pada kolom "' . ($columnLabels[$columnName] ?? $columnName) . '" harus berupa angka.');
+                            $failed++;
+                            continue 2;
+                        }
+                    }
+                    $payload[$columnName] = $normalizedValue;
+                }
+
+                $payload = $this->filterSpreadsheetRowDataBySchema($payload, $tableSchema);
+
+                if ($isUsersTable) {
+                    $rowData = $this->buildUsersSpreadsheetRowData($payload, $columns, true);
+                    $validation = $this->validateUsersSpreadsheetInsertData($rowData);
+                    if (!$validation['valid']) {
+                        $errors[] = $this->buildImportRowError($rowNumber, 'Kolom wajib belum terisi: ' . $formatMissing($validation['missing_fields']) . '.');
+                        $failed++;
+                        continue;
+                    }
+                    $rowData = $this->finalizeUsersSpreadsheetInsertDataForBulk($rowData);
+                } else {
+                    $rowData = $payload;
+                    $validation = $this->validateSpreadsheetInsertData($tableSchema, $rowData);
+                    if (!$validation['valid']) {
+                        $errors[] = $this->buildImportRowError($rowNumber, 'Kolom wajib belum terisi: ' . $formatMissing($validation['missing_fields']) . '.');
+                        $failed++;
+                        continue;
+                    }
+                }
+
+                $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData, $columnLabels);
+                if (!empty($lengthErrors)) {
+                    $errors[] = $this->buildImportRowError($rowNumber, implode(' ', $lengthErrors));
+                    $failed++;
+                    continue;
+                }
+
+                if (!$isUsersTable) {
+                    foreach ($columns as $column) {
+                        $columnName = (string)$column->name;
+                        if (($rowData[$columnName] ?? null) === null && !$column->is_nullable && !$column->is_primary) {
+                            unset($rowData[$columnName]);
+                        }
+                    }
+                }
+
+                if (!empty($uniqueColumns)) {
+                    $duplicateMessage = $this->detectImportDuplicate($db, $tableName, $uniqueColumns, $rowData, $seen);
+                    if ($duplicateMessage !== null) {
+                        $errors[] = $this->buildImportRowError($rowNumber, $duplicateMessage);
+                        $failed++;
+                        continue;
+                    }
+                }
+
+                $manualPrimaryValues = [];
+                if (!$isUsersTable) {
+                    foreach ($tableSchema->primaryKey ?? [] as $primaryKeyColumn) {
+                        $primaryKeyColumn = (string)$primaryKeyColumn;
+                        if (isset($tableSchema->columns[$primaryKeyColumn]) && empty($tableSchema->columns[$primaryKeyColumn]->autoIncrement) && array_key_exists($primaryKeyColumn, $rowData)) {
+                            $manualPrimaryValues[$primaryKeyColumn] = $rowData[$primaryKeyColumn];
+                        }
+                    }
+                }
+
+                $rowData = SystemFieldService::applyCreateValues($rowData, $tableSchema->columns);
+                foreach ($manualPrimaryValues as $primaryKeyColumn => $primaryValue) {
+                    $rowData[$primaryKeyColumn] = $primaryValue;
+                }
+                $rowData = $this->filterSpreadsheetRowDataBySchema($rowData, $tableSchema);
+                foreach ($rowData as $columnName => $value) {
+                    if ($value === null) {
+                        unset($rowData[$columnName]);
+                    }
+                }
+
+                if (empty($rowData)) {
+                    $errors[] = $this->buildImportRowError($rowNumber, 'Tidak ada data valid untuk disimpan.');
+                    $failed++;
+                    continue;
+                }
+
+                try {
+                    $db->createCommand()->insert($tableName, $rowData)->execute();
+                    $inserted++;
+                } catch (\yii\db\Exception $e) {
+                    $errors[] = $this->buildImportDbError($e, $rowNumber);
+                    $failed++;
+                }
+            }
+
+            $transaction->commit();
+        } catch (\Throwable $e) {
+            if ($transaction->isActive) {
+                $transaction->rollBack();
+            }
+            throw $e;
+        }
+
+        return [
+            'total' => count($rows),
+            'inserted' => $inserted,
+            'failed' => $failed,
+            'errors' => $errors,
+        ];
     }
 
     public function actionUpdate($id)
@@ -2887,7 +4506,7 @@ class TableBuilderController extends Controller
 
     private function guessLabelColumn(\yii\db\TableSchema $schema, string $valueColumn): string
     {
-        foreach (['name', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
+        foreach (['name', 'nama', 'title', 'label', 'slug', 'username', 'email', 'form_name', 'table_name'] as $candidate) {
             if (isset($schema->columns[$candidate]) && $candidate !== $valueColumn) {
                 return $candidate;
             }
@@ -3268,6 +4887,12 @@ class TableBuilderController extends Controller
         $isUsersTable = strtolower((string)$model->name) === 'users';
         $rawPayload = $payload;
         $rawRowKey = $rowKey;
+        $upsertLabels = [];
+        foreach ($columns as $col) {
+            $colName = (string)$col->name;
+            $colLabel = trim((string)$col->label);
+            $upsertLabels[$colName] = $colLabel !== '' ? $colLabel : $colName;
+        }
         $where = [];
         foreach ($keyColumns as $keyColumn) {
             $keyValue = $rowKey[$keyColumn] ?? ($payload[$keyColumn] ?? null);
@@ -3323,7 +4948,7 @@ class TableBuilderController extends Controller
                 ];
             }
 
-            $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData);
+            $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData, $upsertLabels);
             if (!empty($lengthErrors)) {
                 return [
                     'success' => false,
@@ -3394,7 +5019,7 @@ class TableBuilderController extends Controller
             }
         }
 
-        $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData);
+        $lengthErrors = $this->validateSpreadsheetRowLengths($tableSchema, $rowData, $upsertLabels);
         if (!empty($lengthErrors)) {
             return [
                 'success' => false,
@@ -3618,14 +5243,18 @@ class TableBuilderController extends Controller
      * @param array<string, mixed> $rowData
      * @return array<int, string>
      */
-    private function validateSpreadsheetRowLengths(\yii\db\TableSchema $tableSchema, array $rowData): array
+    private function validateSpreadsheetRowLengths(\yii\db\TableSchema $tableSchema, array $rowData, array $columnLabels = []): array
     {
         $errors = [];
         foreach ($tableSchema->columns as $columnName => $schemaColumn) {
             $normalizedColumnName = $this->normalizeSpreadsheetColumnKey($columnName);
             $maxLength = (int)($schemaColumn->size ?? 0);
-            $type = strtoupper((string)($schemaColumn->type ?? ''));
-            if ($maxLength <= 0 || !in_array($type, ['CHAR', 'VARCHAR', 'TINYTEXT', 'TEXT', 'MEDIUMTEXT', 'LONGTEXT'], true)) {
+            $dbType = strtolower((string)($schemaColumn->dbType ?? $schemaColumn->type ?? ''));
+            $isTextLike = strpos($dbType, 'char') !== false
+                || in_array($dbType, ['tinytext', 'text', 'mediumtext', 'longtext'], true)
+                || strpos($dbType, 'enum(') === 0
+                || strpos($dbType, 'set(') === 0;
+            if ($maxLength <= 0 || !$isTextLike) {
                 continue;
             }
 
@@ -3635,7 +5264,10 @@ class TableBuilderController extends Controller
             }
 
             if (mb_strlen(trim((string)$value), 'UTF-8') > $maxLength) {
-                $errors[] = "Field {$normalizedColumnName} maksimal hanya boleh {$maxLength} karakter.";
+                $displayName = isset($columnLabels[$normalizedColumnName]) && trim((string)$columnLabels[$normalizedColumnName]) !== ''
+                    ? (string)$columnLabels[$normalizedColumnName]
+                    : $normalizedColumnName;
+                $errors[] = "Nilai pada kolom \"{$displayName}\" terlalu panjang (maksimal {$maxLength} karakter).";
             }
         }
 

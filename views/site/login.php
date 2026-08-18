@@ -30,11 +30,6 @@ $form = ActiveForm::begin([
         </div>
     <?php endif; ?>
 
-    <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        Default login: <strong>superadmin</strong> / <strong>admin123</strong><br>
-        Role: <strong>superadmin</strong>
-    </div>
-
     <div>
         <label for="loginform-username" class="mb-2 block text-sm font-semibold text-slate-700">Username</label>
         <?= $form->field($model, 'username')->textInput([

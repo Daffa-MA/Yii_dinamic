@@ -89,7 +89,7 @@ class User extends ActiveRecord implements IdentityInterface
     }
 
     /**
-     * Finds user by username
+     * Finds user by username (exact match only; no alias/fallback).
      *
      * @param string $username
      * @return static|null
@@ -98,17 +98,7 @@ class User extends ActiveRecord implements IdentityInterface
     {
         self::ensureCommanderStructure();
         $username = strtolower(trim((string)$username));
-        $user = static::findOne(['username' => $username]);
-        if ($user !== null) {
-            return $user;
-        }
-
-        if (in_array($username, ['admin', 'superadmin'], true)) {
-            $fallback = $username === 'admin' ? 'superadmin' : 'admin';
-            return static::findOne(['username' => $fallback]);
-        }
-
-        return null;
+        return static::findOne(['username' => $username]);
     }
 
     /**
@@ -143,7 +133,21 @@ class User extends ActiveRecord implements IdentityInterface
      */
     public function validatePassword($password)
     {
-        return Yii::$app->security->validatePassword($password, $this->password_hash);
+        if ($password === null || $password === '') {
+            return false;
+        }
+
+        $hash = (string)$this->password_hash;
+        if ($hash === '') {
+            return false;
+        }
+
+        try {
+            return Yii::$app->security->validatePassword((string)$password, $hash);
+        } catch (\yii\base\InvalidArgumentException $e) {
+            Yii::warning('Invalid password hash for user #' . $this->id . ': ' . $e->getMessage(), 'auth');
+            return false;
+        }
     }
 
     /**

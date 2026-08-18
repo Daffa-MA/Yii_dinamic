@@ -6,7 +6,6 @@ use Yii;
 use yii\web\Controller;
 use yii\helpers\Url;
 use app\models\LoginForm;
-use app\models\User;
 use app\models\Form;
 use app\models\Project;
 use app\models\DbTable;
@@ -14,6 +13,7 @@ use app\models\FormSubmission;
 use app\components\ActiveDatabaseContext;
 use app\components\ActiveProjectContext;
 use app\components\CommanderAuthContext;
+use app\components\CommanderLoginLimiter;
 use app\components\DomainContext;
 use app\components\LogoutDebugLogger;
 use app\components\ProjectSchema;
@@ -343,25 +343,7 @@ class SiteController extends Controller
         }
 
         if (Yii::$app->request->isPost) {
-            $username = strtolower(trim((string)Yii::$app->request->post('username', '')));
-            $password = (string)Yii::$app->request->post('password', '');
-            $payload = Yii::$app->request->post('LoginForm', []);
-            if (is_array($payload)) {
-                $username = strtolower(trim((string)($payload['username'] ?? $username)));
-                $password = (string)($payload['password'] ?? $password);
-            }
-
-            if ($username === 'superadmin' && $password === 'admin123') {
-                return $this->completeDefaultCommanderLogin('superadmin', User::findByUsername('superadmin'));
-            }
-
-            Yii::$app->session->setFlash('error', 'Username atau password salah.');
-            $model = new LoginForm();
-            $model->username = $username;
-            $model->password = '';
-            return $this->render('login', [
-                'model' => $model,
-            ]);
+            return $this->handleCommanderLoginPost();
         }
 
         if ((new DomainContext())->isRootDomain() && !Yii::$app->user->isGuest) {
@@ -371,50 +353,72 @@ class SiteController extends Controller
         }
 
         $model = new LoginForm();
-        if ($model->load(Yii::$app->request->post())) {
-            if (strtolower(trim((string)$model->username)) === 'superadmin' && (string)$model->password === 'admin123') {
-                return $this->completeDefaultCommanderLogin('superadmin', User::findByUsername('superadmin'));
-            }
-
-            $model->password = '';
-            Yii::$app->session->setFlash('error', 'Username atau password salah.');
-            return $this->render('login', [
-                'model' => $model,
-            ]);
-        }
-
         $model->password = '';
         return $this->render('login', [
             'model' => $model,
         ]);
     }
 
-    private function completeDefaultCommanderLogin(string $username, ?User $user)
+    /**
+     * Handles a Commander login POST. Credentials are verified exclusively
+     * against the framework `users` table hash (LoginForm::login()). There is
+     * deliberately no hardcoded fallback path.
+     */
+    private function handleCommanderLoginPost()
     {
-        if (!Yii::$app->user->isGuest) {
-            Yii::$app->user->logout(false);
+        $username = strtolower(trim((string)Yii::$app->request->post('username', '')));
+        $password = (string)Yii::$app->request->post('password', '');
+        $payload = Yii::$app->request->post('LoginForm', []);
+        if (is_array($payload)) {
+            $username = strtolower(trim((string)($payload['username'] ?? $username)));
+            $password = (string)($payload['password'] ?? $password);
         }
 
-        if ($user !== null) {
-            (new CommanderAuthContext())->login($user);
-            $_SESSION[CommanderAuthContext::SESSION_KEY_USERNAME] = 'superadmin';
-            $_SESSION[CommanderAuthContext::SESSION_KEY_ROLE] = 'superadmin';
-        } else {
-            $session = Yii::$app->session;
-            if (!$session->isActive) {
-                $session->open();
-            }
-            $_SESSION[CommanderAuthContext::SESSION_KEY_AUTH] = true;
-            $_SESSION[CommanderAuthContext::SESSION_KEY_USERNAME] = 'superadmin';
-            $_SESSION[CommanderAuthContext::SESSION_KEY_ROLE] = 'superadmin';
-            $_SESSION[CommanderAuthContext::SESSION_KEY_LOGIN] = true;
+        $model = new LoginForm();
+        $model->username = $username;
+        $model->password = $password;
+
+        // Only the Commander username may authenticate through this gateway.
+        // Any other username (e.g. the workspace default "admin") is rejected
+        // with the same generic error, without touching the database.
+        if ($username !== 'superadmin') {
+            $model->clearErrors();
+            $model->password = '';
+            $this->logCommanderLoginAttempt($username, false, $this->redirectAfterAuthenticationUrl());
+            Yii::$app->session->setFlash('error', 'Username atau password salah.');
+            return $this->render('login', [
+                'model' => $model,
+            ]);
         }
 
-        $redirectTarget = '/project-list';
-        $this->logCommanderLoginAttempt($username, true, $redirectTarget);
-        Yii::$app->session->close();
+        $limiter = new CommanderLoginLimiter();
+        $lock = $limiter->isLocked($username);
+        if ($lock !== null) {
+            $model->clearErrors();
+            $model->password = '';
+            Yii::$app->session->setFlash('error', $lock['message']);
+            return $this->render('login', [
+                'model' => $model,
+            ]);
+        }
 
-        return Yii::$app->response->redirect($redirectTarget);
+        if ($model->login()) {
+            $limiter->onSuccess($username);
+            // Present the commander session under the canonical Commander
+            // username (the underlying framework row is the `admin` account).
+            Yii::$app->session->set(CommanderAuthContext::SESSION_KEY_USERNAME, 'superadmin');
+            $this->logCommanderLoginAttempt($username, true, $this->redirectAfterAuthenticationUrl());
+            return $this->redirectAfterAuthentication();
+        }
+
+        $limiter->onFailure($username, $password);
+        $this->logCommanderLoginAttempt($username, false, $this->redirectAfterAuthenticationUrl());
+        $model->clearErrors();
+        $model->password = '';
+        Yii::$app->session->setFlash('error', 'Username atau password salah.');
+        return $this->render('login', [
+            'model' => $model,
+        ]);
     }
 
     private function logCommanderLoginAttempt(string $username, bool $passwordValid, string $redirectTarget): void

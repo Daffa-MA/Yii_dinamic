@@ -21,11 +21,32 @@ class CommanderAuthContext
             $session->open();
         }
 
-        $_SESSION[self::SESSION_KEY_AUTH] = true;
-        $_SESSION[self::SESSION_KEY_LOGIN] = true;
-        $_SESSION[self::SESSION_KEY_USER_ID] = (int)$user->id;
-        $_SESSION[self::SESSION_KEY_USERNAME] = (string)$user->username;
-        $_SESSION[self::SESSION_KEY_ROLE] = $role;
+        $session->set(self::SESSION_KEY_AUTH, true);
+        $session->set(self::SESSION_KEY_LOGIN, true);
+        $session->set(self::SESSION_KEY_USER_ID, (int)$user->id);
+        $session->set(self::SESSION_KEY_USERNAME, (string)$user->username);
+        $session->set(self::SESSION_KEY_ROLE, $role);
+
+        // Prevent session fixation: always issue a fresh session ID at the
+        // anonymous -> authenticated privilege boundary. Deleting the old
+        // session means a pre-authentication session ID becomes useless.
+        $this->regenerateSessionId($session);
+    }
+
+    /**
+     * Regenerates the session ID once, at login time. Best-effort: if the
+     * underlying store refuses regeneration the authentication result is kept
+     * intact and the failure is only logged.
+     */
+    private function regenerateSessionId(\yii\web\Session $session): void
+    {
+        try {
+            if ($session->isActive) {
+                $session->regenerateID(true);
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Session ID regeneration failed on commander login: ' . $e->getMessage(), 'auth');
+        }
     }
 
     public function logout(): void

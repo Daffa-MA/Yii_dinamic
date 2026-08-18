@@ -1,0 +1,6 @@
+# Yii2 generated asset bundles (created at runtime by the asset manager)
+/assets/
+/web/assets/
+
+# Runtime logs / cache
+/runtime/

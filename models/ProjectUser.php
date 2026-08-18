@@ -55,7 +55,21 @@ class ProjectUser extends ActiveRecord
 
     public function validatePassword(string $password): bool
     {
-        return Yii::$app->security->validatePassword($password, (string)$this->password_hash);
+        if ($password === '') {
+            return false;
+        }
+
+        $hash = (string)$this->password_hash;
+        if ($hash === '') {
+            return false;
+        }
+
+        try {
+            return Yii::$app->security->validatePassword($password, $hash);
+        } catch (\yii\base\InvalidArgumentException $e) {
+            Yii::warning('Invalid workspace password hash for user #' . $this->id . ': ' . $e->getMessage(), 'auth');
+            return false;
+        }
     }
 
     public function setPassword(string $password): void

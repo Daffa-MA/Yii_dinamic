@@ -30,16 +30,25 @@ class ActiveDatabaseContext
 
     /**
      * Resolve the active database from request/session and switch db connection when needed.
+     *
+     * @param bool $pinToActiveProject When true the database is resolved strictly
+     * from the active project (ignoring any client-supplied ?database=/db= value
+     * and any stale dashboard session value). Used on authentication boundaries
+     * where the identity/database binding must never be steerable by the client.
      */
-    public function resolveAndApply(): array
+    public function resolveAndApply(bool $pinToActiveProject = false): array
     {
         $request = Yii::$app->request;
         $session = Yii::$app->session;
         $currentConnection = Yii::$app->db;
 
         $defaultDatabase = $this->resolveCurrentDatabaseName($currentConnection);
-        $requestedDatabase = trim((string)($request->get('database', $request->get('db', ''))));
-        $sessionDatabase = trim((string)$session->get(self::SESSION_KEY, ''));
+        $requestedDatabase = $pinToActiveProject
+            ? ''
+            : trim((string)($request->get('database', $request->get('db', ''))));
+        $sessionDatabase = $pinToActiveProject
+            ? ''
+            : trim((string)$session->get(self::SESSION_KEY, ''));
         $projectDatabase = $this->resolveActiveProjectDatabaseName();
         $isWorkspaceDomain = (new DomainContext())->isWorkspaceDomain();
 

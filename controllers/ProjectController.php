@@ -459,6 +459,7 @@ private function insertDefaultCmsData($newDb): void
                 'class' => \yii\filters\VerbFilter::class,
                 'actions' => [
                     'delete' => ['post'],
+                    'logout' => ['post'],
                 ],
             ],
         ];
@@ -946,7 +947,7 @@ private function insertDefaultCmsData($newDb): void
             throw new NotFoundHttpException('Project not found.');
         }
 
-        (new ActiveDatabaseContext())->resolveAndApply();
+        (new ActiveDatabaseContext())->resolveAndApply(true);
         $workspaceSettings = new WorkspaceSettings();
         $workspaceSettings->loadForProjectLogin((int)$activeProjectId);
         $this->logProjectLoginBackgroundContext((int)$activeProjectId, $workspaceSettings);
@@ -966,24 +967,55 @@ private function insertDefaultCmsData($newDb): void
         $model = new ProjectLoginForm();
         $returnUrl = (string)Yii::$app->request->post('return_url', Yii::$app->request->get('return_url', ''));
 
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            $user = $model->getUser();
-            if ($user !== null) {
-                $authContext->login($project, $user);
+        $submitted = $model->load(Yii::$app->request->post());
+        if ($submitted) {
+            // Per-username + per-IP brute-force protection, scoped to this
+            // workspace so identical usernames in other workspaces are never
+            // affected by this account's failure counter.
+            $limiter = new \app\components\CommanderLoginLimiter('project:' . $projectId);
+            $attemptUsername = strtolower(trim((string)$model->username));
 
-                if ((int)$user->must_change_password === 1) {
-                    Yii::$app->session->setFlash('warning', 'Anda masih menggunakan password default. Disarankan segera mengganti password.');
+            $lock = $limiter->isLocked($attemptUsername);
+            if ($lock !== null) {
+                $model->clearErrors();
+                $model->password = '';
+                Yii::$app->session->setFlash('error', $lock['message']);
+                return $this->render('login', [
+                    'model' => $model,
+                    'project' => $project,
+                    'workspaceSettings' => $workspaceSettings,
+                    'returnUrl' => $returnUrl,
+                ]);
+            }
+
+            if ($model->validate()) {
+                $user = $model->getUser();
+                if ($user !== null && (int)$user->status === 1) {
+                    $limiter->onSuccess($attemptUsername);
+                    $authContext->login($project, $user);
+
+                    if ((int)$user->must_change_password === 1) {
+                        Yii::$app->session->setFlash('warning', 'Anda masih menggunakan password default. Disarankan segera mengganti password.');
+                    }
+
+                    $permissionService = new \app\components\ProjectPermissionService();
+                    $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId, $returnUrl);
+                    if ($landingRoute !== null) {
+                        return $this->redirect($landingRoute);
+                    }
+
+                    Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu.');
+                    return $this->redirect(['project/access-denied', 'id' => $projectId]);
                 }
 
-                $permissionService = new \app\components\ProjectPermissionService();
-            $landingRoute = $permissionService->resolveAccessibleLandingRoute($projectId, $returnUrl);
-            if ($landingRoute !== null) {
-                return $this->redirect($landingRoute);
+                // Unknown or disabled account with a valid password: fall back to
+                // the same generic message so both cases stay indistinguishable.
+                if (!$model->hasErrors('password')) {
+                    $model->addError('password', 'Username atau password salah.');
+                }
             }
 
-                Yii::$app->session->setFlash('warning', 'Role Anda belum memiliki akses menu.');
-                return $this->redirect(['project/access-denied', 'id' => $projectId]);
-            }
+            $limiter->onFailure($attemptUsername, (string)$model->password);
         }
 
         $model->password = '';
@@ -1048,7 +1080,7 @@ private function insertDefaultCmsData($newDb): void
         }
 
         (new ActiveProjectContext())->setActiveProject($projectId);
-        (new ActiveDatabaseContext())->resolveAndApply();
+        (new ActiveDatabaseContext())->resolveAndApply(true);
 
         $commanderAuth = new CommanderAuthContext();
         if ($commanderAuth->isSuperAdmin()) {
@@ -1167,7 +1199,7 @@ private function insertDefaultCmsData($newDb): void
 
         $context = new ActiveProjectContext();
         $context->setActiveProject($projectId);
-        (new ActiveDatabaseContext())->resolveAndApply();
+        (new ActiveDatabaseContext())->resolveAndApply(true);
 
         if ((new CommanderAuthContext())->isSuperAdmin()) {
             $context->setSuperAdminMode(true);

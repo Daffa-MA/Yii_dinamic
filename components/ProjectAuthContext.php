@@ -68,6 +68,28 @@ class ProjectAuthContext
         ]);
 
         $this->warmUpCurrentIdentity($projectId, (int)$user->id);
+
+        // Prevent session fixation: always issue a fresh session ID at the
+        // anonymous -> authenticated privilege boundary. Deleting the old
+        // session means a pre-authentication session ID becomes useless.
+        $this->regenerateSessionId();
+    }
+
+    /**
+     * Regenerates the session ID once, at login time. Best-effort: if the
+     * underlying store refuses regeneration the authentication result is kept
+     * intact and the failure is only logged.
+     */
+    private function regenerateSessionId(): void
+    {
+        try {
+            $session = Yii::$app->session;
+            if ($session->isActive) {
+                $session->regenerateID(true);
+            }
+        } catch (\Throwable $e) {
+            Yii::warning('Session ID regeneration failed on workspace login: ' . $e->getMessage(), 'auth');
+        }
     }
 
     /**
@@ -152,7 +174,10 @@ class ProjectAuthContext
         $context = new ActiveProjectContext();
         $context->setResolvedDomainProject($projectId);
 
-        (new ActiveDatabaseContext())->resolveAndApply();
+        // Identity is always bound to the active project's own database. A
+        // client-supplied ?database= switch or a stale dashboard session value
+        // must never steer which database resolves the authenticated identity.
+        (new ActiveDatabaseContext())->resolveAndApply(true);
         $user = ProjectUser::findOne(['id' => $userId]);
         if ($user === null || (int)$user->status !== 1) {
             return null;

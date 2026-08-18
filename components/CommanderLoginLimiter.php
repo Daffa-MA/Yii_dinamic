@@ -31,6 +31,19 @@ class CommanderLoginLimiter
     private const PREFIX = 'commander-login:';
 
     /**
+     * Optional namespacing for the per-username counter. When set, the
+     * username counter is scoped to this value (e.g. 'project:12') so that
+     * identical usernames in different tenants/workspaces do not share a
+     * lockout. The client-IP counter always stays global.
+     */
+    private ?string $scope = null;
+
+    public function __construct(?string $scope = null)
+    {
+        $this->scope = $scope;
+    }
+
+    /**
      * Whether the current username/IP is currently blocked.
      *
      * @return array{message: string}|null Lock payload when blocked, null otherwise.
@@ -110,6 +123,10 @@ class CommanderLoginLimiter
 
     private function key(string $type, string $value): string
     {
+        if ($type === 'user' && $this->scope !== null && $this->scope !== '') {
+            $value = $this->scope . '|' . $value;
+        }
+
         return self::PREFIX . $type . ':' . md5($value);
     }
 
